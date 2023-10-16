@@ -20,7 +20,7 @@ It extracts 10 Maven coordinates.
 - You can remove `--l 10` option to extract Maven coordinates without a limit.
 
 ```
-dir /s /b ".class" > "classList.txt"
+dir /s /b "*.class" > classList.txt
 ```
 Listing the class files which downloaded and unzipped by mvncrawler.
 
