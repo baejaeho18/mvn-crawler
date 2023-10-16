@@ -19,6 +19,17 @@ It extracts 10 Maven coordinates.
 - Use `--help` option to see the description of each arguments.
 - You can remove `--l 10` option to extract Maven coordinates without a limit.
 
+```
+dir /s /b ".class" > "classList.txt"
+```
+Listing the class files which downloaded and unzipped by mvncrawler.
+
+```
+bash bytecode_decompiler.sh -c
+```
+Deassembling the class files in classList.txt to txt files.
+
+
 ## Output format
 Extracted Maven coordinates are converted to a JSON-compatible string as shown and described below:
 ```
