@@ -28,4 +28,4 @@ bs4+selenium : 동적페이지
 ![image](https://github.com/baejaeho18/mvn-crawler/assets/37645490/c80a7a07-2f1c-4da6-85f3-f50884286af6)
 
 4) a.vuln으로 hidden class까지 읽을 수 있는가? - view more 버튼을 클릭해줘야 함 - eeeeasy
-5) 
+5) 브라우저 띄워지는 게 불편하다. 리소스 낭비일 것 같기도 하고 정신 사나운데 없애면 어떻게 될까? - option 넣자마자 block 당함. 일단 보류
