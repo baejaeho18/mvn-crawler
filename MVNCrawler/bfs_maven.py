@@ -33,6 +33,7 @@ VUL_RATIO = 1.0
 # CACH_URL = "https://webcache.googleusercontent.com/search?q=cache:"
 ARTIFACT_URL = "https://mvnrepository.com/artifact/"
 JSON_OUTPUT_FILE = "mvn_coords.json"  # JSON file to store Maven coordinates
+MVN_LIST_FILE = "projectList.csv"    # excel file to store Maven project list
 
 class PageLink:
     def __init__(self, url, file_h, timestamp):
@@ -62,7 +63,7 @@ def load_queue(path):
         items = [PageLink(i[0], i[1], i[2]) for i in reader]
     return items
 
-def extract_files(url, dest, queue_file, cooldown, limit, vul_ratio):
+def extract_files(url, dest, queue_file, cooldown, limit, vul_ratio, list_file):
     if exists(queue_file):
         q = deque(load_queue(queue_file))
         print("Loaded the queue items from the file...")
@@ -93,7 +94,7 @@ def extract_files(url, dest, queue_file, cooldown, limit, vul_ratio):
             
             mvn_coords = {'category':'', 'groupId': ".".join(paths[:-3]), 'artifactId': paths[-3], 'version': paths[-2], 'date': u.timestamp, 'vulnerabilities':'', 'url': u.url}
 
-            with open(join(dest, 'projectList.csv'), 'a') as p:
+            with open(join(dest, list_file), 'a') as p:
                 p.write(mvn_coords['category']+","+mvn_coords['groupId']+","+mvn_coords['artifactId']+","+mvn_coords['version']+","+mvn_coords['date']+","+mvn_coords['vulnerabilities']+","+mvn_coords['url']+"\n")
             num_jar += 1
 
@@ -115,11 +116,12 @@ def main():
     parser.add_argument("--q", default=QUEUE_FILE, type=str, help="The file of queue items")
     parser.add_argument("--c", default=COOLDOWN, type=float, help="How long the crawler waits before sending a request (in sec.)")
     parser.add_argument("--l", default=LIMIT, type=int, help="The number of POM files to be extracted. -1 means unlimited")
-    parser.add_argument("--v", default=VUL_RATIO, type=float, help="The ratio of vulnerable projects to store.")
+    parser.add_argument("--v", default=VUL_RATIO, type=float, help="The ratio of vulnerable projects to store")
+    parser.add_argument("--f", default=MVN_LIST_FILE, type=str, help="A path to save the maven project list")
 
     args = parser.parse_args()
 
-    extract_files(args.m, args.p, args.q, args.c, args.l, args.v)
+    extract_files(args.m, args.p, args.q, args.c, args.l, args.v, args.f)
 
 if __name__ == "__main__":
     main()
