@@ -1,0 +1,1631 @@
+Compiled from "AmqpProtocolConverter.java"
+class org.apache.activemq.transport.amqp.AmqpProtocolConverter implements org.apache.activemq.transport.amqp.IAmqpProtocolConverter {
+  private static final org.slf4j.Logger TRACE_FRAMES;
+
+  private static final org.slf4j.Logger LOG;
+
+  private static final byte[] EMPTY_BYTE_ARRAY;
+
+  private final org.apache.activemq.transport.amqp.AmqpTransport amqpTransport;
+
+  private static final org.apache.qpid.proton.amqp.Symbol COPY;
+
+  private static final org.apache.qpid.proton.amqp.Symbol JMS_SELECTOR;
+
+  private static final org.apache.qpid.proton.amqp.Symbol NO_LOCAL;
+
+  private static final org.apache.qpid.proton.amqp.Symbol DURABLE_SUBSCRIPTION_ENDED;
+
+  private static final org.apache.qpid.proton.ProtonFactoryLoader<org.apache.qpid.proton.message.MessageFactory> messageFactoryLoader;
+
+  protected int prefetch;
+
+  protected org.apache.qpid.proton.engine.EngineFactory engineFactory;
+
+  protected org.apache.qpid.proton.engine.Transport protonTransport;
+
+  protected org.apache.qpid.proton.engine.Connection protonConnection;
+
+  protected org.apache.qpid.proton.message.MessageFactory messageFactory;
+
+  protected org.apache.qpid.proton.engine.Collector eventCollector;
+
+  org.apache.qpid.proton.engine.Sasl sasl;
+
+  boolean closing;
+
+  boolean closedSocket;
+
+  private static final org.apache.activemq.util.IdGenerator CONNECTION_ID_GENERATOR;
+
+  private final org.apache.activemq.command.ConnectionId connectionId;
+
+  private final org.apache.activemq.command.ConnectionInfo connectionInfo;
+
+  private long nextSessionId;
+
+  private long nextTempDestinationId;
+
+  org.apache.qpid.proton.jms.InboundTransformer inboundTransformer;
+
+  long nextTransactionId;
+
+  java.util.HashMap<java.lang.Long, org.apache.activemq.transport.amqp.AmqpProtocolConverter$Transaction> transactions;
+
+  org.apache.activemq.transport.amqp.AmqpProtocolConverter$AmqpDeliveryListener coordinatorContext;
+
+  org.apache.qpid.proton.jms.OutboundTransformer outboundTransformer;
+
+  private final java.util.concurrent.ConcurrentHashMap<org.apache.activemq.command.ConsumerId, org.apache.activemq.transport.amqp.AmqpProtocolConverter$ConsumerContext> subscriptionsByConsumerId;
+
+  private final java.lang.Object commnadIdMutex;
+
+  private int lastCommandId;
+
+  private final java.util.concurrent.ConcurrentHashMap<java.lang.Integer, org.apache.activemq.transport.amqp.ResponseHandler> resposeHandlers;
+
+  public org.apache.activemq.transport.amqp.AmqpProtocolConverter(org.apache.activemq.transport.amqp.AmqpTransport);
+    Code:
+       0: aload_0
+       1: invokespecial #8                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: bipush        100
+       7: putfield      #9                  // Field prefetch:I
+      10: aload_0
+      11: new           #10                 // class org/apache/qpid/proton/engine/impl/EngineFactoryImpl
+      14: dup
+      15: invokespecial #11                 // Method org/apache/qpid/proton/engine/impl/EngineFactoryImpl."<init>":()V
+      18: putfield      #12                 // Field engineFactory:Lorg/apache/qpid/proton/engine/EngineFactory;
+      21: aload_0
+      22: aload_0
+      23: getfield      #12                 // Field engineFactory:Lorg/apache/qpid/proton/engine/EngineFactory;
+      26: invokeinterface #13,  1           // InterfaceMethod org/apache/qpid/proton/engine/EngineFactory.createTransport:()Lorg/apache/qpid/proton/engine/Transport;
+      31: putfield      #14                 // Field protonTransport:Lorg/apache/qpid/proton/engine/Transport;
+      34: aload_0
+      35: aload_0
+      36: getfield      #12                 // Field engineFactory:Lorg/apache/qpid/proton/engine/EngineFactory;
+      39: invokeinterface #15,  1           // InterfaceMethod org/apache/qpid/proton/engine/EngineFactory.createConnection:()Lorg/apache/qpid/proton/engine/Connection;
+      44: putfield      #16                 // Field protonConnection:Lorg/apache/qpid/proton/engine/Connection;
+      47: aload_0
+      48: getstatic     #17                 // Field messageFactoryLoader:Lorg/apache/qpid/proton/ProtonFactoryLoader;
+      51: invokevirtual #18                 // Method org/apache/qpid/proton/ProtonFactoryLoader.loadFactory:()Lorg/apache/qpid/proton/ProtonFactory;
+      54: checkcast     #19                 // class org/apache/qpid/proton/message/MessageFactory
+      57: putfield      #20                 // Field messageFactory:Lorg/apache/qpid/proton/message/MessageFactory;
+      60: aload_0
+      61: new           #21                 // class org/apache/qpid/proton/engine/impl/CollectorImpl
+      64: dup
+      65: invokespecial #22                 // Method org/apache/qpid/proton/engine/impl/CollectorImpl."<init>":()V
+      68: putfield      #23                 // Field eventCollector:Lorg/apache/qpid/proton/engine/Collector;
+      71: aload_0
+      72: iconst_0
+      73: putfield      #24                 // Field closing:Z
+      76: aload_0
+      77: iconst_0
+      78: putfield      #25                 // Field closedSocket:Z
+      81: aload_0
+      82: new           #26                 // class org/apache/activemq/command/ConnectionId
+      85: dup
+      86: getstatic     #27                 // Field CONNECTION_ID_GENERATOR:Lorg/apache/activemq/util/IdGenerator;
+      89: invokevirtual #28                 // Method org/apache/activemq/util/IdGenerator.generateId:()Ljava/lang/String;
+      92: invokespecial #29                 // Method org/apache/activemq/command/ConnectionId."<init>":(Ljava/lang/String;)V
+      95: putfield      #3                  // Field connectionId:Lorg/apache/activemq/command/ConnectionId;
+      98: aload_0
+      99: new           #30                 // class org/apache/activemq/command/ConnectionInfo
+     102: dup
+     103: invokespecial #31                 // Method org/apache/activemq/command/ConnectionInfo."<init>":()V
+     106: putfield      #32                 // Field connectionInfo:Lorg/apache/activemq/command/ConnectionInfo;
+     109: aload_0
+     110: lconst_0
+     111: putfield      #33                 // Field nextSessionId:J
+     114: aload_0
+     115: lconst_0
+     116: putfield      #34                 // Field nextTempDestinationId:J
+     119: aload_0
+     120: lconst_1
+     121: putfield      #35                 // Field nextTransactionId:J
+     124: aload_0
+     125: new           #36                 // class java/util/HashMap
+     128: dup
+     129: invokespecial #37                 // Method java/util/HashMap."<init>":()V
+     132: putfield      #38                 // Field transactions:Ljava/util/HashMap;
+     135: aload_0
+     136: new           #39                 // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$4
+     139: dup
+     140: aload_0
+     141: invokespecial #40                 // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$4."<init>":(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter;)V
+     144: putfield      #41                 // Field coordinatorContext:Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpDeliveryListener;
+     147: aload_0
+     148: new           #42                 // class org/apache/qpid/proton/jms/AutoOutboundTransformer
+     151: dup
+     152: getstatic     #43                 // Field org/apache/activemq/transport/amqp/ActiveMQJMSVendor.INSTANCE:Lorg/apache/activemq/transport/amqp/ActiveMQJMSVendor;
+     155: invokespecial #44                 // Method org/apache/qpid/proton/jms/AutoOutboundTransformer."<init>":(Lorg/apache/qpid/proton/jms/JMSVendor;)V
+     158: putfield      #45                 // Field outboundTransformer:Lorg/apache/qpid/proton/jms/OutboundTransformer;
+     161: aload_0
+     162: new           #46                 // class java/util/concurrent/ConcurrentHashMap
+     165: dup
+     166: invokespecial #47                 // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+     169: putfield      #1                  // Field subscriptionsByConsumerId:Ljava/util/concurrent/ConcurrentHashMap;
+     172: aload_0
+     173: new           #48                 // class java/lang/Object
+     176: dup
+     177: invokespecial #8                  // Method java/lang/Object."<init>":()V
+     180: putfield      #49                 // Field commnadIdMutex:Ljava/lang/Object;
+     183: aload_0
+     184: new           #46                 // class java/util/concurrent/ConcurrentHashMap
+     187: dup
+     188: invokespecial #47                 // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+     191: putfield      #50                 // Field resposeHandlers:Ljava/util/concurrent/ConcurrentHashMap;
+     194: aload_0
+     195: aload_1
+     196: putfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+     199: ldc           #51                 // int 1048576
+     201: istore_2
+     202: aload_0
+     203: getfield      #14                 // Field protonTransport:Lorg/apache/qpid/proton/engine/Transport;
+     206: iload_2
+     207: invokeinterface #52,  2           // InterfaceMethod org/apache/qpid/proton/engine/Transport.setMaxFrameSize:(I)V
+     212: aload_0
+     213: getfield      #14                 // Field protonTransport:Lorg/apache/qpid/proton/engine/Transport;
+     216: aload_0
+     217: getfield      #16                 // Field protonConnection:Lorg/apache/qpid/proton/engine/Connection;
+     220: invokeinterface #53,  2           // InterfaceMethod org/apache/qpid/proton/engine/Transport.bind:(Lorg/apache/qpid/proton/engine/Connection;)V
+     225: aload_0
+     226: getfield      #16                 // Field protonConnection:Lorg/apache/qpid/proton/engine/Connection;
+     229: aload_0
+     230: getfield      #23                 // Field eventCollector:Lorg/apache/qpid/proton/engine/Collector;
+     233: invokeinterface #54,  2           // InterfaceMethod org/apache/qpid/proton/engine/Connection.collect:(Lorg/apache/qpid/proton/engine/Collector;)V
+     238: aload_0
+     239: invokevirtual #55                 // Method updateTracer:()V
+     242: return
+
+  public void updateTracer();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+       4: invokeinterface #56,  1           // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.isTrace:()Z
+       9: ifeq          30
+      12: aload_0
+      13: getfield      #14                 // Field protonTransport:Lorg/apache/qpid/proton/engine/Transport;
+      16: checkcast     #57                 // class org/apache/qpid/proton/engine/impl/TransportImpl
+      19: new           #58                 // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$1
+      22: dup
+      23: aload_0
+      24: invokespecial #59                 // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$1."<init>":(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter;)V
+      27: invokevirtual #60                 // Method org/apache/qpid/proton/engine/impl/TransportImpl.setProtocolTracer:(Lorg/apache/qpid/proton/engine/impl/ProtocolTracer;)V
+      30: return
+
+  void pumpProtonToSocket();
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: iload_1
+       3: ifne          71
+       6: aload_0
+       7: getfield      #14                 // Field protonTransport:Lorg/apache/qpid/proton/engine/Transport;
+      10: invokeinterface #61,  1           // InterfaceMethod org/apache/qpid/proton/engine/Transport.getOutputBuffer:()Ljava/nio/ByteBuffer;
+      15: astore_2
+      16: aload_2
+      17: ifnull        66
+      20: aload_2
+      21: invokevirtual #62                 // Method java/nio/ByteBuffer.hasRemaining:()Z
+      24: ifeq          66
+      27: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+      30: ldc           #63                 // String Sending {} bytes out
+      32: aload_2
+      33: invokevirtual #64                 // Method java/nio/ByteBuffer.limit:()I
+      36: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      39: invokeinterface #66,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;)V
+      44: aload_0
+      45: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+      48: aload_2
+      49: invokeinterface #67,  2           // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.sendToAmqp:(Ljava/lang/Object;)V
+      54: aload_0
+      55: getfield      #14                 // Field protonTransport:Lorg/apache/qpid/proton/engine/Transport;
+      58: invokeinterface #68,  1           // InterfaceMethod org/apache/qpid/proton/engine/Transport.outputConsumed:()V
+      63: goto          68
+      66: iconst_1
+      67: istore_1
+      68: goto          2
+      71: goto          85
+      74: astore_1
+      75: aload_0
+      76: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+      79: aload_1
+      80: invokeinterface #70,  2           // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.onException:(Ljava/io/IOException;)V
+      85: return
+    Exception table:
+       from    to  target type
+           0    71    74   Class java/io/IOException
+
+  public void onAMQPData(java.lang.Object) throws java.lang.Exception;
+    Code:
+       0: aload_1
+       1: invokevirtual #71                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+       4: ldc_w         #72                 // class org/apache/activemq/transport/amqp/AmqpHeader
+       7: if_acmpne     103
+      10: aload_1
+      11: checkcast     #72                 // class org/apache/activemq/transport/amqp/AmqpHeader
+      14: astore_3
+      15: aload_3
+      16: invokevirtual #73                 // Method org/apache/activemq/transport/amqp/AmqpHeader.getProtocolId:()I
+      19: lookupswitch  { // 2
+                     0: 44
+                     3: 47
+               default: 95
+          }
+      44: goto          95
+      47: aload_0
+      48: aload_0
+      49: getfield      #14                 // Field protonTransport:Lorg/apache/qpid/proton/engine/Transport;
+      52: invokeinterface #74,  1           // InterfaceMethod org/apache/qpid/proton/engine/Transport.sasl:()Lorg/apache/qpid/proton/engine/Sasl;
+      57: putfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+      60: aload_0
+      61: getfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+      64: iconst_2
+      65: anewarray     #76                 // class java/lang/String
+      68: dup
+      69: iconst_0
+      70: ldc           #77                 // String ANONYMOUS
+      72: aastore
+      73: dup
+      74: iconst_1
+      75: ldc           #78                 // String PLAIN
+      77: aastore
+      78: invokeinterface #79,  2           // InterfaceMethod org/apache/qpid/proton/engine/Sasl.setMechanisms:([Ljava/lang/String;)V
+      83: aload_0
+      84: getfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+      87: invokeinterface #80,  1           // InterfaceMethod org/apache/qpid/proton/engine/Sasl.server:()V
+      92: goto          95
+      95: aload_3
+      96: invokevirtual #81                 // Method org/apache/activemq/transport/amqp/AmqpHeader.getBuffer:()Lorg/fusesource/hawtbuf/Buffer;
+      99: astore_2
+     100: goto          108
+     103: aload_1
+     104: checkcast     #82                 // class org/fusesource/hawtbuf/Buffer
+     107: astore_2
+     108: aload_0
+     109: aload_2
+     110: invokevirtual #83                 // Method onFrame:(Lorg/fusesource/hawtbuf/Buffer;)V
+     113: return
+
+  public void onFrame(org.fusesource.hawtbuf.Buffer) throws java.lang.Exception;
+    Code:
+       0: aload_1
+       1: getfield      #84                 // Field org/fusesource/hawtbuf/Buffer.length:I
+       4: ifle          472
+       7: aload_0
+       8: getfield      #14                 // Field protonTransport:Lorg/apache/qpid/proton/engine/Transport;
+      11: aload_1
+      12: getfield      #85                 // Field org/fusesource/hawtbuf/Buffer.data:[B
+      15: aload_1
+      16: getfield      #86                 // Field org/fusesource/hawtbuf/Buffer.offset:I
+      19: aload_1
+      20: getfield      #84                 // Field org/fusesource/hawtbuf/Buffer.length:I
+      23: invokeinterface #87,  4           // InterfaceMethod org/apache/qpid/proton/engine/Transport.input:([BII)I
+      28: istore_2
+      29: aload_1
+      30: iload_2
+      31: invokevirtual #88                 // Method org/fusesource/hawtbuf/Buffer.moveHead:(I)Lorg/fusesource/hawtbuf/Buffer;
+      34: pop
+      35: goto          72
+      38: astore_2
+      39: aload_0
+      40: new           #90                 // class org/apache/activemq/transport/amqp/AmqpProtocolException
+      43: dup
+      44: new           #91                 // class java/lang/StringBuilder
+      47: dup
+      48: invokespecial #92                 // Method java/lang/StringBuilder."<init>":()V
+      51: ldc           #93                 // String Could not decode AMQP frame:
+      53: invokevirtual #94                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      56: aload_1
+      57: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      60: invokevirtual #96                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      63: iconst_1
+      64: aload_2
+      65: invokespecial #97                 // Method org/apache/activemq/transport/amqp/AmqpProtocolException."<init>":(Ljava/lang/String;ZLjava/lang/Throwable;)V
+      68: invokevirtual #98                 // Method handleException:(Ljava/lang/Throwable;)V
+      71: return
+      72: aload_0
+      73: getfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+      76: ifnull        295
+      79: aload_0
+      80: getfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+      83: invokeinterface #99,  1           // InterfaceMethod org/apache/qpid/proton/engine/Sasl.getRemoteMechanisms:()[Ljava/lang/String;
+      88: arraylength
+      89: ifle          295
+      92: ldc           #78                 // String PLAIN
+      94: aload_0
+      95: getfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+      98: invokeinterface #99,  1           // InterfaceMethod org/apache/qpid/proton/engine/Sasl.getRemoteMechanisms:()[Ljava/lang/String;
+     103: iconst_0
+     104: aaload
+     105: invokevirtual #100                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     108: ifeq          236
+     111: aload_0
+     112: getfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+     115: invokeinterface #101,  1          // InterfaceMethod org/apache/qpid/proton/engine/Sasl.pending:()I
+     120: newarray       byte
+     122: astore_2
+     123: aload_0
+     124: getfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+     127: aload_2
+     128: iconst_0
+     129: aload_2
+     130: arraylength
+     131: invokeinterface #102,  4          // InterfaceMethod org/apache/qpid/proton/engine/Sasl.recv:([BII)I
+     136: pop
+     137: new           #82                 // class org/fusesource/hawtbuf/Buffer
+     140: dup
+     141: aload_2
+     142: invokespecial #103                // Method org/fusesource/hawtbuf/Buffer."<init>":([B)V
+     145: iconst_0
+     146: invokevirtual #104                // Method org/fusesource/hawtbuf/Buffer.split:(B)[Lorg/fusesource/hawtbuf/Buffer;
+     149: astore_3
+     150: aload_3
+     151: arraylength
+     152: ifle          171
+     155: aload_0
+     156: getfield      #32                 // Field connectionInfo:Lorg/apache/activemq/command/ConnectionInfo;
+     159: aload_3
+     160: iconst_0
+     161: aaload
+     162: invokevirtual #105                // Method org/fusesource/hawtbuf/Buffer.utf8:()Lorg/fusesource/hawtbuf/UTF8Buffer;
+     165: invokevirtual #106                // Method org/fusesource/hawtbuf/UTF8Buffer.toString:()Ljava/lang/String;
+     168: invokevirtual #107                // Method org/apache/activemq/command/ConnectionInfo.setUserName:(Ljava/lang/String;)V
+     171: aload_3
+     172: arraylength
+     173: iconst_1
+     174: if_icmple     193
+     177: aload_0
+     178: getfield      #32                 // Field connectionInfo:Lorg/apache/activemq/command/ConnectionInfo;
+     181: aload_3
+     182: iconst_1
+     183: aaload
+     184: invokevirtual #105                // Method org/fusesource/hawtbuf/Buffer.utf8:()Lorg/fusesource/hawtbuf/UTF8Buffer;
+     187: invokevirtual #106                // Method org/fusesource/hawtbuf/UTF8Buffer.toString:()Ljava/lang/String;
+     190: invokevirtual #108                // Method org/apache/activemq/command/ConnectionInfo.setPassword:(Ljava/lang/String;)V
+     193: aload_0
+     194: getfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+     197: getstatic     #109                // Field org/apache/qpid/proton/engine/Sasl$SaslOutcome.PN_SASL_OK:Lorg/apache/qpid/proton/engine/Sasl$SaslOutcome;
+     200: invokeinterface #110,  2          // InterfaceMethod org/apache/qpid/proton/engine/Sasl.done:(Lorg/apache/qpid/proton/engine/Sasl$SaslOutcome;)V
+     205: aload_0
+     206: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+     209: invokeinterface #111,  1          // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.getWireFormat:()Lorg/apache/activemq/transport/amqp/AmqpWireFormat;
+     214: iconst_0
+     215: putfield      #112                // Field org/apache/activemq/transport/amqp/AmqpWireFormat.magicRead:Z
+     218: aload_0
+     219: aconst_null
+     220: putfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+     223: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+     226: ldc           #113                // String SASL [PLAIN] Handshake complete.
+     228: invokeinterface #114,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     233: goto          295
+     236: ldc           #77                 // String ANONYMOUS
+     238: aload_0
+     239: getfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+     242: invokeinterface #99,  1           // InterfaceMethod org/apache/qpid/proton/engine/Sasl.getRemoteMechanisms:()[Ljava/lang/String;
+     247: iconst_0
+     248: aaload
+     249: invokevirtual #100                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     252: ifeq          295
+     255: aload_0
+     256: getfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+     259: getstatic     #109                // Field org/apache/qpid/proton/engine/Sasl$SaslOutcome.PN_SASL_OK:Lorg/apache/qpid/proton/engine/Sasl$SaslOutcome;
+     262: invokeinterface #110,  2          // InterfaceMethod org/apache/qpid/proton/engine/Sasl.done:(Lorg/apache/qpid/proton/engine/Sasl$SaslOutcome;)V
+     267: aload_0
+     268: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+     271: invokeinterface #111,  1          // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.getWireFormat:()Lorg/apache/activemq/transport/amqp/AmqpWireFormat;
+     276: iconst_0
+     277: putfield      #112                // Field org/apache/activemq/transport/amqp/AmqpWireFormat.magicRead:Z
+     280: aload_0
+     281: aconst_null
+     282: putfield      #75                 // Field sasl:Lorg/apache/qpid/proton/engine/Sasl;
+     285: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+     288: ldc           #115                // String SASL [ANONYMOUS] Handshake complete.
+     290: invokeinterface #114,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     295: aconst_null
+     296: astore_2
+     297: aload_0
+     298: getfield      #23                 // Field eventCollector:Lorg/apache/qpid/proton/engine/Collector;
+     301: invokeinterface #116,  1          // InterfaceMethod org/apache/qpid/proton/engine/Collector.peek:()Lorg/apache/qpid/proton/engine/Event;
+     306: dup
+     307: astore_2
+     308: ifnull        446
+     311: getstatic     #117                // Field org/apache/activemq/transport/amqp/AmqpProtocolConverter$8.$SwitchMap$org$apache$qpid$proton$engine$Event$Type:[I
+     314: aload_2
+     315: invokeinterface #118,  1          // InterfaceMethod org/apache/qpid/proton/engine/Event.getType:()Lorg/apache/qpid/proton/engine/Event$Type;
+     320: invokevirtual #119                // Method org/apache/qpid/proton/engine/Event$Type.ordinal:()I
+     323: iaload
+     324: tableswitch   { // 1 to 5
+                     1: 360
+                     2: 373
+                     3: 386
+                     4: 399
+                     5: 421
+               default: 434
+          }
+     360: aload_0
+     361: aload_2
+     362: invokeinterface #120,  1          // InterfaceMethod org/apache/qpid/proton/engine/Event.getConnection:()Lorg/apache/qpid/proton/engine/Connection;
+     367: invokevirtual #121                // Method processConnectionEvent:(Lorg/apache/qpid/proton/engine/Connection;)V
+     370: goto          434
+     373: aload_0
+     374: aload_2
+     375: invokeinterface #122,  1          // InterfaceMethod org/apache/qpid/proton/engine/Event.getSession:()Lorg/apache/qpid/proton/engine/Session;
+     380: invokevirtual #123                // Method processSessionEvent:(Lorg/apache/qpid/proton/engine/Session;)V
+     383: goto          434
+     386: aload_0
+     387: aload_2
+     388: invokeinterface #124,  1          // InterfaceMethod org/apache/qpid/proton/engine/Event.getLink:()Lorg/apache/qpid/proton/engine/Link;
+     393: invokevirtual #125                // Method processLinkEvent:(Lorg/apache/qpid/proton/engine/Link;)V
+     396: goto          434
+     399: aload_2
+     400: invokeinterface #124,  1          // InterfaceMethod org/apache/qpid/proton/engine/Event.getLink:()Lorg/apache/qpid/proton/engine/Link;
+     405: astore_3
+     406: aload_3
+     407: invokeinterface #126,  1          // InterfaceMethod org/apache/qpid/proton/engine/Link.getContext:()Ljava/lang/Object;
+     412: checkcast     #127                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpDeliveryListener
+     415: invokevirtual #128                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpDeliveryListener.drainCheck:()V
+     418: goto          434
+     421: aload_0
+     422: aload_2
+     423: invokeinterface #129,  1          // InterfaceMethod org/apache/qpid/proton/engine/Event.getDelivery:()Lorg/apache/qpid/proton/engine/Delivery;
+     428: invokevirtual #130                // Method processDelivery:(Lorg/apache/qpid/proton/engine/Delivery;)V
+     431: goto          434
+     434: aload_0
+     435: getfield      #23                 // Field eventCollector:Lorg/apache/qpid/proton/engine/Collector;
+     438: invokeinterface #131,  1          // InterfaceMethod org/apache/qpid/proton/engine/Collector.pop:()V
+     443: goto          297
+     446: goto          465
+     449: astore_2
+     450: aload_0
+     451: new           #90                 // class org/apache/activemq/transport/amqp/AmqpProtocolException
+     454: dup
+     455: ldc           #132                // String Could not process AMQP commands
+     457: iconst_1
+     458: aload_2
+     459: invokespecial #97                 // Method org/apache/activemq/transport/amqp/AmqpProtocolException."<init>":(Ljava/lang/String;ZLjava/lang/Throwable;)V
+     462: invokevirtual #98                 // Method handleException:(Ljava/lang/Throwable;)V
+     465: aload_0
+     466: invokevirtual #133                // Method pumpProtonToSocket:()V
+     469: goto          0
+     472: return
+    Exception table:
+       from    to  target type
+           7    35    38   Class java/lang/Throwable
+          72   446   449   Class java/lang/Throwable
+
+  protected void processConnectionEvent(org.apache.qpid.proton.engine.Connection) throws java.lang.Exception;
+    Code:
+       0: aload_1
+       1: invokeinterface #134,  1          // InterfaceMethod org/apache/qpid/proton/engine/Connection.getRemoteState:()Lorg/apache/qpid/proton/engine/EndpointState;
+       6: astore_2
+       7: aload_2
+       8: getstatic     #135                // Field org/apache/qpid/proton/engine/EndpointState.ACTIVE:Lorg/apache/qpid/proton/engine/EndpointState;
+      11: if_acmpne     21
+      14: aload_0
+      15: invokespecial #136                // Method onConnectionOpen:()V
+      18: goto          32
+      21: aload_2
+      22: getstatic     #137                // Field org/apache/qpid/proton/engine/EndpointState.CLOSED:Lorg/apache/qpid/proton/engine/EndpointState;
+      25: if_acmpne     32
+      28: aload_0
+      29: invokespecial #138                // Method doClose:()V
+      32: return
+
+  protected void processLinkEvent(org.apache.qpid.proton.engine.Link) throws java.lang.Exception;
+    Code:
+       0: aload_1
+       1: invokeinterface #139,  1          // InterfaceMethod org/apache/qpid/proton/engine/Link.getRemoteState:()Lorg/apache/qpid/proton/engine/EndpointState;
+       6: astore_2
+       7: aload_2
+       8: getstatic     #135                // Field org/apache/qpid/proton/engine/EndpointState.ACTIVE:Lorg/apache/qpid/proton/engine/EndpointState;
+      11: if_acmpne     22
+      14: aload_0
+      15: aload_1
+      16: invokespecial #140                // Method onLinkOpen:(Lorg/apache/qpid/proton/engine/Link;)V
+      19: goto          47
+      22: aload_2
+      23: getstatic     #137                // Field org/apache/qpid/proton/engine/EndpointState.CLOSED:Lorg/apache/qpid/proton/engine/EndpointState;
+      26: if_acmpne     47
+      29: aload_1
+      30: invokeinterface #126,  1          // InterfaceMethod org/apache/qpid/proton/engine/Link.getContext:()Ljava/lang/Object;
+      35: checkcast     #127                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpDeliveryListener
+      38: invokevirtual #141                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpDeliveryListener.onClose:()V
+      41: aload_1
+      42: invokeinterface #142,  1          // InterfaceMethod org/apache/qpid/proton/engine/Link.close:()V
+      47: return
+
+  protected void processSessionEvent(org.apache.qpid.proton.engine.Session) throws java.lang.Exception;
+    Code:
+       0: aload_1
+       1: invokeinterface #143,  1          // InterfaceMethod org/apache/qpid/proton/engine/Session.getRemoteState:()Lorg/apache/qpid/proton/engine/EndpointState;
+       6: astore_2
+       7: aload_2
+       8: getstatic     #135                // Field org/apache/qpid/proton/engine/EndpointState.ACTIVE:Lorg/apache/qpid/proton/engine/EndpointState;
+      11: if_acmpne     22
+      14: aload_0
+      15: aload_1
+      16: invokespecial #144                // Method onSessionOpen:(Lorg/apache/qpid/proton/engine/Session;)V
+      19: goto          34
+      22: aload_2
+      23: getstatic     #137                // Field org/apache/qpid/proton/engine/EndpointState.CLOSED:Lorg/apache/qpid/proton/engine/EndpointState;
+      26: if_acmpne     34
+      29: aload_0
+      30: aload_1
+      31: invokespecial #145                // Method onSessionClose:(Lorg/apache/qpid/proton/engine/Session;)V
+      34: return
+
+  protected void processDelivery(org.apache.qpid.proton.engine.Delivery) throws java.lang.Exception;
+    Code:
+       0: aload_1
+       1: invokeinterface #146,  1          // InterfaceMethod org/apache/qpid/proton/engine/Delivery.isPartial:()Z
+       6: ifne          33
+       9: aload_1
+      10: invokeinterface #147,  1          // InterfaceMethod org/apache/qpid/proton/engine/Delivery.getLink:()Lorg/apache/qpid/proton/engine/Link;
+      15: invokeinterface #126,  1          // InterfaceMethod org/apache/qpid/proton/engine/Link.getContext:()Ljava/lang/Object;
+      20: checkcast     #127                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpDeliveryListener
+      23: astore_2
+      24: aload_2
+      25: ifnull        33
+      28: aload_2
+      29: aload_1
+      30: invokevirtual #148                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpDeliveryListener.onDelivery:(Lorg/apache/qpid/proton/engine/Delivery;)V
+      33: return
+
+  private void doClose();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field closing:Z
+       4: ifne          47
+       7: aload_0
+       8: iconst_1
+       9: putfield      #24                 // Field closing:Z
+      12: aload_0
+      13: new           #149                // class org/apache/activemq/command/RemoveInfo
+      16: dup
+      17: aload_0
+      18: getfield      #3                  // Field connectionId:Lorg/apache/activemq/command/ConnectionId;
+      21: invokespecial #150                // Method org/apache/activemq/command/RemoveInfo."<init>":(Lorg/apache/activemq/command/DataStructure;)V
+      24: new           #151                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$2
+      27: dup
+      28: aload_0
+      29: invokespecial #152                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$2."<init>":(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter;)V
+      32: invokevirtual #153                // Method sendToActiveMQ:(Lorg/apache/activemq/command/Command;Lorg/apache/activemq/transport/amqp/ResponseHandler;)V
+      35: aload_0
+      36: new           #154                // class org/apache/activemq/command/ShutdownInfo
+      39: dup
+      40: invokespecial #155                // Method org/apache/activemq/command/ShutdownInfo."<init>":()V
+      43: aconst_null
+      44: invokevirtual #153                // Method sendToActiveMQ:(Lorg/apache/activemq/command/Command;Lorg/apache/activemq/transport/amqp/ResponseHandler;)V
+      47: return
+
+  public void onAMQPException(java.io.IOException);
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: putfield      #25                 // Field closedSocket:Z
+       5: aload_0
+       6: getfield      #24                 // Field closing:Z
+       9: ifne          25
+      12: aload_0
+      13: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+      16: aload_1
+      17: invokeinterface #156,  2          // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.sendToActiveMQ:(Ljava/io/IOException;)V
+      22: goto          38
+      25: aload_0
+      26: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+      29: invokeinterface #157,  1          // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.stop:()V
+      34: goto          38
+      37: astore_2
+      38: return
+    Exception table:
+       from    to  target type
+          25    34    37   Class java/lang/Exception
+
+  public void onActiveMQCommand(org.apache.activemq.command.Command) throws java.lang.Exception;
+    Code:
+       0: aload_1
+       1: invokeinterface #159,  1          // InterfaceMethod org/apache/activemq/command/Command.isResponse:()Z
+       6: ifeq          72
+       9: aload_1
+      10: checkcast     #160                // class org/apache/activemq/command/Response
+      13: astore_2
+      14: aload_0
+      15: getfield      #50                 // Field resposeHandlers:Ljava/util/concurrent/ConcurrentHashMap;
+      18: aload_2
+      19: invokevirtual #161                // Method org/apache/activemq/command/Response.getCorrelationId:()I
+      22: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      25: invokevirtual #162                // Method java/util/concurrent/ConcurrentHashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      28: checkcast     #163                // class org/apache/activemq/transport/amqp/ResponseHandler
+      31: astore_3
+      32: aload_3
+      33: ifnull        47
+      36: aload_3
+      37: aload_0
+      38: aload_2
+      39: invokeinterface #164,  3          // InterfaceMethod org/apache/activemq/transport/amqp/ResponseHandler.onResponse:(Lorg/apache/activemq/transport/amqp/IAmqpProtocolConverter;Lorg/apache/activemq/command/Response;)V
+      44: goto          69
+      47: aload_2
+      48: invokevirtual #165                // Method org/apache/activemq/command/Response.isException:()Z
+      51: ifeq          69
+      54: aload_2
+      55: checkcast     #166                // class org/apache/activemq/command/ExceptionResponse
+      58: invokevirtual #167                // Method org/apache/activemq/command/ExceptionResponse.getException:()Ljava/lang/Throwable;
+      61: astore        4
+      63: aload_0
+      64: aload         4
+      66: invokevirtual #98                 // Method handleException:(Ljava/lang/Throwable;)V
+      69: goto          228
+      72: aload_1
+      73: invokeinterface #168,  1          // InterfaceMethod org/apache/activemq/command/Command.isMessageDispatch:()Z
+      78: ifeq          178
+      81: aload_1
+      82: checkcast     #169                // class org/apache/activemq/command/MessageDispatch
+      85: astore_2
+      86: aload_0
+      87: getfield      #1                  // Field subscriptionsByConsumerId:Ljava/util/concurrent/ConcurrentHashMap;
+      90: aload_2
+      91: invokevirtual #170                // Method org/apache/activemq/command/MessageDispatch.getConsumerId:()Lorg/apache/activemq/command/ConsumerId;
+      94: invokevirtual #171                // Method java/util/concurrent/ConcurrentHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      97: checkcast     #172                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext
+     100: astore_3
+     101: aload_3
+     102: ifnull        175
+     105: aload_2
+     106: invokevirtual #173                // Method org/apache/activemq/command/MessageDispatch.getMessage:()Lorg/apache/activemq/command/Message;
+     109: ifnull        132
+     112: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+     115: ldc           #174                // String Dispatching MessageId: {} to consumer
+     117: aload_2
+     118: invokevirtual #173                // Method org/apache/activemq/command/MessageDispatch.getMessage:()Lorg/apache/activemq/command/Message;
+     121: invokevirtual #175                // Method org/apache/activemq/command/Message.getMessageId:()Lorg/apache/activemq/command/MessageId;
+     124: invokeinterface #66,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;)V
+     129: goto          146
+     132: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+     135: ldc           #176                // String Dispatching End of Browse Command to consumer {}
+     137: aload_2
+     138: invokevirtual #170                // Method org/apache/activemq/command/MessageDispatch.getConsumerId:()Lorg/apache/activemq/command/ConsumerId;
+     141: invokeinterface #66,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;)V
+     146: aload_3
+     147: aload_2
+     148: invokevirtual #177                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext.onMessageDispatch:(Lorg/apache/activemq/command/MessageDispatch;)V
+     151: aload_2
+     152: invokevirtual #173                // Method org/apache/activemq/command/MessageDispatch.getMessage:()Lorg/apache/activemq/command/Message;
+     155: ifnull        175
+     158: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+     161: ldc           #178                // String Finished Dispatch of MessageId: {} to consumer
+     163: aload_2
+     164: invokevirtual #173                // Method org/apache/activemq/command/MessageDispatch.getMessage:()Lorg/apache/activemq/command/Message;
+     167: invokevirtual #175                // Method org/apache/activemq/command/Message.getMessageId:()Lorg/apache/activemq/command/MessageId;
+     170: invokeinterface #66,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;)V
+     175: goto          228
+     178: aload_1
+     179: invokeinterface #179,  1          // InterfaceMethod org/apache/activemq/command/Command.getDataStructureType:()B
+     184: bipush        16
+     186: if_icmpne     205
+     189: aload_1
+     190: checkcast     #180                // class org/apache/activemq/command/ConnectionError
+     193: invokevirtual #181                // Method org/apache/activemq/command/ConnectionError.getException:()Ljava/lang/Throwable;
+     196: astore_2
+     197: aload_0
+     198: aload_2
+     199: invokevirtual #98                 // Method handleException:(Ljava/lang/Throwable;)V
+     202: goto          228
+     205: aload_1
+     206: invokeinterface #182,  1          // InterfaceMethod org/apache/activemq/command/Command.isBrokerInfo:()Z
+     211: ifeq          217
+     214: goto          228
+     217: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+     220: ldc           #183                // String Do not know how to process ActiveMQ Command {}
+     222: aload_1
+     223: invokeinterface #184,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     228: return
+
+  private void onConnectionOpen() throws org.apache.activemq.transport.amqp.AmqpProtocolException;
+    Code:
+       0: aload_0
+       1: getfield      #32                 // Field connectionInfo:Lorg/apache/activemq/command/ConnectionInfo;
+       4: iconst_1
+       5: invokevirtual #185                // Method org/apache/activemq/command/ConnectionInfo.setResponseRequired:(Z)V
+       8: aload_0
+       9: getfield      #32                 // Field connectionInfo:Lorg/apache/activemq/command/ConnectionInfo;
+      12: aload_0
+      13: getfield      #3                  // Field connectionId:Lorg/apache/activemq/command/ConnectionId;
+      16: invokevirtual #186                // Method org/apache/activemq/command/ConnectionInfo.setConnectionId:(Lorg/apache/activemq/command/ConnectionId;)V
+      19: aload_0
+      20: getfield      #16                 // Field protonConnection:Lorg/apache/qpid/proton/engine/Connection;
+      23: invokeinterface #187,  1          // InterfaceMethod org/apache/qpid/proton/engine/Connection.getRemoteContainer:()Ljava/lang/String;
+      28: astore_1
+      29: aload_1
+      30: ifnull        48
+      33: aload_1
+      34: invokevirtual #188                // Method java/lang/String.isEmpty:()Z
+      37: ifne          48
+      40: aload_0
+      41: getfield      #32                 // Field connectionInfo:Lorg/apache/activemq/command/ConnectionInfo;
+      44: aload_1
+      45: invokevirtual #189                // Method org/apache/activemq/command/ConnectionInfo.setClientId:(Ljava/lang/String;)V
+      48: aload_0
+      49: getfield      #32                 // Field connectionInfo:Lorg/apache/activemq/command/ConnectionInfo;
+      52: aload_0
+      53: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+      56: invokeinterface #190,  1          // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.getPeerCertificates:()[Ljava/security/cert/X509Certificate;
+      61: invokevirtual #191                // Method org/apache/activemq/command/ConnectionInfo.setTransportContext:(Ljava/lang/Object;)V
+      64: aload_0
+      65: aload_0
+      66: getfield      #32                 // Field connectionInfo:Lorg/apache/activemq/command/ConnectionInfo;
+      69: new           #192                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$3
+      72: dup
+      73: aload_0
+      74: invokespecial #193                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$3."<init>":(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter;)V
+      77: invokevirtual #153                // Method sendToActiveMQ:(Lorg/apache/activemq/command/Command;Lorg/apache/activemq/transport/amqp/ResponseHandler;)V
+      80: return
+
+  private void onSessionOpen(org.apache.qpid.proton.engine.Session);
+    Code:
+       0: new           #194                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext
+       3: dup
+       4: aload_0
+       5: getfield      #3                  // Field connectionId:Lorg/apache/activemq/command/ConnectionId;
+       8: aload_0
+       9: dup
+      10: getfield      #33                 // Field nextSessionId:J
+      13: dup2_x1
+      14: lconst_1
+      15: ladd
+      16: putfield      #33                 // Field nextSessionId:J
+      19: invokespecial #195                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext."<init>":(Lorg/apache/activemq/command/ConnectionId;J)V
+      22: astore_2
+      23: aload_1
+      24: aload_2
+      25: invokeinterface #196,  2          // InterfaceMethod org/apache/qpid/proton/engine/Session.setContext:(Ljava/lang/Object;)V
+      30: aload_0
+      31: new           #197                // class org/apache/activemq/command/SessionInfo
+      34: dup
+      35: aload_2
+      36: invokestatic  #198                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext.access$200:(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext;)Lorg/apache/activemq/command/SessionId;
+      39: invokespecial #199                // Method org/apache/activemq/command/SessionInfo."<init>":(Lorg/apache/activemq/command/SessionId;)V
+      42: aconst_null
+      43: invokevirtual #153                // Method sendToActiveMQ:(Lorg/apache/activemq/command/Command;Lorg/apache/activemq/transport/amqp/ResponseHandler;)V
+      46: aload_1
+      47: ldc           #200                // int 2147483647
+      49: invokeinterface #201,  2          // InterfaceMethod org/apache/qpid/proton/engine/Session.setIncomingCapacity:(I)V
+      54: aload_1
+      55: invokeinterface #202,  1          // InterfaceMethod org/apache/qpid/proton/engine/Session.open:()V
+      60: return
+
+  private void onSessionClose(org.apache.qpid.proton.engine.Session);
+    Code:
+       0: aload_1
+       1: invokeinterface #203,  1          // InterfaceMethod org/apache/qpid/proton/engine/Session.getContext:()Ljava/lang/Object;
+       6: checkcast     #194                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext
+       9: astore_2
+      10: aload_2
+      11: ifnull        51
+      14: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+      17: ldc           #204                // String Session {} closed
+      19: aload_2
+      20: invokestatic  #198                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext.access$200:(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext;)Lorg/apache/activemq/command/SessionId;
+      23: invokeinterface #66,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;)V
+      28: aload_0
+      29: new           #149                // class org/apache/activemq/command/RemoveInfo
+      32: dup
+      33: aload_2
+      34: invokestatic  #198                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext.access$200:(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext;)Lorg/apache/activemq/command/SessionId;
+      37: invokespecial #150                // Method org/apache/activemq/command/RemoveInfo."<init>":(Lorg/apache/activemq/command/DataStructure;)V
+      40: aconst_null
+      41: invokevirtual #153                // Method sendToActiveMQ:(Lorg/apache/activemq/command/Command;Lorg/apache/activemq/transport/amqp/ResponseHandler;)V
+      44: aload_1
+      45: aconst_null
+      46: invokeinterface #196,  2          // InterfaceMethod org/apache/qpid/proton/engine/Session.setContext:(Ljava/lang/Object;)V
+      51: aload_1
+      52: invokeinterface #205,  1          // InterfaceMethod org/apache/qpid/proton/engine/Session.close:()V
+      57: return
+
+  private void onLinkOpen(org.apache.qpid.proton.engine.Link);
+    Code:
+       0: aload_1
+       1: aload_1
+       2: invokeinterface #206,  1          // InterfaceMethod org/apache/qpid/proton/engine/Link.getRemoteSource:()Lorg/apache/qpid/proton/amqp/transport/Source;
+       7: invokeinterface #207,  2          // InterfaceMethod org/apache/qpid/proton/engine/Link.setSource:(Lorg/apache/qpid/proton/amqp/transport/Source;)V
+      12: aload_1
+      13: aload_1
+      14: invokeinterface #208,  1          // InterfaceMethod org/apache/qpid/proton/engine/Link.getRemoteTarget:()Lorg/apache/qpid/proton/amqp/transport/Target;
+      19: invokeinterface #209,  2          // InterfaceMethod org/apache/qpid/proton/engine/Link.setTarget:(Lorg/apache/qpid/proton/amqp/transport/Target;)V
+      24: aload_1
+      25: invokeinterface #210,  1          // InterfaceMethod org/apache/qpid/proton/engine/Link.getSession:()Lorg/apache/qpid/proton/engine/Session;
+      30: invokeinterface #203,  1          // InterfaceMethod org/apache/qpid/proton/engine/Session.getContext:()Ljava/lang/Object;
+      35: checkcast     #194                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext
+      38: astore_2
+      39: aload_1
+      40: instanceof    #211                // class org/apache/qpid/proton/engine/Receiver
+      43: ifeq          58
+      46: aload_0
+      47: aload_1
+      48: checkcast     #211                // class org/apache/qpid/proton/engine/Receiver
+      51: aload_2
+      52: invokevirtual #212                // Method onReceiverOpen:(Lorg/apache/qpid/proton/engine/Receiver;Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext;)V
+      55: goto          67
+      58: aload_0
+      59: aload_1
+      60: checkcast     #213                // class org/apache/qpid/proton/engine/Sender
+      63: aload_2
+      64: invokevirtual #214                // Method onSenderOpen:(Lorg/apache/qpid/proton/engine/Sender;Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext;)V
+      67: return
+
+  protected org.apache.qpid.proton.jms.InboundTransformer getInboundTransformer();
+    Code:
+       0: aload_0
+       1: getfield      #215                // Field inboundTransformer:Lorg/apache/qpid/proton/jms/InboundTransformer;
+       4: ifnonnull     120
+       7: aload_0
+       8: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+      11: invokeinterface #216,  1          // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.getTransformer:()Ljava/lang/String;
+      16: astore_1
+      17: aload_1
+      18: ldc           #217                // String jms
+      20: invokevirtual #100                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      23: ifeq          43
+      26: aload_0
+      27: new           #218                // class org/apache/qpid/proton/jms/JMSMappingInboundTransformer
+      30: dup
+      31: getstatic     #43                 // Field org/apache/activemq/transport/amqp/ActiveMQJMSVendor.INSTANCE:Lorg/apache/activemq/transport/amqp/ActiveMQJMSVendor;
+      34: invokespecial #219                // Method org/apache/qpid/proton/jms/JMSMappingInboundTransformer."<init>":(Lorg/apache/qpid/proton/jms/JMSVendor;)V
+      37: putfield      #215                // Field inboundTransformer:Lorg/apache/qpid/proton/jms/InboundTransformer;
+      40: goto          120
+      43: aload_1
+      44: ldc           #220                // String native
+      46: invokevirtual #100                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      49: ifeq          69
+      52: aload_0
+      53: new           #221                // class org/apache/qpid/proton/jms/AMQPNativeInboundTransformer
+      56: dup
+      57: getstatic     #43                 // Field org/apache/activemq/transport/amqp/ActiveMQJMSVendor.INSTANCE:Lorg/apache/activemq/transport/amqp/ActiveMQJMSVendor;
+      60: invokespecial #222                // Method org/apache/qpid/proton/jms/AMQPNativeInboundTransformer."<init>":(Lorg/apache/qpid/proton/jms/JMSVendor;)V
+      63: putfield      #215                // Field inboundTransformer:Lorg/apache/qpid/proton/jms/InboundTransformer;
+      66: goto          120
+      69: aload_1
+      70: ldc           #223                // String raw
+      72: invokevirtual #100                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      75: ifeq          95
+      78: aload_0
+      79: new           #224                // class org/apache/qpid/proton/jms/AMQPRawInboundTransformer
+      82: dup
+      83: getstatic     #43                 // Field org/apache/activemq/transport/amqp/ActiveMQJMSVendor.INSTANCE:Lorg/apache/activemq/transport/amqp/ActiveMQJMSVendor;
+      86: invokespecial #225                // Method org/apache/qpid/proton/jms/AMQPRawInboundTransformer."<init>":(Lorg/apache/qpid/proton/jms/JMSVendor;)V
+      89: putfield      #215                // Field inboundTransformer:Lorg/apache/qpid/proton/jms/InboundTransformer;
+      92: goto          120
+      95: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+      98: ldc           #226                // String Unknown transformer type {} using native one instead
+     100: aload_1
+     101: invokeinterface #227,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;)V
+     106: aload_0
+     107: new           #221                // class org/apache/qpid/proton/jms/AMQPNativeInboundTransformer
+     110: dup
+     111: getstatic     #43                 // Field org/apache/activemq/transport/amqp/ActiveMQJMSVendor.INSTANCE:Lorg/apache/activemq/transport/amqp/ActiveMQJMSVendor;
+     114: invokespecial #222                // Method org/apache/qpid/proton/jms/AMQPNativeInboundTransformer."<init>":(Lorg/apache/qpid/proton/jms/JMSVendor;)V
+     117: putfield      #215                // Field inboundTransformer:Lorg/apache/qpid/proton/jms/InboundTransformer;
+     120: aload_0
+     121: getfield      #215                // Field inboundTransformer:Lorg/apache/qpid/proton/jms/InboundTransformer;
+     124: areturn
+
+  public byte[] toBytes(long);
+    Code:
+       0: new           #82                 // class org/fusesource/hawtbuf/Buffer
+       3: dup
+       4: bipush        8
+       6: invokespecial #228                // Method org/fusesource/hawtbuf/Buffer."<init>":(I)V
+       9: astore_3
+      10: aload_3
+      11: invokevirtual #229                // Method org/fusesource/hawtbuf/Buffer.bigEndianEditor:()Lorg/fusesource/hawtbuf/BufferEditor;
+      14: lload_1
+      15: invokevirtual #230                // Method org/fusesource/hawtbuf/BufferEditor.writeLong:(J)V
+      18: aload_3
+      19: getfield      #85                 // Field org/fusesource/hawtbuf/Buffer.data:[B
+      22: areturn
+
+  private long toLong(org.apache.qpid.proton.amqp.Binary);
+    Code:
+       0: new           #82                 // class org/fusesource/hawtbuf/Buffer
+       3: dup
+       4: aload_1
+       5: invokevirtual #231                // Method org/apache/qpid/proton/amqp/Binary.getArray:()[B
+       8: aload_1
+       9: invokevirtual #232                // Method org/apache/qpid/proton/amqp/Binary.getArrayOffset:()I
+      12: aload_1
+      13: invokevirtual #233                // Method org/apache/qpid/proton/amqp/Binary.getLength:()I
+      16: invokespecial #234                // Method org/fusesource/hawtbuf/Buffer."<init>":([BII)V
+      19: astore_2
+      20: aload_2
+      21: invokevirtual #229                // Method org/fusesource/hawtbuf/Buffer.bigEndianEditor:()Lorg/fusesource/hawtbuf/BufferEditor;
+      24: invokevirtual #235                // Method org/fusesource/hawtbuf/BufferEditor.readLong:()J
+      27: lreturn
+
+  void onReceiverOpen(org.apache.qpid.proton.engine.Receiver, org.apache.activemq.transport.amqp.AmqpProtocolConverter$AmqpSessionContext);
+    Code:
+       0: aload_1
+       1: invokeinterface #236,  1          // InterfaceMethod org/apache/qpid/proton/engine/Receiver.getRemoteTarget:()Lorg/apache/qpid/proton/amqp/transport/Target;
+       6: astore_3
+       7: aload_3
+       8: instanceof    #237                // class org/apache/qpid/proton/amqp/transaction/Coordinator
+      11: ifeq          51
+      14: aload_0
+      15: invokevirtual #133                // Method pumpProtonToSocket:()V
+      18: aload_1
+      19: aload_0
+      20: getfield      #41                 // Field coordinatorContext:Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpDeliveryListener;
+      23: invokeinterface #238,  2          // InterfaceMethod org/apache/qpid/proton/engine/Receiver.setContext:(Ljava/lang/Object;)V
+      28: aload_1
+      29: aload_0
+      30: getfield      #9                  // Field prefetch:I
+      33: invokeinterface #239,  2          // InterfaceMethod org/apache/qpid/proton/engine/Receiver.flow:(I)V
+      38: aload_1
+      39: invokeinterface #240,  1          // InterfaceMethod org/apache/qpid/proton/engine/Receiver.open:()V
+      44: aload_0
+      45: invokevirtual #133                // Method pumpProtonToSocket:()V
+      48: goto          203
+      51: aload_3
+      52: checkcast     #241                // class org/apache/qpid/proton/amqp/messaging/Target
+      55: astore        4
+      57: new           #242                // class org/apache/activemq/command/ProducerId
+      60: dup
+      61: aload_2
+      62: invokestatic  #198                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext.access$200:(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext;)Lorg/apache/activemq/command/SessionId;
+      65: aload_2
+      66: dup
+      67: getfield      #243                // Field org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext.nextProducerId:J
+      70: dup2_x1
+      71: lconst_1
+      72: ladd
+      73: putfield      #243                // Field org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext.nextProducerId:J
+      76: invokespecial #244                // Method org/apache/activemq/command/ProducerId."<init>":(Lorg/apache/activemq/command/SessionId;J)V
+      79: astore        5
+      81: aload         4
+      83: invokevirtual #245                // Method org/apache/qpid/proton/amqp/messaging/Target.getDynamic:()Z
+      86: ifeq          131
+      89: aload_0
+      90: invokespecial #246                // Method createTempQueue:()Lorg/apache/activemq/command/ActiveMQDestination;
+      93: astore        6
+      95: new           #241                // class org/apache/qpid/proton/amqp/messaging/Target
+      98: dup
+      99: invokespecial #247                // Method org/apache/qpid/proton/amqp/messaging/Target."<init>":()V
+     102: astore        7
+     104: aload         7
+     106: aload         6
+     108: invokevirtual #248                // Method org/apache/activemq/command/ActiveMQDestination.getQualifiedName:()Ljava/lang/String;
+     111: invokevirtual #249                // Method org/apache/qpid/proton/amqp/messaging/Target.setAddress:(Ljava/lang/String;)V
+     114: aload         7
+     116: iconst_1
+     117: invokevirtual #250                // Method org/apache/qpid/proton/amqp/messaging/Target.setDynamic:(Z)V
+     120: aload_1
+     121: aload         7
+     123: invokeinterface #251,  2          // InterfaceMethod org/apache/qpid/proton/engine/Receiver.setTarget:(Lorg/apache/qpid/proton/amqp/transport/Target;)V
+     128: goto          138
+     131: aload_0
+     132: aload_3
+     133: invokespecial #252                // Method createDestination:(Ljava/lang/Object;)Lorg/apache/activemq/command/ActiveMQDestination;
+     136: astore        6
+     138: new           #253                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$ProducerContext
+     141: dup
+     142: aload_0
+     143: aload         5
+     145: aload         6
+     147: invokespecial #254                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$ProducerContext."<init>":(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter;Lorg/apache/activemq/command/ProducerId;Lorg/apache/activemq/command/ActiveMQDestination;)V
+     150: astore        7
+     152: aload_1
+     153: aload         7
+     155: invokeinterface #238,  2          // InterfaceMethod org/apache/qpid/proton/engine/Receiver.setContext:(Ljava/lang/Object;)V
+     160: aload_1
+     161: aload_0
+     162: getfield      #9                  // Field prefetch:I
+     165: invokeinterface #239,  2          // InterfaceMethod org/apache/qpid/proton/engine/Receiver.flow:(I)V
+     170: new           #255                // class org/apache/activemq/command/ProducerInfo
+     173: dup
+     174: aload         5
+     176: invokespecial #256                // Method org/apache/activemq/command/ProducerInfo."<init>":(Lorg/apache/activemq/command/ProducerId;)V
+     179: astore        8
+     181: aload         8
+     183: aload         6
+     185: invokevirtual #257                // Method org/apache/activemq/command/ProducerInfo.setDestination:(Lorg/apache/activemq/command/ActiveMQDestination;)V
+     188: aload_0
+     189: aload         8
+     191: new           #258                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$5
+     194: dup
+     195: aload_0
+     196: aload_1
+     197: invokespecial #259                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$5."<init>":(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter;Lorg/apache/qpid/proton/engine/Receiver;)V
+     200: invokevirtual #153                // Method sendToActiveMQ:(Lorg/apache/activemq/command/Command;Lorg/apache/activemq/transport/amqp/ResponseHandler;)V
+     203: goto          247
+     206: astore        4
+     208: aload_1
+     209: aconst_null
+     210: invokeinterface #251,  2          // InterfaceMethod org/apache/qpid/proton/engine/Receiver.setTarget:(Lorg/apache/qpid/proton/amqp/transport/Target;)V
+     215: aload_1
+     216: new           #260                // class org/apache/qpid/proton/amqp/transport/ErrorCondition
+     219: dup
+     220: aload         4
+     222: invokevirtual #261                // Method org/apache/activemq/transport/amqp/AmqpProtocolException.getSymbolicName:()Ljava/lang/String;
+     225: invokestatic  #262                // Method org/apache/qpid/proton/amqp/Symbol.getSymbol:(Ljava/lang/String;)Lorg/apache/qpid/proton/amqp/Symbol;
+     228: aload         4
+     230: invokevirtual #263                // Method org/apache/activemq/transport/amqp/AmqpProtocolException.getMessage:()Ljava/lang/String;
+     233: invokespecial #264                // Method org/apache/qpid/proton/amqp/transport/ErrorCondition."<init>":(Lorg/apache/qpid/proton/amqp/Symbol;Ljava/lang/String;)V
+     236: invokeinterface #265,  2          // InterfaceMethod org/apache/qpid/proton/engine/Receiver.setCondition:(Lorg/apache/qpid/proton/amqp/transport/ErrorCondition;)V
+     241: aload_1
+     242: invokeinterface #266,  1          // InterfaceMethod org/apache/qpid/proton/engine/Receiver.close:()V
+     247: return
+    Exception table:
+       from    to  target type
+           7   203   206   Class org/apache/activemq/transport/amqp/AmqpProtocolException
+
+  private org.apache.activemq.command.ActiveMQDestination createDestination(java.lang.Object) throws org.apache.activemq.transport.amqp.AmqpProtocolException;
+    Code:
+       0: aload_1
+       1: ifnonnull     6
+       4: aconst_null
+       5: areturn
+       6: aload_1
+       7: instanceof    #267                // class org/apache/qpid/proton/amqp/messaging/Source
+      10: ifeq          58
+      13: aload_1
+      14: checkcast     #267                // class org/apache/qpid/proton/amqp/messaging/Source
+      17: astore_2
+      18: aload_2
+      19: invokevirtual #268                // Method org/apache/qpid/proton/amqp/messaging/Source.getAddress:()Ljava/lang/String;
+      22: ifnull        35
+      25: aload_2
+      26: invokevirtual #268                // Method org/apache/qpid/proton/amqp/messaging/Source.getAddress:()Ljava/lang/String;
+      29: invokevirtual #269                // Method java/lang/String.length:()I
+      32: ifne          49
+      35: new           #90                 // class org/apache/activemq/transport/amqp/AmqpProtocolException
+      38: dup
+      39: ldc_w         #270                // String amqp:invalid-field
+      42: ldc_w         #271                // String source address not set
+      45: invokespecial #272                // Method org/apache/activemq/transport/amqp/AmqpProtocolException."<init>":(Ljava/lang/String;Ljava/lang/String;)V
+      48: athrow
+      49: aload_2
+      50: invokevirtual #268                // Method org/apache/qpid/proton/amqp/messaging/Source.getAddress:()Ljava/lang/String;
+      53: iconst_1
+      54: invokestatic  #273                // Method org/apache/activemq/command/ActiveMQDestination.createDestination:(Ljava/lang/String;B)Lorg/apache/activemq/command/ActiveMQDestination;
+      57: areturn
+      58: aload_1
+      59: instanceof    #241                // class org/apache/qpid/proton/amqp/messaging/Target
+      62: ifeq          110
+      65: aload_1
+      66: checkcast     #241                // class org/apache/qpid/proton/amqp/messaging/Target
+      69: astore_2
+      70: aload_2
+      71: invokevirtual #274                // Method org/apache/qpid/proton/amqp/messaging/Target.getAddress:()Ljava/lang/String;
+      74: ifnull        87
+      77: aload_2
+      78: invokevirtual #274                // Method org/apache/qpid/proton/amqp/messaging/Target.getAddress:()Ljava/lang/String;
+      81: invokevirtual #269                // Method java/lang/String.length:()I
+      84: ifne          101
+      87: new           #90                 // class org/apache/activemq/transport/amqp/AmqpProtocolException
+      90: dup
+      91: ldc_w         #270                // String amqp:invalid-field
+      94: ldc_w         #275                // String target address not set
+      97: invokespecial #272                // Method org/apache/activemq/transport/amqp/AmqpProtocolException."<init>":(Ljava/lang/String;Ljava/lang/String;)V
+     100: athrow
+     101: aload_2
+     102: invokevirtual #274                // Method org/apache/qpid/proton/amqp/messaging/Target.getAddress:()Ljava/lang/String;
+     105: iconst_1
+     106: invokestatic  #273                // Method org/apache/activemq/command/ActiveMQDestination.createDestination:(Ljava/lang/String;B)Lorg/apache/activemq/command/ActiveMQDestination;
+     109: areturn
+     110: aload_1
+     111: instanceof    #237                // class org/apache/qpid/proton/amqp/transaction/Coordinator
+     114: ifeq          119
+     117: aconst_null
+     118: areturn
+     119: new           #276                // class java/lang/RuntimeException
+     122: dup
+     123: new           #91                 // class java/lang/StringBuilder
+     126: dup
+     127: invokespecial #92                 // Method java/lang/StringBuilder."<init>":()V
+     130: ldc_w         #277                // String Unexpected terminus type:
+     133: invokevirtual #94                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     136: aload_1
+     137: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     140: invokevirtual #96                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     143: invokespecial #278                // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;)V
+     146: athrow
+
+  void onSenderOpen(org.apache.qpid.proton.engine.Sender, org.apache.activemq.transport.amqp.AmqpProtocolConverter$AmqpSessionContext);
+    Code:
+       0: aload_1
+       1: invokeinterface #279,  1          // InterfaceMethod org/apache/qpid/proton/engine/Sender.getRemoteSource:()Lorg/apache/qpid/proton/amqp/transport/Source;
+       6: checkcast     #267                // class org/apache/qpid/proton/amqp/messaging/Source
+       9: astore_3
+      10: new           #280                // class org/apache/activemq/command/ConsumerId
+      13: dup
+      14: aload_2
+      15: invokestatic  #198                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext.access$200:(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext;)Lorg/apache/activemq/command/SessionId;
+      18: aload_2
+      19: dup
+      20: getfield      #281                // Field org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext.nextConsumerId:J
+      23: dup2_x1
+      24: lconst_1
+      25: ladd
+      26: putfield      #281                // Field org/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext.nextConsumerId:J
+      29: invokespecial #282                // Method org/apache/activemq/command/ConsumerId."<init>":(Lorg/apache/activemq/command/SessionId;J)V
+      32: astore        4
+      34: new           #172                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext
+      37: dup
+      38: aload_0
+      39: aload         4
+      41: aload_1
+      42: invokespecial #283                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext."<init>":(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter;Lorg/apache/activemq/command/ConsumerId;Lorg/apache/qpid/proton/engine/Sender;)V
+      45: astore        5
+      47: aload_1
+      48: aload         5
+      50: invokeinterface #284,  2          // InterfaceMethod org/apache/qpid/proton/engine/Sender.setContext:(Ljava/lang/Object;)V
+      55: aconst_null
+      56: astore        6
+      58: aload_3
+      59: ifnull        158
+      62: aload_3
+      63: invokevirtual #285                // Method org/apache/qpid/proton/amqp/messaging/Source.getFilter:()Ljava/util/Map;
+      66: astore        7
+      68: aload         7
+      70: ifnull        158
+      73: aload         7
+      75: getstatic     #286                // Field JMS_SELECTOR:Lorg/apache/qpid/proton/amqp/Symbol;
+      78: invokeinterface #287,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      83: checkcast     #288                // class org/apache/qpid/proton/amqp/DescribedType
+      86: astore        8
+      88: aload         8
+      90: ifnull        158
+      93: aload         8
+      95: invokeinterface #289,  1          // InterfaceMethod org/apache/qpid/proton/amqp/DescribedType.getDescribed:()Ljava/lang/Object;
+     100: invokevirtual #290                // Method java/lang/Object.toString:()Ljava/lang/String;
+     103: astore        6
+     105: aload         6
+     107: invokestatic  #291                // Method org/apache/activemq/selector/SelectorParser.parse:(Ljava/lang/String;)Lorg/apache/activemq/filter/BooleanExpression;
+     110: pop
+     111: goto          158
+     114: astore        9
+     116: aload_1
+     117: aconst_null
+     118: invokeinterface #293,  2          // InterfaceMethod org/apache/qpid/proton/engine/Sender.setSource:(Lorg/apache/qpid/proton/amqp/transport/Source;)V
+     123: aload_1
+     124: new           #260                // class org/apache/qpid/proton/amqp/transport/ErrorCondition
+     127: dup
+     128: getstatic     #294                // Field org/apache/qpid/proton/amqp/transport/AmqpError.INVALID_FIELD:Lorg/apache/qpid/proton/amqp/Symbol;
+     131: aload         9
+     133: invokevirtual #295                // Method javax/jms/InvalidSelectorException.getMessage:()Ljava/lang/String;
+     136: invokespecial #264                // Method org/apache/qpid/proton/amqp/transport/ErrorCondition."<init>":(Lorg/apache/qpid/proton/amqp/Symbol;Ljava/lang/String;)V
+     139: invokeinterface #296,  2          // InterfaceMethod org/apache/qpid/proton/engine/Sender.setCondition:(Lorg/apache/qpid/proton/amqp/transport/ErrorCondition;)V
+     144: aload_1
+     145: invokeinterface #297,  1          // InterfaceMethod org/apache/qpid/proton/engine/Sender.close:()V
+     150: aload         5
+     152: iconst_1
+     153: invokestatic  #298                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext.access$902:(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext;Z)Z
+     156: pop
+     157: return
+     158: aload_3
+     159: ifnonnull     262
+     162: new           #267                // class org/apache/qpid/proton/amqp/messaging/Source
+     165: dup
+     166: invokespecial #299                // Method org/apache/qpid/proton/amqp/messaging/Source."<init>":()V
+     169: astore_3
+     170: aload_3
+     171: ldc_w         #300                // String
+     174: invokevirtual #301                // Method org/apache/qpid/proton/amqp/messaging/Source.setAddress:(Ljava/lang/String;)V
+     177: aload_3
+     178: iconst_1
+     179: anewarray     #302                // class org/apache/qpid/proton/amqp/Symbol
+     182: dup
+     183: iconst_0
+     184: getstatic     #303                // Field DURABLE_SUBSCRIPTION_ENDED:Lorg/apache/qpid/proton/amqp/Symbol;
+     187: aastore
+     188: invokevirtual #304                // Method org/apache/qpid/proton/amqp/messaging/Source.setCapabilities:([Lorg/apache/qpid/proton/amqp/Symbol;)V
+     191: aload_1
+     192: aload_3
+     193: invokeinterface #293,  2          // InterfaceMethod org/apache/qpid/proton/engine/Sender.setSource:(Lorg/apache/qpid/proton/amqp/transport/Source;)V
+     198: new           #305                // class org/apache/activemq/command/RemoveSubscriptionInfo
+     201: dup
+     202: invokespecial #306                // Method org/apache/activemq/command/RemoveSubscriptionInfo."<init>":()V
+     205: astore        8
+     207: aload         8
+     209: aload_0
+     210: getfield      #3                  // Field connectionId:Lorg/apache/activemq/command/ConnectionId;
+     213: invokevirtual #307                // Method org/apache/activemq/command/RemoveSubscriptionInfo.setConnectionId:(Lorg/apache/activemq/command/ConnectionId;)V
+     216: aload         8
+     218: aload_1
+     219: invokeinterface #308,  1          // InterfaceMethod org/apache/qpid/proton/engine/Sender.getName:()Ljava/lang/String;
+     224: invokevirtual #309                // Method org/apache/activemq/command/RemoveSubscriptionInfo.setSubscriptionName:(Ljava/lang/String;)V
+     227: aload         8
+     229: aload_0
+     230: getfield      #32                 // Field connectionInfo:Lorg/apache/activemq/command/ConnectionInfo;
+     233: invokevirtual #310                // Method org/apache/activemq/command/ConnectionInfo.getClientId:()Ljava/lang/String;
+     236: invokevirtual #311                // Method org/apache/activemq/command/RemoveSubscriptionInfo.setClientId:(Ljava/lang/String;)V
+     239: aload         5
+     241: iconst_1
+     242: invokestatic  #298                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext.access$902:(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext;Z)Z
+     245: pop
+     246: aload_0
+     247: aload         8
+     249: new           #312                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$6
+     252: dup
+     253: aload_0
+     254: aload_1
+     255: invokespecial #313                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$6."<init>":(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter;Lorg/apache/qpid/proton/engine/Sender;)V
+     258: invokevirtual #153                // Method sendToActiveMQ:(Lorg/apache/activemq/command/Command;Lorg/apache/activemq/transport/amqp/ResponseHandler;)V
+     261: return
+     262: aload_3
+     263: invokevirtual #314                // Method org/apache/qpid/proton/amqp/messaging/Source.getCapabilities:()[Lorg/apache/qpid/proton/amqp/Symbol;
+     266: getstatic     #303                // Field DURABLE_SUBSCRIPTION_ENDED:Lorg/apache/qpid/proton/amqp/Symbol;
+     269: invokestatic  #315                // Method contains:([Lorg/apache/qpid/proton/amqp/Symbol;Lorg/apache/qpid/proton/amqp/Symbol;)Z
+     272: ifeq          293
+     275: aload         5
+     277: iconst_1
+     278: invokestatic  #298                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext.access$902:(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext;Z)Z
+     281: pop
+     282: aload_1
+     283: invokeinterface #297,  1          // InterfaceMethod org/apache/qpid/proton/engine/Sender.close:()V
+     288: aload_0
+     289: invokevirtual #133                // Method pumpProtonToSocket:()V
+     292: return
+     293: aload_3
+     294: invokevirtual #316                // Method org/apache/qpid/proton/amqp/messaging/Source.getDynamic:()Z
+     297: ifeq          338
+     300: aload_0
+     301: invokespecial #246                // Method createTempQueue:()Lorg/apache/activemq/command/ActiveMQDestination;
+     304: astore        7
+     306: new           #267                // class org/apache/qpid/proton/amqp/messaging/Source
+     309: dup
+     310: invokespecial #299                // Method org/apache/qpid/proton/amqp/messaging/Source."<init>":()V
+     313: astore_3
+     314: aload_3
+     315: aload         7
+     317: invokevirtual #248                // Method org/apache/activemq/command/ActiveMQDestination.getQualifiedName:()Ljava/lang/String;
+     320: invokevirtual #301                // Method org/apache/qpid/proton/amqp/messaging/Source.setAddress:(Ljava/lang/String;)V
+     323: aload_3
+     324: iconst_1
+     325: invokevirtual #317                // Method org/apache/qpid/proton/amqp/messaging/Source.setDynamic:(Z)V
+     328: aload_1
+     329: aload_3
+     330: invokeinterface #293,  2          // InterfaceMethod org/apache/qpid/proton/engine/Sender.setSource:(Lorg/apache/qpid/proton/amqp/transport/Source;)V
+     335: goto          345
+     338: aload_0
+     339: aload_3
+     340: invokespecial #252                // Method createDestination:(Ljava/lang/Object;)Lorg/apache/activemq/command/ActiveMQDestination;
+     343: astore        7
+     345: aload_0
+     346: getfield      #1                  // Field subscriptionsByConsumerId:Ljava/util/concurrent/ConcurrentHashMap;
+     349: aload         4
+     351: aload         5
+     353: invokevirtual #318                // Method java/util/concurrent/ConcurrentHashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     356: pop
+     357: new           #319                // class org/apache/activemq/command/ConsumerInfo
+     360: dup
+     361: aload         4
+     363: invokespecial #320                // Method org/apache/activemq/command/ConsumerInfo."<init>":(Lorg/apache/activemq/command/ConsumerId;)V
+     366: astore        8
+     368: aload         5
+     370: aload         8
+     372: putfield      #321                // Field org/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext.info:Lorg/apache/activemq/command/ConsumerInfo;
+     375: aload         8
+     377: aload         6
+     379: invokevirtual #322                // Method org/apache/activemq/command/ConsumerInfo.setSelector:(Ljava/lang/String;)V
+     382: aload         8
+     384: iconst_1
+     385: invokevirtual #323                // Method org/apache/activemq/command/ConsumerInfo.setNoRangeAcks:(Z)V
+     388: aload         8
+     390: aload         7
+     392: invokevirtual #324                // Method org/apache/activemq/command/ConsumerInfo.setDestination:(Lorg/apache/activemq/command/ActiveMQDestination;)V
+     395: aload         8
+     397: bipush        100
+     399: invokevirtual #325                // Method org/apache/activemq/command/ConsumerInfo.setPrefetchSize:(I)V
+     402: aload         8
+     404: iconst_1
+     405: invokevirtual #326                // Method org/apache/activemq/command/ConsumerInfo.setDispatchAsync:(Z)V
+     408: aload_3
+     409: invokevirtual #327                // Method org/apache/qpid/proton/amqp/messaging/Source.getDistributionMode:()Lorg/apache/qpid/proton/amqp/Symbol;
+     412: getstatic     #328                // Field COPY:Lorg/apache/qpid/proton/amqp/Symbol;
+     415: if_acmpne     432
+     418: aload         7
+     420: invokevirtual #329                // Method org/apache/activemq/command/ActiveMQDestination.isQueue:()Z
+     423: ifeq          432
+     426: aload         8
+     428: iconst_1
+     429: invokevirtual #330                // Method org/apache/activemq/command/ConsumerInfo.setBrowser:(Z)V
+     432: getstatic     #331                // Field org/apache/qpid/proton/amqp/messaging/TerminusDurability.UNSETTLED_STATE:Lorg/apache/qpid/proton/amqp/messaging/TerminusDurability;
+     435: aload_3
+     436: invokevirtual #332                // Method org/apache/qpid/proton/amqp/messaging/Source.getDurable:()Lorg/apache/qpid/proton/amqp/messaging/TerminusDurability;
+     439: invokevirtual #333                // Method org/apache/qpid/proton/amqp/messaging/TerminusDurability.equals:(Ljava/lang/Object;)Z
+     442: ifeq          464
+     445: aload         7
+     447: invokevirtual #334                // Method org/apache/activemq/command/ActiveMQDestination.isTopic:()Z
+     450: ifeq          464
+     453: aload         8
+     455: aload_1
+     456: invokeinterface #308,  1          // InterfaceMethod org/apache/qpid/proton/engine/Sender.getName:()Ljava/lang/String;
+     461: invokevirtual #335                // Method org/apache/activemq/command/ConsumerInfo.setSubscriptionName:(Ljava/lang/String;)V
+     464: aload_3
+     465: invokevirtual #285                // Method org/apache/qpid/proton/amqp/messaging/Source.getFilter:()Ljava/util/Map;
+     468: astore        9
+     470: aload         9
+     472: ifnull        501
+     475: aload         9
+     477: getstatic     #336                // Field NO_LOCAL:Lorg/apache/qpid/proton/amqp/Symbol;
+     480: invokeinterface #287,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     485: checkcast     #288                // class org/apache/qpid/proton/amqp/DescribedType
+     488: astore        10
+     490: aload         10
+     492: ifnull        501
+     495: aload         8
+     497: iconst_1
+     498: invokevirtual #337                // Method org/apache/activemq/command/ConsumerInfo.setNoLocal:(Z)V
+     501: aload_0
+     502: aload         8
+     504: new           #338                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter$7
+     507: dup
+     508: aload_0
+     509: aload_1
+     510: aload         4
+     512: aload_2
+     513: aload         5
+     515: invokespecial #339                // Method org/apache/activemq/transport/amqp/AmqpProtocolConverter$7."<init>":(Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter;Lorg/apache/qpid/proton/engine/Sender;Lorg/apache/activemq/command/ConsumerId;Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$AmqpSessionContext;Lorg/apache/activemq/transport/amqp/AmqpProtocolConverter$ConsumerContext;)V
+     518: invokevirtual #153                // Method sendToActiveMQ:(Lorg/apache/activemq/command/Command;Lorg/apache/activemq/transport/amqp/ResponseHandler;)V
+     521: goto          565
+     524: astore        4
+     526: aload_1
+     527: aconst_null
+     528: invokeinterface #293,  2          // InterfaceMethod org/apache/qpid/proton/engine/Sender.setSource:(Lorg/apache/qpid/proton/amqp/transport/Source;)V
+     533: aload_1
+     534: new           #260                // class org/apache/qpid/proton/amqp/transport/ErrorCondition
+     537: dup
+     538: aload         4
+     540: invokevirtual #261                // Method org/apache/activemq/transport/amqp/AmqpProtocolException.getSymbolicName:()Ljava/lang/String;
+     543: invokestatic  #262                // Method org/apache/qpid/proton/amqp/Symbol.getSymbol:(Ljava/lang/String;)Lorg/apache/qpid/proton/amqp/Symbol;
+     546: aload         4
+     548: invokevirtual #263                // Method org/apache/activemq/transport/amqp/AmqpProtocolException.getMessage:()Ljava/lang/String;
+     551: invokespecial #264                // Method org/apache/qpid/proton/amqp/transport/ErrorCondition."<init>":(Lorg/apache/qpid/proton/amqp/Symbol;Ljava/lang/String;)V
+     554: invokeinterface #296,  2          // InterfaceMethod org/apache/qpid/proton/engine/Sender.setCondition:(Lorg/apache/qpid/proton/amqp/transport/ErrorCondition;)V
+     559: aload_1
+     560: invokeinterface #297,  1          // InterfaceMethod org/apache/qpid/proton/engine/Sender.close:()V
+     565: return
+    Exception table:
+       from    to  target type
+         105   111   114   Class javax/jms/InvalidSelectorException
+          10   157   524   Class org/apache/activemq/transport/amqp/AmqpProtocolException
+         158   261   524   Class org/apache/activemq/transport/amqp/AmqpProtocolException
+         262   292   524   Class org/apache/activemq/transport/amqp/AmqpProtocolException
+         293   521   524   Class org/apache/activemq/transport/amqp/AmqpProtocolException
+
+  private static boolean contains(org.apache.qpid.proton.amqp.Symbol[], org.apache.qpid.proton.amqp.Symbol);
+    Code:
+       0: aload_0
+       1: ifnull        38
+       4: aload_0
+       5: astore_2
+       6: aload_2
+       7: arraylength
+       8: istore_3
+       9: iconst_0
+      10: istore        4
+      12: iload         4
+      14: iload_3
+      15: if_icmpge     38
+      18: aload_2
+      19: iload         4
+      21: aaload
+      22: astore        5
+      24: aload         5
+      26: aload_1
+      27: if_acmpne     32
+      30: iconst_1
+      31: ireturn
+      32: iinc          4, 1
+      35: goto          12
+      38: iconst_0
+      39: ireturn
+
+  private org.apache.activemq.command.ActiveMQDestination createTempQueue();
+    Code:
+       0: new           #340                // class org/apache/activemq/command/ActiveMQTempQueue
+       3: dup
+       4: aload_0
+       5: getfield      #3                  // Field connectionId:Lorg/apache/activemq/command/ConnectionId;
+       8: aload_0
+       9: dup
+      10: getfield      #34                 // Field nextTempDestinationId:J
+      13: dup2_x1
+      14: lconst_1
+      15: ladd
+      16: putfield      #34                 // Field nextTempDestinationId:J
+      19: invokespecial #341                // Method org/apache/activemq/command/ActiveMQTempQueue."<init>":(Lorg/apache/activemq/command/ConnectionId;J)V
+      22: astore_1
+      23: new           #342                // class org/apache/activemq/command/DestinationInfo
+      26: dup
+      27: invokespecial #343                // Method org/apache/activemq/command/DestinationInfo."<init>":()V
+      30: astore_2
+      31: aload_2
+      32: aload_0
+      33: getfield      #3                  // Field connectionId:Lorg/apache/activemq/command/ConnectionId;
+      36: invokevirtual #344                // Method org/apache/activemq/command/DestinationInfo.setConnectionId:(Lorg/apache/activemq/command/ConnectionId;)V
+      39: aload_2
+      40: iconst_0
+      41: invokevirtual #345                // Method org/apache/activemq/command/DestinationInfo.setOperationType:(B)V
+      44: aload_2
+      45: aload_1
+      46: invokevirtual #346                // Method org/apache/activemq/command/DestinationInfo.setDestination:(Lorg/apache/activemq/command/ActiveMQDestination;)V
+      49: aload_0
+      50: aload_2
+      51: aconst_null
+      52: invokevirtual #153                // Method sendToActiveMQ:(Lorg/apache/activemq/command/Command;Lorg/apache/activemq/transport/amqp/ResponseHandler;)V
+      55: aload_1
+      56: areturn
+
+  int generateCommandId();
+    Code:
+       0: aload_0
+       1: getfield      #49                 // Field commnadIdMutex:Ljava/lang/Object;
+       4: dup
+       5: astore_1
+       6: monitorenter
+       7: aload_0
+       8: dup
+       9: getfield      #347                // Field lastCommandId:I
+      12: dup_x1
+      13: iconst_1
+      14: iadd
+      15: putfield      #347                // Field lastCommandId:I
+      18: aload_1
+      19: monitorexit
+      20: ireturn
+      21: astore_2
+      22: aload_1
+      23: monitorexit
+      24: aload_2
+      25: athrow
+    Exception table:
+       from    to  target type
+           7    20    21   any
+          21    24    21   any
+
+  void sendToActiveMQ(org.apache.activemq.command.Command, org.apache.activemq.transport.amqp.ResponseHandler);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: invokevirtual #348                // Method generateCommandId:()I
+       5: invokeinterface #349,  2          // InterfaceMethod org/apache/activemq/command/Command.setCommandId:(I)V
+      10: aload_2
+      11: ifnull        39
+      14: aload_1
+      15: iconst_1
+      16: invokeinterface #350,  2          // InterfaceMethod org/apache/activemq/command/Command.setResponseRequired:(Z)V
+      21: aload_0
+      22: getfield      #50                 // Field resposeHandlers:Ljava/util/concurrent/ConcurrentHashMap;
+      25: aload_1
+      26: invokeinterface #351,  1          // InterfaceMethod org/apache/activemq/command/Command.getCommandId:()I
+      31: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      34: aload_2
+      35: invokevirtual #318                // Method java/util/concurrent/ConcurrentHashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      38: pop
+      39: aload_0
+      40: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+      43: aload_1
+      44: invokeinterface #352,  2          // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.sendToActiveMQ:(Lorg/apache/activemq/command/Command;)V
+      49: return
+
+  void handleException(java.lang.Throwable);
+    Code:
+       0: aload_1
+       1: invokevirtual #353                // Method java/lang/Throwable.printStackTrace:()V
+       4: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+       7: ldc_w         #354                // String Exception detail
+      10: aload_1
+      11: invokeinterface #355,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      16: aload_0
+      17: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+      20: invokeinterface #157,  1          // InterfaceMethod org/apache/activemq/transport/amqp/AmqpTransport.stop:()V
+      25: goto          41
+      28: astore_2
+      29: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+      32: ldc_w         #356                // String Failed to stop AMQP Transport
+      35: aload_2
+      36: invokeinterface #357,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      41: return
+    Exception table:
+       from    to  target type
+          16    25    28   Class java/lang/Throwable
+
+  org.apache.qpid.proton.amqp.transport.ErrorCondition createErrorCondition(java.lang.String);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: ldc_w         #300                // String
+       5: invokevirtual #358                // Method createErrorCondition:(Ljava/lang/String;Ljava/lang/String;)Lorg/apache/qpid/proton/amqp/transport/ErrorCondition;
+       8: areturn
+
+  org.apache.qpid.proton.amqp.transport.ErrorCondition createErrorCondition(java.lang.String, java.lang.String);
+    Code:
+       0: new           #260                // class org/apache/qpid/proton/amqp/transport/ErrorCondition
+       3: dup
+       4: invokespecial #359                // Method org/apache/qpid/proton/amqp/transport/ErrorCondition."<init>":()V
+       7: astore_3
+       8: aload_3
+       9: aload_1
+      10: invokestatic  #360                // Method org/apache/qpid/proton/amqp/Symbol.valueOf:(Ljava/lang/String;)Lorg/apache/qpid/proton/amqp/Symbol;
+      13: invokevirtual #361                // Method org/apache/qpid/proton/amqp/transport/ErrorCondition.setCondition:(Lorg/apache/qpid/proton/amqp/Symbol;)V
+      16: aload_3
+      17: aload_2
+      18: invokevirtual #362                // Method org/apache/qpid/proton/amqp/transport/ErrorCondition.setDescription:(Ljava/lang/String;)V
+      21: aload_3
+      22: areturn
+
+  static org.apache.activemq.transport.amqp.AmqpTransport access$000(org.apache.activemq.transport.amqp.AmqpProtocolConverter);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field amqpTransport:Lorg/apache/activemq/transport/amqp/AmqpTransport;
+       4: areturn
+
+  static org.slf4j.Logger access$100();
+    Code:
+       0: getstatic     #6                  // Field TRACE_FRAMES:Lorg/slf4j/Logger;
+       3: areturn
+
+  static org.slf4j.Logger access$300();
+    Code:
+       0: getstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static long access$400(org.apache.activemq.transport.amqp.AmqpProtocolConverter, org.apache.qpid.proton.amqp.Binary);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #4                  // Method toLong:(Lorg/apache/qpid/proton/amqp/Binary;)J
+       5: lreturn
+
+  static org.apache.activemq.command.ConnectionId access$500(org.apache.activemq.transport.amqp.AmqpProtocolConverter);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field connectionId:Lorg/apache/activemq/command/ConnectionId;
+       4: areturn
+
+  static byte[] access$700();
+    Code:
+       0: getstatic     #2                  // Field EMPTY_BYTE_ARRAY:[B
+       3: areturn
+
+  static java.util.concurrent.ConcurrentHashMap access$1000(org.apache.activemq.transport.amqp.AmqpProtocolConverter);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field subscriptionsByConsumerId:Ljava/util/concurrent/ConcurrentHashMap;
+       4: areturn
+
+  static {};
+    Code:
+       0: getstatic     #363                // Field org/apache/activemq/transport/amqp/AmqpTransportFilter.TRACE_FRAMES:Lorg/slf4j/Logger;
+       3: putstatic     #6                  // Field TRACE_FRAMES:Lorg/slf4j/Logger;
+       6: ldc_w         #364                // class org/apache/activemq/transport/amqp/AmqpProtocolConverter
+       9: invokestatic  #365                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      12: putstatic     #5                  // Field LOG:Lorg/slf4j/Logger;
+      15: iconst_0
+      16: newarray       byte
+      18: putstatic     #2                  // Field EMPTY_BYTE_ARRAY:[B
+      21: ldc_w         #366                // String copy
+      24: invokestatic  #262                // Method org/apache/qpid/proton/amqp/Symbol.getSymbol:(Ljava/lang/String;)Lorg/apache/qpid/proton/amqp/Symbol;
+      27: putstatic     #328                // Field COPY:Lorg/apache/qpid/proton/amqp/Symbol;
+      30: ldc_w         #367                // String jms-selector
+      33: invokestatic  #360                // Method org/apache/qpid/proton/amqp/Symbol.valueOf:(Ljava/lang/String;)Lorg/apache/qpid/proton/amqp/Symbol;
+      36: putstatic     #286                // Field JMS_SELECTOR:Lorg/apache/qpid/proton/amqp/Symbol;
+      39: ldc_w         #368                // String no-local
+      42: invokestatic  #360                // Method org/apache/qpid/proton/amqp/Symbol.valueOf:(Ljava/lang/String;)Lorg/apache/qpid/proton/amqp/Symbol;
+      45: putstatic     #336                // Field NO_LOCAL:Lorg/apache/qpid/proton/amqp/Symbol;
+      48: ldc_w         #369                // String DURABLE_SUBSCRIPTION_ENDED
+      51: invokestatic  #262                // Method org/apache/qpid/proton/amqp/Symbol.getSymbol:(Ljava/lang/String;)Lorg/apache/qpid/proton/amqp/Symbol;
+      54: putstatic     #303                // Field DURABLE_SUBSCRIPTION_ENDED:Lorg/apache/qpid/proton/amqp/Symbol;
+      57: new           #370                // class org/apache/qpid/proton/ProtonFactoryLoader
+      60: dup
+      61: ldc_w         #19                 // class org/apache/qpid/proton/message/MessageFactory
+      64: invokespecial #371                // Method org/apache/qpid/proton/ProtonFactoryLoader."<init>":(Ljava/lang/Class;)V
+      67: putstatic     #17                 // Field messageFactoryLoader:Lorg/apache/qpid/proton/ProtonFactoryLoader;
+      70: new           #372                // class org/apache/activemq/util/IdGenerator
+      73: dup
+      74: invokespecial #373                // Method org/apache/activemq/util/IdGenerator."<init>":()V
+      77: putstatic     #27                 // Field CONNECTION_ID_GENERATOR:Lorg/apache/activemq/util/IdGenerator;
+      80: return
+}

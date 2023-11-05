@@ -1,0 +1,1504 @@
+Compiled from "BookieRequestProcessor.java"
+public class org.apache.bookkeeper.proto.BookieRequestProcessor implements org.apache.bookkeeper.processor.RequestProcessor {
+  private static final org.slf4j.Logger LOG;
+
+  private final org.apache.bookkeeper.conf.ServerConfiguration serverCfg;
+
+  private final long waitTimeoutOnBackpressureMillis;
+
+  private final boolean preserveMdcForTaskExecution;
+
+  final org.apache.bookkeeper.bookie.Bookie bookie;
+
+  private final org.apache.bookkeeper.common.util.OrderedExecutor readThreadPool;
+
+  private final org.apache.bookkeeper.common.util.OrderedExecutor writeThreadPool;
+
+  private final org.apache.bookkeeper.tls.SecurityHandlerFactory shFactory;
+
+  private final org.apache.bookkeeper.common.util.OrderedExecutor longPollThreadPool;
+
+  private final org.apache.bookkeeper.common.util.OrderedExecutor highPriorityThreadPool;
+
+  private final io.netty.util.HashedWheelTimer requestTimer;
+
+  private final org.apache.bookkeeper.proto.BKStats bkStats;
+
+  private final boolean statsEnabled;
+
+  private final org.apache.bookkeeper.proto.RequestStats requestStats;
+
+  final java.util.concurrent.Semaphore addsSemaphore;
+
+  final java.util.concurrent.Semaphore readsSemaphore;
+
+  final java.util.Optional<com.google.common.cache.Cache<io.netty.channel.Channel, java.lang.Boolean>> blacklistedChannels;
+
+  final java.util.function.Consumer<io.netty.channel.Channel> onResponseTimeout;
+
+  private final io.netty.buffer.ByteBufAllocator allocator;
+
+  private final boolean throttleReadResponses;
+
+  public org.apache.bookkeeper.proto.BookieRequestProcessor(org.apache.bookkeeper.conf.ServerConfiguration, org.apache.bookkeeper.bookie.Bookie, org.apache.bookkeeper.stats.StatsLogger, org.apache.bookkeeper.tls.SecurityHandlerFactory, io.netty.buffer.ByteBufAllocator) throws org.apache.bookkeeper.tls.SecurityException;
+    Code:
+       0: aload_0
+       1: invokespecial #4                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: invokestatic  #5                  // Method org/apache/bookkeeper/proto/BKStats.getInstance:()Lorg/apache/bookkeeper/proto/BKStats;
+       8: putfield      #1                  // Field bkStats:Lorg/apache/bookkeeper/proto/BKStats;
+      11: aload_0
+      12: aload_1
+      13: putfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+      16: aload_0
+      17: aload         5
+      19: putfield      #7                  // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+      22: aload_0
+      23: aload_1
+      24: invokevirtual #8                  // Method org/apache/bookkeeper/conf/ServerConfiguration.getWaitTimeoutOnResponseBackpressureMillis:()J
+      27: putfield      #9                  // Field waitTimeoutOnBackpressureMillis:J
+      30: aload_0
+      31: aload_1
+      32: invokevirtual #10                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getPreserveMdcForTaskExecution:()Z
+      35: putfield      #11                 // Field preserveMdcForTaskExecution:Z
+      38: aload_0
+      39: aload_2
+      40: putfield      #12                 // Field bookie:Lorg/apache/bookkeeper/bookie/Bookie;
+      43: aload_0
+      44: aload_1
+      45: invokevirtual #13                 // Method org/apache/bookkeeper/conf/ServerConfiguration.isReadWorkerThreadsThrottlingEnabled:()Z
+      48: putfield      #14                 // Field throttleReadResponses:Z
+      51: aload_0
+      52: aload_0
+      53: aload_0
+      54: getfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+      57: invokevirtual #15                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getNumReadWorkerThreads:()I
+      60: ldc           #16                 // String BookieReadThreadPool
+      62: aload_1
+      63: invokevirtual #17                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMaxPendingReadRequestPerThread:()I
+      66: aload_3
+      67: invokespecial #18                 // Method createExecutor:(ILjava/lang/String;ILorg/apache/bookkeeper/stats/StatsLogger;)Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      70: putfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      73: aload_0
+      74: aload_0
+      75: aload_0
+      76: getfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+      79: invokevirtual #20                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getNumAddWorkerThreads:()I
+      82: ldc           #21                 // String BookieWriteThreadPool
+      84: aload_1
+      85: invokevirtual #22                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMaxPendingAddRequestPerThread:()I
+      88: aload_3
+      89: invokespecial #18                 // Method createExecutor:(ILjava/lang/String;ILorg/apache/bookkeeper/stats/StatsLogger;)Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      92: putfield      #23                 // Field writeThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      95: aload_1
+      96: invokevirtual #24                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getNumLongPollWorkerThreads:()I
+      99: ifgt          120
+     102: aload_0
+     103: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     106: ifnull        120
+     109: aload_0
+     110: aload_0
+     111: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     114: putfield      #25                 // Field longPollThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     117: goto          176
+     120: aload_0
+     121: getfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+     124: invokevirtual #24                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getNumLongPollWorkerThreads:()I
+     127: istore        6
+     129: iload         6
+     131: ifgt          142
+     134: invokestatic  #26                 // Method java/lang/Runtime.getRuntime:()Ljava/lang/Runtime;
+     137: invokevirtual #27                 // Method java/lang/Runtime.availableProcessors:()I
+     140: istore        6
+     142: aload_0
+     143: aload_0
+     144: iload         6
+     146: new           #28                 // class java/lang/StringBuilder
+     149: dup
+     150: invokespecial #29                 // Method java/lang/StringBuilder."<init>":()V
+     153: ldc           #30                 // String BookieLongPollThread-
+     155: invokevirtual #31                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     158: aload_1
+     159: invokevirtual #32                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getBookiePort:()I
+     162: invokevirtual #33                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     165: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     168: iconst_m1
+     169: aload_3
+     170: invokespecial #18                 // Method createExecutor:(ILjava/lang/String;ILorg/apache/bookkeeper/stats/StatsLogger;)Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     173: putfield      #25                 // Field longPollThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     176: aload_0
+     177: aload_0
+     178: aload_0
+     179: getfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+     182: invokevirtual #36                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getNumHighPriorityWorkerThreads:()I
+     185: new           #28                 // class java/lang/StringBuilder
+     188: dup
+     189: invokespecial #29                 // Method java/lang/StringBuilder."<init>":()V
+     192: ldc           #37                 // String BookieHighPriorityThread-
+     194: invokevirtual #31                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     197: aload_1
+     198: invokevirtual #32                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getBookiePort:()I
+     201: invokevirtual #33                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     204: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     207: iconst_m1
+     208: aload_3
+     209: invokespecial #18                 // Method createExecutor:(ILjava/lang/String;ILorg/apache/bookkeeper/stats/StatsLogger;)Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     212: putfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     215: aload_0
+     216: aload         4
+     218: putfield      #39                 // Field shFactory:Lorg/apache/bookkeeper/tls/SecurityHandlerFactory;
+     221: aload         4
+     223: ifnull        239
+     226: aload         4
+     228: getstatic     #40                 // Field org/apache/bookkeeper/tls/SecurityHandlerFactory$NodeType.Server:Lorg/apache/bookkeeper/tls/SecurityHandlerFactory$NodeType;
+     231: aload_1
+     232: aload         5
+     234: invokeinterface #41,  4           // InterfaceMethod org/apache/bookkeeper/tls/SecurityHandlerFactory.init:(Lorg/apache/bookkeeper/tls/SecurityHandlerFactory$NodeType;Lorg/apache/bookkeeper/conf/AbstractConfiguration;Lio/netty/buffer/ByteBufAllocator;)V
+     239: aload_0
+     240: new           #42                 // class io/netty/util/HashedWheelTimer
+     243: dup
+     244: new           #43                 // class com/google/common/util/concurrent/ThreadFactoryBuilder
+     247: dup
+     248: invokespecial #44                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder."<init>":()V
+     251: ldc           #45                 // String BookieRequestTimer-%d
+     253: invokevirtual #46                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder.setNameFormat:(Ljava/lang/String;)Lcom/google/common/util/concurrent/ThreadFactoryBuilder;
+     256: invokevirtual #47                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder.build:()Ljava/util/concurrent/ThreadFactory;
+     259: aload_0
+     260: getfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+     263: invokevirtual #48                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getRequestTimerTickDurationMs:()I
+     266: i2l
+     267: getstatic     #49                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     270: aload_0
+     271: getfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+     274: invokevirtual #50                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getRequestTimerNumTicks:()I
+     277: invokespecial #51                 // Method io/netty/util/HashedWheelTimer."<init>":(Ljava/util/concurrent/ThreadFactory;JLjava/util/concurrent/TimeUnit;I)V
+     280: putfield      #52                 // Field requestTimer:Lio/netty/util/HashedWheelTimer;
+     283: aload_0
+     284: getfield      #9                  // Field waitTimeoutOnBackpressureMillis:J
+     287: lconst_0
+     288: lcmp
+     289: ifle          318
+     292: aload_0
+     293: invokestatic  #53                 // Method com/google/common/cache/CacheBuilder.newBuilder:()Lcom/google/common/cache/CacheBuilder;
+     296: aload_0
+     297: getfield      #9                  // Field waitTimeoutOnBackpressureMillis:J
+     300: getstatic     #49                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     303: invokevirtual #54                 // Method com/google/common/cache/CacheBuilder.expireAfterWrite:(JLjava/util/concurrent/TimeUnit;)Lcom/google/common/cache/CacheBuilder;
+     306: invokevirtual #55                 // Method com/google/common/cache/CacheBuilder.build:()Lcom/google/common/cache/Cache;
+     309: invokestatic  #56                 // Method java/util/Optional.of:(Ljava/lang/Object;)Ljava/util/Optional;
+     312: putfield      #57                 // Field blacklistedChannels:Ljava/util/Optional;
+     315: goto          325
+     318: aload_0
+     319: invokestatic  #58                 // Method java/util/Optional.empty:()Ljava/util/Optional;
+     322: putfield      #57                 // Field blacklistedChannels:Ljava/util/Optional;
+     325: aload_1
+     326: invokevirtual #59                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getCloseChannelOnResponseTimeout:()Z
+     329: ifeq          345
+     332: aload_0
+     333: aload_0
+     334: invokedynamic #60,  0             // InvokeDynamic #0:accept:(Lorg/apache/bookkeeper/proto/BookieRequestProcessor;)Ljava/util/function/Consumer;
+     339: putfield      #61                 // Field onResponseTimeout:Ljava/util/function/Consumer;
+     342: goto          354
+     345: aload_0
+     346: invokedynamic #62,  0             // InvokeDynamic #1:accept:()Ljava/util/function/Consumer;
+     351: putfield      #61                 // Field onResponseTimeout:Ljava/util/function/Consumer;
+     354: aload_0
+     355: aload_1
+     356: invokevirtual #63                 // Method org/apache/bookkeeper/conf/ServerConfiguration.isStatisticsEnabled:()Z
+     359: putfield      #2                  // Field statsEnabled:Z
+     362: aload_0
+     363: new           #64                 // class org/apache/bookkeeper/proto/RequestStats
+     366: dup
+     367: aload_3
+     368: invokespecial #65                 // Method org/apache/bookkeeper/proto/RequestStats."<init>":(Lorg/apache/bookkeeper/stats/StatsLogger;)V
+     371: putfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+     374: aload_1
+     375: invokevirtual #67                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMaxAddsInProgressLimit:()I
+     378: istore        6
+     380: aload_0
+     381: iload         6
+     383: ifle          399
+     386: new           #68                 // class java/util/concurrent/Semaphore
+     389: dup
+     390: iload         6
+     392: iconst_1
+     393: invokespecial #69                 // Method java/util/concurrent/Semaphore."<init>":(IZ)V
+     396: goto          400
+     399: aconst_null
+     400: putfield      #70                 // Field addsSemaphore:Ljava/util/concurrent/Semaphore;
+     403: aload_1
+     404: invokevirtual #71                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMaxReadsInProgressLimit:()I
+     407: istore        7
+     409: aload_0
+     410: iload         7
+     412: ifle          428
+     415: new           #68                 // class java/util/concurrent/Semaphore
+     418: dup
+     419: iload         7
+     421: iconst_1
+     422: invokespecial #69                 // Method java/util/concurrent/Semaphore."<init>":(IZ)V
+     425: goto          429
+     428: aconst_null
+     429: putfield      #72                 // Field readsSemaphore:Ljava/util/concurrent/Semaphore;
+     432: return
+
+  protected void onAddRequestStart(io.netty.channel.Channel);
+    Code:
+       0: aload_0
+       1: getfield      #70                 // Field addsSemaphore:Ljava/util/concurrent/Semaphore;
+       4: ifnull        103
+       7: aload_0
+       8: getfield      #70                 // Field addsSemaphore:Ljava/util/concurrent/Semaphore;
+      11: invokevirtual #73                 // Method java/util/concurrent/Semaphore.tryAcquire:()Z
+      14: ifne          103
+      17: invokestatic  #74                 // Method org/apache/bookkeeper/common/util/MathUtils.nowInNano:()J
+      20: lstore_2
+      21: aload_1
+      22: invokeinterface #75,  1           // InterfaceMethod io/netty/channel/Channel.config:()Lio/netty/channel/ChannelConfig;
+      27: iconst_0
+      28: invokeinterface #76,  2           // InterfaceMethod io/netty/channel/ChannelConfig.setAutoRead:(Z)Lio/netty/channel/ChannelConfig;
+      33: pop
+      34: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      37: ldc           #77                 // String Too many add requests in progress, disabling autoread on channel {}
+      39: aload_1
+      40: invokeinterface #78,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      45: aload_0
+      46: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+      49: invokevirtual #79                 // Method org/apache/bookkeeper/proto/RequestStats.blockAddRequest:()V
+      52: aload_0
+      53: getfield      #70                 // Field addsSemaphore:Ljava/util/concurrent/Semaphore;
+      56: invokevirtual #80                 // Method java/util/concurrent/Semaphore.acquireUninterruptibly:()V
+      59: aload_1
+      60: invokeinterface #75,  1           // InterfaceMethod io/netty/channel/Channel.config:()Lio/netty/channel/ChannelConfig;
+      65: iconst_1
+      66: invokeinterface #76,  2           // InterfaceMethod io/netty/channel/ChannelConfig.setAutoRead:(Z)Lio/netty/channel/ChannelConfig;
+      71: pop
+      72: lload_2
+      73: invokestatic  #81                 // Method org/apache/bookkeeper/common/util/MathUtils.elapsedNanos:(J)J
+      76: lstore        4
+      78: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      81: ldc           #82                 // String Re-enabled autoread on channel {} after AddRequest delay of {} nanos
+      83: aload_1
+      84: lload         4
+      86: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      89: invokeinterface #84,  4           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      94: aload_0
+      95: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+      98: lload         4
+     100: invokevirtual #85                 // Method org/apache/bookkeeper/proto/RequestStats.unblockAddRequest:(J)V
+     103: aload_0
+     104: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+     107: invokevirtual #86                 // Method org/apache/bookkeeper/proto/RequestStats.trackAddRequest:()V
+     110: return
+
+  protected void onAddRequestFinish();
+    Code:
+       0: aload_0
+       1: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+       4: invokevirtual #87                 // Method org/apache/bookkeeper/proto/RequestStats.untrackAddRequest:()V
+       7: aload_0
+       8: getfield      #70                 // Field addsSemaphore:Ljava/util/concurrent/Semaphore;
+      11: ifnull        21
+      14: aload_0
+      15: getfield      #70                 // Field addsSemaphore:Ljava/util/concurrent/Semaphore;
+      18: invokevirtual #88                 // Method java/util/concurrent/Semaphore.release:()V
+      21: return
+
+  protected void onReadRequestStart(io.netty.channel.Channel);
+    Code:
+       0: aload_0
+       1: getfield      #72                 // Field readsSemaphore:Ljava/util/concurrent/Semaphore;
+       4: ifnull        103
+       7: aload_0
+       8: getfield      #72                 // Field readsSemaphore:Ljava/util/concurrent/Semaphore;
+      11: invokevirtual #73                 // Method java/util/concurrent/Semaphore.tryAcquire:()Z
+      14: ifne          103
+      17: invokestatic  #74                 // Method org/apache/bookkeeper/common/util/MathUtils.nowInNano:()J
+      20: lstore_2
+      21: aload_1
+      22: invokeinterface #75,  1           // InterfaceMethod io/netty/channel/Channel.config:()Lio/netty/channel/ChannelConfig;
+      27: iconst_0
+      28: invokeinterface #76,  2           // InterfaceMethod io/netty/channel/ChannelConfig.setAutoRead:(Z)Lio/netty/channel/ChannelConfig;
+      33: pop
+      34: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      37: ldc           #89                 // String Too many read requests in progress, disabling autoread on channel {}
+      39: aload_1
+      40: invokeinterface #78,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      45: aload_0
+      46: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+      49: invokevirtual #90                 // Method org/apache/bookkeeper/proto/RequestStats.blockReadRequest:()V
+      52: aload_0
+      53: getfield      #72                 // Field readsSemaphore:Ljava/util/concurrent/Semaphore;
+      56: invokevirtual #80                 // Method java/util/concurrent/Semaphore.acquireUninterruptibly:()V
+      59: aload_1
+      60: invokeinterface #75,  1           // InterfaceMethod io/netty/channel/Channel.config:()Lio/netty/channel/ChannelConfig;
+      65: iconst_1
+      66: invokeinterface #76,  2           // InterfaceMethod io/netty/channel/ChannelConfig.setAutoRead:(Z)Lio/netty/channel/ChannelConfig;
+      71: pop
+      72: lload_2
+      73: invokestatic  #81                 // Method org/apache/bookkeeper/common/util/MathUtils.elapsedNanos:(J)J
+      76: lstore        4
+      78: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      81: ldc           #91                 // String Re-enabled autoread on channel {} after ReadRequest delay of {} nanos
+      83: aload_1
+      84: lload         4
+      86: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      89: invokeinterface #84,  4           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      94: aload_0
+      95: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+      98: lload         4
+     100: invokevirtual #92                 // Method org/apache/bookkeeper/proto/RequestStats.unblockReadRequest:(J)V
+     103: aload_0
+     104: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+     107: invokevirtual #93                 // Method org/apache/bookkeeper/proto/RequestStats.trackReadRequest:()V
+     110: return
+
+  protected void onReadRequestFinish();
+    Code:
+       0: aload_0
+       1: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+       4: invokevirtual #94                 // Method org/apache/bookkeeper/proto/RequestStats.untrackReadRequest:()V
+       7: aload_0
+       8: getfield      #72                 // Field readsSemaphore:Ljava/util/concurrent/Semaphore;
+      11: ifnull        21
+      14: aload_0
+      15: getfield      #72                 // Field readsSemaphore:Ljava/util/concurrent/Semaphore;
+      18: invokevirtual #88                 // Method java/util/concurrent/Semaphore.release:()V
+      21: return
+
+  int maxAddsInProgressCount();
+    Code:
+       0: aload_0
+       1: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+       4: invokevirtual #95                 // Method org/apache/bookkeeper/proto/RequestStats.maxAddsInProgressCount:()I
+       7: ireturn
+
+  int maxReadsInProgressCount();
+    Code:
+       0: aload_0
+       1: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+       4: invokevirtual #96                 // Method org/apache/bookkeeper/proto/RequestStats.maxReadsInProgressCount:()I
+       7: ireturn
+
+  public void close();
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #23                 // Field writeThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+       5: invokespecial #97                 // Method shutdownExecutor:(Lorg/apache/bookkeeper/common/util/OrderedExecutor;)V
+       8: aload_0
+       9: aload_0
+      10: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      13: invokespecial #97                 // Method shutdownExecutor:(Lorg/apache/bookkeeper/common/util/OrderedExecutor;)V
+      16: aload_0
+      17: getfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+      20: invokevirtual #24                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getNumLongPollWorkerThreads:()I
+      23: ifgt          33
+      26: aload_0
+      27: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      30: ifnonnull     41
+      33: aload_0
+      34: aload_0
+      35: getfield      #25                 // Field longPollThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      38: invokespecial #97                 // Method shutdownExecutor:(Lorg/apache/bookkeeper/common/util/OrderedExecutor;)V
+      41: aload_0
+      42: aload_0
+      43: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      46: invokespecial #97                 // Method shutdownExecutor:(Lorg/apache/bookkeeper/common/util/OrderedExecutor;)V
+      49: aload_0
+      50: getfield      #52                 // Field requestTimer:Lio/netty/util/HashedWheelTimer;
+      53: invokevirtual #98                 // Method io/netty/util/HashedWheelTimer.stop:()Ljava/util/Set;
+      56: pop
+      57: return
+
+  private org.apache.bookkeeper.common.util.OrderedExecutor createExecutor(int, java.lang.String, int, org.apache.bookkeeper.stats.StatsLogger);
+    Code:
+       0: iload_1
+       1: ifgt          6
+       4: aconst_null
+       5: areturn
+       6: invokestatic  #99                 // Method org/apache/bookkeeper/common/util/OrderedExecutor.newBuilder:()Lorg/apache/bookkeeper/common/util/OrderedExecutor$Builder;
+       9: iload_1
+      10: invokevirtual #100                // Method org/apache/bookkeeper/common/util/OrderedExecutor$Builder.numThreads:(I)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+      13: aload_2
+      14: invokevirtual #101                // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.name:(Ljava/lang/String;)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+      17: aload_0
+      18: getfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+      21: invokevirtual #102                // Method org/apache/bookkeeper/conf/ServerConfiguration.getEnableTaskExecutionStats:()Z
+      24: invokevirtual #103                // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.traceTaskExecution:(Z)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+      27: aload_0
+      28: getfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+      31: invokevirtual #10                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getPreserveMdcForTaskExecution:()Z
+      34: invokevirtual #104                // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.preserveMdcForTaskExecution:(Z)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+      37: aload         4
+      39: invokevirtual #105                // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.statsLogger:(Lorg/apache/bookkeeper/stats/StatsLogger;)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+      42: iload_3
+      43: invokevirtual #106                // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.maxTasksInQueue:(I)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+      46: invokevirtual #107                // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.build:()Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      49: areturn
+
+  private void shutdownExecutor(org.apache.bookkeeper.common.util.OrderedExecutor);
+    Code:
+       0: aconst_null
+       1: aload_1
+       2: if_acmpeq     9
+       5: aload_1
+       6: invokevirtual #108                // Method org/apache/bookkeeper/common/util/OrderedExecutor.shutdown:()V
+       9: return
+
+  public void processRequest(java.lang.Object, io.netty.channel.Channel);
+    Code:
+       0: aload_1
+       1: instanceof    #109                // class org/apache/bookkeeper/proto/BookkeeperProtocol$Request
+       4: ifeq          315
+       7: aload_1
+       8: checkcast     #109                // class org/apache/bookkeeper/proto/BookkeeperProtocol$Request
+      11: astore_3
+      12: aload_0
+      13: aload_3
+      14: invokespecial #110                // Method restoreMdcContextFromRequest:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;)V
+      17: aload_3
+      18: invokevirtual #111                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getHeader:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;
+      21: astore        4
+      23: getstatic     #112                // Field org/apache/bookkeeper/proto/BookieRequestProcessor$2.$SwitchMap$org$apache$bookkeeper$proto$BookkeeperProtocol$OperationType:[I
+      26: aload         4
+      28: invokevirtual #113                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader.getOperation:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$OperationType;
+      31: invokevirtual #114                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$OperationType.ordinal:()I
+      34: iaload
+      35: tableswitch   { // 1 to 9
+                     1: 84
+                     2: 93
+                     3: 102
+                     4: 111
+                     5: 190
+                     6: 199
+                     7: 208
+                     8: 217
+                     9: 226
+               default: 235
+          }
+      84: aload_0
+      85: aload_3
+      86: aload_2
+      87: invokespecial #115                // Method processAddRequestV3:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;)V
+      90: goto          298
+      93: aload_0
+      94: aload_3
+      95: aload_2
+      96: invokespecial #116                // Method processReadRequestV3:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;)V
+      99: goto          298
+     102: aload_0
+     103: aload_3
+     104: aload_2
+     105: invokespecial #117                // Method processForceLedgerRequestV3:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;)V
+     108: goto          298
+     111: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     114: ldc           #118                // String Ignoring auth operation from client {}
+     116: aload_2
+     117: invokeinterface #119,  1          // InterfaceMethod io/netty/channel/Channel.remoteAddress:()Ljava/net/SocketAddress;
+     122: invokeinterface #78,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     127: invokestatic  #120                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder;
+     130: ldc           #122                // String AuthDisabledPlugin
+     132: invokevirtual #123                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder.setAuthPluginName:(Ljava/lang/String;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder;
+     135: getstatic     #124                // Field org/apache/bookkeeper/auth/AuthToken.NULL:Lorg/apache/bookkeeper/auth/AuthToken;
+     138: invokevirtual #125                // Method org/apache/bookkeeper/auth/AuthToken.getData:()[B
+     141: invokestatic  #126                // Method com/google/protobuf/ByteString.copyFrom:([B)Lcom/google/protobuf/ByteString;
+     144: invokevirtual #127                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder.setPayload:(Lcom/google/protobuf/ByteString;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder;
+     147: invokevirtual #128                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage;
+     150: astore        5
+     152: invokestatic  #129                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     155: aload_3
+     156: invokevirtual #111                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getHeader:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;
+     159: invokevirtual #130                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setHeader:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     162: getstatic     #131                // Field org/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode.EOK:Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     165: invokevirtual #132                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setStatus:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     168: aload         5
+     170: invokevirtual #133                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setAuthResponse:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     173: astore        6
+     175: aload_2
+     176: aload         6
+     178: invokevirtual #134                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response;
+     181: invokeinterface #135,  2          // InterfaceMethod io/netty/channel/Channel.writeAndFlush:(Ljava/lang/Object;)Lio/netty/channel/ChannelFuture;
+     186: pop
+     187: goto          298
+     190: aload_0
+     191: aload_3
+     192: aload_2
+     193: invokespecial #136                // Method processWriteLacRequestV3:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;)V
+     196: goto          298
+     199: aload_0
+     200: aload_3
+     201: aload_2
+     202: invokespecial #137                // Method processReadLacRequestV3:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;)V
+     205: goto          298
+     208: aload_0
+     209: aload_3
+     210: aload_2
+     211: invokespecial #138                // Method processGetBookieInfoRequestV3:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;)V
+     214: goto          298
+     217: aload_0
+     218: aload_3
+     219: aload_2
+     220: invokespecial #139                // Method processStartTLSRequestV3:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;)V
+     223: goto          298
+     226: aload_0
+     227: aload_3
+     228: aload_2
+     229: invokespecial #140                // Method processGetListOfEntriesOfLedgerProcessorV3:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;)V
+     232: goto          298
+     235: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     238: ldc           #141                // String Unknown operation type {}
+     240: aload         4
+     242: invokevirtual #113                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader.getOperation:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$OperationType;
+     245: invokeinterface #78,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     250: invokestatic  #129                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     253: aload_3
+     254: invokevirtual #111                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getHeader:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;
+     257: invokevirtual #130                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setHeader:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     260: getstatic     #142                // Field org/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode.EBADREQ:Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     263: invokevirtual #132                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setStatus:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     266: astore        7
+     268: aload_2
+     269: aload         7
+     271: invokevirtual #134                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response;
+     274: invokeinterface #135,  2          // InterfaceMethod io/netty/channel/Channel.writeAndFlush:(Ljava/lang/Object;)Lio/netty/channel/ChannelFuture;
+     279: pop
+     280: aload_0
+     281: getfield      #2                  // Field statsEnabled:Z
+     284: ifeq          298
+     287: aload_0
+     288: getfield      #1                  // Field bkStats:Lorg/apache/bookkeeper/proto/BKStats;
+     291: iconst_2
+     292: invokevirtual #144                // Method org/apache/bookkeeper/proto/BKStats.getOpStats:(I)Lorg/apache/bookkeeper/proto/BKStats$OpStats;
+     295: invokevirtual #145                // Method org/apache/bookkeeper/proto/BKStats$OpStats.incrementFailedOps:()V
+     298: invokestatic  #146                // Method org/slf4j/MDC.clear:()V
+     301: goto          312
+     304: astore        8
+     306: invokestatic  #146                // Method org/slf4j/MDC.clear:()V
+     309: aload         8
+     311: athrow
+     312: goto          499
+     315: aload_1
+     316: checkcast     #147                // class org/apache/bookkeeper/proto/BookieProtocol$Request
+     319: astore_3
+     320: aload_3
+     321: invokevirtual #148                // Method org/apache/bookkeeper/proto/BookieProtocol$Request.getOpCode:()B
+     324: tableswitch   { // 1 to 3
+                     1: 352
+                     2: 371
+                     3: 390
+               default: 451
+          }
+     352: aload_3
+     353: instanceof    #149                // class org/apache/bookkeeper/proto/BookieProtocol$ParsedAddRequest
+     356: invokestatic  #150                // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+     359: aload_0
+     360: aload_3
+     361: checkcast     #149                // class org/apache/bookkeeper/proto/BookieProtocol$ParsedAddRequest
+     364: aload_2
+     365: invokespecial #151                // Method processAddRequest:(Lorg/apache/bookkeeper/proto/BookieProtocol$ParsedAddRequest;Lio/netty/channel/Channel;)V
+     368: goto          499
+     371: aload_3
+     372: instanceof    #152                // class org/apache/bookkeeper/proto/BookieProtocol$ReadRequest
+     375: invokestatic  #150                // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+     378: aload_0
+     379: aload_3
+     380: checkcast     #152                // class org/apache/bookkeeper/proto/BookieProtocol$ReadRequest
+     383: aload_2
+     384: invokespecial #153                // Method processReadRequest:(Lorg/apache/bookkeeper/proto/BookieProtocol$ReadRequest;Lio/netty/channel/Channel;)V
+     387: goto          499
+     390: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     393: ldc           #118                // String Ignoring auth operation from client {}
+     395: aload_2
+     396: invokeinterface #119,  1          // InterfaceMethod io/netty/channel/Channel.remoteAddress:()Ljava/net/SocketAddress;
+     401: invokeinterface #78,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     406: invokestatic  #120                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder;
+     409: ldc           #122                // String AuthDisabledPlugin
+     411: invokevirtual #123                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder.setAuthPluginName:(Ljava/lang/String;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder;
+     414: getstatic     #124                // Field org/apache/bookkeeper/auth/AuthToken.NULL:Lorg/apache/bookkeeper/auth/AuthToken;
+     417: invokevirtual #125                // Method org/apache/bookkeeper/auth/AuthToken.getData:()[B
+     420: invokestatic  #126                // Method com/google/protobuf/ByteString.copyFrom:([B)Lcom/google/protobuf/ByteString;
+     423: invokevirtual #127                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder.setPayload:(Lcom/google/protobuf/ByteString;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder;
+     426: invokevirtual #128                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage;
+     429: astore        4
+     431: aload_2
+     432: new           #154                // class org/apache/bookkeeper/proto/BookieProtocol$AuthResponse
+     435: dup
+     436: iconst_2
+     437: aload         4
+     439: invokespecial #156                // Method org/apache/bookkeeper/proto/BookieProtocol$AuthResponse."<init>":(BLorg/apache/bookkeeper/proto/BookkeeperProtocol$AuthMessage;)V
+     442: invokeinterface #135,  2          // InterfaceMethod io/netty/channel/Channel.writeAndFlush:(Ljava/lang/Object;)Lio/netty/channel/ChannelFuture;
+     447: pop
+     448: goto          499
+     451: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     454: ldc           #157                // String Unknown op type {}, sending error
+     456: aload_3
+     457: invokevirtual #148                // Method org/apache/bookkeeper/proto/BookieProtocol$Request.getOpCode:()B
+     460: invokestatic  #158                // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;
+     463: invokeinterface #159,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;)V
+     468: aload_2
+     469: bipush        100
+     471: aload_3
+     472: invokestatic  #160                // Method org/apache/bookkeeper/proto/ResponseBuilder.buildErrorResponse:(ILorg/apache/bookkeeper/proto/BookieProtocol$Request;)Lorg/apache/bookkeeper/proto/BookieProtocol$Response;
+     475: invokeinterface #135,  2          // InterfaceMethod io/netty/channel/Channel.writeAndFlush:(Ljava/lang/Object;)Lio/netty/channel/ChannelFuture;
+     480: pop
+     481: aload_0
+     482: getfield      #2                  // Field statsEnabled:Z
+     485: ifeq          499
+     488: aload_0
+     489: getfield      #1                  // Field bkStats:Lorg/apache/bookkeeper/proto/BKStats;
+     492: iconst_2
+     493: invokevirtual #144                // Method org/apache/bookkeeper/proto/BKStats.getOpStats:(I)Lorg/apache/bookkeeper/proto/BKStats$OpStats;
+     496: invokevirtual #145                // Method org/apache/bookkeeper/proto/BKStats$OpStats.incrementFailedOps:()V
+     499: return
+    Exception table:
+       from    to  target type
+          17   298   304   any
+         304   306   304   any
+
+  private void restoreMdcContextFromRequest(org.apache.bookkeeper.proto.BookkeeperProtocol$Request);
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field preserveMdcForTaskExecution:Z
+       4: ifeq          53
+       7: invokestatic  #146                // Method org/slf4j/MDC.clear:()V
+      10: aload_1
+      11: invokevirtual #161                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getRequestContextList:()Ljava/util/List;
+      14: invokeinterface #162,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      19: astore_2
+      20: aload_2
+      21: invokeinterface #163,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      26: ifeq          53
+      29: aload_2
+      30: invokeinterface #164,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      35: checkcast     #165                // class org/apache/bookkeeper/proto/BookkeeperProtocol$ContextPair
+      38: astore_3
+      39: aload_3
+      40: invokevirtual #166                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ContextPair.getKey:()Ljava/lang/String;
+      43: aload_3
+      44: invokevirtual #167                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ContextPair.getValue:()Ljava/lang/String;
+      47: invokestatic  #168                // Method org/slf4j/MDC.put:(Ljava/lang/String;Ljava/lang/String;)V
+      50: goto          20
+      53: return
+
+  private void processWriteLacRequestV3(org.apache.bookkeeper.proto.BookkeeperProtocol$Request, io.netty.channel.Channel);
+    Code:
+       0: new           #169                // class org/apache/bookkeeper/proto/WriteLacProcessorV3
+       3: dup
+       4: aload_1
+       5: aload_2
+       6: aload_0
+       7: invokespecial #170                // Method org/apache/bookkeeper/proto/WriteLacProcessorV3."<init>":(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;Lorg/apache/bookkeeper/proto/BookieRequestProcessor;)V
+      10: astore_3
+      11: aconst_null
+      12: aload_0
+      13: getfield      #23                 // Field writeThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      16: if_acmpne     26
+      19: aload_3
+      20: invokevirtual #171                // Method org/apache/bookkeeper/proto/WriteLacProcessorV3.run:()V
+      23: goto          41
+      26: aload_0
+      27: getfield      #23                 // Field writeThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      30: aload_1
+      31: invokevirtual #172                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getAddRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest;
+      34: invokevirtual #173                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest.getLedgerId:()J
+      37: aload_3
+      38: invokevirtual #174                // Method org/apache/bookkeeper/common/util/OrderedExecutor.executeOrdered:(JLorg/apache/bookkeeper/common/util/SafeRunnable;)V
+      41: return
+
+  private void processReadLacRequestV3(org.apache.bookkeeper.proto.BookkeeperProtocol$Request, io.netty.channel.Channel);
+    Code:
+       0: new           #175                // class org/apache/bookkeeper/proto/ReadLacProcessorV3
+       3: dup
+       4: aload_1
+       5: aload_2
+       6: aload_0
+       7: invokespecial #176                // Method org/apache/bookkeeper/proto/ReadLacProcessorV3."<init>":(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;Lorg/apache/bookkeeper/proto/BookieRequestProcessor;)V
+      10: astore_3
+      11: aconst_null
+      12: aload_0
+      13: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      16: if_acmpne     26
+      19: aload_3
+      20: invokevirtual #177                // Method org/apache/bookkeeper/proto/ReadLacProcessorV3.run:()V
+      23: goto          41
+      26: aload_0
+      27: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      30: aload_1
+      31: invokevirtual #172                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getAddRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest;
+      34: invokevirtual #173                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest.getLedgerId:()J
+      37: aload_3
+      38: invokevirtual #174                // Method org/apache/bookkeeper/common/util/OrderedExecutor.executeOrdered:(JLorg/apache/bookkeeper/common/util/SafeRunnable;)V
+      41: return
+
+  private void processAddRequestV3(org.apache.bookkeeper.proto.BookkeeperProtocol$Request, io.netty.channel.Channel);
+    Code:
+       0: new           #178                // class org/apache/bookkeeper/proto/WriteEntryProcessorV3
+       3: dup
+       4: aload_1
+       5: aload_2
+       6: aload_0
+       7: invokespecial #179                // Method org/apache/bookkeeper/proto/WriteEntryProcessorV3."<init>":(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;Lorg/apache/bookkeeper/proto/BookieRequestProcessor;)V
+      10: astore_3
+      11: aload_1
+      12: invokestatic  #180                // Method org/apache/bookkeeper/proto/RequestUtils.isHighPriority:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;)Z
+      15: ifeq          27
+      18: aload_0
+      19: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      22: astore        4
+      24: goto          33
+      27: aload_0
+      28: getfield      #23                 // Field writeThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      31: astore        4
+      33: aconst_null
+      34: aload         4
+      36: if_acmpne     46
+      39: aload_3
+      40: invokevirtual #181                // Method org/apache/bookkeeper/proto/WriteEntryProcessorV3.run:()V
+      43: goto          186
+      46: aload         4
+      48: aload_1
+      49: invokevirtual #172                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getAddRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest;
+      52: invokevirtual #173                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest.getLedgerId:()J
+      55: aload_3
+      56: invokevirtual #174                // Method org/apache/bookkeeper/common/util/OrderedExecutor.executeOrdered:(JLorg/apache/bookkeeper/common/util/SafeRunnable;)V
+      59: goto          186
+      62: astore        5
+      64: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      67: invokeinterface #183,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      72: ifeq          105
+      75: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      78: ldc           #184                // String Failed to process request to add entry at {}:{}. Too many pending requests
+      80: aload_1
+      81: invokevirtual #172                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getAddRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest;
+      84: invokevirtual #173                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest.getLedgerId:()J
+      87: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      90: aload_1
+      91: invokevirtual #172                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getAddRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest;
+      94: invokevirtual #185                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest.getEntryId:()J
+      97: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     100: invokeinterface #186,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     105: invokestatic  #187                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse$Builder;
+     108: aload_1
+     109: invokevirtual #172                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getAddRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest;
+     112: invokevirtual #173                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest.getLedgerId:()J
+     115: invokevirtual #188                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse$Builder.setLedgerId:(J)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse$Builder;
+     118: aload_1
+     119: invokevirtual #172                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getAddRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest;
+     122: invokevirtual #185                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddRequest.getEntryId:()J
+     125: invokevirtual #189                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse$Builder.setEntryId:(J)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse$Builder;
+     128: getstatic     #190                // Field org/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode.ETOOMANYREQUESTS:Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     131: invokevirtual #191                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse$Builder.setStatus:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse$Builder;
+     134: astore        6
+     136: invokestatic  #129                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     139: aload_3
+     140: invokevirtual #192                // Method org/apache/bookkeeper/proto/WriteEntryProcessorV3.getHeader:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;
+     143: invokevirtual #130                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setHeader:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     146: aload         6
+     148: invokevirtual #193                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse$Builder.getStatus:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     151: invokevirtual #132                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setStatus:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     154: aload         6
+     156: invokevirtual #194                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setAddResponse:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse$Builder;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     159: astore        7
+     161: aload         7
+     163: invokevirtual #134                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response;
+     166: astore        8
+     168: aload_3
+     169: aload         6
+     171: invokevirtual #193                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$AddResponse$Builder.getStatus:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     174: aload         8
+     176: aload_0
+     177: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+     180: invokevirtual #195                // Method org/apache/bookkeeper/proto/RequestStats.getAddRequestStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     183: invokevirtual #196                // Method org/apache/bookkeeper/proto/WriteEntryProcessorV3.sendResponse:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;Ljava/lang/Object;Lorg/apache/bookkeeper/stats/OpStatsLogger;)V
+     186: return
+    Exception table:
+       from    to  target type
+          46    59    62   Class java/util/concurrent/RejectedExecutionException
+
+  private void processForceLedgerRequestV3(org.apache.bookkeeper.proto.BookkeeperProtocol$Request, io.netty.channel.Channel);
+    Code:
+       0: new           #197                // class org/apache/bookkeeper/proto/ForceLedgerProcessorV3
+       3: dup
+       4: aload_1
+       5: aload_2
+       6: aload_0
+       7: invokespecial #198                // Method org/apache/bookkeeper/proto/ForceLedgerProcessorV3."<init>":(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;Lorg/apache/bookkeeper/proto/BookieRequestProcessor;)V
+      10: astore_3
+      11: aload_1
+      12: invokestatic  #180                // Method org/apache/bookkeeper/proto/RequestUtils.isHighPriority:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;)Z
+      15: ifeq          27
+      18: aload_0
+      19: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      22: astore        4
+      24: goto          33
+      27: aload_0
+      28: getfield      #23                 // Field writeThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      31: astore        4
+      33: aconst_null
+      34: aload         4
+      36: if_acmpne     46
+      39: aload_3
+      40: invokevirtual #199                // Method org/apache/bookkeeper/proto/ForceLedgerProcessorV3.run:()V
+      43: goto          166
+      46: aload         4
+      48: aload_1
+      49: invokevirtual #200                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getForceLedgerRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerRequest;
+      52: invokevirtual #201                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerRequest.getLedgerId:()J
+      55: aload_3
+      56: invokevirtual #174                // Method org/apache/bookkeeper/common/util/OrderedExecutor.executeOrdered:(JLorg/apache/bookkeeper/common/util/SafeRunnable;)V
+      59: goto          166
+      62: astore        5
+      64: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      67: invokeinterface #183,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      72: ifeq          95
+      75: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      78: ldc           #202                // String Failed to process request to force ledger {}. Too many pending requests
+      80: aload_1
+      81: invokevirtual #200                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getForceLedgerRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerRequest;
+      84: invokevirtual #201                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerRequest.getLedgerId:()J
+      87: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      90: invokeinterface #203,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      95: invokestatic  #204                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerResponse.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerResponse$Builder;
+      98: aload_1
+      99: invokevirtual #200                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getForceLedgerRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerRequest;
+     102: invokevirtual #201                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerRequest.getLedgerId:()J
+     105: invokevirtual #205                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerResponse$Builder.setLedgerId:(J)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerResponse$Builder;
+     108: getstatic     #190                // Field org/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode.ETOOMANYREQUESTS:Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     111: invokevirtual #206                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerResponse$Builder.setStatus:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerResponse$Builder;
+     114: astore        6
+     116: invokestatic  #129                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     119: aload_3
+     120: invokevirtual #207                // Method org/apache/bookkeeper/proto/ForceLedgerProcessorV3.getHeader:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;
+     123: invokevirtual #130                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setHeader:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     126: aload         6
+     128: invokevirtual #208                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerResponse$Builder.getStatus:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     131: invokevirtual #132                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setStatus:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     134: aload         6
+     136: invokevirtual #209                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setForceLedgerResponse:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerResponse$Builder;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     139: astore        7
+     141: aload         7
+     143: invokevirtual #134                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response;
+     146: astore        8
+     148: aload_3
+     149: aload         6
+     151: invokevirtual #208                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ForceLedgerResponse$Builder.getStatus:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     154: aload         8
+     156: aload_0
+     157: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+     160: invokevirtual #210                // Method org/apache/bookkeeper/proto/RequestStats.getForceLedgerRequestStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     163: invokevirtual #211                // Method org/apache/bookkeeper/proto/ForceLedgerProcessorV3.sendResponse:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;Ljava/lang/Object;Lorg/apache/bookkeeper/stats/OpStatsLogger;)V
+     166: return
+    Exception table:
+       from    to  target type
+          46    59    62   Class java/util/concurrent/RejectedExecutionException
+
+  private void processReadRequestV3(org.apache.bookkeeper.proto.BookkeeperProtocol$Request, io.netty.channel.Channel);
+    Code:
+       0: aconst_null
+       1: aload_0
+       2: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+       5: if_acmpne     12
+       8: aconst_null
+       9: goto          20
+      12: aload_0
+      13: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      16: aload_2
+      17: invokevirtual #212                // Method org/apache/bookkeeper/common/util/OrderedExecutor.chooseThread:(Ljava/lang/Object;)Ljava/util/concurrent/ExecutorService;
+      20: astore_3
+      21: aload_1
+      22: invokevirtual #213                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getReadRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest;
+      25: invokestatic  #214                // Method org/apache/bookkeeper/proto/RequestUtils.isLongPollReadRequest:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest;)Z
+      28: ifeq          69
+      31: aload_0
+      32: getfield      #25                 // Field longPollThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      35: aload_2
+      36: invokevirtual #212                // Method org/apache/bookkeeper/common/util/OrderedExecutor.chooseThread:(Ljava/lang/Object;)Ljava/util/concurrent/ExecutorService;
+      39: astore        6
+      41: new           #215                // class org/apache/bookkeeper/proto/LongPollReadEntryProcessorV3
+      44: dup
+      45: aload_1
+      46: aload_2
+      47: aload_0
+      48: aload_3
+      49: aload         6
+      51: aload_0
+      52: getfield      #52                 // Field requestTimer:Lio/netty/util/HashedWheelTimer;
+      55: invokespecial #216                // Method org/apache/bookkeeper/proto/LongPollReadEntryProcessorV3."<init>":(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;Lorg/apache/bookkeeper/proto/BookieRequestProcessor;Ljava/util/concurrent/ExecutorService;Ljava/util/concurrent/ExecutorService;Lio/netty/util/HashedWheelTimer;)V
+      58: astore        4
+      60: aload_0
+      61: getfield      #25                 // Field longPollThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      64: astore        5
+      66: goto          129
+      69: new           #217                // class org/apache/bookkeeper/proto/ReadEntryProcessorV3
+      72: dup
+      73: aload_1
+      74: aload_2
+      75: aload_0
+      76: aload_3
+      77: invokespecial #218                // Method org/apache/bookkeeper/proto/ReadEntryProcessorV3."<init>":(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;Lorg/apache/bookkeeper/proto/BookieRequestProcessor;Ljava/util/concurrent/ExecutorService;)V
+      80: astore        4
+      82: aload_1
+      83: invokestatic  #180                // Method org/apache/bookkeeper/proto/RequestUtils.isHighPriority:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;)Z
+      86: ifne          102
+      89: aload_1
+      90: invokevirtual #213                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getReadRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest;
+      93: getstatic     #219                // Field org/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest$Flag.FENCE_LEDGER:Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest$Flag;
+      96: invokestatic  #220                // Method org/apache/bookkeeper/proto/RequestUtils.hasFlag:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest;Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest$Flag;)Z
+      99: ifeq          106
+     102: iconst_1
+     103: goto          107
+     106: iconst_0
+     107: istore        6
+     109: iload         6
+     111: ifeq          123
+     114: aload_0
+     115: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     118: astore        5
+     120: goto          129
+     123: aload_0
+     124: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     127: astore        5
+     129: aconst_null
+     130: aload         5
+     132: if_acmpne     143
+     135: aload         4
+     137: invokevirtual #221                // Method org/apache/bookkeeper/proto/ReadEntryProcessorV3.run:()V
+     140: goto          286
+     143: aload         5
+     145: aload_1
+     146: invokevirtual #213                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getReadRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest;
+     149: invokevirtual #222                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest.getLedgerId:()J
+     152: aload         4
+     154: invokevirtual #174                // Method org/apache/bookkeeper/common/util/OrderedExecutor.executeOrdered:(JLorg/apache/bookkeeper/common/util/SafeRunnable;)V
+     157: goto          286
+     160: astore        6
+     162: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     165: invokeinterface #183,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     170: ifeq          203
+     173: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     176: ldc           #223                // String Failed to process request to read entry at {}:{}. Too many pending requests
+     178: aload_1
+     179: invokevirtual #213                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getReadRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest;
+     182: invokevirtual #222                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest.getLedgerId:()J
+     185: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     188: aload_1
+     189: invokevirtual #213                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getReadRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest;
+     192: invokevirtual #224                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest.getEntryId:()J
+     195: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     198: invokeinterface #186,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     203: invokestatic  #225                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse$Builder;
+     206: aload_1
+     207: invokevirtual #213                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getReadRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest;
+     210: invokevirtual #222                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest.getLedgerId:()J
+     213: invokevirtual #226                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse$Builder.setLedgerId:(J)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse$Builder;
+     216: aload_1
+     217: invokevirtual #213                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getReadRequest:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest;
+     220: invokevirtual #224                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadRequest.getEntryId:()J
+     223: invokevirtual #227                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse$Builder.setEntryId:(J)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse$Builder;
+     226: getstatic     #190                // Field org/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode.ETOOMANYREQUESTS:Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     229: invokevirtual #228                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse$Builder.setStatus:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse$Builder;
+     232: astore        7
+     234: invokestatic  #129                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     237: aload         4
+     239: invokevirtual #229                // Method org/apache/bookkeeper/proto/ReadEntryProcessorV3.getHeader:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;
+     242: invokevirtual #130                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setHeader:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     245: aload         7
+     247: invokevirtual #230                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse$Builder.getStatus:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     250: invokevirtual #132                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setStatus:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     253: aload         7
+     255: invokevirtual #231                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setReadResponse:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse$Builder;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     258: astore        8
+     260: aload         8
+     262: invokevirtual #134                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response;
+     265: astore        9
+     267: aload         4
+     269: aload         7
+     271: invokevirtual #230                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$ReadResponse$Builder.getStatus:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     274: aload         9
+     276: aload_0
+     277: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+     280: invokevirtual #232                // Method org/apache/bookkeeper/proto/RequestStats.getReadRequestStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     283: invokevirtual #233                // Method org/apache/bookkeeper/proto/ReadEntryProcessorV3.sendResponse:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;Ljava/lang/Object;Lorg/apache/bookkeeper/stats/OpStatsLogger;)V
+     286: return
+    Exception table:
+       from    to  target type
+         143   157   160   Class java/util/concurrent/RejectedExecutionException
+
+  private void processStartTLSRequestV3(org.apache.bookkeeper.proto.BookkeeperProtocol$Request, io.netty.channel.Channel);
+    Code:
+       0: invokestatic  #129                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+       3: astore_3
+       4: invokestatic  #234                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader$Builder;
+       7: astore        4
+       9: aload         4
+      11: getstatic     #235                // Field org/apache/bookkeeper/proto/BookkeeperProtocol$ProtocolVersion.VERSION_THREE:Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ProtocolVersion;
+      14: invokevirtual #236                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader$Builder.setVersion:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$ProtocolVersion;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader$Builder;
+      17: pop
+      18: aload         4
+      20: aload_1
+      21: invokevirtual #111                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getHeader:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;
+      24: invokevirtual #113                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader.getOperation:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$OperationType;
+      27: invokevirtual #237                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader$Builder.setOperation:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$OperationType;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader$Builder;
+      30: pop
+      31: aload         4
+      33: aload_1
+      34: invokevirtual #111                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Request.getHeader:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;
+      37: invokevirtual #238                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader.getTxnId:()J
+      40: invokevirtual #239                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader$Builder.setTxnId:(J)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader$Builder;
+      43: pop
+      44: aload_3
+      45: aload         4
+      47: invokevirtual #240                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;
+      50: invokevirtual #130                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setHeader:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$BKPacketHeader;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+      53: pop
+      54: aload_0
+      55: getfield      #39                 // Field shFactory:Lorg/apache/bookkeeper/tls/SecurityHandlerFactory;
+      58: ifnonnull     93
+      61: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      64: ldc           #241                // String Got StartTLS request but TLS not configured
+      66: invokeinterface #242,  2          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      71: aload_3
+      72: getstatic     #142                // Field org/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode.EBADREQ:Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+      75: invokevirtual #132                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setStatus:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+      78: pop
+      79: aload_2
+      80: aload_3
+      81: invokevirtual #134                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response;
+      84: invokeinterface #135,  2          // InterfaceMethod io/netty/channel/Channel.writeAndFlush:(Ljava/lang/Object;)Lio/netty/channel/ChannelFuture;
+      89: pop
+      90: goto          177
+      93: aload_0
+      94: getfield      #39                 // Field shFactory:Lorg/apache/bookkeeper/tls/SecurityHandlerFactory;
+      97: invokeinterface #243,  1          // InterfaceMethod org/apache/bookkeeper/tls/SecurityHandlerFactory.newTLSHandler:()Lio/netty/handler/ssl/SslHandler;
+     102: astore        5
+     104: aload_2
+     105: invokeinterface #244,  1          // InterfaceMethod io/netty/channel/Channel.pipeline:()Lio/netty/channel/ChannelPipeline;
+     110: ldc           #245                // String tls
+     112: aload         5
+     114: invokeinterface #246,  3          // InterfaceMethod io/netty/channel/ChannelPipeline.addFirst:(Ljava/lang/String;Lio/netty/channel/ChannelHandler;)Lio/netty/channel/ChannelPipeline;
+     119: pop
+     120: aload_3
+     121: getstatic     #131                // Field org/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode.EOK:Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;
+     124: invokevirtual #132                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setStatus:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StatusCode;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     127: pop
+     128: invokestatic  #247                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$StartTLSResponse.newBuilder:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StartTLSResponse$Builder;
+     131: astore        6
+     133: aload_3
+     134: aload         6
+     136: invokevirtual #248                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$StartTLSResponse$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StartTLSResponse;
+     139: invokevirtual #249                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.setStartTLSResponse:(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$StartTLSResponse;)Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder;
+     142: pop
+     143: aload         5
+     145: invokevirtual #250                // Method io/netty/handler/ssl/SslHandler.handshakeFuture:()Lio/netty/util/concurrent/Future;
+     148: new           #251                // class org/apache/bookkeeper/proto/BookieRequestProcessor$1
+     151: dup
+     152: aload_0
+     153: aload_2
+     154: aload         5
+     156: aload_1
+     157: invokespecial #252                // Method org/apache/bookkeeper/proto/BookieRequestProcessor$1."<init>":(Lorg/apache/bookkeeper/proto/BookieRequestProcessor;Lio/netty/channel/Channel;Lio/netty/handler/ssl/SslHandler;Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;)V
+     160: invokeinterface #253,  2          // InterfaceMethod io/netty/util/concurrent/Future.addListener:(Lio/netty/util/concurrent/GenericFutureListener;)Lio/netty/util/concurrent/Future;
+     165: pop
+     166: aload_2
+     167: aload_3
+     168: invokevirtual #134                // Method org/apache/bookkeeper/proto/BookkeeperProtocol$Response$Builder.build:()Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Response;
+     171: invokeinterface #135,  2          // InterfaceMethod io/netty/channel/Channel.writeAndFlush:(Ljava/lang/Object;)Lio/netty/channel/ChannelFuture;
+     176: pop
+     177: return
+
+  private void processGetBookieInfoRequestV3(org.apache.bookkeeper.proto.BookkeeperProtocol$Request, io.netty.channel.Channel);
+    Code:
+       0: new           #254                // class org/apache/bookkeeper/proto/GetBookieInfoProcessorV3
+       3: dup
+       4: aload_1
+       5: aload_2
+       6: aload_0
+       7: invokespecial #255                // Method org/apache/bookkeeper/proto/GetBookieInfoProcessorV3."<init>":(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;Lorg/apache/bookkeeper/proto/BookieRequestProcessor;)V
+      10: astore_3
+      11: aconst_null
+      12: aload_0
+      13: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      16: if_acmpne     26
+      19: aload_3
+      20: invokevirtual #256                // Method org/apache/bookkeeper/proto/GetBookieInfoProcessorV3.run:()V
+      23: goto          35
+      26: aload_0
+      27: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      30: aload_3
+      31: invokevirtual #257                // Method org/apache/bookkeeper/common/util/OrderedExecutor.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+      34: pop
+      35: return
+
+  private void processGetListOfEntriesOfLedgerProcessorV3(org.apache.bookkeeper.proto.BookkeeperProtocol$Request, io.netty.channel.Channel);
+    Code:
+       0: new           #258                // class org/apache/bookkeeper/proto/GetListOfEntriesOfLedgerProcessorV3
+       3: dup
+       4: aload_1
+       5: aload_2
+       6: aload_0
+       7: invokespecial #259                // Method org/apache/bookkeeper/proto/GetListOfEntriesOfLedgerProcessorV3."<init>":(Lorg/apache/bookkeeper/proto/BookkeeperProtocol$Request;Lio/netty/channel/Channel;Lorg/apache/bookkeeper/proto/BookieRequestProcessor;)V
+      10: astore_3
+      11: aconst_null
+      12: aload_0
+      13: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      16: if_acmpne     26
+      19: aload_3
+      20: invokevirtual #260                // Method org/apache/bookkeeper/proto/GetListOfEntriesOfLedgerProcessorV3.run:()V
+      23: goto          35
+      26: aload_0
+      27: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      30: aload_3
+      31: invokevirtual #257                // Method org/apache/bookkeeper/common/util/OrderedExecutor.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+      34: pop
+      35: return
+
+  private void processAddRequest(org.apache.bookkeeper.proto.BookieProtocol$ParsedAddRequest, io.netty.channel.Channel);
+    Code:
+       0: aload_1
+       1: aload_2
+       2: aload_0
+       3: invokestatic  #261                // Method org/apache/bookkeeper/proto/WriteEntryProcessor.create:(Lorg/apache/bookkeeper/proto/BookieProtocol$ParsedAddRequest;Lio/netty/channel/Channel;Lorg/apache/bookkeeper/proto/BookieRequestProcessor;)Lorg/apache/bookkeeper/proto/WriteEntryProcessor;
+       6: astore_3
+       7: aload_1
+       8: invokevirtual #262                // Method org/apache/bookkeeper/proto/BookieProtocol$ParsedAddRequest.isHighPriority:()Z
+      11: ifeq          23
+      14: aload_0
+      15: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      18: astore        4
+      20: goto          29
+      23: aload_0
+      24: getfield      #23                 // Field writeThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      27: astore        4
+      29: aconst_null
+      30: aload         4
+      32: if_acmpne     42
+      35: aload_3
+      36: invokevirtual #263                // Method org/apache/bookkeeper/proto/WriteEntryProcessor.run:()V
+      39: goto          111
+      42: aload         4
+      44: aload_1
+      45: invokevirtual #264                // Method org/apache/bookkeeper/proto/BookieProtocol$ParsedAddRequest.getLedgerId:()J
+      48: aload_3
+      49: invokevirtual #174                // Method org/apache/bookkeeper/common/util/OrderedExecutor.executeOrdered:(JLorg/apache/bookkeeper/common/util/SafeRunnable;)V
+      52: goto          111
+      55: astore        5
+      57: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      60: invokeinterface #183,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      65: ifeq          92
+      68: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      71: ldc           #184                // String Failed to process request to add entry at {}:{}. Too many pending requests
+      73: aload_1
+      74: getfield      #265                // Field org/apache/bookkeeper/proto/BookieProtocol$ParsedAddRequest.ledgerId:J
+      77: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      80: aload_1
+      81: getfield      #266                // Field org/apache/bookkeeper/proto/BookieProtocol$ParsedAddRequest.entryId:J
+      84: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      87: invokeinterface #186,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      92: aload_3
+      93: bipush        106
+      95: bipush        106
+      97: aload_1
+      98: invokestatic  #160                // Method org/apache/bookkeeper/proto/ResponseBuilder.buildErrorResponse:(ILorg/apache/bookkeeper/proto/BookieProtocol$Request;)Lorg/apache/bookkeeper/proto/BookieProtocol$Response;
+     101: aload_0
+     102: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+     105: invokevirtual #195                // Method org/apache/bookkeeper/proto/RequestStats.getAddRequestStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     108: invokevirtual #267                // Method org/apache/bookkeeper/proto/WriteEntryProcessor.sendResponse:(ILjava/lang/Object;Lorg/apache/bookkeeper/stats/OpStatsLogger;)V
+     111: return
+    Exception table:
+       from    to  target type
+          42    52    55   Class java/util/concurrent/RejectedExecutionException
+
+  private void processReadRequest(org.apache.bookkeeper.proto.BookieProtocol$ReadRequest, io.netty.channel.Channel);
+    Code:
+       0: aconst_null
+       1: aload_0
+       2: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+       5: if_acmpne     12
+       8: aconst_null
+       9: goto          20
+      12: aload_0
+      13: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      16: aload_2
+      17: invokevirtual #212                // Method org/apache/bookkeeper/common/util/OrderedExecutor.chooseThread:(Ljava/lang/Object;)Ljava/util/concurrent/ExecutorService;
+      20: astore_3
+      21: aload_1
+      22: aload_2
+      23: aload_0
+      24: aload_3
+      25: aload_0
+      26: getfield      #14                 // Field throttleReadResponses:Z
+      29: invokestatic  #268                // Method org/apache/bookkeeper/proto/ReadEntryProcessor.create:(Lorg/apache/bookkeeper/proto/BookieProtocol$ReadRequest;Lio/netty/channel/Channel;Lorg/apache/bookkeeper/proto/BookieRequestProcessor;Ljava/util/concurrent/ExecutorService;Z)Lorg/apache/bookkeeper/proto/ReadEntryProcessor;
+      32: astore        4
+      34: aload_1
+      35: invokevirtual #269                // Method org/apache/bookkeeper/proto/BookieProtocol$ReadRequest.isHighPriority:()Z
+      38: ifne          48
+      41: aload_1
+      42: invokevirtual #270                // Method org/apache/bookkeeper/proto/BookieProtocol$ReadRequest.isFencing:()Z
+      45: ifeq          57
+      48: aload_0
+      49: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      52: astore        5
+      54: goto          63
+      57: aload_0
+      58: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      61: astore        5
+      63: aconst_null
+      64: aload         5
+      66: if_acmpne     77
+      69: aload         4
+      71: invokevirtual #271                // Method org/apache/bookkeeper/proto/ReadEntryProcessor.run:()V
+      74: goto          148
+      77: aload         5
+      79: aload_1
+      80: invokevirtual #272                // Method org/apache/bookkeeper/proto/BookieProtocol$ReadRequest.getLedgerId:()J
+      83: aload         4
+      85: invokevirtual #174                // Method org/apache/bookkeeper/common/util/OrderedExecutor.executeOrdered:(JLorg/apache/bookkeeper/common/util/SafeRunnable;)V
+      88: goto          148
+      91: astore        6
+      93: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      96: invokeinterface #183,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     101: ifeq          128
+     104: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     107: ldc           #223                // String Failed to process request to read entry at {}:{}. Too many pending requests
+     109: aload_1
+     110: getfield      #273                // Field org/apache/bookkeeper/proto/BookieProtocol$ReadRequest.ledgerId:J
+     113: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     116: aload_1
+     117: getfield      #274                // Field org/apache/bookkeeper/proto/BookieProtocol$ReadRequest.entryId:J
+     120: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     123: invokeinterface #186,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     128: aload         4
+     130: bipush        106
+     132: bipush        106
+     134: aload_1
+     135: invokestatic  #160                // Method org/apache/bookkeeper/proto/ResponseBuilder.buildErrorResponse:(ILorg/apache/bookkeeper/proto/BookieProtocol$Request;)Lorg/apache/bookkeeper/proto/BookieProtocol$Response;
+     138: aload_0
+     139: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+     142: invokevirtual #232                // Method org/apache/bookkeeper/proto/RequestStats.getReadRequestStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     145: invokevirtual #275                // Method org/apache/bookkeeper/proto/ReadEntryProcessor.sendResponse:(ILjava/lang/Object;Lorg/apache/bookkeeper/stats/OpStatsLogger;)V
+     148: return
+    Exception table:
+       from    to  target type
+          77    88    91   Class java/util/concurrent/RejectedExecutionException
+
+  public long getWaitTimeoutOnBackpressureMillis();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field waitTimeoutOnBackpressureMillis:J
+       4: lreturn
+
+  public void blacklistChannel(io.netty.channel.Channel);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field blacklistedChannels:Ljava/util/Optional;
+       4: aload_1
+       5: invokedynamic #276,  0            // InvokeDynamic #2:accept:(Lio/netty/channel/Channel;)Ljava/util/function/Consumer;
+      10: invokevirtual #277                // Method java/util/Optional.ifPresent:(Ljava/util/function/Consumer;)V
+      13: return
+
+  public void invalidateBlacklist(io.netty.channel.Channel);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field blacklistedChannels:Ljava/util/Optional;
+       4: aload_1
+       5: invokedynamic #278,  0            // InvokeDynamic #3:accept:(Lio/netty/channel/Channel;)Ljava/util/function/Consumer;
+      10: invokevirtual #277                // Method java/util/Optional.ifPresent:(Ljava/util/function/Consumer;)V
+      13: return
+
+  public boolean isBlacklisted(io.netty.channel.Channel);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field blacklistedChannels:Ljava/util/Optional;
+       4: aload_1
+       5: invokedynamic #279,  0            // InvokeDynamic #4:apply:(Lio/netty/channel/Channel;)Ljava/util/function/Function;
+      10: invokevirtual #280                // Method java/util/Optional.map:(Ljava/util/function/Function;)Ljava/util/Optional;
+      13: iconst_0
+      14: invokestatic  #281                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      17: invokevirtual #282                // Method java/util/Optional.orElse:(Ljava/lang/Object;)Ljava/lang/Object;
+      20: checkcast     #283                // class java/lang/Boolean
+      23: invokevirtual #284                // Method java/lang/Boolean.booleanValue:()Z
+      26: ireturn
+
+  public void handleNonWritableChannel(io.netty.channel.Channel);
+    Code:
+       0: aload_0
+       1: getfield      #61                 // Field onResponseTimeout:Ljava/util/function/Consumer;
+       4: aload_1
+       5: invokeinterface #285,  2          // InterfaceMethod java/util/function/Consumer.accept:(Ljava/lang/Object;)V
+      10: return
+
+  org.apache.bookkeeper.conf.ServerConfiguration getServerCfg();
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field serverCfg:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+       4: areturn
+
+  boolean isPreserveMdcForTaskExecution();
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field preserveMdcForTaskExecution:Z
+       4: ireturn
+
+  org.apache.bookkeeper.bookie.Bookie getBookie();
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field bookie:Lorg/apache/bookkeeper/bookie/Bookie;
+       4: areturn
+
+  org.apache.bookkeeper.common.util.OrderedExecutor getReadThreadPool();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field readThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+       4: areturn
+
+  org.apache.bookkeeper.common.util.OrderedExecutor getWriteThreadPool();
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field writeThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+       4: areturn
+
+  org.apache.bookkeeper.tls.SecurityHandlerFactory getShFactory();
+    Code:
+       0: aload_0
+       1: getfield      #39                 // Field shFactory:Lorg/apache/bookkeeper/tls/SecurityHandlerFactory;
+       4: areturn
+
+  org.apache.bookkeeper.common.util.OrderedExecutor getLongPollThreadPool();
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field longPollThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+       4: areturn
+
+  org.apache.bookkeeper.common.util.OrderedExecutor getHighPriorityThreadPool();
+    Code:
+       0: aload_0
+       1: getfield      #38                 // Field highPriorityThreadPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+       4: areturn
+
+  io.netty.util.HashedWheelTimer getRequestTimer();
+    Code:
+       0: aload_0
+       1: getfield      #52                 // Field requestTimer:Lio/netty/util/HashedWheelTimer;
+       4: areturn
+
+  org.apache.bookkeeper.proto.BKStats getBkStats();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field bkStats:Lorg/apache/bookkeeper/proto/BKStats;
+       4: areturn
+
+  boolean isStatsEnabled();
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field statsEnabled:Z
+       4: ireturn
+
+  org.apache.bookkeeper.proto.RequestStats getRequestStats();
+    Code:
+       0: aload_0
+       1: getfield      #66                 // Field requestStats:Lorg/apache/bookkeeper/proto/RequestStats;
+       4: areturn
+
+  java.util.concurrent.Semaphore getAddsSemaphore();
+    Code:
+       0: aload_0
+       1: getfield      #70                 // Field addsSemaphore:Ljava/util/concurrent/Semaphore;
+       4: areturn
+
+  java.util.concurrent.Semaphore getReadsSemaphore();
+    Code:
+       0: aload_0
+       1: getfield      #72                 // Field readsSemaphore:Ljava/util/concurrent/Semaphore;
+       4: areturn
+
+  java.util.Optional<com.google.common.cache.Cache<io.netty.channel.Channel, java.lang.Boolean>> getBlacklistedChannels();
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field blacklistedChannels:Ljava/util/Optional;
+       4: areturn
+
+  java.util.function.Consumer<io.netty.channel.Channel> getOnResponseTimeout();
+    Code:
+       0: aload_0
+       1: getfield      #61                 // Field onResponseTimeout:Ljava/util/function/Consumer;
+       4: areturn
+
+  io.netty.buffer.ByteBufAllocator getAllocator();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+       4: areturn
+
+  boolean isThrottleReadResponses();
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field throttleReadResponses:Z
+       4: ireturn
+
+  private static java.lang.Boolean lambda$isBlacklisted$4(io.netty.channel.Channel, com.google.common.cache.Cache);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: invokeinterface #286,  2          // InterfaceMethod com/google/common/cache/Cache.getIfPresent:(Ljava/lang/Object;)Ljava/lang/Object;
+       7: checkcast     #283                // class java/lang/Boolean
+      10: areturn
+
+  private static void lambda$invalidateBlacklist$3(io.netty.channel.Channel, com.google.common.cache.Cache);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: invokeinterface #287,  2          // InterfaceMethod com/google/common/cache/Cache.invalidate:(Ljava/lang/Object;)V
+       7: return
+
+  private static void lambda$blacklistChannel$2(io.netty.channel.Channel, com.google.common.cache.Cache);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: iconst_1
+       3: invokestatic  #281                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+       6: invokeinterface #288,  3          // InterfaceMethod com/google/common/cache/Cache.put:(Ljava/lang/Object;Ljava/lang/Object;)V
+      11: return
+
+  private static void lambda$new$1(io.netty.channel.Channel);
+    Code:
+       0: return
+
+  private void lambda$new$0(io.netty.channel.Channel);
+    Code:
+       0: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+       3: ldc_w         #289                // String closing channel {} because it was non-writable for longer than {} ms
+       6: aload_1
+       7: aload_0
+       8: getfield      #9                  // Field waitTimeoutOnBackpressureMillis:J
+      11: invokestatic  #83                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      14: invokeinterface #290,  4          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      19: aload_1
+      20: invokeinterface #291,  1          // InterfaceMethod io/netty/channel/Channel.close:()Lio/netty/channel/ChannelFuture;
+      25: pop
+      26: return
+
+  static org.slf4j.Logger access$000();
+    Code:
+       0: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static boolean access$100(org.apache.bookkeeper.proto.BookieRequestProcessor);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field statsEnabled:Z
+       4: ireturn
+
+  static org.apache.bookkeeper.proto.BKStats access$200(org.apache.bookkeeper.proto.BookieRequestProcessor);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field bkStats:Lorg/apache/bookkeeper/proto/BKStats;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc_w         #292                // class org/apache/bookkeeper/proto/BookieRequestProcessor
+       3: invokestatic  #293                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       6: putstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+       9: return
+}

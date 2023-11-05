@@ -1,0 +1,1496 @@
+Compiled from "FastLeaderElection.java"
+public class org.apache.zookeeper.server.quorum.FastLeaderElection implements org.apache.zookeeper.server.quorum.Election {
+  private static final org.slf4j.Logger LOG;
+
+  static final int finalizeWait;
+
+  private static int maxNotificationInterval;
+
+  private static int minNotificationInterval;
+
+  public static final java.lang.String MIN_NOTIFICATION_INTERVAL;
+
+  public static final java.lang.String MAX_NOTIFICATION_INTERVAL;
+
+  org.apache.zookeeper.server.quorum.QuorumCnxManager manager;
+
+  private org.apache.zookeeper.server.quorum.SyncedLearnerTracker leadingVoteSet;
+
+  static byte[] dummyData;
+
+  java.util.concurrent.LinkedBlockingQueue<org.apache.zookeeper.server.quorum.FastLeaderElection$ToSend> sendqueue;
+
+  java.util.concurrent.LinkedBlockingQueue<org.apache.zookeeper.server.quorum.FastLeaderElection$Notification> recvqueue;
+
+  org.apache.zookeeper.server.quorum.QuorumPeer self;
+
+  org.apache.zookeeper.server.quorum.FastLeaderElection$Messenger messenger;
+
+  java.util.concurrent.atomic.AtomicLong logicalclock;
+
+  long proposedLeader;
+
+  long proposedZxid;
+
+  long proposedEpoch;
+
+  volatile boolean stop;
+
+  public long getLogicalClock();
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #5                  // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  static java.nio.ByteBuffer buildMsg(int, long, long, long, long);
+    Code:
+       0: bipush        40
+       2: newarray       byte
+       4: astore        9
+       6: aload         9
+       8: invokestatic  #6                  // Method java/nio/ByteBuffer.wrap:([B)Ljava/nio/ByteBuffer;
+      11: astore        10
+      13: aload         10
+      15: invokevirtual #7                  // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+      18: pop
+      19: aload         10
+      21: iload_0
+      22: invokevirtual #8                  // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+      25: pop
+      26: aload         10
+      28: lload_1
+      29: invokevirtual #9                  // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+      32: pop
+      33: aload         10
+      35: lload_3
+      36: invokevirtual #9                  // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+      39: pop
+      40: aload         10
+      42: lload         5
+      44: invokevirtual #9                  // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+      47: pop
+      48: aload         10
+      50: lload         7
+      52: invokevirtual #9                  // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+      55: pop
+      56: aload         10
+      58: iconst_1
+      59: invokevirtual #8                  // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+      62: pop
+      63: aload         10
+      65: areturn
+
+  static java.nio.ByteBuffer buildMsg(int, long, long, long, long, byte[]);
+    Code:
+       0: bipush        44
+       2: aload         9
+       4: arraylength
+       5: iadd
+       6: newarray       byte
+       8: astore        10
+      10: aload         10
+      12: invokestatic  #6                  // Method java/nio/ByteBuffer.wrap:([B)Ljava/nio/ByteBuffer;
+      15: astore        11
+      17: aload         11
+      19: invokevirtual #7                  // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+      22: pop
+      23: aload         11
+      25: iload_0
+      26: invokevirtual #8                  // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+      29: pop
+      30: aload         11
+      32: lload_1
+      33: invokevirtual #9                  // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+      36: pop
+      37: aload         11
+      39: lload_3
+      40: invokevirtual #9                  // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+      43: pop
+      44: aload         11
+      46: lload         5
+      48: invokevirtual #9                  // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+      51: pop
+      52: aload         11
+      54: lload         7
+      56: invokevirtual #9                  // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+      59: pop
+      60: aload         11
+      62: iconst_2
+      63: invokevirtual #8                  // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+      66: pop
+      67: aload         11
+      69: aload         9
+      71: arraylength
+      72: invokevirtual #8                  // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+      75: pop
+      76: aload         11
+      78: aload         9
+      80: invokevirtual #11                 // Method java/nio/ByteBuffer.put:([B)Ljava/nio/ByteBuffer;
+      83: pop
+      84: aload         11
+      86: areturn
+
+  public org.apache.zookeeper.server.quorum.FastLeaderElection(org.apache.zookeeper.server.quorum.QuorumPeer, org.apache.zookeeper.server.quorum.QuorumCnxManager);
+    Code:
+       0: aload_0
+       1: invokespecial #12                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #13                 // class java/util/concurrent/atomic/AtomicLong
+       8: dup
+       9: invokespecial #14                 // Method java/util/concurrent/atomic/AtomicLong."<init>":()V
+      12: putfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+      15: aload_0
+      16: iconst_0
+      17: putfield      #15                 // Field stop:Z
+      20: aload_0
+      21: aload_2
+      22: putfield      #16                 // Field manager:Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;
+      25: aload_0
+      26: aload_1
+      27: aload_2
+      28: invokespecial #17                 // Method starter:(Lorg/apache/zookeeper/server/quorum/QuorumPeer;Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;)V
+      31: return
+
+  private void starter(org.apache.zookeeper.server.quorum.QuorumPeer, org.apache.zookeeper.server.quorum.QuorumCnxManager);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       5: aload_0
+       6: ldc2_w        #19                 // long -1l
+       9: putfield      #21                 // Field proposedLeader:J
+      12: aload_0
+      13: ldc2_w        #19                 // long -1l
+      16: putfield      #22                 // Field proposedZxid:J
+      19: aload_0
+      20: new           #23                 // class java/util/concurrent/LinkedBlockingQueue
+      23: dup
+      24: invokespecial #24                 // Method java/util/concurrent/LinkedBlockingQueue."<init>":()V
+      27: putfield      #25                 // Field sendqueue:Ljava/util/concurrent/LinkedBlockingQueue;
+      30: aload_0
+      31: new           #23                 // class java/util/concurrent/LinkedBlockingQueue
+      34: dup
+      35: invokespecial #24                 // Method java/util/concurrent/LinkedBlockingQueue."<init>":()V
+      38: putfield      #26                 // Field recvqueue:Ljava/util/concurrent/LinkedBlockingQueue;
+      41: aload_0
+      42: new           #27                 // class org/apache/zookeeper/server/quorum/FastLeaderElection$Messenger
+      45: dup
+      46: aload_0
+      47: aload_2
+      48: invokespecial #28                 // Method org/apache/zookeeper/server/quorum/FastLeaderElection$Messenger."<init>":(Lorg/apache/zookeeper/server/quorum/FastLeaderElection;Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;)V
+      51: putfield      #29                 // Field messenger:Lorg/apache/zookeeper/server/quorum/FastLeaderElection$Messenger;
+      54: return
+
+  public void start();
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field messenger:Lorg/apache/zookeeper/server/quorum/FastLeaderElection$Messenger;
+       4: invokevirtual #30                 // Method org/apache/zookeeper/server/quorum/FastLeaderElection$Messenger.start:()V
+       7: return
+
+  private void leaveInstance(org.apache.zookeeper.server.quorum.Vote);
+    Code:
+       0: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #31                 // String About to leave FLE instance: leader={}, zxid=0x{}, my id={}, my state={}
+       5: iconst_4
+       6: anewarray     #32                 // class java/lang/Object
+       9: dup
+      10: iconst_0
+      11: aload_1
+      12: invokevirtual #33                 // Method org/apache/zookeeper/server/quorum/Vote.getId:()J
+      15: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      18: aastore
+      19: dup
+      20: iconst_1
+      21: aload_1
+      22: invokevirtual #35                 // Method org/apache/zookeeper/server/quorum/Vote.getZxid:()J
+      25: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      28: aastore
+      29: dup
+      30: iconst_2
+      31: aload_0
+      32: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      35: invokevirtual #37                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getId:()J
+      38: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      41: aastore
+      42: dup
+      43: iconst_3
+      44: aload_0
+      45: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      48: invokevirtual #38                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getPeerState:()Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+      51: aastore
+      52: invokeinterface #39,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+      57: aload_0
+      58: getfield      #26                 // Field recvqueue:Ljava/util/concurrent/LinkedBlockingQueue;
+      61: invokevirtual #40                 // Method java/util/concurrent/LinkedBlockingQueue.clear:()V
+      64: return
+
+  public org.apache.zookeeper.server.quorum.QuorumCnxManager getCnxManager();
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field manager:Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;
+       4: areturn
+
+  public void shutdown();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: putfield      #15                 // Field stop:Z
+       5: aload_0
+       6: ldc2_w        #19                 // long -1l
+       9: putfield      #21                 // Field proposedLeader:J
+      12: aload_0
+      13: ldc2_w        #19                 // long -1l
+      16: putfield      #22                 // Field proposedZxid:J
+      19: aload_0
+      20: aconst_null
+      21: putfield      #1                  // Field leadingVoteSet:Lorg/apache/zookeeper/server/quorum/SyncedLearnerTracker;
+      24: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      27: ldc           #41                 // String Shutting down connection manager
+      29: invokeinterface #42,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      34: aload_0
+      35: getfield      #16                 // Field manager:Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;
+      38: invokevirtual #43                 // Method org/apache/zookeeper/server/quorum/QuorumCnxManager.halt:()V
+      41: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      44: ldc           #44                 // String Shutting down messenger
+      46: invokeinterface #42,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      51: aload_0
+      52: getfield      #29                 // Field messenger:Lorg/apache/zookeeper/server/quorum/FastLeaderElection$Messenger;
+      55: invokevirtual #45                 // Method org/apache/zookeeper/server/quorum/FastLeaderElection$Messenger.halt:()V
+      58: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      61: ldc           #46                 // String FLE is down
+      63: invokeinterface #42,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      68: return
+
+  private void sendNotifications();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #47                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getCurrentAndNextConfigVoters:()Ljava/util/Set;
+       7: invokeinterface #48,  1           // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      12: astore_1
+      13: aload_1
+      14: invokeinterface #49,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      19: ifeq          180
+      22: aload_1
+      23: invokeinterface #50,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      28: checkcast     #51                 // class java/lang/Long
+      31: invokevirtual #52                 // Method java/lang/Long.longValue:()J
+      34: lstore_2
+      35: aload_0
+      36: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      39: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getQuorumVerifier:()Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;
+      42: astore        4
+      44: new           #54                 // class org/apache/zookeeper/server/quorum/FastLeaderElection$ToSend
+      47: dup
+      48: getstatic     #55                 // Field org/apache/zookeeper/server/quorum/FastLeaderElection$ToSend$mType.notification:Lorg/apache/zookeeper/server/quorum/FastLeaderElection$ToSend$mType;
+      51: aload_0
+      52: getfield      #21                 // Field proposedLeader:J
+      55: aload_0
+      56: getfield      #22                 // Field proposedZxid:J
+      59: aload_0
+      60: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+      63: invokevirtual #5                  // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      66: getstatic     #56                 // Field org/apache/zookeeper/server/quorum/QuorumPeer$ServerState.LOOKING:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+      69: lload_2
+      70: aload_0
+      71: getfield      #57                 // Field proposedEpoch:J
+      74: aload         4
+      76: invokeinterface #58,  1           // InterfaceMethod org/apache/zookeeper/server/quorum/flexible/QuorumVerifier.toString:()Ljava/lang/String;
+      81: invokevirtual #59                 // Method java/lang/String.getBytes:()[B
+      84: invokespecial #60                 // Method org/apache/zookeeper/server/quorum/FastLeaderElection$ToSend."<init>":(Lorg/apache/zookeeper/server/quorum/FastLeaderElection$ToSend$mType;JJJLorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;JJ[B)V
+      87: astore        5
+      89: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      92: ldc           #61                 // String Sending Notification: {} (n.leader), 0x{} (n.zxid), 0x{} (n.round), {} (recipient), {} (myid), 0x{} (n.peerEpoch)
+      94: bipush        6
+      96: anewarray     #32                 // class java/lang/Object
+      99: dup
+     100: iconst_0
+     101: aload_0
+     102: getfield      #21                 // Field proposedLeader:J
+     105: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     108: aastore
+     109: dup
+     110: iconst_1
+     111: aload_0
+     112: getfield      #22                 // Field proposedZxid:J
+     115: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     118: aastore
+     119: dup
+     120: iconst_2
+     121: aload_0
+     122: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+     125: invokevirtual #5                  // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     128: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     131: aastore
+     132: dup
+     133: iconst_3
+     134: lload_2
+     135: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     138: aastore
+     139: dup
+     140: iconst_4
+     141: aload_0
+     142: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     145: invokevirtual #37                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getId:()J
+     148: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     151: aastore
+     152: dup
+     153: iconst_5
+     154: aload_0
+     155: getfield      #57                 // Field proposedEpoch:J
+     158: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     161: aastore
+     162: invokeinterface #39,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     167: aload_0
+     168: getfield      #25                 // Field sendqueue:Ljava/util/concurrent/LinkedBlockingQueue;
+     171: aload         5
+     173: invokevirtual #62                 // Method java/util/concurrent/LinkedBlockingQueue.offer:(Ljava/lang/Object;)Z
+     176: pop
+     177: goto          13
+     180: return
+
+  protected boolean totalOrderPredicate(long, long, long, long, long, long);
+    Code:
+       0: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #63                 // String id: {}, proposed id: {}, zxid: 0x{}, proposed zxid: 0x{}
+       5: iconst_4
+       6: anewarray     #32                 // class java/lang/Object
+       9: dup
+      10: iconst_0
+      11: lload_1
+      12: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      15: aastore
+      16: dup
+      17: iconst_1
+      18: lload         7
+      20: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      23: aastore
+      24: dup
+      25: iconst_2
+      26: lload_3
+      27: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      30: aastore
+      31: dup
+      32: iconst_3
+      33: lload         9
+      35: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      38: aastore
+      39: invokeinterface #39,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+      44: aload_0
+      45: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      48: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getQuorumVerifier:()Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;
+      51: lload_1
+      52: invokeinterface #64,  3           // InterfaceMethod org/apache/zookeeper/server/quorum/flexible/QuorumVerifier.getWeight:(J)J
+      57: lconst_0
+      58: lcmp
+      59: ifne          64
+      62: iconst_0
+      63: ireturn
+      64: lload         5
+      66: lload         11
+      68: lcmp
+      69: ifgt          101
+      72: lload         5
+      74: lload         11
+      76: lcmp
+      77: ifne          105
+      80: lload_3
+      81: lload         9
+      83: lcmp
+      84: ifgt          101
+      87: lload_3
+      88: lload         9
+      90: lcmp
+      91: ifne          105
+      94: lload_1
+      95: lload         7
+      97: lcmp
+      98: ifle          105
+     101: iconst_1
+     102: goto          106
+     105: iconst_0
+     106: ireturn
+
+  protected org.apache.zookeeper.server.quorum.SyncedLearnerTracker getVoteTracker(java.util.Map<java.lang.Long, org.apache.zookeeper.server.quorum.Vote>, org.apache.zookeeper.server.quorum.Vote);
+    Code:
+       0: new           #65                 // class org/apache/zookeeper/server/quorum/SyncedLearnerTracker
+       3: dup
+       4: invokespecial #66                 // Method org/apache/zookeeper/server/quorum/SyncedLearnerTracker."<init>":()V
+       7: astore_3
+       8: aload_3
+       9: aload_0
+      10: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      13: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getQuorumVerifier:()Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;
+      16: invokevirtual #67                 // Method org/apache/zookeeper/server/quorum/SyncedLearnerTracker.addQuorumVerifier:(Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;)V
+      19: aload_0
+      20: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      23: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getLastSeenQuorumVerifier:()Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;
+      26: ifnull        68
+      29: aload_0
+      30: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      33: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getLastSeenQuorumVerifier:()Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;
+      36: invokeinterface #69,  1           // InterfaceMethod org/apache/zookeeper/server/quorum/flexible/QuorumVerifier.getVersion:()J
+      41: aload_0
+      42: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      45: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getQuorumVerifier:()Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;
+      48: invokeinterface #69,  1           // InterfaceMethod org/apache/zookeeper/server/quorum/flexible/QuorumVerifier.getVersion:()J
+      53: lcmp
+      54: ifle          68
+      57: aload_3
+      58: aload_0
+      59: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      62: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getLastSeenQuorumVerifier:()Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;
+      65: invokevirtual #67                 // Method org/apache/zookeeper/server/quorum/SyncedLearnerTracker.addQuorumVerifier:(Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;)V
+      68: aload_1
+      69: invokeinterface #70,  1           // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+      74: invokeinterface #48,  1           // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      79: astore        4
+      81: aload         4
+      83: invokeinterface #49,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      88: ifeq          135
+      91: aload         4
+      93: invokeinterface #50,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      98: checkcast     #71                 // class java/util/Map$Entry
+     101: astore        5
+     103: aload_2
+     104: aload         5
+     106: invokeinterface #72,  1           // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     111: invokevirtual #73                 // Method org/apache/zookeeper/server/quorum/Vote.equals:(Ljava/lang/Object;)Z
+     114: ifeq          132
+     117: aload_3
+     118: aload         5
+     120: invokeinterface #74,  1           // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     125: checkcast     #51                 // class java/lang/Long
+     128: invokevirtual #75                 // Method org/apache/zookeeper/server/quorum/SyncedLearnerTracker.addAck:(Ljava/lang/Long;)Z
+     131: pop
+     132: goto          81
+     135: aload_3
+     136: areturn
+
+  protected boolean checkLeader(java.util.Map<java.lang.Long, org.apache.zookeeper.server.quorum.Vote>, long, long);
+    Code:
+       0: iconst_1
+       1: istore        6
+       3: lload_2
+       4: aload_0
+       5: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       8: invokevirtual #37                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getId:()J
+      11: lcmp
+      12: ifeq          62
+      15: aload_1
+      16: lload_2
+      17: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      20: invokeinterface #76,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      25: ifnonnull     34
+      28: iconst_0
+      29: istore        6
+      31: goto          78
+      34: aload_1
+      35: lload_2
+      36: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      39: invokeinterface #76,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      44: checkcast     #77                 // class org/apache/zookeeper/server/quorum/Vote
+      47: invokevirtual #78                 // Method org/apache/zookeeper/server/quorum/Vote.getState:()Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+      50: getstatic     #79                 // Field org/apache/zookeeper/server/quorum/QuorumPeer$ServerState.LEADING:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+      53: if_acmpeq     78
+      56: iconst_0
+      57: istore        6
+      59: goto          78
+      62: aload_0
+      63: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+      66: invokevirtual #5                  // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      69: lload         4
+      71: lcmp
+      72: ifeq          78
+      75: iconst_0
+      76: istore        6
+      78: iload         6
+      80: ireturn
+
+  synchronized void updateProposal(long, long, long);
+    Code:
+       0: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #80                 // String Updating proposal: {} (newleader), 0x{} (newzxid), {} (oldleader), 0x{} (oldzxid)
+       5: iconst_4
+       6: anewarray     #32                 // class java/lang/Object
+       9: dup
+      10: iconst_0
+      11: lload_1
+      12: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      15: aastore
+      16: dup
+      17: iconst_1
+      18: lload_3
+      19: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      22: aastore
+      23: dup
+      24: iconst_2
+      25: aload_0
+      26: getfield      #21                 // Field proposedLeader:J
+      29: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      32: aastore
+      33: dup
+      34: iconst_3
+      35: aload_0
+      36: getfield      #22                 // Field proposedZxid:J
+      39: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      42: aastore
+      43: invokeinterface #39,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+      48: aload_0
+      49: lload_1
+      50: putfield      #21                 // Field proposedLeader:J
+      53: aload_0
+      54: lload_3
+      55: putfield      #22                 // Field proposedZxid:J
+      58: aload_0
+      59: lload         5
+      61: putfield      #57                 // Field proposedEpoch:J
+      64: return
+
+  public synchronized org.apache.zookeeper.server.quorum.Vote getVote();
+    Code:
+       0: new           #77                 // class org/apache/zookeeper/server/quorum/Vote
+       3: dup
+       4: aload_0
+       5: getfield      #21                 // Field proposedLeader:J
+       8: aload_0
+       9: getfield      #22                 // Field proposedZxid:J
+      12: aload_0
+      13: getfield      #57                 // Field proposedEpoch:J
+      16: invokespecial #81                 // Method org/apache/zookeeper/server/quorum/Vote."<init>":(JJJ)V
+      19: areturn
+
+  private org.apache.zookeeper.server.quorum.QuorumPeer$ServerState learningState();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #82                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getLearnerType:()Lorg/apache/zookeeper/server/quorum/QuorumPeer$LearnerType;
+       7: getstatic     #83                 // Field org/apache/zookeeper/server/quorum/QuorumPeer$LearnerType.PARTICIPANT:Lorg/apache/zookeeper/server/quorum/QuorumPeer$LearnerType;
+      10: if_acmpne     37
+      13: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      16: ldc           #84                 // String I am a participant: {}
+      18: aload_0
+      19: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      22: invokevirtual #37                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getId:()J
+      25: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      28: invokeinterface #85,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      33: getstatic     #86                 // Field org/apache/zookeeper/server/quorum/QuorumPeer$ServerState.FOLLOWING:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+      36: areturn
+      37: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      40: ldc           #87                 // String I am an observer: {}
+      42: aload_0
+      43: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      46: invokevirtual #37                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getId:()J
+      49: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      52: invokeinterface #85,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      57: getstatic     #88                 // Field org/apache/zookeeper/server/quorum/QuorumPeer$ServerState.OBSERVING:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+      60: areturn
+
+  private long getInitId();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getQuorumVerifier:()Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;
+       7: invokeinterface #89,  1           // InterfaceMethod org/apache/zookeeper/server/quorum/flexible/QuorumVerifier.getVotingMembers:()Ljava/util/Map;
+      12: aload_0
+      13: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      16: invokevirtual #37                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getId:()J
+      19: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      22: invokeinterface #90,  2           // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+      27: ifeq          38
+      30: aload_0
+      31: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      34: invokevirtual #37                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getId:()J
+      37: lreturn
+      38: ldc2_w        #91                 // long -9223372036854775808l
+      41: lreturn
+
+  private long getInitLastLoggedZxid();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #82                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getLearnerType:()Lorg/apache/zookeeper/server/quorum/QuorumPeer$LearnerType;
+       7: getstatic     #83                 // Field org/apache/zookeeper/server/quorum/QuorumPeer$LearnerType.PARTICIPANT:Lorg/apache/zookeeper/server/quorum/QuorumPeer$LearnerType;
+      10: if_acmpne     21
+      13: aload_0
+      14: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      17: invokevirtual #93                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getLastLoggedZxid:()J
+      20: lreturn
+      21: ldc2_w        #91                 // long -9223372036854775808l
+      24: lreturn
+
+  private long getPeerEpoch();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #82                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getLearnerType:()Lorg/apache/zookeeper/server/quorum/QuorumPeer$LearnerType;
+       7: getstatic     #83                 // Field org/apache/zookeeper/server/quorum/QuorumPeer$LearnerType.PARTICIPANT:Lorg/apache/zookeeper/server/quorum/QuorumPeer$LearnerType;
+      10: if_acmpne     44
+      13: aload_0
+      14: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      17: invokevirtual #94                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getCurrentEpoch:()J
+      20: lreturn
+      21: astore_1
+      22: new           #96                 // class java/lang/RuntimeException
+      25: dup
+      26: aload_1
+      27: invokevirtual #97                 // Method java/io/IOException.getMessage:()Ljava/lang/String;
+      30: invokespecial #98                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;)V
+      33: astore_2
+      34: aload_2
+      35: aload_1
+      36: invokevirtual #99                 // Method java/io/IOException.getStackTrace:()[Ljava/lang/StackTraceElement;
+      39: invokevirtual #100                // Method java/lang/RuntimeException.setStackTrace:([Ljava/lang/StackTraceElement;)V
+      42: aload_2
+      43: athrow
+      44: ldc2_w        #91                 // long -9223372036854775808l
+      47: lreturn
+    Exception table:
+       from    to  target type
+          13    20    21   Class java/io/IOException
+
+  private void setPeerState(long, org.apache.zookeeper.server.quorum.SyncedLearnerTracker);
+    Code:
+       0: lload_1
+       1: aload_0
+       2: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       5: invokevirtual #37                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getId:()J
+       8: lcmp
+       9: ifne          18
+      12: getstatic     #79                 // Field org/apache/zookeeper/server/quorum/QuorumPeer$ServerState.LEADING:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+      15: goto          22
+      18: aload_0
+      19: invokespecial #101                // Method learningState:()Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+      22: astore        4
+      24: aload_0
+      25: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      28: aload         4
+      30: invokevirtual #102                // Method org/apache/zookeeper/server/quorum/QuorumPeer.setPeerState:(Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;)V
+      33: aload         4
+      35: getstatic     #79                 // Field org/apache/zookeeper/server/quorum/QuorumPeer$ServerState.LEADING:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+      38: if_acmpne     46
+      41: aload_0
+      42: aload_3
+      43: putfield      #1                  // Field leadingVoteSet:Lorg/apache/zookeeper/server/quorum/SyncedLearnerTracker;
+      46: return
+
+  public org.apache.zookeeper.server.quorum.Vote lookForLeader() throws java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: new           #103                // class org/apache/zookeeper/server/quorum/LeaderElectionBean
+       7: dup
+       8: invokespecial #104                // Method org/apache/zookeeper/server/quorum/LeaderElectionBean."<init>":()V
+      11: putfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+      14: invokestatic  #106                // Method org/apache/zookeeper/jmx/MBeanRegistry.getInstance:()Lorg/apache/zookeeper/jmx/MBeanRegistry;
+      17: aload_0
+      18: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      21: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+      24: aload_0
+      25: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      28: getfield      #107                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLocalPeerBean:Lorg/apache/zookeeper/server/quorum/LocalPeerBean;
+      31: invokevirtual #108                // Method org/apache/zookeeper/jmx/MBeanRegistry.register:(Lorg/apache/zookeeper/jmx/ZKMBeanInfo;Lorg/apache/zookeeper/jmx/ZKMBeanInfo;)V
+      34: goto          57
+      37: astore_1
+      38: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      41: ldc           #110                // String Failed to register with JMX
+      43: aload_1
+      44: invokeinterface #111,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      49: aload_0
+      50: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      53: aconst_null
+      54: putfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+      57: aload_0
+      58: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      61: invokestatic  #112                // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+      64: putfield      #113                // Field org/apache/zookeeper/server/quorum/QuorumPeer.start_fle:J
+      67: new           #114                // class java/util/HashMap
+      70: dup
+      71: invokespecial #115                // Method java/util/HashMap."<init>":()V
+      74: astore_1
+      75: new           #114                // class java/util/HashMap
+      78: dup
+      79: invokespecial #115                // Method java/util/HashMap."<init>":()V
+      82: astore_2
+      83: getstatic     #116                // Field minNotificationInterval:I
+      86: istore_3
+      87: aload_0
+      88: dup
+      89: astore        4
+      91: monitorenter
+      92: aload_0
+      93: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+      96: invokevirtual #117                // Method java/util/concurrent/atomic/AtomicLong.incrementAndGet:()J
+      99: pop2
+     100: aload_0
+     101: aload_0
+     102: invokespecial #118                // Method getInitId:()J
+     105: aload_0
+     106: invokespecial #119                // Method getInitLastLoggedZxid:()J
+     109: aload_0
+     110: invokespecial #120                // Method getPeerEpoch:()J
+     113: invokevirtual #121                // Method updateProposal:(JJJ)V
+     116: aload         4
+     118: monitorexit
+     119: goto          130
+     122: astore        5
+     124: aload         4
+     126: monitorexit
+     127: aload         5
+     129: athrow
+     130: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     133: ldc           #122                // String New election. My id = {}, proposed zxid=0x{}
+     135: aload_0
+     136: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     139: invokevirtual #37                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getId:()J
+     142: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     145: aload_0
+     146: getfield      #22                 // Field proposedZxid:J
+     149: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     152: invokeinterface #123,  4          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     157: aload_0
+     158: invokespecial #124                // Method sendNotifications:()V
+     161: aload_0
+     162: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     165: invokevirtual #38                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getPeerState:()Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+     168: getstatic     #56                 // Field org/apache/zookeeper/server/quorum/QuorumPeer$ServerState.LOOKING:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+     171: if_acmpne     1585
+     174: aload_0
+     175: getfield      #15                 // Field stop:Z
+     178: ifne          1585
+     181: aload_0
+     182: getfield      #26                 // Field recvqueue:Ljava/util/concurrent/LinkedBlockingQueue;
+     185: iload_3
+     186: i2l
+     187: getstatic     #125                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     190: invokevirtual #126                // Method java/util/concurrent/LinkedBlockingQueue.poll:(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;
+     193: checkcast     #10                 // class org/apache/zookeeper/server/quorum/FastLeaderElection$Notification
+     196: astore        5
+     198: aload         5
+     200: ifnonnull     258
+     203: aload_0
+     204: getfield      #16                 // Field manager:Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;
+     207: invokevirtual #127                // Method org/apache/zookeeper/server/quorum/QuorumCnxManager.haveDelivered:()Z
+     210: ifeq          220
+     213: aload_0
+     214: invokespecial #124                // Method sendNotifications:()V
+     217: goto          227
+     220: aload_0
+     221: getfield      #16                 // Field manager:Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;
+     224: invokevirtual #128                // Method org/apache/zookeeper/server/quorum/QuorumCnxManager.connectAll:()V
+     227: iload_3
+     228: iconst_2
+     229: imul
+     230: istore        6
+     232: iload         6
+     234: getstatic     #129                // Field maxNotificationInterval:I
+     237: invokestatic  #130                // Method java/lang/Math.min:(II)I
+     240: istore_3
+     241: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     244: ldc           #131                // String Notification time out: {}
+     246: iload_3
+     247: invokestatic  #132                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     250: invokeinterface #133,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     255: goto          1582
+     258: aload_0
+     259: aload         5
+     261: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+     264: invokespecial #2                  // Method validVoter:(J)Z
+     267: ifeq          1506
+     270: aload_0
+     271: aload         5
+     273: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+     276: invokespecial #2                  // Method validVoter:(J)Z
+     279: ifeq          1506
+     282: getstatic     #136                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$1.$SwitchMap$org$apache$zookeeper$server$quorum$QuorumPeer$ServerState:[I
+     285: aload         5
+     287: getfield      #137                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.state:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+     290: invokevirtual #138                // Method org/apache/zookeeper/server/quorum/QuorumPeer$ServerState.ordinal:()I
+     293: iaload
+     294: tableswitch   { // 1 to 4
+                     1: 324
+                     2: 931
+                     3: 952
+                     4: 952
+               default: 1480
+          }
+     324: aload_0
+     325: invokespecial #119                // Method getInitLastLoggedZxid:()J
+     328: ldc2_w        #19                 // long -1l
+     331: lcmp
+     332: ifne          348
+     335: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     338: ldc           #139                // String Ignoring notification as our zxid is -1
+     340: invokeinterface #42,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     345: goto          1582
+     348: aload         5
+     350: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+     353: ldc2_w        #19                 // long -1l
+     356: lcmp
+     357: ifne          381
+     360: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     363: ldc           #141                // String Ignoring notification from member with -1 zxid {}
+     365: aload         5
+     367: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+     370: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     373: invokeinterface #85,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     378: goto          1582
+     381: aload         5
+     383: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+     386: aload_0
+     387: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+     390: invokevirtual #5                  // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     393: lcmp
+     394: ifle          494
+     397: aload_0
+     398: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+     401: aload         5
+     403: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+     406: invokevirtual #143                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     409: aload_1
+     410: invokeinterface #144,  1          // InterfaceMethod java/util/Map.clear:()V
+     415: aload_0
+     416: aload         5
+     418: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+     421: aload         5
+     423: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+     426: aload         5
+     428: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+     431: aload_0
+     432: invokespecial #118                // Method getInitId:()J
+     435: aload_0
+     436: invokespecial #119                // Method getInitLastLoggedZxid:()J
+     439: aload_0
+     440: invokespecial #120                // Method getPeerEpoch:()J
+     443: invokevirtual #146                // Method totalOrderPredicate:(JJJJJJ)Z
+     446: ifeq          471
+     449: aload_0
+     450: aload         5
+     452: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+     455: aload         5
+     457: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+     460: aload         5
+     462: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+     465: invokevirtual #121                // Method updateProposal:(JJJ)V
+     468: goto          487
+     471: aload_0
+     472: aload_0
+     473: invokespecial #118                // Method getInitId:()J
+     476: aload_0
+     477: invokespecial #119                // Method getInitLastLoggedZxid:()J
+     480: aload_0
+     481: invokespecial #120                // Method getPeerEpoch:()J
+     484: invokevirtual #121                // Method updateProposal:(JJJ)V
+     487: aload_0
+     488: invokespecial #124                // Method sendNotifications:()V
+     491: goto          598
+     494: aload         5
+     496: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+     499: aload_0
+     500: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+     503: invokevirtual #5                  // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     506: lcmp
+     507: ifge          541
+     510: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     513: ldc           #147                // String Notification election epoch is smaller than logicalclock. n.electionEpoch = 0x{}, logicalclock=0x{}
+     515: aload         5
+     517: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+     520: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     523: aload_0
+     524: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+     527: invokevirtual #5                  // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     530: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     533: invokeinterface #148,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     538: goto          1582
+     541: aload_0
+     542: aload         5
+     544: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+     547: aload         5
+     549: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+     552: aload         5
+     554: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+     557: aload_0
+     558: getfield      #21                 // Field proposedLeader:J
+     561: aload_0
+     562: getfield      #22                 // Field proposedZxid:J
+     565: aload_0
+     566: getfield      #57                 // Field proposedEpoch:J
+     569: invokevirtual #146                // Method totalOrderPredicate:(JJJJJJ)Z
+     572: ifeq          598
+     575: aload_0
+     576: aload         5
+     578: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+     581: aload         5
+     583: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+     586: aload         5
+     588: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+     591: invokevirtual #121                // Method updateProposal:(JJJ)V
+     594: aload_0
+     595: invokespecial #124                // Method sendNotifications:()V
+     598: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     601: ldc           #149                // String Adding vote: from={}, proposed leader={}, proposed zxid=0x{}, proposed election epoch=0x{}
+     603: iconst_4
+     604: anewarray     #32                 // class java/lang/Object
+     607: dup
+     608: iconst_0
+     609: aload         5
+     611: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+     614: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     617: aastore
+     618: dup
+     619: iconst_1
+     620: aload         5
+     622: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+     625: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     628: aastore
+     629: dup
+     630: iconst_2
+     631: aload         5
+     633: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+     636: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     639: aastore
+     640: dup
+     641: iconst_3
+     642: aload         5
+     644: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+     647: invokestatic  #36                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     650: aastore
+     651: invokeinterface #39,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     656: aload_1
+     657: aload         5
+     659: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+     662: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     665: new           #77                 // class org/apache/zookeeper/server/quorum/Vote
+     668: dup
+     669: aload         5
+     671: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+     674: aload         5
+     676: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+     679: aload         5
+     681: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+     684: aload         5
+     686: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+     689: invokespecial #150                // Method org/apache/zookeeper/server/quorum/Vote."<init>":(JJJJ)V
+     692: invokeinterface #151,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     697: pop
+     698: aload_0
+     699: aload_1
+     700: new           #77                 // class org/apache/zookeeper/server/quorum/Vote
+     703: dup
+     704: aload_0
+     705: getfield      #21                 // Field proposedLeader:J
+     708: aload_0
+     709: getfield      #22                 // Field proposedZxid:J
+     712: aload_0
+     713: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+     716: invokevirtual #5                  // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     719: aload_0
+     720: getfield      #57                 // Field proposedEpoch:J
+     723: invokespecial #150                // Method org/apache/zookeeper/server/quorum/Vote."<init>":(JJJJ)V
+     726: invokevirtual #152                // Method getVoteTracker:(Ljava/util/Map;Lorg/apache/zookeeper/server/quorum/Vote;)Lorg/apache/zookeeper/server/quorum/SyncedLearnerTracker;
+     729: astore        4
+     731: aload         4
+     733: invokevirtual #153                // Method org/apache/zookeeper/server/quorum/SyncedLearnerTracker.hasAllQuorums:()Z
+     736: ifeq          1582
+     739: aload_0
+     740: getfield      #26                 // Field recvqueue:Ljava/util/concurrent/LinkedBlockingQueue;
+     743: ldc2_w        #155                // long 200l
+     746: getstatic     #125                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     749: invokevirtual #126                // Method java/util/concurrent/LinkedBlockingQueue.poll:(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;
+     752: checkcast     #10                 // class org/apache/zookeeper/server/quorum/FastLeaderElection$Notification
+     755: dup
+     756: astore        5
+     758: ifnull        807
+     761: aload_0
+     762: aload         5
+     764: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+     767: aload         5
+     769: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+     772: aload         5
+     774: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+     777: aload_0
+     778: getfield      #21                 // Field proposedLeader:J
+     781: aload_0
+     782: getfield      #22                 // Field proposedZxid:J
+     785: aload_0
+     786: getfield      #57                 // Field proposedEpoch:J
+     789: invokevirtual #146                // Method totalOrderPredicate:(JJJJJJ)Z
+     792: ifeq          739
+     795: aload_0
+     796: getfield      #26                 // Field recvqueue:Ljava/util/concurrent/LinkedBlockingQueue;
+     799: aload         5
+     801: invokevirtual #157                // Method java/util/concurrent/LinkedBlockingQueue.put:(Ljava/lang/Object;)V
+     804: goto          807
+     807: aload         5
+     809: ifnonnull     1582
+     812: aload_0
+     813: aload_0
+     814: getfield      #21                 // Field proposedLeader:J
+     817: aload         4
+     819: invokespecial #158                // Method setPeerState:(JLorg/apache/zookeeper/server/quorum/SyncedLearnerTracker;)V
+     822: new           #77                 // class org/apache/zookeeper/server/quorum/Vote
+     825: dup
+     826: aload_0
+     827: getfield      #21                 // Field proposedLeader:J
+     830: aload_0
+     831: getfield      #22                 // Field proposedZxid:J
+     834: aload_0
+     835: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+     838: invokevirtual #5                  // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     841: aload_0
+     842: getfield      #57                 // Field proposedEpoch:J
+     845: invokespecial #150                // Method org/apache/zookeeper/server/quorum/Vote."<init>":(JJJJ)V
+     848: astore        6
+     850: aload_0
+     851: aload         6
+     853: invokespecial #159                // Method leaveInstance:(Lorg/apache/zookeeper/server/quorum/Vote;)V
+     856: aload         6
+     858: astore        7
+     860: aload_0
+     861: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     864: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+     867: ifnull        883
+     870: invokestatic  #106                // Method org/apache/zookeeper/jmx/MBeanRegistry.getInstance:()Lorg/apache/zookeeper/jmx/MBeanRegistry;
+     873: aload_0
+     874: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     877: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+     880: invokevirtual #160                // Method org/apache/zookeeper/jmx/MBeanRegistry.unregister:(Lorg/apache/zookeeper/jmx/ZKMBeanInfo;)V
+     883: goto          900
+     886: astore        8
+     888: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     891: ldc           #161                // String Failed to unregister with JMX
+     893: aload         8
+     895: invokeinterface #111,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     900: aload_0
+     901: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     904: aconst_null
+     905: putfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+     908: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     911: ldc           #162                // String Number of connection processing threads: {}
+     913: aload_0
+     914: getfield      #16                 // Field manager:Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;
+     917: invokevirtual #163                // Method org/apache/zookeeper/server/quorum/QuorumCnxManager.getConnectionThreadCount:()J
+     920: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     923: invokeinterface #85,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     928: aload         7
+     930: areturn
+     931: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+     934: ldc           #164                // String Notification from observer: {}
+     936: aload         5
+     938: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+     941: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     944: invokeinterface #85,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     949: goto          1582
+     952: aload         5
+     954: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+     957: aload_0
+     958: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+     961: invokevirtual #5                  // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     964: lcmp
+     965: ifne          1206
+     968: aload_1
+     969: aload         5
+     971: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+     974: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     977: new           #77                 // class org/apache/zookeeper/server/quorum/Vote
+     980: dup
+     981: aload         5
+     983: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+     986: aload         5
+     988: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+     991: aload         5
+     993: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+     996: aload         5
+     998: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+    1001: aload         5
+    1003: getfield      #137                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.state:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+    1006: invokespecial #165                // Method org/apache/zookeeper/server/quorum/Vote."<init>":(JJJJLorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;)V
+    1009: invokeinterface #151,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    1014: pop
+    1015: aload_0
+    1016: aload_1
+    1017: new           #77                 // class org/apache/zookeeper/server/quorum/Vote
+    1020: dup
+    1021: aload         5
+    1023: getfield      #166                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.version:I
+    1026: aload         5
+    1028: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1031: aload         5
+    1033: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+    1036: aload         5
+    1038: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+    1041: aload         5
+    1043: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+    1046: aload         5
+    1048: getfield      #137                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.state:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+    1051: invokespecial #167                // Method org/apache/zookeeper/server/quorum/Vote."<init>":(IJJJJLorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;)V
+    1054: invokevirtual #152                // Method getVoteTracker:(Ljava/util/Map;Lorg/apache/zookeeper/server/quorum/Vote;)Lorg/apache/zookeeper/server/quorum/SyncedLearnerTracker;
+    1057: astore        4
+    1059: aload         4
+    1061: invokevirtual #153                // Method org/apache/zookeeper/server/quorum/SyncedLearnerTracker.hasAllQuorums:()Z
+    1064: ifeq          1206
+    1067: aload_0
+    1068: aload_1
+    1069: aload         5
+    1071: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1074: aload         5
+    1076: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+    1079: invokevirtual #168                // Method checkLeader:(Ljava/util/Map;JJ)Z
+    1082: ifeq          1206
+    1085: aload_0
+    1086: aload         5
+    1088: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1091: aload         4
+    1093: invokespecial #158                // Method setPeerState:(JLorg/apache/zookeeper/server/quorum/SyncedLearnerTracker;)V
+    1096: new           #77                 // class org/apache/zookeeper/server/quorum/Vote
+    1099: dup
+    1100: aload         5
+    1102: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1105: aload         5
+    1107: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+    1110: aload         5
+    1112: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+    1115: aload         5
+    1117: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+    1120: invokespecial #150                // Method org/apache/zookeeper/server/quorum/Vote."<init>":(JJJJ)V
+    1123: astore        6
+    1125: aload_0
+    1126: aload         6
+    1128: invokespecial #159                // Method leaveInstance:(Lorg/apache/zookeeper/server/quorum/Vote;)V
+    1131: aload         6
+    1133: astore        7
+    1135: aload_0
+    1136: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1139: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1142: ifnull        1158
+    1145: invokestatic  #106                // Method org/apache/zookeeper/jmx/MBeanRegistry.getInstance:()Lorg/apache/zookeeper/jmx/MBeanRegistry;
+    1148: aload_0
+    1149: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1152: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1155: invokevirtual #160                // Method org/apache/zookeeper/jmx/MBeanRegistry.unregister:(Lorg/apache/zookeeper/jmx/ZKMBeanInfo;)V
+    1158: goto          1175
+    1161: astore        8
+    1163: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1166: ldc           #161                // String Failed to unregister with JMX
+    1168: aload         8
+    1170: invokeinterface #111,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+    1175: aload_0
+    1176: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1179: aconst_null
+    1180: putfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1183: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1186: ldc           #162                // String Number of connection processing threads: {}
+    1188: aload_0
+    1189: getfield      #16                 // Field manager:Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;
+    1192: invokevirtual #163                // Method org/apache/zookeeper/server/quorum/QuorumCnxManager.getConnectionThreadCount:()J
+    1195: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+    1198: invokeinterface #85,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+    1203: aload         7
+    1205: areturn
+    1206: aload_2
+    1207: aload         5
+    1209: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+    1212: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+    1215: new           #77                 // class org/apache/zookeeper/server/quorum/Vote
+    1218: dup
+    1219: aload         5
+    1221: getfield      #166                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.version:I
+    1224: aload         5
+    1226: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1229: aload         5
+    1231: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+    1234: aload         5
+    1236: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+    1239: aload         5
+    1241: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+    1244: aload         5
+    1246: getfield      #137                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.state:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+    1249: invokespecial #167                // Method org/apache/zookeeper/server/quorum/Vote."<init>":(IJJJJLorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;)V
+    1252: invokeinterface #151,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    1257: pop
+    1258: aload_0
+    1259: aload_2
+    1260: new           #77                 // class org/apache/zookeeper/server/quorum/Vote
+    1263: dup
+    1264: aload         5
+    1266: getfield      #166                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.version:I
+    1269: aload         5
+    1271: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1274: aload         5
+    1276: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+    1279: aload         5
+    1281: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+    1284: aload         5
+    1286: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+    1289: aload         5
+    1291: getfield      #137                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.state:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+    1294: invokespecial #167                // Method org/apache/zookeeper/server/quorum/Vote."<init>":(IJJJJLorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;)V
+    1297: invokevirtual #152                // Method getVoteTracker:(Ljava/util/Map;Lorg/apache/zookeeper/server/quorum/Vote;)Lorg/apache/zookeeper/server/quorum/SyncedLearnerTracker;
+    1300: astore        4
+    1302: aload         4
+    1304: invokevirtual #153                // Method org/apache/zookeeper/server/quorum/SyncedLearnerTracker.hasAllQuorums:()Z
+    1307: ifeq          1582
+    1310: aload_0
+    1311: aload_2
+    1312: aload         5
+    1314: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1317: aload         5
+    1319: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+    1322: invokevirtual #168                // Method checkLeader:(Ljava/util/Map;JJ)Z
+    1325: ifeq          1582
+    1328: aload_0
+    1329: dup
+    1330: astore        6
+    1332: monitorenter
+    1333: aload_0
+    1334: getfield      #4                  // Field logicalclock:Ljava/util/concurrent/atomic/AtomicLong;
+    1337: aload         5
+    1339: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+    1342: invokevirtual #143                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+    1345: aload_0
+    1346: aload         5
+    1348: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1351: aload         4
+    1353: invokespecial #158                // Method setPeerState:(JLorg/apache/zookeeper/server/quorum/SyncedLearnerTracker;)V
+    1356: aload         6
+    1358: monitorexit
+    1359: goto          1370
+    1362: astore        9
+    1364: aload         6
+    1366: monitorexit
+    1367: aload         9
+    1369: athrow
+    1370: new           #77                 // class org/apache/zookeeper/server/quorum/Vote
+    1373: dup
+    1374: aload         5
+    1376: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1379: aload         5
+    1381: getfield      #140                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.zxid:J
+    1384: aload         5
+    1386: getfield      #142                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.electionEpoch:J
+    1389: aload         5
+    1391: getfield      #145                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.peerEpoch:J
+    1394: invokespecial #150                // Method org/apache/zookeeper/server/quorum/Vote."<init>":(JJJJ)V
+    1397: astore        6
+    1399: aload_0
+    1400: aload         6
+    1402: invokespecial #159                // Method leaveInstance:(Lorg/apache/zookeeper/server/quorum/Vote;)V
+    1405: aload         6
+    1407: astore        7
+    1409: aload_0
+    1410: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1413: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1416: ifnull        1432
+    1419: invokestatic  #106                // Method org/apache/zookeeper/jmx/MBeanRegistry.getInstance:()Lorg/apache/zookeeper/jmx/MBeanRegistry;
+    1422: aload_0
+    1423: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1426: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1429: invokevirtual #160                // Method org/apache/zookeeper/jmx/MBeanRegistry.unregister:(Lorg/apache/zookeeper/jmx/ZKMBeanInfo;)V
+    1432: goto          1449
+    1435: astore        8
+    1437: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1440: ldc           #161                // String Failed to unregister with JMX
+    1442: aload         8
+    1444: invokeinterface #111,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+    1449: aload_0
+    1450: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1453: aconst_null
+    1454: putfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1457: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1460: ldc           #162                // String Number of connection processing threads: {}
+    1462: aload_0
+    1463: getfield      #16                 // Field manager:Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;
+    1466: invokevirtual #163                // Method org/apache/zookeeper/server/quorum/QuorumCnxManager.getConnectionThreadCount:()J
+    1469: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+    1472: invokeinterface #85,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+    1477: aload         7
+    1479: areturn
+    1480: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1483: ldc           #169                // String Notification state unrecoginized: {} (n.state), {}(n.sid)
+    1485: aload         5
+    1487: getfield      #137                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.state:Lorg/apache/zookeeper/server/quorum/QuorumPeer$ServerState;
+    1490: aload         5
+    1492: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+    1495: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+    1498: invokeinterface #170,  4          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+    1503: goto          1582
+    1506: aload_0
+    1507: aload         5
+    1509: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1512: invokespecial #2                  // Method validVoter:(J)Z
+    1515: ifne          1544
+    1518: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1521: ldc           #171                // String Ignoring notification for non-cluster member sid {} from sid {}
+    1523: aload         5
+    1525: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1528: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+    1531: aload         5
+    1533: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+    1536: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+    1539: invokeinterface #170,  4          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+    1544: aload_0
+    1545: aload         5
+    1547: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+    1550: invokespecial #2                  // Method validVoter:(J)Z
+    1553: ifne          1582
+    1556: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1559: ldc           #172                // String Ignoring notification for sid {} from non-quorum member sid {}
+    1561: aload         5
+    1563: getfield      #135                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.leader:J
+    1566: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+    1569: aload         5
+    1571: getfield      #134                // Field org/apache/zookeeper/server/quorum/FastLeaderElection$Notification.sid:J
+    1574: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+    1577: invokeinterface #170,  4          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+    1582: goto          161
+    1585: aconst_null
+    1586: astore        5
+    1588: aload_0
+    1589: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1592: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1595: ifnull        1611
+    1598: invokestatic  #106                // Method org/apache/zookeeper/jmx/MBeanRegistry.getInstance:()Lorg/apache/zookeeper/jmx/MBeanRegistry;
+    1601: aload_0
+    1602: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1605: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1608: invokevirtual #160                // Method org/apache/zookeeper/jmx/MBeanRegistry.unregister:(Lorg/apache/zookeeper/jmx/ZKMBeanInfo;)V
+    1611: goto          1628
+    1614: astore        6
+    1616: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1619: ldc           #161                // String Failed to unregister with JMX
+    1621: aload         6
+    1623: invokeinterface #111,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+    1628: aload_0
+    1629: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1632: aconst_null
+    1633: putfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1636: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1639: ldc           #162                // String Number of connection processing threads: {}
+    1641: aload_0
+    1642: getfield      #16                 // Field manager:Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;
+    1645: invokevirtual #163                // Method org/apache/zookeeper/server/quorum/QuorumCnxManager.getConnectionThreadCount:()J
+    1648: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+    1651: invokeinterface #85,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+    1656: aload         5
+    1658: areturn
+    1659: astore        10
+    1661: aload_0
+    1662: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1665: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1668: ifnull        1684
+    1671: invokestatic  #106                // Method org/apache/zookeeper/jmx/MBeanRegistry.getInstance:()Lorg/apache/zookeeper/jmx/MBeanRegistry;
+    1674: aload_0
+    1675: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1678: getfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1681: invokevirtual #160                // Method org/apache/zookeeper/jmx/MBeanRegistry.unregister:(Lorg/apache/zookeeper/jmx/ZKMBeanInfo;)V
+    1684: goto          1701
+    1687: astore        11
+    1689: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1692: ldc           #161                // String Failed to unregister with JMX
+    1694: aload         11
+    1696: invokeinterface #111,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+    1701: aload_0
+    1702: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+    1705: aconst_null
+    1706: putfield      #105                // Field org/apache/zookeeper/server/quorum/QuorumPeer.jmxLeaderElectionBean:Lorg/apache/zookeeper/server/quorum/LeaderElectionBean;
+    1709: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+    1712: ldc           #162                // String Number of connection processing threads: {}
+    1714: aload_0
+    1715: getfield      #16                 // Field manager:Lorg/apache/zookeeper/server/quorum/QuorumCnxManager;
+    1718: invokevirtual #163                // Method org/apache/zookeeper/server/quorum/QuorumCnxManager.getConnectionThreadCount:()J
+    1721: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+    1724: invokeinterface #85,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+    1729: aload         10
+    1731: athrow
+    Exception table:
+       from    to  target type
+           0    34    37   Class java/lang/Exception
+          92   119   122   any
+         122   127   122   any
+         860   883   886   Class java/lang/Exception
+        1135  1158  1161   Class java/lang/Exception
+        1333  1359  1362   any
+        1362  1367  1362   any
+        1409  1432  1435   Class java/lang/Exception
+        1588  1611  1614   Class java/lang/Exception
+          67   860  1659   any
+         931  1135  1659   any
+        1206  1409  1659   any
+        1480  1588  1659   any
+        1661  1684  1687   Class java/lang/Exception
+        1659  1661  1659   any
+
+  private boolean validVoter(long);
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #47                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getCurrentAndNextConfigVoters:()Ljava/util/Set;
+       7: lload_1
+       8: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      11: invokeinterface #173,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+      16: ireturn
+
+  static org.slf4j.Logger access$000();
+    Code:
+       0: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static boolean access$100(org.apache.zookeeper.server.quorum.FastLeaderElection, long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokespecial #2                  // Method validVoter:(J)Z
+       5: ireturn
+
+  static org.apache.zookeeper.server.quorum.SyncedLearnerTracker access$200(org.apache.zookeeper.server.quorum.FastLeaderElection);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field leadingVoteSet:Lorg/apache/zookeeper/server/quorum/SyncedLearnerTracker;
+       4: areturn
+
+  static org.apache.zookeeper.server.quorum.SyncedLearnerTracker access$202(org.apache.zookeeper.server.quorum.FastLeaderElection, org.apache.zookeeper.server.quorum.SyncedLearnerTracker);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: dup_x1
+       3: putfield      #1                  // Field leadingVoteSet:Lorg/apache/zookeeper/server/quorum/SyncedLearnerTracker;
+       6: areturn
+
+  static {};
+    Code:
+       0: ldc           #154                // class org/apache/zookeeper/server/quorum/FastLeaderElection
+       2: invokestatic  #174                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+       8: ldc           #175                // int 60000
+      10: putstatic     #129                // Field maxNotificationInterval:I
+      13: sipush        200
+      16: putstatic     #116                // Field minNotificationInterval:I
+      19: ldc           #176                // String zookeeper.fastleader.minNotificationInterval
+      21: getstatic     #116                // Field minNotificationInterval:I
+      24: invokestatic  #177                // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+      27: invokevirtual #178                // Method java/lang/Integer.intValue:()I
+      30: putstatic     #116                // Field minNotificationInterval:I
+      33: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      36: ldc           #179                // String {}={}
+      38: ldc           #176                // String zookeeper.fastleader.minNotificationInterval
+      40: getstatic     #116                // Field minNotificationInterval:I
+      43: invokestatic  #132                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      46: invokeinterface #123,  4          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      51: ldc           #180                // String zookeeper.fastleader.maxNotificationInterval
+      53: getstatic     #129                // Field maxNotificationInterval:I
+      56: invokestatic  #177                // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+      59: invokevirtual #178                // Method java/lang/Integer.intValue:()I
+      62: putstatic     #129                // Field maxNotificationInterval:I
+      65: getstatic     #3                  // Field LOG:Lorg/slf4j/Logger;
+      68: ldc           #179                // String {}={}
+      70: ldc           #180                // String zookeeper.fastleader.maxNotificationInterval
+      72: getstatic     #129                // Field maxNotificationInterval:I
+      75: invokestatic  #132                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      78: invokeinterface #123,  4          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      83: iconst_0
+      84: newarray       byte
+      86: putstatic     #181                // Field dummyData:[B
+      89: return
+}

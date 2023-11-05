@@ -1,0 +1,6708 @@
+public class org.bouncycastle.crypto.engines.AESEngine implements org.bouncycastle.crypto.BlockCipher {
+  private static final byte[] S;
+
+  private static final byte[] Si;
+
+  private static final int[] rcon;
+
+  private static final int[] T0;
+
+  private static final int[] Tinv0;
+
+  private static final int m1;
+
+  private static final int m2;
+
+  private static final int m3;
+
+  private static final int m4;
+
+  private static final int m5;
+
+  private int ROUNDS;
+
+  private int[][] WorkingKey;
+
+  private boolean forEncryption;
+
+  private byte[] s;
+
+  private static final int BLOCK_SIZE;
+
+  private static int shift(int, int);
+    Code:
+       0: iload_0
+       1: iload_1
+       2: iushr
+       3: iload_0
+       4: iload_1
+       5: ineg
+       6: ishl
+       7: ior
+       8: ireturn
+
+  private static int FFmulX(int);
+    Code:
+       0: iload_0
+       1: ldc           #208                // int 2139062143
+       3: iand
+       4: iconst_1
+       5: ishl
+       6: iload_0
+       7: ldc           #1                  // int -2139062144
+       9: iand
+      10: bipush        7
+      12: iushr
+      13: bipush        27
+      15: imul
+      16: ixor
+      17: ireturn
+
+  private static int FFmulX2(int);
+    Code:
+       0: iload_0
+       1: ldc           #152                // int 1061109567
+       3: iand
+       4: iconst_2
+       5: ishl
+       6: istore_1
+       7: iload_0
+       8: ldc           #50                 // int -1061109568
+      10: iand
+      11: istore_2
+      12: iload_2
+      13: iload_2
+      14: iconst_1
+      15: iushr
+      16: ixor
+      17: istore_2
+      18: iload_1
+      19: iload_2
+      20: iconst_2
+      21: iushr
+      22: ixor
+      23: iload_2
+      24: iconst_5
+      25: iushr
+      26: ixor
+      27: ireturn
+
+  private static int inv_mcol(int);
+    Code:
+       0: iload_0
+       1: istore_1
+       2: iload_1
+       3: iload_1
+       4: bipush        8
+       6: invokestatic  #665                // Method shift:(II)I
+       9: ixor
+      10: istore_2
+      11: iload_1
+      12: iload_2
+      13: invokestatic  #661                // Method FFmulX:(I)I
+      16: ixor
+      17: istore_1
+      18: iload_2
+      19: iload_1
+      20: invokestatic  #662                // Method FFmulX2:(I)I
+      23: ixor
+      24: istore_2
+      25: iload_1
+      26: iload_2
+      27: iload_2
+      28: bipush        16
+      30: invokestatic  #665                // Method shift:(II)I
+      33: ixor
+      34: ixor
+      35: istore_1
+      36: iload_1
+      37: ireturn
+
+  private static int subWord(int);
+    Code:
+       0: getstatic     #644                // Field S:[B
+       3: iload_0
+       4: sipush        255
+       7: iand
+       8: baload
+       9: sipush        255
+      12: iand
+      13: getstatic     #644                // Field S:[B
+      16: iload_0
+      17: bipush        8
+      19: ishr
+      20: sipush        255
+      23: iand
+      24: baload
+      25: sipush        255
+      28: iand
+      29: bipush        8
+      31: ishl
+      32: ior
+      33: getstatic     #644                // Field S:[B
+      36: iload_0
+      37: bipush        16
+      39: ishr
+      40: sipush        255
+      43: iand
+      44: baload
+      45: sipush        255
+      48: iand
+      49: bipush        16
+      51: ishl
+      52: ior
+      53: getstatic     #644                // Field S:[B
+      56: iload_0
+      57: bipush        24
+      59: ishr
+      60: sipush        255
+      63: iand
+      64: baload
+      65: bipush        24
+      67: ishl
+      68: ior
+      69: ireturn
+
+  private int[][] generateWorkingKey(byte[], boolean);
+    Code:
+       0: aload_1
+       1: arraylength
+       2: istore_3
+       3: iload_3
+       4: bipush        16
+       6: if_icmplt     22
+       9: iload_3
+      10: bipush        32
+      12: if_icmpgt     22
+      15: iload_3
+      16: bipush        7
+      18: iand
+      19: ifeq          32
+      22: new           #599                // class java/lang/IllegalArgumentException
+      25: dup
+      26: ldc           #212                // String Key length not 128/192/256 bits.
+      28: invokespecial #652                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      31: athrow
+      32: iload_3
+      33: iconst_2
+      34: iushr
+      35: istore        4
+      37: aload_0
+      38: iload         4
+      40: bipush        6
+      42: iadd
+      43: putfield      #642                // Field ROUNDS:I
+      46: aload_0
+      47: getfield      #642                // Field ROUNDS:I
+      50: iconst_1
+      51: iadd
+      52: iconst_4
+      53: multianewarray #597,  2           // class "[[I"
+      57: astore        5
+      59: iload         4
+      61: tableswitch   { // 4 to 8
+                     4: 96
+                     5: 919
+                     6: 262
+                     7: 919
+                     8: 612
+               default: 919
+          }
+      96: aload_1
+      97: iconst_0
+      98: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     101: istore        6
+     103: aload         5
+     105: iconst_0
+     106: aaload
+     107: iconst_0
+     108: iload         6
+     110: iastore
+     111: aload_1
+     112: iconst_4
+     113: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     116: istore        7
+     118: aload         5
+     120: iconst_0
+     121: aaload
+     122: iconst_1
+     123: iload         7
+     125: iastore
+     126: aload_1
+     127: bipush        8
+     129: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     132: istore        8
+     134: aload         5
+     136: iconst_0
+     137: aaload
+     138: iconst_2
+     139: iload         8
+     141: iastore
+     142: aload_1
+     143: bipush        12
+     145: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     148: istore        9
+     150: aload         5
+     152: iconst_0
+     153: aaload
+     154: iconst_3
+     155: iload         9
+     157: iastore
+     158: iconst_1
+     159: istore        10
+     161: iload         10
+     163: bipush        10
+     165: if_icmpgt     259
+     168: iload         9
+     170: bipush        8
+     172: invokestatic  #665                // Method shift:(II)I
+     175: invokestatic  #664                // Method subWord:(I)I
+     178: getstatic     #649                // Field rcon:[I
+     181: iload         10
+     183: iconst_1
+     184: isub
+     185: iaload
+     186: ixor
+     187: istore        11
+     189: iload         6
+     191: iload         11
+     193: ixor
+     194: istore        6
+     196: aload         5
+     198: iload         10
+     200: aaload
+     201: iconst_0
+     202: iload         6
+     204: iastore
+     205: iload         7
+     207: iload         6
+     209: ixor
+     210: istore        7
+     212: aload         5
+     214: iload         10
+     216: aaload
+     217: iconst_1
+     218: iload         7
+     220: iastore
+     221: iload         8
+     223: iload         7
+     225: ixor
+     226: istore        8
+     228: aload         5
+     230: iload         10
+     232: aaload
+     233: iconst_2
+     234: iload         8
+     236: iastore
+     237: iload         9
+     239: iload         8
+     241: ixor
+     242: istore        9
+     244: aload         5
+     246: iload         10
+     248: aaload
+     249: iconst_3
+     250: iload         9
+     252: iastore
+     253: iinc          10, 1
+     256: goto          161
+     259: goto          929
+     262: aload_1
+     263: iconst_0
+     264: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     267: istore        6
+     269: aload         5
+     271: iconst_0
+     272: aaload
+     273: iconst_0
+     274: iload         6
+     276: iastore
+     277: aload_1
+     278: iconst_4
+     279: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     282: istore        7
+     284: aload         5
+     286: iconst_0
+     287: aaload
+     288: iconst_1
+     289: iload         7
+     291: iastore
+     292: aload_1
+     293: bipush        8
+     295: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     298: istore        8
+     300: aload         5
+     302: iconst_0
+     303: aaload
+     304: iconst_2
+     305: iload         8
+     307: iastore
+     308: aload_1
+     309: bipush        12
+     311: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     314: istore        9
+     316: aload         5
+     318: iconst_0
+     319: aaload
+     320: iconst_3
+     321: iload         9
+     323: iastore
+     324: aload_1
+     325: bipush        16
+     327: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     330: istore        10
+     332: aload_1
+     333: bipush        20
+     335: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     338: istore        11
+     340: iconst_1
+     341: istore        12
+     343: iconst_1
+     344: istore        13
+     346: aload         5
+     348: iload         12
+     350: aaload
+     351: iconst_0
+     352: iload         10
+     354: iastore
+     355: aload         5
+     357: iload         12
+     359: aaload
+     360: iconst_1
+     361: iload         11
+     363: iastore
+     364: iload         11
+     366: bipush        8
+     368: invokestatic  #665                // Method shift:(II)I
+     371: invokestatic  #664                // Method subWord:(I)I
+     374: iload         13
+     376: ixor
+     377: istore        14
+     379: iload         13
+     381: iconst_1
+     382: ishl
+     383: istore        13
+     385: iload         6
+     387: iload         14
+     389: ixor
+     390: istore        6
+     392: aload         5
+     394: iload         12
+     396: aaload
+     397: iconst_2
+     398: iload         6
+     400: iastore
+     401: iload         7
+     403: iload         6
+     405: ixor
+     406: istore        7
+     408: aload         5
+     410: iload         12
+     412: aaload
+     413: iconst_3
+     414: iload         7
+     416: iastore
+     417: iload         8
+     419: iload         7
+     421: ixor
+     422: istore        8
+     424: aload         5
+     426: iload         12
+     428: iconst_1
+     429: iadd
+     430: aaload
+     431: iconst_0
+     432: iload         8
+     434: iastore
+     435: iload         9
+     437: iload         8
+     439: ixor
+     440: istore        9
+     442: aload         5
+     444: iload         12
+     446: iconst_1
+     447: iadd
+     448: aaload
+     449: iconst_1
+     450: iload         9
+     452: iastore
+     453: iload         10
+     455: iload         9
+     457: ixor
+     458: istore        10
+     460: aload         5
+     462: iload         12
+     464: iconst_1
+     465: iadd
+     466: aaload
+     467: iconst_2
+     468: iload         10
+     470: iastore
+     471: iload         11
+     473: iload         10
+     475: ixor
+     476: istore        11
+     478: aload         5
+     480: iload         12
+     482: iconst_1
+     483: iadd
+     484: aaload
+     485: iconst_3
+     486: iload         11
+     488: iastore
+     489: iload         11
+     491: bipush        8
+     493: invokestatic  #665                // Method shift:(II)I
+     496: invokestatic  #664                // Method subWord:(I)I
+     499: iload         13
+     501: ixor
+     502: istore        14
+     504: iload         13
+     506: iconst_1
+     507: ishl
+     508: istore        13
+     510: iload         6
+     512: iload         14
+     514: ixor
+     515: istore        6
+     517: aload         5
+     519: iload         12
+     521: iconst_2
+     522: iadd
+     523: aaload
+     524: iconst_0
+     525: iload         6
+     527: iastore
+     528: iload         7
+     530: iload         6
+     532: ixor
+     533: istore        7
+     535: aload         5
+     537: iload         12
+     539: iconst_2
+     540: iadd
+     541: aaload
+     542: iconst_1
+     543: iload         7
+     545: iastore
+     546: iload         8
+     548: iload         7
+     550: ixor
+     551: istore        8
+     553: aload         5
+     555: iload         12
+     557: iconst_2
+     558: iadd
+     559: aaload
+     560: iconst_2
+     561: iload         8
+     563: iastore
+     564: iload         9
+     566: iload         8
+     568: ixor
+     569: istore        9
+     571: aload         5
+     573: iload         12
+     575: iconst_2
+     576: iadd
+     577: aaload
+     578: iconst_3
+     579: iload         9
+     581: iastore
+     582: iinc          12, 3
+     585: iload         12
+     587: bipush        13
+     589: if_icmplt     595
+     592: goto          929
+     595: iload         10
+     597: iload         9
+     599: ixor
+     600: istore        10
+     602: iload         11
+     604: iload         10
+     606: ixor
+     607: istore        11
+     609: goto          346
+     612: aload_1
+     613: iconst_0
+     614: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     617: istore        6
+     619: aload         5
+     621: iconst_0
+     622: aaload
+     623: iconst_0
+     624: iload         6
+     626: iastore
+     627: aload_1
+     628: iconst_4
+     629: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     632: istore        7
+     634: aload         5
+     636: iconst_0
+     637: aaload
+     638: iconst_1
+     639: iload         7
+     641: iastore
+     642: aload_1
+     643: bipush        8
+     645: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     648: istore        8
+     650: aload         5
+     652: iconst_0
+     653: aaload
+     654: iconst_2
+     655: iload         8
+     657: iastore
+     658: aload_1
+     659: bipush        12
+     661: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     664: istore        9
+     666: aload         5
+     668: iconst_0
+     669: aaload
+     670: iconst_3
+     671: iload         9
+     673: iastore
+     674: aload_1
+     675: bipush        16
+     677: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     680: istore        10
+     682: aload         5
+     684: iconst_1
+     685: aaload
+     686: iconst_0
+     687: iload         10
+     689: iastore
+     690: aload_1
+     691: bipush        20
+     693: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     696: istore        11
+     698: aload         5
+     700: iconst_1
+     701: aaload
+     702: iconst_1
+     703: iload         11
+     705: iastore
+     706: aload_1
+     707: bipush        24
+     709: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     712: istore        12
+     714: aload         5
+     716: iconst_1
+     717: aaload
+     718: iconst_2
+     719: iload         12
+     721: iastore
+     722: aload_1
+     723: bipush        28
+     725: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     728: istore        13
+     730: aload         5
+     732: iconst_1
+     733: aaload
+     734: iconst_3
+     735: iload         13
+     737: iastore
+     738: iconst_2
+     739: istore        14
+     741: iconst_1
+     742: istore        15
+     744: iload         13
+     746: bipush        8
+     748: invokestatic  #665                // Method shift:(II)I
+     751: invokestatic  #664                // Method subWord:(I)I
+     754: iload         15
+     756: ixor
+     757: istore        16
+     759: iload         15
+     761: iconst_1
+     762: ishl
+     763: istore        15
+     765: iload         6
+     767: iload         16
+     769: ixor
+     770: istore        6
+     772: aload         5
+     774: iload         14
+     776: aaload
+     777: iconst_0
+     778: iload         6
+     780: iastore
+     781: iload         7
+     783: iload         6
+     785: ixor
+     786: istore        7
+     788: aload         5
+     790: iload         14
+     792: aaload
+     793: iconst_1
+     794: iload         7
+     796: iastore
+     797: iload         8
+     799: iload         7
+     801: ixor
+     802: istore        8
+     804: aload         5
+     806: iload         14
+     808: aaload
+     809: iconst_2
+     810: iload         8
+     812: iastore
+     813: iload         9
+     815: iload         8
+     817: ixor
+     818: istore        9
+     820: aload         5
+     822: iload         14
+     824: aaload
+     825: iconst_3
+     826: iload         9
+     828: iastore
+     829: iinc          14, 1
+     832: iload         14
+     834: bipush        15
+     836: if_icmplt     842
+     839: goto          929
+     842: iload         9
+     844: invokestatic  #664                // Method subWord:(I)I
+     847: istore        16
+     849: iload         10
+     851: iload         16
+     853: ixor
+     854: istore        10
+     856: aload         5
+     858: iload         14
+     860: aaload
+     861: iconst_0
+     862: iload         10
+     864: iastore
+     865: iload         11
+     867: iload         10
+     869: ixor
+     870: istore        11
+     872: aload         5
+     874: iload         14
+     876: aaload
+     877: iconst_1
+     878: iload         11
+     880: iastore
+     881: iload         12
+     883: iload         11
+     885: ixor
+     886: istore        12
+     888: aload         5
+     890: iload         14
+     892: aaload
+     893: iconst_2
+     894: iload         12
+     896: iastore
+     897: iload         13
+     899: iload         12
+     901: ixor
+     902: istore        13
+     904: aload         5
+     906: iload         14
+     908: aaload
+     909: iconst_3
+     910: iload         13
+     912: iastore
+     913: iinc          14, 1
+     916: goto          744
+     919: new           #600                // class java/lang/IllegalStateException
+     922: dup
+     923: ldc           #213                // String Should never get here
+     925: invokespecial #653                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+     928: athrow
+     929: iload_2
+     930: ifne          985
+     933: iconst_1
+     934: istore        6
+     936: iload         6
+     938: aload_0
+     939: getfield      #642                // Field ROUNDS:I
+     942: if_icmpge     985
+     945: iconst_0
+     946: istore        7
+     948: iload         7
+     950: iconst_4
+     951: if_icmpge     979
+     954: aload         5
+     956: iload         6
+     958: aaload
+     959: iload         7
+     961: aload         5
+     963: iload         6
+     965: aaload
+     966: iload         7
+     968: iaload
+     969: invokestatic  #663                // Method inv_mcol:(I)I
+     972: iastore
+     973: iinc          7, 1
+     976: goto          948
+     979: iinc          6, 1
+     982: goto          936
+     985: aload         5
+     987: areturn
+
+  public org.bouncycastle.crypto.engines.AESEngine();
+    Code:
+       0: aload_0
+       1: invokespecial #654                // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aconst_null
+       6: checkcast     #597                // class "[[I"
+       9: putfield      #650                // Field WorkingKey:[[I
+      12: return
+
+  public void init(boolean, org.bouncycastle.crypto.CipherParameters);
+    Code:
+       0: aload_2
+       1: instanceof    #607                // class org/bouncycastle/crypto/params/KeyParameter
+       4: ifeq          56
+       7: aload_0
+       8: aload_0
+       9: aload_2
+      10: checkcast     #607                // class org/bouncycastle/crypto/params/KeyParameter
+      13: invokevirtual #669                // Method org/bouncycastle/crypto/params/KeyParameter.getKey:()[B
+      16: iload_1
+      17: invokespecial #668                // Method generateWorkingKey:([BZ)[[I
+      20: putfield      #650                // Field WorkingKey:[[I
+      23: aload_0
+      24: iload_1
+      25: putfield      #643                // Field forEncryption:Z
+      28: iload_1
+      29: ifeq          45
+      32: aload_0
+      33: getstatic     #644                // Field S:[B
+      36: invokestatic  #670                // Method org/bouncycastle/util/Arrays.clone:([B)[B
+      39: putfield      #646                // Field s:[B
+      42: goto          55
+      45: aload_0
+      46: getstatic     #645                // Field Si:[B
+      49: invokestatic  #670                // Method org/bouncycastle/util/Arrays.clone:([B)[B
+      52: putfield      #646                // Field s:[B
+      55: return
+      56: new           #599                // class java/lang/IllegalArgumentException
+      59: dup
+      60: new           #602                // class java/lang/StringBuilder
+      63: dup
+      64: invokespecial #656                // Method java/lang/StringBuilder."<init>":()V
+      67: ldc           #215                // String invalid parameter passed to AES init -
+      69: invokevirtual #658                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      72: aload_2
+      73: invokevirtual #655                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      76: invokevirtual #651                // Method java/lang/Class.getName:()Ljava/lang/String;
+      79: invokevirtual #658                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      82: invokevirtual #657                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      85: invokespecial #652                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      88: athrow
+
+  public java.lang.String getAlgorithmName();
+    Code:
+       0: ldc           #210                // String AES
+       2: areturn
+
+  public int getBlockSize();
+    Code:
+       0: bipush        16
+       2: ireturn
+
+  public int processBlock(byte[], int, byte[], int);
+    Code:
+       0: aload_0
+       1: getfield      #650                // Field WorkingKey:[[I
+       4: ifnonnull     17
+       7: new           #600                // class java/lang/IllegalStateException
+      10: dup
+      11: ldc           #211                // String AES engine not initialised
+      13: invokespecial #653                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      16: athrow
+      17: iload_2
+      18: aload_1
+      19: arraylength
+      20: bipush        16
+      22: isub
+      23: if_icmple     36
+      26: new           #604                // class org/bouncycastle/crypto/DataLengthException
+      29: dup
+      30: ldc           #214                // String input buffer too short
+      32: invokespecial #659                // Method org/bouncycastle/crypto/DataLengthException."<init>":(Ljava/lang/String;)V
+      35: athrow
+      36: iload         4
+      38: aload_3
+      39: arraylength
+      40: bipush        16
+      42: isub
+      43: if_icmple     56
+      46: new           #605                // class org/bouncycastle/crypto/OutputLengthException
+      49: dup
+      50: ldc           #216                // String output buffer too short
+      52: invokespecial #660                // Method org/bouncycastle/crypto/OutputLengthException."<init>":(Ljava/lang/String;)V
+      55: athrow
+      56: aload_0
+      57: getfield      #643                // Field forEncryption:Z
+      60: ifeq          79
+      63: aload_0
+      64: aload_1
+      65: iload_2
+      66: aload_3
+      67: iload         4
+      69: aload_0
+      70: getfield      #650                // Field WorkingKey:[[I
+      73: invokespecial #667                // Method encryptBlock:([BI[BI[[I)V
+      76: goto          92
+      79: aload_0
+      80: aload_1
+      81: iload_2
+      82: aload_3
+      83: iload         4
+      85: aload_0
+      86: getfield      #650                // Field WorkingKey:[[I
+      89: invokespecial #666                // Method decryptBlock:([BI[BI[[I)V
+      92: bipush        16
+      94: ireturn
+
+  public void reset();
+    Code:
+       0: return
+
+  private void encryptBlock(byte[], int, byte[], int, int[][]);
+    Code:
+       0: aload_1
+       1: iload_2
+       2: iconst_0
+       3: iadd
+       4: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+       7: istore        6
+       9: aload_1
+      10: iload_2
+      11: iconst_4
+      12: iadd
+      13: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      16: istore        7
+      18: aload_1
+      19: iload_2
+      20: bipush        8
+      22: iadd
+      23: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      26: istore        8
+      28: aload_1
+      29: iload_2
+      30: bipush        12
+      32: iadd
+      33: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      36: istore        9
+      38: iload         6
+      40: aload         5
+      42: iconst_0
+      43: aaload
+      44: iconst_0
+      45: iaload
+      46: ixor
+      47: istore        10
+      49: iload         7
+      51: aload         5
+      53: iconst_0
+      54: aaload
+      55: iconst_1
+      56: iaload
+      57: ixor
+      58: istore        11
+      60: iload         8
+      62: aload         5
+      64: iconst_0
+      65: aaload
+      66: iconst_2
+      67: iaload
+      68: ixor
+      69: istore        12
+      71: iconst_1
+      72: istore        13
+      74: iload         9
+      76: aload         5
+      78: iconst_0
+      79: aaload
+      80: iconst_3
+      81: iaload
+      82: ixor
+      83: istore        17
+      85: iload         13
+      87: aload_0
+      88: getfield      #642                // Field ROUNDS:I
+      91: iconst_1
+      92: isub
+      93: if_icmpge     721
+      96: getstatic     #647                // Field T0:[I
+      99: iload         10
+     101: sipush        255
+     104: iand
+     105: iaload
+     106: getstatic     #647                // Field T0:[I
+     109: iload         11
+     111: bipush        8
+     113: ishr
+     114: sipush        255
+     117: iand
+     118: iaload
+     119: bipush        24
+     121: invokestatic  #665                // Method shift:(II)I
+     124: ixor
+     125: getstatic     #647                // Field T0:[I
+     128: iload         12
+     130: bipush        16
+     132: ishr
+     133: sipush        255
+     136: iand
+     137: iaload
+     138: bipush        16
+     140: invokestatic  #665                // Method shift:(II)I
+     143: ixor
+     144: getstatic     #647                // Field T0:[I
+     147: iload         17
+     149: bipush        24
+     151: ishr
+     152: sipush        255
+     155: iand
+     156: iaload
+     157: bipush        8
+     159: invokestatic  #665                // Method shift:(II)I
+     162: ixor
+     163: aload         5
+     165: iload         13
+     167: aaload
+     168: iconst_0
+     169: iaload
+     170: ixor
+     171: istore        14
+     173: getstatic     #647                // Field T0:[I
+     176: iload         11
+     178: sipush        255
+     181: iand
+     182: iaload
+     183: getstatic     #647                // Field T0:[I
+     186: iload         12
+     188: bipush        8
+     190: ishr
+     191: sipush        255
+     194: iand
+     195: iaload
+     196: bipush        24
+     198: invokestatic  #665                // Method shift:(II)I
+     201: ixor
+     202: getstatic     #647                // Field T0:[I
+     205: iload         17
+     207: bipush        16
+     209: ishr
+     210: sipush        255
+     213: iand
+     214: iaload
+     215: bipush        16
+     217: invokestatic  #665                // Method shift:(II)I
+     220: ixor
+     221: getstatic     #647                // Field T0:[I
+     224: iload         10
+     226: bipush        24
+     228: ishr
+     229: sipush        255
+     232: iand
+     233: iaload
+     234: bipush        8
+     236: invokestatic  #665                // Method shift:(II)I
+     239: ixor
+     240: aload         5
+     242: iload         13
+     244: aaload
+     245: iconst_1
+     246: iaload
+     247: ixor
+     248: istore        15
+     250: getstatic     #647                // Field T0:[I
+     253: iload         12
+     255: sipush        255
+     258: iand
+     259: iaload
+     260: getstatic     #647                // Field T0:[I
+     263: iload         17
+     265: bipush        8
+     267: ishr
+     268: sipush        255
+     271: iand
+     272: iaload
+     273: bipush        24
+     275: invokestatic  #665                // Method shift:(II)I
+     278: ixor
+     279: getstatic     #647                // Field T0:[I
+     282: iload         10
+     284: bipush        16
+     286: ishr
+     287: sipush        255
+     290: iand
+     291: iaload
+     292: bipush        16
+     294: invokestatic  #665                // Method shift:(II)I
+     297: ixor
+     298: getstatic     #647                // Field T0:[I
+     301: iload         11
+     303: bipush        24
+     305: ishr
+     306: sipush        255
+     309: iand
+     310: iaload
+     311: bipush        8
+     313: invokestatic  #665                // Method shift:(II)I
+     316: ixor
+     317: aload         5
+     319: iload         13
+     321: aaload
+     322: iconst_2
+     323: iaload
+     324: ixor
+     325: istore        16
+     327: getstatic     #647                // Field T0:[I
+     330: iload         17
+     332: sipush        255
+     335: iand
+     336: iaload
+     337: getstatic     #647                // Field T0:[I
+     340: iload         10
+     342: bipush        8
+     344: ishr
+     345: sipush        255
+     348: iand
+     349: iaload
+     350: bipush        24
+     352: invokestatic  #665                // Method shift:(II)I
+     355: ixor
+     356: getstatic     #647                // Field T0:[I
+     359: iload         11
+     361: bipush        16
+     363: ishr
+     364: sipush        255
+     367: iand
+     368: iaload
+     369: bipush        16
+     371: invokestatic  #665                // Method shift:(II)I
+     374: ixor
+     375: getstatic     #647                // Field T0:[I
+     378: iload         12
+     380: bipush        24
+     382: ishr
+     383: sipush        255
+     386: iand
+     387: iaload
+     388: bipush        8
+     390: invokestatic  #665                // Method shift:(II)I
+     393: ixor
+     394: aload         5
+     396: iload         13
+     398: iinc          13, 1
+     401: aaload
+     402: iconst_3
+     403: iaload
+     404: ixor
+     405: istore        17
+     407: getstatic     #647                // Field T0:[I
+     410: iload         14
+     412: sipush        255
+     415: iand
+     416: iaload
+     417: getstatic     #647                // Field T0:[I
+     420: iload         15
+     422: bipush        8
+     424: ishr
+     425: sipush        255
+     428: iand
+     429: iaload
+     430: bipush        24
+     432: invokestatic  #665                // Method shift:(II)I
+     435: ixor
+     436: getstatic     #647                // Field T0:[I
+     439: iload         16
+     441: bipush        16
+     443: ishr
+     444: sipush        255
+     447: iand
+     448: iaload
+     449: bipush        16
+     451: invokestatic  #665                // Method shift:(II)I
+     454: ixor
+     455: getstatic     #647                // Field T0:[I
+     458: iload         17
+     460: bipush        24
+     462: ishr
+     463: sipush        255
+     466: iand
+     467: iaload
+     468: bipush        8
+     470: invokestatic  #665                // Method shift:(II)I
+     473: ixor
+     474: aload         5
+     476: iload         13
+     478: aaload
+     479: iconst_0
+     480: iaload
+     481: ixor
+     482: istore        10
+     484: getstatic     #647                // Field T0:[I
+     487: iload         15
+     489: sipush        255
+     492: iand
+     493: iaload
+     494: getstatic     #647                // Field T0:[I
+     497: iload         16
+     499: bipush        8
+     501: ishr
+     502: sipush        255
+     505: iand
+     506: iaload
+     507: bipush        24
+     509: invokestatic  #665                // Method shift:(II)I
+     512: ixor
+     513: getstatic     #647                // Field T0:[I
+     516: iload         17
+     518: bipush        16
+     520: ishr
+     521: sipush        255
+     524: iand
+     525: iaload
+     526: bipush        16
+     528: invokestatic  #665                // Method shift:(II)I
+     531: ixor
+     532: getstatic     #647                // Field T0:[I
+     535: iload         14
+     537: bipush        24
+     539: ishr
+     540: sipush        255
+     543: iand
+     544: iaload
+     545: bipush        8
+     547: invokestatic  #665                // Method shift:(II)I
+     550: ixor
+     551: aload         5
+     553: iload         13
+     555: aaload
+     556: iconst_1
+     557: iaload
+     558: ixor
+     559: istore        11
+     561: getstatic     #647                // Field T0:[I
+     564: iload         16
+     566: sipush        255
+     569: iand
+     570: iaload
+     571: getstatic     #647                // Field T0:[I
+     574: iload         17
+     576: bipush        8
+     578: ishr
+     579: sipush        255
+     582: iand
+     583: iaload
+     584: bipush        24
+     586: invokestatic  #665                // Method shift:(II)I
+     589: ixor
+     590: getstatic     #647                // Field T0:[I
+     593: iload         14
+     595: bipush        16
+     597: ishr
+     598: sipush        255
+     601: iand
+     602: iaload
+     603: bipush        16
+     605: invokestatic  #665                // Method shift:(II)I
+     608: ixor
+     609: getstatic     #647                // Field T0:[I
+     612: iload         15
+     614: bipush        24
+     616: ishr
+     617: sipush        255
+     620: iand
+     621: iaload
+     622: bipush        8
+     624: invokestatic  #665                // Method shift:(II)I
+     627: ixor
+     628: aload         5
+     630: iload         13
+     632: aaload
+     633: iconst_2
+     634: iaload
+     635: ixor
+     636: istore        12
+     638: getstatic     #647                // Field T0:[I
+     641: iload         17
+     643: sipush        255
+     646: iand
+     647: iaload
+     648: getstatic     #647                // Field T0:[I
+     651: iload         14
+     653: bipush        8
+     655: ishr
+     656: sipush        255
+     659: iand
+     660: iaload
+     661: bipush        24
+     663: invokestatic  #665                // Method shift:(II)I
+     666: ixor
+     667: getstatic     #647                // Field T0:[I
+     670: iload         15
+     672: bipush        16
+     674: ishr
+     675: sipush        255
+     678: iand
+     679: iaload
+     680: bipush        16
+     682: invokestatic  #665                // Method shift:(II)I
+     685: ixor
+     686: getstatic     #647                // Field T0:[I
+     689: iload         16
+     691: bipush        24
+     693: ishr
+     694: sipush        255
+     697: iand
+     698: iaload
+     699: bipush        8
+     701: invokestatic  #665                // Method shift:(II)I
+     704: ixor
+     705: aload         5
+     707: iload         13
+     709: iinc          13, 1
+     712: aaload
+     713: iconst_3
+     714: iaload
+     715: ixor
+     716: istore        17
+     718: goto          85
+     721: getstatic     #647                // Field T0:[I
+     724: iload         10
+     726: sipush        255
+     729: iand
+     730: iaload
+     731: getstatic     #647                // Field T0:[I
+     734: iload         11
+     736: bipush        8
+     738: ishr
+     739: sipush        255
+     742: iand
+     743: iaload
+     744: bipush        24
+     746: invokestatic  #665                // Method shift:(II)I
+     749: ixor
+     750: getstatic     #647                // Field T0:[I
+     753: iload         12
+     755: bipush        16
+     757: ishr
+     758: sipush        255
+     761: iand
+     762: iaload
+     763: bipush        16
+     765: invokestatic  #665                // Method shift:(II)I
+     768: ixor
+     769: getstatic     #647                // Field T0:[I
+     772: iload         17
+     774: bipush        24
+     776: ishr
+     777: sipush        255
+     780: iand
+     781: iaload
+     782: bipush        8
+     784: invokestatic  #665                // Method shift:(II)I
+     787: ixor
+     788: aload         5
+     790: iload         13
+     792: aaload
+     793: iconst_0
+     794: iaload
+     795: ixor
+     796: istore        14
+     798: getstatic     #647                // Field T0:[I
+     801: iload         11
+     803: sipush        255
+     806: iand
+     807: iaload
+     808: getstatic     #647                // Field T0:[I
+     811: iload         12
+     813: bipush        8
+     815: ishr
+     816: sipush        255
+     819: iand
+     820: iaload
+     821: bipush        24
+     823: invokestatic  #665                // Method shift:(II)I
+     826: ixor
+     827: getstatic     #647                // Field T0:[I
+     830: iload         17
+     832: bipush        16
+     834: ishr
+     835: sipush        255
+     838: iand
+     839: iaload
+     840: bipush        16
+     842: invokestatic  #665                // Method shift:(II)I
+     845: ixor
+     846: getstatic     #647                // Field T0:[I
+     849: iload         10
+     851: bipush        24
+     853: ishr
+     854: sipush        255
+     857: iand
+     858: iaload
+     859: bipush        8
+     861: invokestatic  #665                // Method shift:(II)I
+     864: ixor
+     865: aload         5
+     867: iload         13
+     869: aaload
+     870: iconst_1
+     871: iaload
+     872: ixor
+     873: istore        15
+     875: getstatic     #647                // Field T0:[I
+     878: iload         12
+     880: sipush        255
+     883: iand
+     884: iaload
+     885: getstatic     #647                // Field T0:[I
+     888: iload         17
+     890: bipush        8
+     892: ishr
+     893: sipush        255
+     896: iand
+     897: iaload
+     898: bipush        24
+     900: invokestatic  #665                // Method shift:(II)I
+     903: ixor
+     904: getstatic     #647                // Field T0:[I
+     907: iload         10
+     909: bipush        16
+     911: ishr
+     912: sipush        255
+     915: iand
+     916: iaload
+     917: bipush        16
+     919: invokestatic  #665                // Method shift:(II)I
+     922: ixor
+     923: getstatic     #647                // Field T0:[I
+     926: iload         11
+     928: bipush        24
+     930: ishr
+     931: sipush        255
+     934: iand
+     935: iaload
+     936: bipush        8
+     938: invokestatic  #665                // Method shift:(II)I
+     941: ixor
+     942: aload         5
+     944: iload         13
+     946: aaload
+     947: iconst_2
+     948: iaload
+     949: ixor
+     950: istore        16
+     952: getstatic     #647                // Field T0:[I
+     955: iload         17
+     957: sipush        255
+     960: iand
+     961: iaload
+     962: getstatic     #647                // Field T0:[I
+     965: iload         10
+     967: bipush        8
+     969: ishr
+     970: sipush        255
+     973: iand
+     974: iaload
+     975: bipush        24
+     977: invokestatic  #665                // Method shift:(II)I
+     980: ixor
+     981: getstatic     #647                // Field T0:[I
+     984: iload         11
+     986: bipush        16
+     988: ishr
+     989: sipush        255
+     992: iand
+     993: iaload
+     994: bipush        16
+     996: invokestatic  #665                // Method shift:(II)I
+     999: ixor
+    1000: getstatic     #647                // Field T0:[I
+    1003: iload         12
+    1005: bipush        24
+    1007: ishr
+    1008: sipush        255
+    1011: iand
+    1012: iaload
+    1013: bipush        8
+    1015: invokestatic  #665                // Method shift:(II)I
+    1018: ixor
+    1019: aload         5
+    1021: iload         13
+    1023: iinc          13, 1
+    1026: aaload
+    1027: iconst_3
+    1028: iaload
+    1029: ixor
+    1030: istore        17
+    1032: getstatic     #644                // Field S:[B
+    1035: iload         14
+    1037: sipush        255
+    1040: iand
+    1041: baload
+    1042: sipush        255
+    1045: iand
+    1046: getstatic     #644                // Field S:[B
+    1049: iload         15
+    1051: bipush        8
+    1053: ishr
+    1054: sipush        255
+    1057: iand
+    1058: baload
+    1059: sipush        255
+    1062: iand
+    1063: bipush        8
+    1065: ishl
+    1066: ixor
+    1067: aload_0
+    1068: getfield      #646                // Field s:[B
+    1071: iload         16
+    1073: bipush        16
+    1075: ishr
+    1076: sipush        255
+    1079: iand
+    1080: baload
+    1081: sipush        255
+    1084: iand
+    1085: bipush        16
+    1087: ishl
+    1088: ixor
+    1089: aload_0
+    1090: getfield      #646                // Field s:[B
+    1093: iload         17
+    1095: bipush        24
+    1097: ishr
+    1098: sipush        255
+    1101: iand
+    1102: baload
+    1103: bipush        24
+    1105: ishl
+    1106: ixor
+    1107: aload         5
+    1109: iload         13
+    1111: aaload
+    1112: iconst_0
+    1113: iaload
+    1114: ixor
+    1115: istore        6
+    1117: aload_0
+    1118: getfield      #646                // Field s:[B
+    1121: iload         15
+    1123: sipush        255
+    1126: iand
+    1127: baload
+    1128: sipush        255
+    1131: iand
+    1132: getstatic     #644                // Field S:[B
+    1135: iload         16
+    1137: bipush        8
+    1139: ishr
+    1140: sipush        255
+    1143: iand
+    1144: baload
+    1145: sipush        255
+    1148: iand
+    1149: bipush        8
+    1151: ishl
+    1152: ixor
+    1153: getstatic     #644                // Field S:[B
+    1156: iload         17
+    1158: bipush        16
+    1160: ishr
+    1161: sipush        255
+    1164: iand
+    1165: baload
+    1166: sipush        255
+    1169: iand
+    1170: bipush        16
+    1172: ishl
+    1173: ixor
+    1174: aload_0
+    1175: getfield      #646                // Field s:[B
+    1178: iload         14
+    1180: bipush        24
+    1182: ishr
+    1183: sipush        255
+    1186: iand
+    1187: baload
+    1188: bipush        24
+    1190: ishl
+    1191: ixor
+    1192: aload         5
+    1194: iload         13
+    1196: aaload
+    1197: iconst_1
+    1198: iaload
+    1199: ixor
+    1200: istore        7
+    1202: aload_0
+    1203: getfield      #646                // Field s:[B
+    1206: iload         16
+    1208: sipush        255
+    1211: iand
+    1212: baload
+    1213: sipush        255
+    1216: iand
+    1217: getstatic     #644                // Field S:[B
+    1220: iload         17
+    1222: bipush        8
+    1224: ishr
+    1225: sipush        255
+    1228: iand
+    1229: baload
+    1230: sipush        255
+    1233: iand
+    1234: bipush        8
+    1236: ishl
+    1237: ixor
+    1238: getstatic     #644                // Field S:[B
+    1241: iload         14
+    1243: bipush        16
+    1245: ishr
+    1246: sipush        255
+    1249: iand
+    1250: baload
+    1251: sipush        255
+    1254: iand
+    1255: bipush        16
+    1257: ishl
+    1258: ixor
+    1259: getstatic     #644                // Field S:[B
+    1262: iload         15
+    1264: bipush        24
+    1266: ishr
+    1267: sipush        255
+    1270: iand
+    1271: baload
+    1272: bipush        24
+    1274: ishl
+    1275: ixor
+    1276: aload         5
+    1278: iload         13
+    1280: aaload
+    1281: iconst_2
+    1282: iaload
+    1283: ixor
+    1284: istore        8
+    1286: aload_0
+    1287: getfield      #646                // Field s:[B
+    1290: iload         17
+    1292: sipush        255
+    1295: iand
+    1296: baload
+    1297: sipush        255
+    1300: iand
+    1301: aload_0
+    1302: getfield      #646                // Field s:[B
+    1305: iload         14
+    1307: bipush        8
+    1309: ishr
+    1310: sipush        255
+    1313: iand
+    1314: baload
+    1315: sipush        255
+    1318: iand
+    1319: bipush        8
+    1321: ishl
+    1322: ixor
+    1323: aload_0
+    1324: getfield      #646                // Field s:[B
+    1327: iload         15
+    1329: bipush        16
+    1331: ishr
+    1332: sipush        255
+    1335: iand
+    1336: baload
+    1337: sipush        255
+    1340: iand
+    1341: bipush        16
+    1343: ishl
+    1344: ixor
+    1345: getstatic     #644                // Field S:[B
+    1348: iload         16
+    1350: bipush        24
+    1352: ishr
+    1353: sipush        255
+    1356: iand
+    1357: baload
+    1358: bipush        24
+    1360: ishl
+    1361: ixor
+    1362: aload         5
+    1364: iload         13
+    1366: aaload
+    1367: iconst_3
+    1368: iaload
+    1369: ixor
+    1370: istore        9
+    1372: iload         6
+    1374: aload_3
+    1375: iload         4
+    1377: iconst_0
+    1378: iadd
+    1379: invokestatic  #671                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1382: iload         7
+    1384: aload_3
+    1385: iload         4
+    1387: iconst_4
+    1388: iadd
+    1389: invokestatic  #671                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1392: iload         8
+    1394: aload_3
+    1395: iload         4
+    1397: bipush        8
+    1399: iadd
+    1400: invokestatic  #671                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1403: iload         9
+    1405: aload_3
+    1406: iload         4
+    1408: bipush        12
+    1410: iadd
+    1411: invokestatic  #671                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1414: return
+
+  private void decryptBlock(byte[], int, byte[], int, int[][]);
+    Code:
+       0: aload_1
+       1: iload_2
+       2: iconst_0
+       3: iadd
+       4: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+       7: istore        6
+       9: aload_1
+      10: iload_2
+      11: iconst_4
+      12: iadd
+      13: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      16: istore        7
+      18: aload_1
+      19: iload_2
+      20: bipush        8
+      22: iadd
+      23: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      26: istore        8
+      28: aload_1
+      29: iload_2
+      30: bipush        12
+      32: iadd
+      33: invokestatic  #672                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      36: istore        9
+      38: iload         6
+      40: aload         5
+      42: aload_0
+      43: getfield      #642                // Field ROUNDS:I
+      46: aaload
+      47: iconst_0
+      48: iaload
+      49: ixor
+      50: istore        10
+      52: iload         7
+      54: aload         5
+      56: aload_0
+      57: getfield      #642                // Field ROUNDS:I
+      60: aaload
+      61: iconst_1
+      62: iaload
+      63: ixor
+      64: istore        11
+      66: iload         8
+      68: aload         5
+      70: aload_0
+      71: getfield      #642                // Field ROUNDS:I
+      74: aaload
+      75: iconst_2
+      76: iaload
+      77: ixor
+      78: istore        12
+      80: aload_0
+      81: getfield      #642                // Field ROUNDS:I
+      84: iconst_1
+      85: isub
+      86: istore        13
+      88: iload         9
+      90: aload         5
+      92: aload_0
+      93: getfield      #642                // Field ROUNDS:I
+      96: aaload
+      97: iconst_3
+      98: iaload
+      99: ixor
+     100: istore        17
+     102: iload         13
+     104: iconst_1
+     105: if_icmple     733
+     108: getstatic     #648                // Field Tinv0:[I
+     111: iload         10
+     113: sipush        255
+     116: iand
+     117: iaload
+     118: getstatic     #648                // Field Tinv0:[I
+     121: iload         17
+     123: bipush        8
+     125: ishr
+     126: sipush        255
+     129: iand
+     130: iaload
+     131: bipush        24
+     133: invokestatic  #665                // Method shift:(II)I
+     136: ixor
+     137: getstatic     #648                // Field Tinv0:[I
+     140: iload         12
+     142: bipush        16
+     144: ishr
+     145: sipush        255
+     148: iand
+     149: iaload
+     150: bipush        16
+     152: invokestatic  #665                // Method shift:(II)I
+     155: ixor
+     156: getstatic     #648                // Field Tinv0:[I
+     159: iload         11
+     161: bipush        24
+     163: ishr
+     164: sipush        255
+     167: iand
+     168: iaload
+     169: bipush        8
+     171: invokestatic  #665                // Method shift:(II)I
+     174: ixor
+     175: aload         5
+     177: iload         13
+     179: aaload
+     180: iconst_0
+     181: iaload
+     182: ixor
+     183: istore        14
+     185: getstatic     #648                // Field Tinv0:[I
+     188: iload         11
+     190: sipush        255
+     193: iand
+     194: iaload
+     195: getstatic     #648                // Field Tinv0:[I
+     198: iload         10
+     200: bipush        8
+     202: ishr
+     203: sipush        255
+     206: iand
+     207: iaload
+     208: bipush        24
+     210: invokestatic  #665                // Method shift:(II)I
+     213: ixor
+     214: getstatic     #648                // Field Tinv0:[I
+     217: iload         17
+     219: bipush        16
+     221: ishr
+     222: sipush        255
+     225: iand
+     226: iaload
+     227: bipush        16
+     229: invokestatic  #665                // Method shift:(II)I
+     232: ixor
+     233: getstatic     #648                // Field Tinv0:[I
+     236: iload         12
+     238: bipush        24
+     240: ishr
+     241: sipush        255
+     244: iand
+     245: iaload
+     246: bipush        8
+     248: invokestatic  #665                // Method shift:(II)I
+     251: ixor
+     252: aload         5
+     254: iload         13
+     256: aaload
+     257: iconst_1
+     258: iaload
+     259: ixor
+     260: istore        15
+     262: getstatic     #648                // Field Tinv0:[I
+     265: iload         12
+     267: sipush        255
+     270: iand
+     271: iaload
+     272: getstatic     #648                // Field Tinv0:[I
+     275: iload         11
+     277: bipush        8
+     279: ishr
+     280: sipush        255
+     283: iand
+     284: iaload
+     285: bipush        24
+     287: invokestatic  #665                // Method shift:(II)I
+     290: ixor
+     291: getstatic     #648                // Field Tinv0:[I
+     294: iload         10
+     296: bipush        16
+     298: ishr
+     299: sipush        255
+     302: iand
+     303: iaload
+     304: bipush        16
+     306: invokestatic  #665                // Method shift:(II)I
+     309: ixor
+     310: getstatic     #648                // Field Tinv0:[I
+     313: iload         17
+     315: bipush        24
+     317: ishr
+     318: sipush        255
+     321: iand
+     322: iaload
+     323: bipush        8
+     325: invokestatic  #665                // Method shift:(II)I
+     328: ixor
+     329: aload         5
+     331: iload         13
+     333: aaload
+     334: iconst_2
+     335: iaload
+     336: ixor
+     337: istore        16
+     339: getstatic     #648                // Field Tinv0:[I
+     342: iload         17
+     344: sipush        255
+     347: iand
+     348: iaload
+     349: getstatic     #648                // Field Tinv0:[I
+     352: iload         12
+     354: bipush        8
+     356: ishr
+     357: sipush        255
+     360: iand
+     361: iaload
+     362: bipush        24
+     364: invokestatic  #665                // Method shift:(II)I
+     367: ixor
+     368: getstatic     #648                // Field Tinv0:[I
+     371: iload         11
+     373: bipush        16
+     375: ishr
+     376: sipush        255
+     379: iand
+     380: iaload
+     381: bipush        16
+     383: invokestatic  #665                // Method shift:(II)I
+     386: ixor
+     387: getstatic     #648                // Field Tinv0:[I
+     390: iload         10
+     392: bipush        24
+     394: ishr
+     395: sipush        255
+     398: iand
+     399: iaload
+     400: bipush        8
+     402: invokestatic  #665                // Method shift:(II)I
+     405: ixor
+     406: aload         5
+     408: iload         13
+     410: iinc          13, -1
+     413: aaload
+     414: iconst_3
+     415: iaload
+     416: ixor
+     417: istore        17
+     419: getstatic     #648                // Field Tinv0:[I
+     422: iload         14
+     424: sipush        255
+     427: iand
+     428: iaload
+     429: getstatic     #648                // Field Tinv0:[I
+     432: iload         17
+     434: bipush        8
+     436: ishr
+     437: sipush        255
+     440: iand
+     441: iaload
+     442: bipush        24
+     444: invokestatic  #665                // Method shift:(II)I
+     447: ixor
+     448: getstatic     #648                // Field Tinv0:[I
+     451: iload         16
+     453: bipush        16
+     455: ishr
+     456: sipush        255
+     459: iand
+     460: iaload
+     461: bipush        16
+     463: invokestatic  #665                // Method shift:(II)I
+     466: ixor
+     467: getstatic     #648                // Field Tinv0:[I
+     470: iload         15
+     472: bipush        24
+     474: ishr
+     475: sipush        255
+     478: iand
+     479: iaload
+     480: bipush        8
+     482: invokestatic  #665                // Method shift:(II)I
+     485: ixor
+     486: aload         5
+     488: iload         13
+     490: aaload
+     491: iconst_0
+     492: iaload
+     493: ixor
+     494: istore        10
+     496: getstatic     #648                // Field Tinv0:[I
+     499: iload         15
+     501: sipush        255
+     504: iand
+     505: iaload
+     506: getstatic     #648                // Field Tinv0:[I
+     509: iload         14
+     511: bipush        8
+     513: ishr
+     514: sipush        255
+     517: iand
+     518: iaload
+     519: bipush        24
+     521: invokestatic  #665                // Method shift:(II)I
+     524: ixor
+     525: getstatic     #648                // Field Tinv0:[I
+     528: iload         17
+     530: bipush        16
+     532: ishr
+     533: sipush        255
+     536: iand
+     537: iaload
+     538: bipush        16
+     540: invokestatic  #665                // Method shift:(II)I
+     543: ixor
+     544: getstatic     #648                // Field Tinv0:[I
+     547: iload         16
+     549: bipush        24
+     551: ishr
+     552: sipush        255
+     555: iand
+     556: iaload
+     557: bipush        8
+     559: invokestatic  #665                // Method shift:(II)I
+     562: ixor
+     563: aload         5
+     565: iload         13
+     567: aaload
+     568: iconst_1
+     569: iaload
+     570: ixor
+     571: istore        11
+     573: getstatic     #648                // Field Tinv0:[I
+     576: iload         16
+     578: sipush        255
+     581: iand
+     582: iaload
+     583: getstatic     #648                // Field Tinv0:[I
+     586: iload         15
+     588: bipush        8
+     590: ishr
+     591: sipush        255
+     594: iand
+     595: iaload
+     596: bipush        24
+     598: invokestatic  #665                // Method shift:(II)I
+     601: ixor
+     602: getstatic     #648                // Field Tinv0:[I
+     605: iload         14
+     607: bipush        16
+     609: ishr
+     610: sipush        255
+     613: iand
+     614: iaload
+     615: bipush        16
+     617: invokestatic  #665                // Method shift:(II)I
+     620: ixor
+     621: getstatic     #648                // Field Tinv0:[I
+     624: iload         17
+     626: bipush        24
+     628: ishr
+     629: sipush        255
+     632: iand
+     633: iaload
+     634: bipush        8
+     636: invokestatic  #665                // Method shift:(II)I
+     639: ixor
+     640: aload         5
+     642: iload         13
+     644: aaload
+     645: iconst_2
+     646: iaload
+     647: ixor
+     648: istore        12
+     650: getstatic     #648                // Field Tinv0:[I
+     653: iload         17
+     655: sipush        255
+     658: iand
+     659: iaload
+     660: getstatic     #648                // Field Tinv0:[I
+     663: iload         16
+     665: bipush        8
+     667: ishr
+     668: sipush        255
+     671: iand
+     672: iaload
+     673: bipush        24
+     675: invokestatic  #665                // Method shift:(II)I
+     678: ixor
+     679: getstatic     #648                // Field Tinv0:[I
+     682: iload         15
+     684: bipush        16
+     686: ishr
+     687: sipush        255
+     690: iand
+     691: iaload
+     692: bipush        16
+     694: invokestatic  #665                // Method shift:(II)I
+     697: ixor
+     698: getstatic     #648                // Field Tinv0:[I
+     701: iload         14
+     703: bipush        24
+     705: ishr
+     706: sipush        255
+     709: iand
+     710: iaload
+     711: bipush        8
+     713: invokestatic  #665                // Method shift:(II)I
+     716: ixor
+     717: aload         5
+     719: iload         13
+     721: iinc          13, -1
+     724: aaload
+     725: iconst_3
+     726: iaload
+     727: ixor
+     728: istore        17
+     730: goto          102
+     733: getstatic     #648                // Field Tinv0:[I
+     736: iload         10
+     738: sipush        255
+     741: iand
+     742: iaload
+     743: getstatic     #648                // Field Tinv0:[I
+     746: iload         17
+     748: bipush        8
+     750: ishr
+     751: sipush        255
+     754: iand
+     755: iaload
+     756: bipush        24
+     758: invokestatic  #665                // Method shift:(II)I
+     761: ixor
+     762: getstatic     #648                // Field Tinv0:[I
+     765: iload         12
+     767: bipush        16
+     769: ishr
+     770: sipush        255
+     773: iand
+     774: iaload
+     775: bipush        16
+     777: invokestatic  #665                // Method shift:(II)I
+     780: ixor
+     781: getstatic     #648                // Field Tinv0:[I
+     784: iload         11
+     786: bipush        24
+     788: ishr
+     789: sipush        255
+     792: iand
+     793: iaload
+     794: bipush        8
+     796: invokestatic  #665                // Method shift:(II)I
+     799: ixor
+     800: aload         5
+     802: iload         13
+     804: aaload
+     805: iconst_0
+     806: iaload
+     807: ixor
+     808: istore        14
+     810: getstatic     #648                // Field Tinv0:[I
+     813: iload         11
+     815: sipush        255
+     818: iand
+     819: iaload
+     820: getstatic     #648                // Field Tinv0:[I
+     823: iload         10
+     825: bipush        8
+     827: ishr
+     828: sipush        255
+     831: iand
+     832: iaload
+     833: bipush        24
+     835: invokestatic  #665                // Method shift:(II)I
+     838: ixor
+     839: getstatic     #648                // Field Tinv0:[I
+     842: iload         17
+     844: bipush        16
+     846: ishr
+     847: sipush        255
+     850: iand
+     851: iaload
+     852: bipush        16
+     854: invokestatic  #665                // Method shift:(II)I
+     857: ixor
+     858: getstatic     #648                // Field Tinv0:[I
+     861: iload         12
+     863: bipush        24
+     865: ishr
+     866: sipush        255
+     869: iand
+     870: iaload
+     871: bipush        8
+     873: invokestatic  #665                // Method shift:(II)I
+     876: ixor
+     877: aload         5
+     879: iload         13
+     881: aaload
+     882: iconst_1
+     883: iaload
+     884: ixor
+     885: istore        15
+     887: getstatic     #648                // Field Tinv0:[I
+     890: iload         12
+     892: sipush        255
+     895: iand
+     896: iaload
+     897: getstatic     #648                // Field Tinv0:[I
+     900: iload         11
+     902: bipush        8
+     904: ishr
+     905: sipush        255
+     908: iand
+     909: iaload
+     910: bipush        24
+     912: invokestatic  #665                // Method shift:(II)I
+     915: ixor
+     916: getstatic     #648                // Field Tinv0:[I
+     919: iload         10
+     921: bipush        16
+     923: ishr
+     924: sipush        255
+     927: iand
+     928: iaload
+     929: bipush        16
+     931: invokestatic  #665                // Method shift:(II)I
+     934: ixor
+     935: getstatic     #648                // Field Tinv0:[I
+     938: iload         17
+     940: bipush        24
+     942: ishr
+     943: sipush        255
+     946: iand
+     947: iaload
+     948: bipush        8
+     950: invokestatic  #665                // Method shift:(II)I
+     953: ixor
+     954: aload         5
+     956: iload         13
+     958: aaload
+     959: iconst_2
+     960: iaload
+     961: ixor
+     962: istore        16
+     964: getstatic     #648                // Field Tinv0:[I
+     967: iload         17
+     969: sipush        255
+     972: iand
+     973: iaload
+     974: getstatic     #648                // Field Tinv0:[I
+     977: iload         12
+     979: bipush        8
+     981: ishr
+     982: sipush        255
+     985: iand
+     986: iaload
+     987: bipush        24
+     989: invokestatic  #665                // Method shift:(II)I
+     992: ixor
+     993: getstatic     #648                // Field Tinv0:[I
+     996: iload         11
+     998: bipush        16
+    1000: ishr
+    1001: sipush        255
+    1004: iand
+    1005: iaload
+    1006: bipush        16
+    1008: invokestatic  #665                // Method shift:(II)I
+    1011: ixor
+    1012: getstatic     #648                // Field Tinv0:[I
+    1015: iload         10
+    1017: bipush        24
+    1019: ishr
+    1020: sipush        255
+    1023: iand
+    1024: iaload
+    1025: bipush        8
+    1027: invokestatic  #665                // Method shift:(II)I
+    1030: ixor
+    1031: aload         5
+    1033: iload         13
+    1035: aaload
+    1036: iconst_3
+    1037: iaload
+    1038: ixor
+    1039: istore        17
+    1041: getstatic     #645                // Field Si:[B
+    1044: iload         14
+    1046: sipush        255
+    1049: iand
+    1050: baload
+    1051: sipush        255
+    1054: iand
+    1055: aload_0
+    1056: getfield      #646                // Field s:[B
+    1059: iload         17
+    1061: bipush        8
+    1063: ishr
+    1064: sipush        255
+    1067: iand
+    1068: baload
+    1069: sipush        255
+    1072: iand
+    1073: bipush        8
+    1075: ishl
+    1076: ixor
+    1077: aload_0
+    1078: getfield      #646                // Field s:[B
+    1081: iload         16
+    1083: bipush        16
+    1085: ishr
+    1086: sipush        255
+    1089: iand
+    1090: baload
+    1091: sipush        255
+    1094: iand
+    1095: bipush        16
+    1097: ishl
+    1098: ixor
+    1099: getstatic     #645                // Field Si:[B
+    1102: iload         15
+    1104: bipush        24
+    1106: ishr
+    1107: sipush        255
+    1110: iand
+    1111: baload
+    1112: bipush        24
+    1114: ishl
+    1115: ixor
+    1116: aload         5
+    1118: iconst_0
+    1119: aaload
+    1120: iconst_0
+    1121: iaload
+    1122: ixor
+    1123: istore        6
+    1125: aload_0
+    1126: getfield      #646                // Field s:[B
+    1129: iload         15
+    1131: sipush        255
+    1134: iand
+    1135: baload
+    1136: sipush        255
+    1139: iand
+    1140: aload_0
+    1141: getfield      #646                // Field s:[B
+    1144: iload         14
+    1146: bipush        8
+    1148: ishr
+    1149: sipush        255
+    1152: iand
+    1153: baload
+    1154: sipush        255
+    1157: iand
+    1158: bipush        8
+    1160: ishl
+    1161: ixor
+    1162: getstatic     #645                // Field Si:[B
+    1165: iload         17
+    1167: bipush        16
+    1169: ishr
+    1170: sipush        255
+    1173: iand
+    1174: baload
+    1175: sipush        255
+    1178: iand
+    1179: bipush        16
+    1181: ishl
+    1182: ixor
+    1183: aload_0
+    1184: getfield      #646                // Field s:[B
+    1187: iload         16
+    1189: bipush        24
+    1191: ishr
+    1192: sipush        255
+    1195: iand
+    1196: baload
+    1197: bipush        24
+    1199: ishl
+    1200: ixor
+    1201: aload         5
+    1203: iconst_0
+    1204: aaload
+    1205: iconst_1
+    1206: iaload
+    1207: ixor
+    1208: istore        7
+    1210: aload_0
+    1211: getfield      #646                // Field s:[B
+    1214: iload         16
+    1216: sipush        255
+    1219: iand
+    1220: baload
+    1221: sipush        255
+    1224: iand
+    1225: getstatic     #645                // Field Si:[B
+    1228: iload         15
+    1230: bipush        8
+    1232: ishr
+    1233: sipush        255
+    1236: iand
+    1237: baload
+    1238: sipush        255
+    1241: iand
+    1242: bipush        8
+    1244: ishl
+    1245: ixor
+    1246: getstatic     #645                // Field Si:[B
+    1249: iload         14
+    1251: bipush        16
+    1253: ishr
+    1254: sipush        255
+    1257: iand
+    1258: baload
+    1259: sipush        255
+    1262: iand
+    1263: bipush        16
+    1265: ishl
+    1266: ixor
+    1267: aload_0
+    1268: getfield      #646                // Field s:[B
+    1271: iload         17
+    1273: bipush        24
+    1275: ishr
+    1276: sipush        255
+    1279: iand
+    1280: baload
+    1281: bipush        24
+    1283: ishl
+    1284: ixor
+    1285: aload         5
+    1287: iconst_0
+    1288: aaload
+    1289: iconst_2
+    1290: iaload
+    1291: ixor
+    1292: istore        8
+    1294: getstatic     #645                // Field Si:[B
+    1297: iload         17
+    1299: sipush        255
+    1302: iand
+    1303: baload
+    1304: sipush        255
+    1307: iand
+    1308: aload_0
+    1309: getfield      #646                // Field s:[B
+    1312: iload         16
+    1314: bipush        8
+    1316: ishr
+    1317: sipush        255
+    1320: iand
+    1321: baload
+    1322: sipush        255
+    1325: iand
+    1326: bipush        8
+    1328: ishl
+    1329: ixor
+    1330: aload_0
+    1331: getfield      #646                // Field s:[B
+    1334: iload         15
+    1336: bipush        16
+    1338: ishr
+    1339: sipush        255
+    1342: iand
+    1343: baload
+    1344: sipush        255
+    1347: iand
+    1348: bipush        16
+    1350: ishl
+    1351: ixor
+    1352: aload_0
+    1353: getfield      #646                // Field s:[B
+    1356: iload         14
+    1358: bipush        24
+    1360: ishr
+    1361: sipush        255
+    1364: iand
+    1365: baload
+    1366: bipush        24
+    1368: ishl
+    1369: ixor
+    1370: aload         5
+    1372: iconst_0
+    1373: aaload
+    1374: iconst_3
+    1375: iaload
+    1376: ixor
+    1377: istore        9
+    1379: iload         6
+    1381: aload_3
+    1382: iload         4
+    1384: iconst_0
+    1385: iadd
+    1386: invokestatic  #671                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1389: iload         7
+    1391: aload_3
+    1392: iload         4
+    1394: iconst_4
+    1395: iadd
+    1396: invokestatic  #671                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1399: iload         8
+    1401: aload_3
+    1402: iload         4
+    1404: bipush        8
+    1406: iadd
+    1407: invokestatic  #671                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1410: iload         9
+    1412: aload_3
+    1413: iload         4
+    1415: bipush        12
+    1417: iadd
+    1418: invokestatic  #671                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1421: return
+
+  static {};
+    Code:
+       0: sipush        256
+       3: newarray       byte
+       5: dup
+       6: iconst_0
+       7: bipush        99
+       9: bastore
+      10: dup
+      11: iconst_1
+      12: bipush        124
+      14: bastore
+      15: dup
+      16: iconst_2
+      17: bipush        119
+      19: bastore
+      20: dup
+      21: iconst_3
+      22: bipush        123
+      24: bastore
+      25: dup
+      26: iconst_4
+      27: bipush        -14
+      29: bastore
+      30: dup
+      31: iconst_5
+      32: bipush        107
+      34: bastore
+      35: dup
+      36: bipush        6
+      38: bipush        111
+      40: bastore
+      41: dup
+      42: bipush        7
+      44: bipush        -59
+      46: bastore
+      47: dup
+      48: bipush        8
+      50: bipush        48
+      52: bastore
+      53: dup
+      54: bipush        9
+      56: iconst_1
+      57: bastore
+      58: dup
+      59: bipush        10
+      61: bipush        103
+      63: bastore
+      64: dup
+      65: bipush        11
+      67: bipush        43
+      69: bastore
+      70: dup
+      71: bipush        12
+      73: bipush        -2
+      75: bastore
+      76: dup
+      77: bipush        13
+      79: bipush        -41
+      81: bastore
+      82: dup
+      83: bipush        14
+      85: bipush        -85
+      87: bastore
+      88: dup
+      89: bipush        15
+      91: bipush        118
+      93: bastore
+      94: dup
+      95: bipush        16
+      97: bipush        -54
+      99: bastore
+     100: dup
+     101: bipush        17
+     103: bipush        -126
+     105: bastore
+     106: dup
+     107: bipush        18
+     109: bipush        -55
+     111: bastore
+     112: dup
+     113: bipush        19
+     115: bipush        125
+     117: bastore
+     118: dup
+     119: bipush        20
+     121: bipush        -6
+     123: bastore
+     124: dup
+     125: bipush        21
+     127: bipush        89
+     129: bastore
+     130: dup
+     131: bipush        22
+     133: bipush        71
+     135: bastore
+     136: dup
+     137: bipush        23
+     139: bipush        -16
+     141: bastore
+     142: dup
+     143: bipush        24
+     145: bipush        -83
+     147: bastore
+     148: dup
+     149: bipush        25
+     151: bipush        -44
+     153: bastore
+     154: dup
+     155: bipush        26
+     157: bipush        -94
+     159: bastore
+     160: dup
+     161: bipush        27
+     163: bipush        -81
+     165: bastore
+     166: dup
+     167: bipush        28
+     169: bipush        -100
+     171: bastore
+     172: dup
+     173: bipush        29
+     175: bipush        -92
+     177: bastore
+     178: dup
+     179: bipush        30
+     181: bipush        114
+     183: bastore
+     184: dup
+     185: bipush        31
+     187: bipush        -64
+     189: bastore
+     190: dup
+     191: bipush        32
+     193: bipush        -73
+     195: bastore
+     196: dup
+     197: bipush        33
+     199: bipush        -3
+     201: bastore
+     202: dup
+     203: bipush        34
+     205: bipush        -109
+     207: bastore
+     208: dup
+     209: bipush        35
+     211: bipush        38
+     213: bastore
+     214: dup
+     215: bipush        36
+     217: bipush        54
+     219: bastore
+     220: dup
+     221: bipush        37
+     223: bipush        63
+     225: bastore
+     226: dup
+     227: bipush        38
+     229: bipush        -9
+     231: bastore
+     232: dup
+     233: bipush        39
+     235: bipush        -52
+     237: bastore
+     238: dup
+     239: bipush        40
+     241: bipush        52
+     243: bastore
+     244: dup
+     245: bipush        41
+     247: bipush        -91
+     249: bastore
+     250: dup
+     251: bipush        42
+     253: bipush        -27
+     255: bastore
+     256: dup
+     257: bipush        43
+     259: bipush        -15
+     261: bastore
+     262: dup
+     263: bipush        44
+     265: bipush        113
+     267: bastore
+     268: dup
+     269: bipush        45
+     271: bipush        -40
+     273: bastore
+     274: dup
+     275: bipush        46
+     277: bipush        49
+     279: bastore
+     280: dup
+     281: bipush        47
+     283: bipush        21
+     285: bastore
+     286: dup
+     287: bipush        48
+     289: iconst_4
+     290: bastore
+     291: dup
+     292: bipush        49
+     294: bipush        -57
+     296: bastore
+     297: dup
+     298: bipush        50
+     300: bipush        35
+     302: bastore
+     303: dup
+     304: bipush        51
+     306: bipush        -61
+     308: bastore
+     309: dup
+     310: bipush        52
+     312: bipush        24
+     314: bastore
+     315: dup
+     316: bipush        53
+     318: bipush        -106
+     320: bastore
+     321: dup
+     322: bipush        54
+     324: iconst_5
+     325: bastore
+     326: dup
+     327: bipush        55
+     329: bipush        -102
+     331: bastore
+     332: dup
+     333: bipush        56
+     335: bipush        7
+     337: bastore
+     338: dup
+     339: bipush        57
+     341: bipush        18
+     343: bastore
+     344: dup
+     345: bipush        58
+     347: bipush        -128
+     349: bastore
+     350: dup
+     351: bipush        59
+     353: bipush        -30
+     355: bastore
+     356: dup
+     357: bipush        60
+     359: bipush        -21
+     361: bastore
+     362: dup
+     363: bipush        61
+     365: bipush        39
+     367: bastore
+     368: dup
+     369: bipush        62
+     371: bipush        -78
+     373: bastore
+     374: dup
+     375: bipush        63
+     377: bipush        117
+     379: bastore
+     380: dup
+     381: bipush        64
+     383: bipush        9
+     385: bastore
+     386: dup
+     387: bipush        65
+     389: bipush        -125
+     391: bastore
+     392: dup
+     393: bipush        66
+     395: bipush        44
+     397: bastore
+     398: dup
+     399: bipush        67
+     401: bipush        26
+     403: bastore
+     404: dup
+     405: bipush        68
+     407: bipush        27
+     409: bastore
+     410: dup
+     411: bipush        69
+     413: bipush        110
+     415: bastore
+     416: dup
+     417: bipush        70
+     419: bipush        90
+     421: bastore
+     422: dup
+     423: bipush        71
+     425: bipush        -96
+     427: bastore
+     428: dup
+     429: bipush        72
+     431: bipush        82
+     433: bastore
+     434: dup
+     435: bipush        73
+     437: bipush        59
+     439: bastore
+     440: dup
+     441: bipush        74
+     443: bipush        -42
+     445: bastore
+     446: dup
+     447: bipush        75
+     449: bipush        -77
+     451: bastore
+     452: dup
+     453: bipush        76
+     455: bipush        41
+     457: bastore
+     458: dup
+     459: bipush        77
+     461: bipush        -29
+     463: bastore
+     464: dup
+     465: bipush        78
+     467: bipush        47
+     469: bastore
+     470: dup
+     471: bipush        79
+     473: bipush        -124
+     475: bastore
+     476: dup
+     477: bipush        80
+     479: bipush        83
+     481: bastore
+     482: dup
+     483: bipush        81
+     485: bipush        -47
+     487: bastore
+     488: dup
+     489: bipush        82
+     491: iconst_0
+     492: bastore
+     493: dup
+     494: bipush        83
+     496: bipush        -19
+     498: bastore
+     499: dup
+     500: bipush        84
+     502: bipush        32
+     504: bastore
+     505: dup
+     506: bipush        85
+     508: bipush        -4
+     510: bastore
+     511: dup
+     512: bipush        86
+     514: bipush        -79
+     516: bastore
+     517: dup
+     518: bipush        87
+     520: bipush        91
+     522: bastore
+     523: dup
+     524: bipush        88
+     526: bipush        106
+     528: bastore
+     529: dup
+     530: bipush        89
+     532: bipush        -53
+     534: bastore
+     535: dup
+     536: bipush        90
+     538: bipush        -66
+     540: bastore
+     541: dup
+     542: bipush        91
+     544: bipush        57
+     546: bastore
+     547: dup
+     548: bipush        92
+     550: bipush        74
+     552: bastore
+     553: dup
+     554: bipush        93
+     556: bipush        76
+     558: bastore
+     559: dup
+     560: bipush        94
+     562: bipush        88
+     564: bastore
+     565: dup
+     566: bipush        95
+     568: bipush        -49
+     570: bastore
+     571: dup
+     572: bipush        96
+     574: bipush        -48
+     576: bastore
+     577: dup
+     578: bipush        97
+     580: bipush        -17
+     582: bastore
+     583: dup
+     584: bipush        98
+     586: bipush        -86
+     588: bastore
+     589: dup
+     590: bipush        99
+     592: bipush        -5
+     594: bastore
+     595: dup
+     596: bipush        100
+     598: bipush        67
+     600: bastore
+     601: dup
+     602: bipush        101
+     604: bipush        77
+     606: bastore
+     607: dup
+     608: bipush        102
+     610: bipush        51
+     612: bastore
+     613: dup
+     614: bipush        103
+     616: bipush        -123
+     618: bastore
+     619: dup
+     620: bipush        104
+     622: bipush        69
+     624: bastore
+     625: dup
+     626: bipush        105
+     628: bipush        -7
+     630: bastore
+     631: dup
+     632: bipush        106
+     634: iconst_2
+     635: bastore
+     636: dup
+     637: bipush        107
+     639: bipush        127
+     641: bastore
+     642: dup
+     643: bipush        108
+     645: bipush        80
+     647: bastore
+     648: dup
+     649: bipush        109
+     651: bipush        60
+     653: bastore
+     654: dup
+     655: bipush        110
+     657: bipush        -97
+     659: bastore
+     660: dup
+     661: bipush        111
+     663: bipush        -88
+     665: bastore
+     666: dup
+     667: bipush        112
+     669: bipush        81
+     671: bastore
+     672: dup
+     673: bipush        113
+     675: bipush        -93
+     677: bastore
+     678: dup
+     679: bipush        114
+     681: bipush        64
+     683: bastore
+     684: dup
+     685: bipush        115
+     687: bipush        -113
+     689: bastore
+     690: dup
+     691: bipush        116
+     693: bipush        -110
+     695: bastore
+     696: dup
+     697: bipush        117
+     699: bipush        -99
+     701: bastore
+     702: dup
+     703: bipush        118
+     705: bipush        56
+     707: bastore
+     708: dup
+     709: bipush        119
+     711: bipush        -11
+     713: bastore
+     714: dup
+     715: bipush        120
+     717: bipush        -68
+     719: bastore
+     720: dup
+     721: bipush        121
+     723: bipush        -74
+     725: bastore
+     726: dup
+     727: bipush        122
+     729: bipush        -38
+     731: bastore
+     732: dup
+     733: bipush        123
+     735: bipush        33
+     737: bastore
+     738: dup
+     739: bipush        124
+     741: bipush        16
+     743: bastore
+     744: dup
+     745: bipush        125
+     747: iconst_m1
+     748: bastore
+     749: dup
+     750: bipush        126
+     752: bipush        -13
+     754: bastore
+     755: dup
+     756: bipush        127
+     758: bipush        -46
+     760: bastore
+     761: dup
+     762: sipush        128
+     765: bipush        -51
+     767: bastore
+     768: dup
+     769: sipush        129
+     772: bipush        12
+     774: bastore
+     775: dup
+     776: sipush        130
+     779: bipush        19
+     781: bastore
+     782: dup
+     783: sipush        131
+     786: bipush        -20
+     788: bastore
+     789: dup
+     790: sipush        132
+     793: bipush        95
+     795: bastore
+     796: dup
+     797: sipush        133
+     800: bipush        -105
+     802: bastore
+     803: dup
+     804: sipush        134
+     807: bipush        68
+     809: bastore
+     810: dup
+     811: sipush        135
+     814: bipush        23
+     816: bastore
+     817: dup
+     818: sipush        136
+     821: bipush        -60
+     823: bastore
+     824: dup
+     825: sipush        137
+     828: bipush        -89
+     830: bastore
+     831: dup
+     832: sipush        138
+     835: bipush        126
+     837: bastore
+     838: dup
+     839: sipush        139
+     842: bipush        61
+     844: bastore
+     845: dup
+     846: sipush        140
+     849: bipush        100
+     851: bastore
+     852: dup
+     853: sipush        141
+     856: bipush        93
+     858: bastore
+     859: dup
+     860: sipush        142
+     863: bipush        25
+     865: bastore
+     866: dup
+     867: sipush        143
+     870: bipush        115
+     872: bastore
+     873: dup
+     874: sipush        144
+     877: bipush        96
+     879: bastore
+     880: dup
+     881: sipush        145
+     884: bipush        -127
+     886: bastore
+     887: dup
+     888: sipush        146
+     891: bipush        79
+     893: bastore
+     894: dup
+     895: sipush        147
+     898: bipush        -36
+     900: bastore
+     901: dup
+     902: sipush        148
+     905: bipush        34
+     907: bastore
+     908: dup
+     909: sipush        149
+     912: bipush        42
+     914: bastore
+     915: dup
+     916: sipush        150
+     919: bipush        -112
+     921: bastore
+     922: dup
+     923: sipush        151
+     926: bipush        -120
+     928: bastore
+     929: dup
+     930: sipush        152
+     933: bipush        70
+     935: bastore
+     936: dup
+     937: sipush        153
+     940: bipush        -18
+     942: bastore
+     943: dup
+     944: sipush        154
+     947: bipush        -72
+     949: bastore
+     950: dup
+     951: sipush        155
+     954: bipush        20
+     956: bastore
+     957: dup
+     958: sipush        156
+     961: bipush        -34
+     963: bastore
+     964: dup
+     965: sipush        157
+     968: bipush        94
+     970: bastore
+     971: dup
+     972: sipush        158
+     975: bipush        11
+     977: bastore
+     978: dup
+     979: sipush        159
+     982: bipush        -37
+     984: bastore
+     985: dup
+     986: sipush        160
+     989: bipush        -32
+     991: bastore
+     992: dup
+     993: sipush        161
+     996: bipush        50
+     998: bastore
+     999: dup
+    1000: sipush        162
+    1003: bipush        58
+    1005: bastore
+    1006: dup
+    1007: sipush        163
+    1010: bipush        10
+    1012: bastore
+    1013: dup
+    1014: sipush        164
+    1017: bipush        73
+    1019: bastore
+    1020: dup
+    1021: sipush        165
+    1024: bipush        6
+    1026: bastore
+    1027: dup
+    1028: sipush        166
+    1031: bipush        36
+    1033: bastore
+    1034: dup
+    1035: sipush        167
+    1038: bipush        92
+    1040: bastore
+    1041: dup
+    1042: sipush        168
+    1045: bipush        -62
+    1047: bastore
+    1048: dup
+    1049: sipush        169
+    1052: bipush        -45
+    1054: bastore
+    1055: dup
+    1056: sipush        170
+    1059: bipush        -84
+    1061: bastore
+    1062: dup
+    1063: sipush        171
+    1066: bipush        98
+    1068: bastore
+    1069: dup
+    1070: sipush        172
+    1073: bipush        -111
+    1075: bastore
+    1076: dup
+    1077: sipush        173
+    1080: bipush        -107
+    1082: bastore
+    1083: dup
+    1084: sipush        174
+    1087: bipush        -28
+    1089: bastore
+    1090: dup
+    1091: sipush        175
+    1094: bipush        121
+    1096: bastore
+    1097: dup
+    1098: sipush        176
+    1101: bipush        -25
+    1103: bastore
+    1104: dup
+    1105: sipush        177
+    1108: bipush        -56
+    1110: bastore
+    1111: dup
+    1112: sipush        178
+    1115: bipush        55
+    1117: bastore
+    1118: dup
+    1119: sipush        179
+    1122: bipush        109
+    1124: bastore
+    1125: dup
+    1126: sipush        180
+    1129: bipush        -115
+    1131: bastore
+    1132: dup
+    1133: sipush        181
+    1136: bipush        -43
+    1138: bastore
+    1139: dup
+    1140: sipush        182
+    1143: bipush        78
+    1145: bastore
+    1146: dup
+    1147: sipush        183
+    1150: bipush        -87
+    1152: bastore
+    1153: dup
+    1154: sipush        184
+    1157: bipush        108
+    1159: bastore
+    1160: dup
+    1161: sipush        185
+    1164: bipush        86
+    1166: bastore
+    1167: dup
+    1168: sipush        186
+    1171: bipush        -12
+    1173: bastore
+    1174: dup
+    1175: sipush        187
+    1178: bipush        -22
+    1180: bastore
+    1181: dup
+    1182: sipush        188
+    1185: bipush        101
+    1187: bastore
+    1188: dup
+    1189: sipush        189
+    1192: bipush        122
+    1194: bastore
+    1195: dup
+    1196: sipush        190
+    1199: bipush        -82
+    1201: bastore
+    1202: dup
+    1203: sipush        191
+    1206: bipush        8
+    1208: bastore
+    1209: dup
+    1210: sipush        192
+    1213: bipush        -70
+    1215: bastore
+    1216: dup
+    1217: sipush        193
+    1220: bipush        120
+    1222: bastore
+    1223: dup
+    1224: sipush        194
+    1227: bipush        37
+    1229: bastore
+    1230: dup
+    1231: sipush        195
+    1234: bipush        46
+    1236: bastore
+    1237: dup
+    1238: sipush        196
+    1241: bipush        28
+    1243: bastore
+    1244: dup
+    1245: sipush        197
+    1248: bipush        -90
+    1250: bastore
+    1251: dup
+    1252: sipush        198
+    1255: bipush        -76
+    1257: bastore
+    1258: dup
+    1259: sipush        199
+    1262: bipush        -58
+    1264: bastore
+    1265: dup
+    1266: sipush        200
+    1269: bipush        -24
+    1271: bastore
+    1272: dup
+    1273: sipush        201
+    1276: bipush        -35
+    1278: bastore
+    1279: dup
+    1280: sipush        202
+    1283: bipush        116
+    1285: bastore
+    1286: dup
+    1287: sipush        203
+    1290: bipush        31
+    1292: bastore
+    1293: dup
+    1294: sipush        204
+    1297: bipush        75
+    1299: bastore
+    1300: dup
+    1301: sipush        205
+    1304: bipush        -67
+    1306: bastore
+    1307: dup
+    1308: sipush        206
+    1311: bipush        -117
+    1313: bastore
+    1314: dup
+    1315: sipush        207
+    1318: bipush        -118
+    1320: bastore
+    1321: dup
+    1322: sipush        208
+    1325: bipush        112
+    1327: bastore
+    1328: dup
+    1329: sipush        209
+    1332: bipush        62
+    1334: bastore
+    1335: dup
+    1336: sipush        210
+    1339: bipush        -75
+    1341: bastore
+    1342: dup
+    1343: sipush        211
+    1346: bipush        102
+    1348: bastore
+    1349: dup
+    1350: sipush        212
+    1353: bipush        72
+    1355: bastore
+    1356: dup
+    1357: sipush        213
+    1360: iconst_3
+    1361: bastore
+    1362: dup
+    1363: sipush        214
+    1366: bipush        -10
+    1368: bastore
+    1369: dup
+    1370: sipush        215
+    1373: bipush        14
+    1375: bastore
+    1376: dup
+    1377: sipush        216
+    1380: bipush        97
+    1382: bastore
+    1383: dup
+    1384: sipush        217
+    1387: bipush        53
+    1389: bastore
+    1390: dup
+    1391: sipush        218
+    1394: bipush        87
+    1396: bastore
+    1397: dup
+    1398: sipush        219
+    1401: bipush        -71
+    1403: bastore
+    1404: dup
+    1405: sipush        220
+    1408: bipush        -122
+    1410: bastore
+    1411: dup
+    1412: sipush        221
+    1415: bipush        -63
+    1417: bastore
+    1418: dup
+    1419: sipush        222
+    1422: bipush        29
+    1424: bastore
+    1425: dup
+    1426: sipush        223
+    1429: bipush        -98
+    1431: bastore
+    1432: dup
+    1433: sipush        224
+    1436: bipush        -31
+    1438: bastore
+    1439: dup
+    1440: sipush        225
+    1443: bipush        -8
+    1445: bastore
+    1446: dup
+    1447: sipush        226
+    1450: bipush        -104
+    1452: bastore
+    1453: dup
+    1454: sipush        227
+    1457: bipush        17
+    1459: bastore
+    1460: dup
+    1461: sipush        228
+    1464: bipush        105
+    1466: bastore
+    1467: dup
+    1468: sipush        229
+    1471: bipush        -39
+    1473: bastore
+    1474: dup
+    1475: sipush        230
+    1478: bipush        -114
+    1480: bastore
+    1481: dup
+    1482: sipush        231
+    1485: bipush        -108
+    1487: bastore
+    1488: dup
+    1489: sipush        232
+    1492: bipush        -101
+    1494: bastore
+    1495: dup
+    1496: sipush        233
+    1499: bipush        30
+    1501: bastore
+    1502: dup
+    1503: sipush        234
+    1506: bipush        -121
+    1508: bastore
+    1509: dup
+    1510: sipush        235
+    1513: bipush        -23
+    1515: bastore
+    1516: dup
+    1517: sipush        236
+    1520: bipush        -50
+    1522: bastore
+    1523: dup
+    1524: sipush        237
+    1527: bipush        85
+    1529: bastore
+    1530: dup
+    1531: sipush        238
+    1534: bipush        40
+    1536: bastore
+    1537: dup
+    1538: sipush        239
+    1541: bipush        -33
+    1543: bastore
+    1544: dup
+    1545: sipush        240
+    1548: bipush        -116
+    1550: bastore
+    1551: dup
+    1552: sipush        241
+    1555: bipush        -95
+    1557: bastore
+    1558: dup
+    1559: sipush        242
+    1562: bipush        -119
+    1564: bastore
+    1565: dup
+    1566: sipush        243
+    1569: bipush        13
+    1571: bastore
+    1572: dup
+    1573: sipush        244
+    1576: bipush        -65
+    1578: bastore
+    1579: dup
+    1580: sipush        245
+    1583: bipush        -26
+    1585: bastore
+    1586: dup
+    1587: sipush        246
+    1590: bipush        66
+    1592: bastore
+    1593: dup
+    1594: sipush        247
+    1597: bipush        104
+    1599: bastore
+    1600: dup
+    1601: sipush        248
+    1604: bipush        65
+    1606: bastore
+    1607: dup
+    1608: sipush        249
+    1611: bipush        -103
+    1613: bastore
+    1614: dup
+    1615: sipush        250
+    1618: bipush        45
+    1620: bastore
+    1621: dup
+    1622: sipush        251
+    1625: bipush        15
+    1627: bastore
+    1628: dup
+    1629: sipush        252
+    1632: bipush        -80
+    1634: bastore
+    1635: dup
+    1636: sipush        253
+    1639: bipush        84
+    1641: bastore
+    1642: dup
+    1643: sipush        254
+    1646: bipush        -69
+    1648: bastore
+    1649: dup
+    1650: sipush        255
+    1653: bipush        22
+    1655: bastore
+    1656: putstatic     #644                // Field S:[B
+    1659: sipush        256
+    1662: newarray       byte
+    1664: dup
+    1665: iconst_0
+    1666: bipush        82
+    1668: bastore
+    1669: dup
+    1670: iconst_1
+    1671: bipush        9
+    1673: bastore
+    1674: dup
+    1675: iconst_2
+    1676: bipush        106
+    1678: bastore
+    1679: dup
+    1680: iconst_3
+    1681: bipush        -43
+    1683: bastore
+    1684: dup
+    1685: iconst_4
+    1686: bipush        48
+    1688: bastore
+    1689: dup
+    1690: iconst_5
+    1691: bipush        54
+    1693: bastore
+    1694: dup
+    1695: bipush        6
+    1697: bipush        -91
+    1699: bastore
+    1700: dup
+    1701: bipush        7
+    1703: bipush        56
+    1705: bastore
+    1706: dup
+    1707: bipush        8
+    1709: bipush        -65
+    1711: bastore
+    1712: dup
+    1713: bipush        9
+    1715: bipush        64
+    1717: bastore
+    1718: dup
+    1719: bipush        10
+    1721: bipush        -93
+    1723: bastore
+    1724: dup
+    1725: bipush        11
+    1727: bipush        -98
+    1729: bastore
+    1730: dup
+    1731: bipush        12
+    1733: bipush        -127
+    1735: bastore
+    1736: dup
+    1737: bipush        13
+    1739: bipush        -13
+    1741: bastore
+    1742: dup
+    1743: bipush        14
+    1745: bipush        -41
+    1747: bastore
+    1748: dup
+    1749: bipush        15
+    1751: bipush        -5
+    1753: bastore
+    1754: dup
+    1755: bipush        16
+    1757: bipush        124
+    1759: bastore
+    1760: dup
+    1761: bipush        17
+    1763: bipush        -29
+    1765: bastore
+    1766: dup
+    1767: bipush        18
+    1769: bipush        57
+    1771: bastore
+    1772: dup
+    1773: bipush        19
+    1775: bipush        -126
+    1777: bastore
+    1778: dup
+    1779: bipush        20
+    1781: bipush        -101
+    1783: bastore
+    1784: dup
+    1785: bipush        21
+    1787: bipush        47
+    1789: bastore
+    1790: dup
+    1791: bipush        22
+    1793: iconst_m1
+    1794: bastore
+    1795: dup
+    1796: bipush        23
+    1798: bipush        -121
+    1800: bastore
+    1801: dup
+    1802: bipush        24
+    1804: bipush        52
+    1806: bastore
+    1807: dup
+    1808: bipush        25
+    1810: bipush        -114
+    1812: bastore
+    1813: dup
+    1814: bipush        26
+    1816: bipush        67
+    1818: bastore
+    1819: dup
+    1820: bipush        27
+    1822: bipush        68
+    1824: bastore
+    1825: dup
+    1826: bipush        28
+    1828: bipush        -60
+    1830: bastore
+    1831: dup
+    1832: bipush        29
+    1834: bipush        -34
+    1836: bastore
+    1837: dup
+    1838: bipush        30
+    1840: bipush        -23
+    1842: bastore
+    1843: dup
+    1844: bipush        31
+    1846: bipush        -53
+    1848: bastore
+    1849: dup
+    1850: bipush        32
+    1852: bipush        84
+    1854: bastore
+    1855: dup
+    1856: bipush        33
+    1858: bipush        123
+    1860: bastore
+    1861: dup
+    1862: bipush        34
+    1864: bipush        -108
+    1866: bastore
+    1867: dup
+    1868: bipush        35
+    1870: bipush        50
+    1872: bastore
+    1873: dup
+    1874: bipush        36
+    1876: bipush        -90
+    1878: bastore
+    1879: dup
+    1880: bipush        37
+    1882: bipush        -62
+    1884: bastore
+    1885: dup
+    1886: bipush        38
+    1888: bipush        35
+    1890: bastore
+    1891: dup
+    1892: bipush        39
+    1894: bipush        61
+    1896: bastore
+    1897: dup
+    1898: bipush        40
+    1900: bipush        -18
+    1902: bastore
+    1903: dup
+    1904: bipush        41
+    1906: bipush        76
+    1908: bastore
+    1909: dup
+    1910: bipush        42
+    1912: bipush        -107
+    1914: bastore
+    1915: dup
+    1916: bipush        43
+    1918: bipush        11
+    1920: bastore
+    1921: dup
+    1922: bipush        44
+    1924: bipush        66
+    1926: bastore
+    1927: dup
+    1928: bipush        45
+    1930: bipush        -6
+    1932: bastore
+    1933: dup
+    1934: bipush        46
+    1936: bipush        -61
+    1938: bastore
+    1939: dup
+    1940: bipush        47
+    1942: bipush        78
+    1944: bastore
+    1945: dup
+    1946: bipush        48
+    1948: bipush        8
+    1950: bastore
+    1951: dup
+    1952: bipush        49
+    1954: bipush        46
+    1956: bastore
+    1957: dup
+    1958: bipush        50
+    1960: bipush        -95
+    1962: bastore
+    1963: dup
+    1964: bipush        51
+    1966: bipush        102
+    1968: bastore
+    1969: dup
+    1970: bipush        52
+    1972: bipush        40
+    1974: bastore
+    1975: dup
+    1976: bipush        53
+    1978: bipush        -39
+    1980: bastore
+    1981: dup
+    1982: bipush        54
+    1984: bipush        36
+    1986: bastore
+    1987: dup
+    1988: bipush        55
+    1990: bipush        -78
+    1992: bastore
+    1993: dup
+    1994: bipush        56
+    1996: bipush        118
+    1998: bastore
+    1999: dup
+    2000: bipush        57
+    2002: bipush        91
+    2004: bastore
+    2005: dup
+    2006: bipush        58
+    2008: bipush        -94
+    2010: bastore
+    2011: dup
+    2012: bipush        59
+    2014: bipush        73
+    2016: bastore
+    2017: dup
+    2018: bipush        60
+    2020: bipush        109
+    2022: bastore
+    2023: dup
+    2024: bipush        61
+    2026: bipush        -117
+    2028: bastore
+    2029: dup
+    2030: bipush        62
+    2032: bipush        -47
+    2034: bastore
+    2035: dup
+    2036: bipush        63
+    2038: bipush        37
+    2040: bastore
+    2041: dup
+    2042: bipush        64
+    2044: bipush        114
+    2046: bastore
+    2047: dup
+    2048: bipush        65
+    2050: bipush        -8
+    2052: bastore
+    2053: dup
+    2054: bipush        66
+    2056: bipush        -10
+    2058: bastore
+    2059: dup
+    2060: bipush        67
+    2062: bipush        100
+    2064: bastore
+    2065: dup
+    2066: bipush        68
+    2068: bipush        -122
+    2070: bastore
+    2071: dup
+    2072: bipush        69
+    2074: bipush        104
+    2076: bastore
+    2077: dup
+    2078: bipush        70
+    2080: bipush        -104
+    2082: bastore
+    2083: dup
+    2084: bipush        71
+    2086: bipush        22
+    2088: bastore
+    2089: dup
+    2090: bipush        72
+    2092: bipush        -44
+    2094: bastore
+    2095: dup
+    2096: bipush        73
+    2098: bipush        -92
+    2100: bastore
+    2101: dup
+    2102: bipush        74
+    2104: bipush        92
+    2106: bastore
+    2107: dup
+    2108: bipush        75
+    2110: bipush        -52
+    2112: bastore
+    2113: dup
+    2114: bipush        76
+    2116: bipush        93
+    2118: bastore
+    2119: dup
+    2120: bipush        77
+    2122: bipush        101
+    2124: bastore
+    2125: dup
+    2126: bipush        78
+    2128: bipush        -74
+    2130: bastore
+    2131: dup
+    2132: bipush        79
+    2134: bipush        -110
+    2136: bastore
+    2137: dup
+    2138: bipush        80
+    2140: bipush        108
+    2142: bastore
+    2143: dup
+    2144: bipush        81
+    2146: bipush        112
+    2148: bastore
+    2149: dup
+    2150: bipush        82
+    2152: bipush        72
+    2154: bastore
+    2155: dup
+    2156: bipush        83
+    2158: bipush        80
+    2160: bastore
+    2161: dup
+    2162: bipush        84
+    2164: bipush        -3
+    2166: bastore
+    2167: dup
+    2168: bipush        85
+    2170: bipush        -19
+    2172: bastore
+    2173: dup
+    2174: bipush        86
+    2176: bipush        -71
+    2178: bastore
+    2179: dup
+    2180: bipush        87
+    2182: bipush        -38
+    2184: bastore
+    2185: dup
+    2186: bipush        88
+    2188: bipush        94
+    2190: bastore
+    2191: dup
+    2192: bipush        89
+    2194: bipush        21
+    2196: bastore
+    2197: dup
+    2198: bipush        90
+    2200: bipush        70
+    2202: bastore
+    2203: dup
+    2204: bipush        91
+    2206: bipush        87
+    2208: bastore
+    2209: dup
+    2210: bipush        92
+    2212: bipush        -89
+    2214: bastore
+    2215: dup
+    2216: bipush        93
+    2218: bipush        -115
+    2220: bastore
+    2221: dup
+    2222: bipush        94
+    2224: bipush        -99
+    2226: bastore
+    2227: dup
+    2228: bipush        95
+    2230: bipush        -124
+    2232: bastore
+    2233: dup
+    2234: bipush        96
+    2236: bipush        -112
+    2238: bastore
+    2239: dup
+    2240: bipush        97
+    2242: bipush        -40
+    2244: bastore
+    2245: dup
+    2246: bipush        98
+    2248: bipush        -85
+    2250: bastore
+    2251: dup
+    2252: bipush        99
+    2254: iconst_0
+    2255: bastore
+    2256: dup
+    2257: bipush        100
+    2259: bipush        -116
+    2261: bastore
+    2262: dup
+    2263: bipush        101
+    2265: bipush        -68
+    2267: bastore
+    2268: dup
+    2269: bipush        102
+    2271: bipush        -45
+    2273: bastore
+    2274: dup
+    2275: bipush        103
+    2277: bipush        10
+    2279: bastore
+    2280: dup
+    2281: bipush        104
+    2283: bipush        -9
+    2285: bastore
+    2286: dup
+    2287: bipush        105
+    2289: bipush        -28
+    2291: bastore
+    2292: dup
+    2293: bipush        106
+    2295: bipush        88
+    2297: bastore
+    2298: dup
+    2299: bipush        107
+    2301: iconst_5
+    2302: bastore
+    2303: dup
+    2304: bipush        108
+    2306: bipush        -72
+    2308: bastore
+    2309: dup
+    2310: bipush        109
+    2312: bipush        -77
+    2314: bastore
+    2315: dup
+    2316: bipush        110
+    2318: bipush        69
+    2320: bastore
+    2321: dup
+    2322: bipush        111
+    2324: bipush        6
+    2326: bastore
+    2327: dup
+    2328: bipush        112
+    2330: bipush        -48
+    2332: bastore
+    2333: dup
+    2334: bipush        113
+    2336: bipush        44
+    2338: bastore
+    2339: dup
+    2340: bipush        114
+    2342: bipush        30
+    2344: bastore
+    2345: dup
+    2346: bipush        115
+    2348: bipush        -113
+    2350: bastore
+    2351: dup
+    2352: bipush        116
+    2354: bipush        -54
+    2356: bastore
+    2357: dup
+    2358: bipush        117
+    2360: bipush        63
+    2362: bastore
+    2363: dup
+    2364: bipush        118
+    2366: bipush        15
+    2368: bastore
+    2369: dup
+    2370: bipush        119
+    2372: iconst_2
+    2373: bastore
+    2374: dup
+    2375: bipush        120
+    2377: bipush        -63
+    2379: bastore
+    2380: dup
+    2381: bipush        121
+    2383: bipush        -81
+    2385: bastore
+    2386: dup
+    2387: bipush        122
+    2389: bipush        -67
+    2391: bastore
+    2392: dup
+    2393: bipush        123
+    2395: iconst_3
+    2396: bastore
+    2397: dup
+    2398: bipush        124
+    2400: iconst_1
+    2401: bastore
+    2402: dup
+    2403: bipush        125
+    2405: bipush        19
+    2407: bastore
+    2408: dup
+    2409: bipush        126
+    2411: bipush        -118
+    2413: bastore
+    2414: dup
+    2415: bipush        127
+    2417: bipush        107
+    2419: bastore
+    2420: dup
+    2421: sipush        128
+    2424: bipush        58
+    2426: bastore
+    2427: dup
+    2428: sipush        129
+    2431: bipush        -111
+    2433: bastore
+    2434: dup
+    2435: sipush        130
+    2438: bipush        17
+    2440: bastore
+    2441: dup
+    2442: sipush        131
+    2445: bipush        65
+    2447: bastore
+    2448: dup
+    2449: sipush        132
+    2452: bipush        79
+    2454: bastore
+    2455: dup
+    2456: sipush        133
+    2459: bipush        103
+    2461: bastore
+    2462: dup
+    2463: sipush        134
+    2466: bipush        -36
+    2468: bastore
+    2469: dup
+    2470: sipush        135
+    2473: bipush        -22
+    2475: bastore
+    2476: dup
+    2477: sipush        136
+    2480: bipush        -105
+    2482: bastore
+    2483: dup
+    2484: sipush        137
+    2487: bipush        -14
+    2489: bastore
+    2490: dup
+    2491: sipush        138
+    2494: bipush        -49
+    2496: bastore
+    2497: dup
+    2498: sipush        139
+    2501: bipush        -50
+    2503: bastore
+    2504: dup
+    2505: sipush        140
+    2508: bipush        -16
+    2510: bastore
+    2511: dup
+    2512: sipush        141
+    2515: bipush        -76
+    2517: bastore
+    2518: dup
+    2519: sipush        142
+    2522: bipush        -26
+    2524: bastore
+    2525: dup
+    2526: sipush        143
+    2529: bipush        115
+    2531: bastore
+    2532: dup
+    2533: sipush        144
+    2536: bipush        -106
+    2538: bastore
+    2539: dup
+    2540: sipush        145
+    2543: bipush        -84
+    2545: bastore
+    2546: dup
+    2547: sipush        146
+    2550: bipush        116
+    2552: bastore
+    2553: dup
+    2554: sipush        147
+    2557: bipush        34
+    2559: bastore
+    2560: dup
+    2561: sipush        148
+    2564: bipush        -25
+    2566: bastore
+    2567: dup
+    2568: sipush        149
+    2571: bipush        -83
+    2573: bastore
+    2574: dup
+    2575: sipush        150
+    2578: bipush        53
+    2580: bastore
+    2581: dup
+    2582: sipush        151
+    2585: bipush        -123
+    2587: bastore
+    2588: dup
+    2589: sipush        152
+    2592: bipush        -30
+    2594: bastore
+    2595: dup
+    2596: sipush        153
+    2599: bipush        -7
+    2601: bastore
+    2602: dup
+    2603: sipush        154
+    2606: bipush        55
+    2608: bastore
+    2609: dup
+    2610: sipush        155
+    2613: bipush        -24
+    2615: bastore
+    2616: dup
+    2617: sipush        156
+    2620: bipush        28
+    2622: bastore
+    2623: dup
+    2624: sipush        157
+    2627: bipush        117
+    2629: bastore
+    2630: dup
+    2631: sipush        158
+    2634: bipush        -33
+    2636: bastore
+    2637: dup
+    2638: sipush        159
+    2641: bipush        110
+    2643: bastore
+    2644: dup
+    2645: sipush        160
+    2648: bipush        71
+    2650: bastore
+    2651: dup
+    2652: sipush        161
+    2655: bipush        -15
+    2657: bastore
+    2658: dup
+    2659: sipush        162
+    2662: bipush        26
+    2664: bastore
+    2665: dup
+    2666: sipush        163
+    2669: bipush        113
+    2671: bastore
+    2672: dup
+    2673: sipush        164
+    2676: bipush        29
+    2678: bastore
+    2679: dup
+    2680: sipush        165
+    2683: bipush        41
+    2685: bastore
+    2686: dup
+    2687: sipush        166
+    2690: bipush        -59
+    2692: bastore
+    2693: dup
+    2694: sipush        167
+    2697: bipush        -119
+    2699: bastore
+    2700: dup
+    2701: sipush        168
+    2704: bipush        111
+    2706: bastore
+    2707: dup
+    2708: sipush        169
+    2711: bipush        -73
+    2713: bastore
+    2714: dup
+    2715: sipush        170
+    2718: bipush        98
+    2720: bastore
+    2721: dup
+    2722: sipush        171
+    2725: bipush        14
+    2727: bastore
+    2728: dup
+    2729: sipush        172
+    2732: bipush        -86
+    2734: bastore
+    2735: dup
+    2736: sipush        173
+    2739: bipush        24
+    2741: bastore
+    2742: dup
+    2743: sipush        174
+    2746: bipush        -66
+    2748: bastore
+    2749: dup
+    2750: sipush        175
+    2753: bipush        27
+    2755: bastore
+    2756: dup
+    2757: sipush        176
+    2760: bipush        -4
+    2762: bastore
+    2763: dup
+    2764: sipush        177
+    2767: bipush        86
+    2769: bastore
+    2770: dup
+    2771: sipush        178
+    2774: bipush        62
+    2776: bastore
+    2777: dup
+    2778: sipush        179
+    2781: bipush        75
+    2783: bastore
+    2784: dup
+    2785: sipush        180
+    2788: bipush        -58
+    2790: bastore
+    2791: dup
+    2792: sipush        181
+    2795: bipush        -46
+    2797: bastore
+    2798: dup
+    2799: sipush        182
+    2802: bipush        121
+    2804: bastore
+    2805: dup
+    2806: sipush        183
+    2809: bipush        32
+    2811: bastore
+    2812: dup
+    2813: sipush        184
+    2816: bipush        -102
+    2818: bastore
+    2819: dup
+    2820: sipush        185
+    2823: bipush        -37
+    2825: bastore
+    2826: dup
+    2827: sipush        186
+    2830: bipush        -64
+    2832: bastore
+    2833: dup
+    2834: sipush        187
+    2837: bipush        -2
+    2839: bastore
+    2840: dup
+    2841: sipush        188
+    2844: bipush        120
+    2846: bastore
+    2847: dup
+    2848: sipush        189
+    2851: bipush        -51
+    2853: bastore
+    2854: dup
+    2855: sipush        190
+    2858: bipush        90
+    2860: bastore
+    2861: dup
+    2862: sipush        191
+    2865: bipush        -12
+    2867: bastore
+    2868: dup
+    2869: sipush        192
+    2872: bipush        31
+    2874: bastore
+    2875: dup
+    2876: sipush        193
+    2879: bipush        -35
+    2881: bastore
+    2882: dup
+    2883: sipush        194
+    2886: bipush        -88
+    2888: bastore
+    2889: dup
+    2890: sipush        195
+    2893: bipush        51
+    2895: bastore
+    2896: dup
+    2897: sipush        196
+    2900: bipush        -120
+    2902: bastore
+    2903: dup
+    2904: sipush        197
+    2907: bipush        7
+    2909: bastore
+    2910: dup
+    2911: sipush        198
+    2914: bipush        -57
+    2916: bastore
+    2917: dup
+    2918: sipush        199
+    2921: bipush        49
+    2923: bastore
+    2924: dup
+    2925: sipush        200
+    2928: bipush        -79
+    2930: bastore
+    2931: dup
+    2932: sipush        201
+    2935: bipush        18
+    2937: bastore
+    2938: dup
+    2939: sipush        202
+    2942: bipush        16
+    2944: bastore
+    2945: dup
+    2946: sipush        203
+    2949: bipush        89
+    2951: bastore
+    2952: dup
+    2953: sipush        204
+    2956: bipush        39
+    2958: bastore
+    2959: dup
+    2960: sipush        205
+    2963: bipush        -128
+    2965: bastore
+    2966: dup
+    2967: sipush        206
+    2970: bipush        -20
+    2972: bastore
+    2973: dup
+    2974: sipush        207
+    2977: bipush        95
+    2979: bastore
+    2980: dup
+    2981: sipush        208
+    2984: bipush        96
+    2986: bastore
+    2987: dup
+    2988: sipush        209
+    2991: bipush        81
+    2993: bastore
+    2994: dup
+    2995: sipush        210
+    2998: bipush        127
+    3000: bastore
+    3001: dup
+    3002: sipush        211
+    3005: bipush        -87
+    3007: bastore
+    3008: dup
+    3009: sipush        212
+    3012: bipush        25
+    3014: bastore
+    3015: dup
+    3016: sipush        213
+    3019: bipush        -75
+    3021: bastore
+    3022: dup
+    3023: sipush        214
+    3026: bipush        74
+    3028: bastore
+    3029: dup
+    3030: sipush        215
+    3033: bipush        13
+    3035: bastore
+    3036: dup
+    3037: sipush        216
+    3040: bipush        45
+    3042: bastore
+    3043: dup
+    3044: sipush        217
+    3047: bipush        -27
+    3049: bastore
+    3050: dup
+    3051: sipush        218
+    3054: bipush        122
+    3056: bastore
+    3057: dup
+    3058: sipush        219
+    3061: bipush        -97
+    3063: bastore
+    3064: dup
+    3065: sipush        220
+    3068: bipush        -109
+    3070: bastore
+    3071: dup
+    3072: sipush        221
+    3075: bipush        -55
+    3077: bastore
+    3078: dup
+    3079: sipush        222
+    3082: bipush        -100
+    3084: bastore
+    3085: dup
+    3086: sipush        223
+    3089: bipush        -17
+    3091: bastore
+    3092: dup
+    3093: sipush        224
+    3096: bipush        -96
+    3098: bastore
+    3099: dup
+    3100: sipush        225
+    3103: bipush        -32
+    3105: bastore
+    3106: dup
+    3107: sipush        226
+    3110: bipush        59
+    3112: bastore
+    3113: dup
+    3114: sipush        227
+    3117: bipush        77
+    3119: bastore
+    3120: dup
+    3121: sipush        228
+    3124: bipush        -82
+    3126: bastore
+    3127: dup
+    3128: sipush        229
+    3131: bipush        42
+    3133: bastore
+    3134: dup
+    3135: sipush        230
+    3138: bipush        -11
+    3140: bastore
+    3141: dup
+    3142: sipush        231
+    3145: bipush        -80
+    3147: bastore
+    3148: dup
+    3149: sipush        232
+    3152: bipush        -56
+    3154: bastore
+    3155: dup
+    3156: sipush        233
+    3159: bipush        -21
+    3161: bastore
+    3162: dup
+    3163: sipush        234
+    3166: bipush        -69
+    3168: bastore
+    3169: dup
+    3170: sipush        235
+    3173: bipush        60
+    3175: bastore
+    3176: dup
+    3177: sipush        236
+    3180: bipush        -125
+    3182: bastore
+    3183: dup
+    3184: sipush        237
+    3187: bipush        83
+    3189: bastore
+    3190: dup
+    3191: sipush        238
+    3194: bipush        -103
+    3196: bastore
+    3197: dup
+    3198: sipush        239
+    3201: bipush        97
+    3203: bastore
+    3204: dup
+    3205: sipush        240
+    3208: bipush        23
+    3210: bastore
+    3211: dup
+    3212: sipush        241
+    3215: bipush        43
+    3217: bastore
+    3218: dup
+    3219: sipush        242
+    3222: iconst_4
+    3223: bastore
+    3224: dup
+    3225: sipush        243
+    3228: bipush        126
+    3230: bastore
+    3231: dup
+    3232: sipush        244
+    3235: bipush        -70
+    3237: bastore
+    3238: dup
+    3239: sipush        245
+    3242: bipush        119
+    3244: bastore
+    3245: dup
+    3246: sipush        246
+    3249: bipush        -42
+    3251: bastore
+    3252: dup
+    3253: sipush        247
+    3256: bipush        38
+    3258: bastore
+    3259: dup
+    3260: sipush        248
+    3263: bipush        -31
+    3265: bastore
+    3266: dup
+    3267: sipush        249
+    3270: bipush        105
+    3272: bastore
+    3273: dup
+    3274: sipush        250
+    3277: bipush        20
+    3279: bastore
+    3280: dup
+    3281: sipush        251
+    3284: bipush        99
+    3286: bastore
+    3287: dup
+    3288: sipush        252
+    3291: bipush        85
+    3293: bastore
+    3294: dup
+    3295: sipush        253
+    3298: bipush        33
+    3300: bastore
+    3301: dup
+    3302: sipush        254
+    3305: bipush        12
+    3307: bastore
+    3308: dup
+    3309: sipush        255
+    3312: bipush        125
+    3314: bastore
+    3315: putstatic     #645                // Field Si:[B
+    3318: bipush        30
+    3320: newarray       int
+    3322: dup
+    3323: iconst_0
+    3324: iconst_1
+    3325: iastore
+    3326: dup
+    3327: iconst_1
+    3328: iconst_2
+    3329: iastore
+    3330: dup
+    3331: iconst_2
+    3332: iconst_4
+    3333: iastore
+    3334: dup
+    3335: iconst_3
+    3336: bipush        8
+    3338: iastore
+    3339: dup
+    3340: iconst_4
+    3341: bipush        16
+    3343: iastore
+    3344: dup
+    3345: iconst_5
+    3346: bipush        32
+    3348: iastore
+    3349: dup
+    3350: bipush        6
+    3352: bipush        64
+    3354: iastore
+    3355: dup
+    3356: bipush        7
+    3358: sipush        128
+    3361: iastore
+    3362: dup
+    3363: bipush        8
+    3365: bipush        27
+    3367: iastore
+    3368: dup
+    3369: bipush        9
+    3371: bipush        54
+    3373: iastore
+    3374: dup
+    3375: bipush        10
+    3377: bipush        108
+    3379: iastore
+    3380: dup
+    3381: bipush        11
+    3383: sipush        216
+    3386: iastore
+    3387: dup
+    3388: bipush        12
+    3390: sipush        171
+    3393: iastore
+    3394: dup
+    3395: bipush        13
+    3397: bipush        77
+    3399: iastore
+    3400: dup
+    3401: bipush        14
+    3403: sipush        154
+    3406: iastore
+    3407: dup
+    3408: bipush        15
+    3410: bipush        47
+    3412: iastore
+    3413: dup
+    3414: bipush        16
+    3416: bipush        94
+    3418: iastore
+    3419: dup
+    3420: bipush        17
+    3422: sipush        188
+    3425: iastore
+    3426: dup
+    3427: bipush        18
+    3429: bipush        99
+    3431: iastore
+    3432: dup
+    3433: bipush        19
+    3435: sipush        198
+    3438: iastore
+    3439: dup
+    3440: bipush        20
+    3442: sipush        151
+    3445: iastore
+    3446: dup
+    3447: bipush        21
+    3449: bipush        53
+    3451: iastore
+    3452: dup
+    3453: bipush        22
+    3455: bipush        106
+    3457: iastore
+    3458: dup
+    3459: bipush        23
+    3461: sipush        212
+    3464: iastore
+    3465: dup
+    3466: bipush        24
+    3468: sipush        179
+    3471: iastore
+    3472: dup
+    3473: bipush        25
+    3475: bipush        125
+    3477: iastore
+    3478: dup
+    3479: bipush        26
+    3481: sipush        250
+    3484: iastore
+    3485: dup
+    3486: bipush        27
+    3488: sipush        239
+    3491: iastore
+    3492: dup
+    3493: bipush        28
+    3495: sipush        197
+    3498: iastore
+    3499: dup
+    3500: bipush        29
+    3502: sipush        145
+    3505: iastore
+    3506: putstatic     #649                // Field rcon:[I
+    3509: sipush        256
+    3512: newarray       int
+    3514: dup
+    3515: iconst_0
+    3516: ldc           #30                 // int -1520213050
+    3518: iastore
+    3519: dup
+    3520: iconst_1
+    3521: ldc           #5                  // int -2072216328
+    3523: iastore
+    3524: dup
+    3525: iconst_2
+    3526: ldc           #19                 // int -1720223762
+    3528: iastore
+    3529: dup
+    3530: iconst_3
+    3531: ldc           #11                 // int -1921287178
+    3533: iastore
+    3534: dup
+    3535: iconst_4
+    3536: ldc           #112                // int 234025727
+    3538: iastore
+    3539: dup
+    3540: iconst_5
+    3541: ldc           #46                 // int -1117033514
+    3543: iastore
+    3544: dup
+    3545: bipush        6
+    3547: ldc           #39                 // int -1318096930
+    3549: iastore
+    3550: dup
+    3551: bipush        7
+    3553: ldc           #171                // int 1422247313
+    3555: iastore
+    3556: dup
+    3557: bipush        8
+    3559: ldc           #167                // int 1345335392
+    3561: iastore
+    3562: dup
+    3563: bipush        9
+    3565: ldc           #103                // int 50397442
+    3567: iastore
+    3568: dup
+    3569: bipush        10
+    3571: ldc           #33                 // int -1452841010
+    3573: iastore
+    3574: dup
+    3575: bipush        11
+    3577: ldc           #206                // int 2099981142
+    3579: iastore
+    3580: dup
+    3581: bipush        12
+    3583: ldc           #120                // int 436141799
+    3585: iastore
+    3586: dup
+    3587: bipush        13
+    3589: ldc           #183                // int 1658312629
+    3591: iastore
+    3592: dup
+    3593: bipush        14
+    3595: ldc           #80                 // int -424957107
+    3597: iastore
+    3598: dup
+    3599: bipush        15
+    3601: ldc           #20                 // int -1703512340
+    3603: iastore
+    3604: dup
+    3605: bipush        16
+    3607: ldc           #157                // int 1170918031
+    3609: iastore
+    3610: dup
+    3611: bipush        17
+    3613: ldc           #23                 // int -1652391393
+    3615: iastore
+    3616: dup
+    3617: bipush        18
+    3619: ldc           #153                // int 1086966153
+    3621: iastore
+    3622: dup
+    3623: bipush        19
+    3625: ldc           #6                  // int -2021818886
+    3627: iastore
+    3628: dup
+    3629: bipush        20
+    3631: ldc           #117                // int 368769775
+    3633: iastore
+    3634: dup
+    3635: bipush        21
+    3637: ldc           #85                 // int -346465870
+    3639: iastore
+    3640: dup
+    3641: bipush        22
+    3643: ldc           #56                 // int -918075506
+    3645: iastore
+    3646: dup
+    3647: bipush        23
+    3649: ldc           #110                // int 200339707
+    3651: iastore
+    3652: dup
+    3653: bipush        24
+    3655: ldc           #86                 // int -324162239
+    3657: iastore
+    3658: dup
+    3659: bipush        25
+    3661: ldc           #188                // int 1742001331
+    3663: iastore
+    3664: dup
+    3665: bipush        26
+    3667: ldc           #100                // int -39673249
+    3669: iastore
+    3670: dup
+    3671: bipush        27
+    3673: ldc           #84                 // int -357585083
+    3675: iastore
+    3676: dup
+    3677: bipush        28
+    3679: ldc           #48                 // int -1080255453
+    3681: iastore
+    3682: dup
+    3683: bipush        29
+    3685: ldc           #97                 // int -140204973
+    3687: iastore
+    3688: dup
+    3689: bipush        30
+    3691: ldc           #16                 // int -1770884380
+    3693: iastore
+    3694: dup
+    3695: bipush        31
+    3697: ldc           #177                // int 1539358875
+    3699: iastore
+    3700: dup
+    3701: bipush        32
+    3703: ldc           #52                 // int -1028147339
+    3705: iastore
+    3706: dup
+    3707: bipush        33
+    3709: ldc           #123                // int 486407649
+    3711: iastore
+    3712: dup
+    3713: bipush        34
+    3715: ldc           #37                 // int -1366060227
+    3717: iastore
+    3718: dup
+    3719: bipush        35
+    3721: ldc           #191                // int 1780885068
+    3723: iastore
+    3724: dup
+    3725: bipush        36
+    3727: ldc           #176                // int 1513502316
+    3729: iastore
+    3730: dup
+    3731: bipush        37
+    3733: ldc           #154                // int 1094664062
+    3735: iastore
+    3736: dup
+    3737: bipush        38
+    3739: ldc           #102                // int 49805301
+    3741: iastore
+    3742: dup
+    3743: bipush        39
+    3745: ldc           #166                // int 1338821763
+    3747: iastore
+    3748: dup
+    3749: bipush        40
+    3751: ldc           #178                // int 1546925160
+    3753: iastore
+    3754: dup
+    3755: bipush        41
+    3757: ldc           #94                 // int -190470831
+    3759: iastore
+    3760: dup
+    3761: bipush        42
+    3763: ldc           #142                // int 887481809
+    3765: iastore
+    3766: dup
+    3767: bipush        43
+    3769: ldc           #107                // int 150073849
+    3771: iastore
+    3772: dup
+    3773: bipush        44
+    3775: ldc           #13                 // int -1821281822
+    3777: iastore
+    3778: dup
+    3779: bipush        45
+    3781: ldc           #199                // int 1943591083
+    3783: iastore
+    3784: dup
+    3785: bipush        46
+    3787: ldc           #170                // int 1395732834
+    3789: iastore
+    3790: dup
+    3791: bipush        47
+    3793: ldc           #151                // int 1058346282
+    3795: iastore
+    3796: dup
+    3797: bipush        48
+    3799: ldc           #111                // int 201589768
+    3801: iastore
+    3802: dup
+    3803: bipush        49
+    3805: ldc           #169                // int 1388824469
+    3807: iastore
+    3808: dup
+    3809: bipush        50
+    3811: ldc           #186                // int 1696801606
+    3813: iastore
+    3814: dup
+    3815: bipush        51
+    3817: ldc           #180                // int 1589887901
+    3819: iastore
+    3820: dup
+    3821: bipush        52
+    3823: ldc           #132                // int 672667696
+    3825: iastore
+    3826: dup
+    3827: bipush        53
+    3829: ldc           #27                 // int -1583966665
+    3831: iastore
+    3832: dup
+    3833: bipush        54
+    3835: ldc           #114                // int 251987210
+    3837: iastore
+    3838: dup
+    3839: bipush        55
+    3841: ldc           #42                 // int -1248159185
+    3843: iastore
+    3844: dup
+    3845: bipush        56
+    3847: ldc           #108                // int 151455502
+    3849: iastore
+    3850: dup
+    3851: bipush        57
+    3853: ldc           #144                // int 907153956
+    3855: iastore
+    3856: dup
+    3857: bipush        58
+    3859: ldc           #21                 // int -1686077413
+    3861: iastore
+    3862: dup
+    3863: bipush        59
+    3865: ldc           #149                // int 1038279391
+    3867: iastore
+    3868: dup
+    3869: bipush        60
+    3871: ldc           #131                // int 652995533
+    3873: iastore
+    3874: dup
+    3875: bipush        61
+    3877: ldc           #190                // int 1764173646
+    3879: iastore
+    3880: dup
+    3881: bipush        62
+    3883: ldc           #59                 // int -843926913
+    3885: iastore
+    3886: dup
+    3887: bipush        63
+    3889: ldc           #25                 // int -1619692054
+    3891: iastore
+    3892: dup
+    3893: bipush        64
+    3895: ldc           #122                // int 453576978
+    3897: iastore
+    3898: dup
+    3899: bipush        65
+    3901: ldc           #24                 // int -1635548387
+    3903: iastore
+    3904: dup
+    3905: bipush        66
+    3907: ldc           #200                // int 1949051992
+    3909: iastore
+    3910: dup
+    3911: bipush        67
+    3913: ldc           #138                // int 773462580
+    3915: iastore
+    3916: dup
+    3917: bipush        68
+    3919: ldc           #137                // int 756751158
+    3921: iastore
+    3922: dup
+    3923: bipush        69
+    3925: ldc           #40                 // int -1301385508
+    3927: iastore
+    3928: dup
+    3929: bipush        70
+    3931: ldc           #88                 // int -296068428
+    3933: iastore
+    3934: dup
+    3935: bipush        71
+    3937: ldc           #99                 // int -73359269
+    3939: iastore
+    3940: dup
+    3941: bipush        72
+    3943: ldc           #96                 // int -162377052
+    3945: iastore
+    3946: dup
+    3947: bipush        73
+    3949: ldc           #164                // int 1295727478
+    3951: iastore
+    3952: dup
+    3953: bipush        74
+    3955: ldc           #182                // int 1641469623
+    3957: iastore
+    3958: dup
+    3959: bipush        75
+    3961: ldc           #60                 // int -827083907
+    3963: iastore
+    3964: dup
+    3965: bipush        76
+    3967: ldc           #204                // int 2066295122
+    3969: iastore
+    3970: dup
+    3971: bipush        77
+    3973: ldc           #150                // int 1055122397
+    3975: iastore
+    3976: dup
+    3977: bipush        78
+    3979: ldc           #197                // int 1898917726
+    3981: iastore
+    3982: dup
+    3983: bipush        79
+    3985: ldc           #17                 // int -1752923117
+    3987: iastore
+    3988: dup
+    3989: bipush        80
+    3991: ldc           #95                 // int -179088474
+    3993: iastore
+    3994: dup
+    3995: bipush        81
+    3997: ldc           #189                // int 1758581177
+    3999: iastore
+    4000: dup
+    4001: bipush        82
+    4003: iconst_0
+    4004: iastore
+    4005: dup
+    4006: bipush        83
+    4008: ldc           #136                // int 753790401
+    4010: iastore
+    4011: dup
+    4012: bipush        84
+    4014: ldc           #181                // int 1612718144
+    4016: iastore
+    4017: dup
+    4018: bipush        85
+    4020: ldc           #126                // int 536673507
+    4022: iastore
+    4023: dup
+    4024: bipush        86
+    4026: ldc           #55                 // int -927878791
+    4028: iastore
+    4029: dup
+    4030: bipush        87
+    4032: ldc           #87                 // int -312779850
+    4034: iastore
+    4035: dup
+    4036: bipush        88
+    4038: ldc           #47                 // int -1100322092
+    4040: iastore
+    4041: dup
+    4042: bipush        89
+    4044: ldc           #158                // int 1187761037
+    4046: iastore
+    4047: dup
+    4048: bipush        90
+    4050: ldc           #68                 // int -641810841
+    4052: iastore
+    4053: dup
+    4054: bipush        91
+    4056: ldc           #162                // int 1262041458
+    4058: iastore
+    4059: dup
+    4060: bipush        92
+    4062: ldc           #72                 // int -565556588
+    4064: iastore
+    4065: dup
+    4066: bipush        93
+    4068: ldc           #65                 // int -733197160
+    4070: iastore
+    4071: dup
+    4072: bipush        94
+    4074: ldc           #82                 // int -396863312
+    4076: iastore
+    4077: dup
+    4078: bipush        95
+    4080: ldc           #161                // int 1255133061
+    4082: iastore
+    4083: dup
+    4084: bipush        96
+    4086: ldc           #192                // int 1808847035
+    4088: iastore
+    4089: dup
+    4090: bipush        97
+    4092: ldc           #134                // int 720367557
+    4094: iastore
+    4095: dup
+    4096: bipush        98
+    4098: ldc           #79                 // int -441800113
+    4100: iastore
+    4101: dup
+    4102: bipush        99
+    4104: ldc           #118                // int 385612781
+    4106: iastore
+    4107: dup
+    4108: bipush        100
+    4110: ldc           #53                 // int -985447546
+    4112: iastore
+    4113: dup
+    4114: bipush        101
+    4116: ldc           #67                 // int -682799718
+    4118: iastore
+    4119: dup
+    4120: bipush        102
+    4122: ldc           #172                // int 1429418854
+    4124: iastore
+    4125: dup
+    4126: bipush        103
+    4128: ldc           #14                 // int -1803188975
+    4130: iastore
+    4131: dup
+    4132: bipush        104
+    4134: ldc           #61                 // int -817543798
+    4136: iastore
+    4137: dup
+    4138: bipush        105
+    4140: ldc           #115                // int 284817897
+    4142: iastore
+    4143: dup
+    4144: bipush        106
+    4146: ldc           #105                // int 100794884
+    4148: iastore
+    4149: dup
+    4150: bipush        107
+    4152: ldc           #2                  // int -2122350594
+    4154: iastore
+    4155: dup
+    4156: bipush        108
+    4158: ldc           #90                 // int -263171936
+    4160: iastore
+    4161: dup
+    4162: bipush        109
+    4164: ldc           #156                // int 1144798328
+    4166: iastore
+    4167: dup
+    4168: bipush        110
+    4170: ldc           #44                 // int -1163944155
+    4172: iastore
+    4173: dup
+    4174: bipush        111
+    4176: ldc           #77                 // int -475486133
+    4178: iastore
+    4179: dup
+    4180: bipush        112
+    4182: ldc           #93                 // int -212774494
+    4184: iastore
+    4185: dup
+    4186: bipush        113
+    4188: ldc           #101                // int -22830243
+    4190: iastore
+    4191: dup
+    4192: bipush        114
+    4194: ldc           #49                 // int -1069531008
+    4196: iastore
+    4197: dup
+    4198: bipush        115
+    4200: ldc           #8                  // int -1970303227
+    4202: iastore
+    4203: dup
+    4204: bipush        116
+    4206: ldc           #36                 // int -1382903233
+    4208: iastore
+    4209: dup
+    4210: bipush        117
+    4212: ldc           #45                 // int -1130521311
+    4214: iastore
+    4215: dup
+    4216: bipush        118
+    4218: ldc           #160                // int 1211644016
+    4220: iastore
+    4221: dup
+    4222: bipush        119
+    4224: ldc           #104                // int 83228145
+    4226: iastore
+    4227: dup
+    4228: bipush        120
+    4230: ldc           #73                 // int -541279133
+    4232: iastore
+    4233: dup
+    4234: bipush        121
+    4236: ldc           #51                 // int -1044990345
+    4238: iastore
+    4239: dup
+    4240: bipush        122
+    4242: ldc           #201                // int 1977277103
+    4244: iastore
+    4245: dup
+    4246: bipush        123
+    4248: ldc           #184                // int 1663115586
+    4250: iastore
+    4251: dup
+    4252: bipush        124
+    4254: ldc           #140                // int 806359072
+    4256: iastore
+    4257: dup
+    4258: bipush        125
+    4260: ldc           #121                // int 452984805
+    4262: iastore
+    4263: dup
+    4264: bipush        126
+    4266: ldc           #113                // int 250868733
+    4268: iastore
+    4269: dup
+    4270: bipush        127
+    4272: ldc           #194                // int 1842533055
+    4274: iastore
+    4275: dup
+    4276: sipush        128
+    4279: ldc           #163                // int 1288555905
+    4281: iastore
+    4282: dup
+    4283: sipush        129
+    4286: ldc           #116                // int 336333848
+    4288: iastore
+    4289: dup
+    4290: sipush        130
+    4293: ldc           #143                // int 890442534
+    4295: iastore
+    4296: dup
+    4297: sipush        131
+    4300: ldc           #139                // int 804056259
+    4302: iastore
+    4303: dup
+    4304: sipush        132
+    4307: ldc           #75                 // int -513843266
+    4309: iastore
+    4310: dup
+    4311: sipush        133
+    4314: ldc           #28                 // int -1567123659
+    4316: iastore
+    4317: dup
+    4318: sipush        134
+    4321: ldc           #58                 // int -867941240
+    4323: iastore
+    4324: dup
+    4325: sipush        135
+    4328: ldc           #146                // int 957814574
+    4330: iastore
+    4331: dup
+    4332: sipush        136
+    4335: ldc           #174                // int 1472513171
+    4337: iastore
+    4338: dup
+    4339: sipush        137
+    4342: ldc           #92                 // int -223893675
+    4344: iastore
+    4345: dup
+    4346: sipush        138
+    4349: ldc           #3                  // int -2105639172
+    4351: iastore
+    4352: dup
+    4353: sipush        139
+    4356: ldc           #159                // int 1195195770
+    4358: iastore
+    4359: dup
+    4360: sipush        140
+    4363: ldc           #35                 // int -1402706744
+    4365: iastore
+    4366: dup
+    4367: sipush        141
+    4370: ldc           #81                 // int -413311558
+    4372: iastore
+    4373: dup
+    4374: sipush        142
+    4377: ldc           #135                // int 723065138
+    4379: iastore
+    4380: dup
+    4381: sipush        143
+    4384: ldc           #15                 // int -1787595802
+    4386: iastore
+    4387: dup
+    4388: sipush        144
+    4391: ldc           #26                 // int -1604296512
+    4393: iastore
+    4394: dup
+    4395: sipush        145
+    4398: ldc           #18                 // int -1736343271
+    4400: iastore
+    4401: dup
+    4402: sipush        146
+    4405: ldc           #62                 // int -783331426
+    4407: iastore
+    4408: dup
+    4409: sipush        147
+    4412: ldc           #209                // int 2145180835
+    4414: iastore
+    4415: dup
+    4416: sipush        148
+    4419: ldc           #187                // int 1713513028
+    4421: iastore
+    4422: dup
+    4423: sipush        149
+    4426: ldc           #207                // int 2116692564
+    4428: iastore
+    4429: dup
+    4430: sipush        150
+    4433: ldc           #34                 // int -1416589253
+    4435: iastore
+    4436: dup
+    4437: sipush        151
+    4440: ldc           #4                  // int -2088204277
+    4442: iastore
+    4443: dup
+    4444: sipush        152
+    4447: ldc           #57                 // int -901364084
+    4449: iastore
+    4450: dup
+    4451: sipush        153
+    4454: ldc           #133                // int 703524551
+    4456: iastore
+    4457: dup
+    4458: sipush        154
+    4461: ldc           #64                 // int -742868885
+    4463: iastore
+    4464: dup
+    4465: sipush        155
+    4468: ldc           #148                // int 1007948840
+    4470: iastore
+    4471: dup
+    4472: sipush        156
+    4475: ldc           #203                // int 2044649127
+    4477: iastore
+    4478: dup
+    4479: sipush        157
+    4482: ldc           #76                 // int -497131844
+    4484: iastore
+    4485: dup
+    4486: sipush        158
+    4489: ldc           #124                // int 487262998
+    4491: iastore
+    4492: dup
+    4493: sipush        159
+    4496: ldc           #202                // int 1994120109
+    4498: iastore
+    4499: dup
+    4500: sipush        160
+    4503: ldc           #147                // int 1004593371
+    4505: iastore
+    4506: dup
+    4507: sipush        161
+    4510: ldc           #173                // int 1446130276
+    4512: iastore
+    4513: dup
+    4514: sipush        162
+    4517: ldc           #165                // int 1312438900
+    4519: iastore
+    4520: dup
+    4521: sipush        163
+    4524: ldc           #125                // int 503974420
+    4526: iastore
+    4527: dup
+    4528: sipush        164
+    4531: ldc           #69                 // int -615954030
+    4533: iastore
+    4534: dup
+    4535: sipush        165
+    4538: ldc           #109                // int 168166924
+    4540: iastore
+    4541: dup
+    4542: sipush        166
+    4545: ldc           #193                // int 1814307912
+    4547: iastore
+    4548: dup
+    4549: sipush        167
+    4552: ldc           #78                 // int -463709000
+    4554: iastore
+    4555: dup
+    4556: sipush        168
+    4559: ldc           #179                // int 1573044895
+    4561: iastore
+    4562: dup
+    4563: sipush        169
+    4566: ldc           #195                // int 1859376061
+    4568: iastore
+    4569: dup
+    4570: sipush        170
+    4573: ldc           #89                 // int -273896381
+    4575: iastore
+    4576: dup
+    4577: sipush        171
+    4580: ldc           #31                 // int -1503501628
+    4582: iastore
+    4583: dup
+    4584: sipush        172
+    4587: ldc           #32                 // int -1466855111
+    4589: iastore
+    4590: dup
+    4591: sipush        173
+    4594: ldc           #29                 // int -1533700815
+    4596: iastore
+    4597: dup
+    4598: sipush        174
+    4601: ldc           #145                // int 937747667
+    4603: iastore
+    4604: dup
+    4605: sipush        175
+    4608: ldc           #9                  // int -1954973198
+    4610: iastore
+    4611: dup
+    4612: sipush        176
+    4615: ldc           #141                // int 854058965
+    4617: iastore
+    4618: dup
+    4619: sipush        177
+    4622: ldc           #155                // int 1137232011
+    4624: iastore
+    4625: dup
+    4626: sipush        178
+    4629: ldc           #175                // int 1496790894
+    4631: iastore
+    4632: dup
+    4633: sipush        179
+    4636: ldc           #43                 // int -1217565222
+    4638: iastore
+    4639: dup
+    4640: sipush        180
+    4643: ldc           #10                 // int -1936880383
+    4645: iastore
+    4646: dup
+    4647: sipush        181
+    4650: ldc           #185                // int 1691735473
+    4652: iastore
+    4653: dup
+    4654: sipush        182
+    4657: ldc           #63                 // int -766620004
+    4659: iastore
+    4660: dup
+    4661: sipush        183
+    4664: ldc           #74                 // int -525751991
+    4666: iastore
+    4667: dup
+    4668: sipush        184
+    4671: ldc           #41                 // int -1267962664
+    4673: iastore
+    4674: dup
+    4675: sipush        185
+    4678: ldc           #98                 // int -95005012
+    4680: iastore
+    4681: dup
+    4682: sipush        186
+    4685: ldc           #106                // int 133494003
+    4687: iastore
+    4688: dup
+    4689: sipush        187
+    4692: ldc           #130                // int 636152527
+    4694: iastore
+    4695: dup
+    4696: sipush        188
+    4699: ldc           #38                 // int -1352309302
+    4701: iastore
+    4702: dup
+    4703: sipush        189
+    4706: ldc           #12                 // int -1904575756
+    4708: iastore
+    4709: dup
+    4710: sipush        190
+    4713: ldc           #83                 // int -374428089
+    4715: iastore
+    4716: dup
+    4717: sipush        191
+    4720: ldc           #119                // int 403179536
+    4722: iastore
+    4723: dup
+    4724: sipush        192
+    4727: ldc           #66                 // int -709182865
+    4729: iastore
+    4730: dup
+    4731: sipush        193
+    4734: ldc           #7                  // int -2005370640
+    4736: iastore
+    4737: dup
+    4738: sipush        194
+    4741: ldc           #196                // int 1864705354
+    4743: iastore
+    4744: dup
+    4745: sipush        195
+    4748: ldc           #198                // int 1915629148
+    4750: iastore
+    4751: dup
+    4752: sipush        196
+    4755: ldc           #129                // int 605822008
+    4757: iastore
+    4758: dup
+    4759: sipush        197
+    4762: ldc           #91                 // int -240736681
+    4764: iastore
+    4765: dup
+    4766: sipush        198
+    4769: ldc           #54                 // int -944458637
+    4771: iastore
+    4772: dup
+    4773: sipush        199
+    4776: ldc           #168                // int 1371981463
+    4778: iastore
+    4779: dup
+    4780: sipush        200
+    4783: ldc           #128                // int 602466507
+    4785: iastore
+    4786: dup
+    4787: sipush        201
+    4790: ldc           #205                // int 2094914977
+    4792: iastore
+    4793: dup
+    4794: sipush        202
+    4797: ldc           #22                 // int -1670089496
+    4799: iastore
+    4800: dup
+    4801: sipush        203
+    4804: ldc           #127                // int 555687742
+    4806: iastore
+    4807: dup
+    4808: sipush        204
+    4811: ldc           #71                 // int -582268010
+    4813: iastore
+    4814: dup
+    4815: sipush        205
+    4818: ldc           #70                 // int -591544991
+    4820: iastore
+    4821: dup
+    4822: sipush        206
+    4825: ldc_w         #298                // int -2037675251
+    4828: iastore
+    4829: dup
+    4830: sipush        207
+    4833: ldc_w         #297                // int -2054518257
+    4836: iastore
+    4837: dup
+    4838: sipush        208
+    4841: ldc_w         #311                // int -1871679264
+    4844: iastore
+    4845: dup
+    4846: sipush        209
+    4849: ldc_w         #527                // int 1111375484
+    4852: iastore
+    4853: dup
+    4854: sipush        210
+    4857: ldc_w         #377                // int -994724495
+    4860: iastore
+    4861: dup
+    4862: sipush        211
+    4865: ldc_w         #342                // int -1436129588
+    4868: iastore
+    4869: dup
+    4870: sipush        212
+    4873: ldc_w         #402                // int -666351472
+    4876: iastore
+    4877: dup
+    4878: sipush        213
+    4881: ldc_w         #454                // int 84083462
+    4884: iastore
+    4885: dup
+    4886: sipush        214
+    4889: ldc_w         #450                // int 32962295
+    4892: iastore
+    4893: dup
+    4894: sipush        215
+    4897: ldc_w         #469                // int 302911004
+    4900: iastore
+    4901: dup
+    4902: sipush        216
+    4905: ldc_w         #333                // int -1553899070
+    4908: iastore
+    4909: dup
+    4910: sipush        217
+    4913: ldc_w         #559                // int 1597322602
+    4916: iastore
+    4917: dup
+    4918: sipush        218
+    4921: ldc_w         #437                // int -111716434
+    4924: iastore
+    4925: dup
+    4926: sipush        219
+    4929: ldc_w         #391                // int -793134743
+    4932: iastore
+    4933: dup
+    4934: sipush        220
+    4937: ldc_w         #314                // int -1853454825
+    4940: iastore
+    4941: dup
+    4942: sipush        221
+    4945: ldc_w         #552                // int 1489093017
+    4948: iastore
+    4949: dup
+    4950: sipush        222
+    4953: ldc_w         #495                // int 656219450
+    4956: iastore
+    4957: dup
+    4958: sipush        223
+    4961: ldc_w         #362                // int -1180787161
+    4964: iastore
+    4965: dup
+    4966: sipush        224
+    4969: ldc_w         #516                // int 954327513
+    4972: iastore
+    4973: dup
+    4974: sipush        225
+    4977: ldc_w         #472                // int 335083755
+    4980: iastore
+    4981: dup
+    4982: sipush        226
+    4985: ldc_w         #354                // int -1281845205
+    4988: iastore
+    4989: dup
+    4990: sipush        227
+    4993: ldc_w         #509                // int 856756514
+    4996: iastore
+    4997: dup
+    4998: sipush        228
+    5001: ldc_w         #365                // int -1150719534
+    5004: iastore
+    5005: dup
+    5006: sipush        229
+    5009: ldc_w         #578                // int 1893325225
+    5012: iastore
+    5013: dup
+    5014: sipush        230
+    5017: ldc_w         #303                // int -1987146233
+    5020: iastore
+    5021: dup
+    5022: sipush        231
+    5025: ldc_w         #339                // int -1483434957
+    5028: iastore
+    5029: dup
+    5030: sipush        232
+    5033: ldc_w         #358                // int -1231316179
+    5036: iastore
+    5037: dup
+    5038: sipush        233
+    5041: ldc_w         #489                // int 572399164
+    5044: iastore
+    5045: dup
+    5046: sipush        234
+    5049: ldc_w         #315                // int -1836611819
+    5052: iastore
+    5053: dup
+    5054: sipush        235
+    5057: ldc_w         #487                // int 552200649
+    5060: iastore
+    5061: dup
+    5062: sipush        236
+    5065: ldc_w         #536                // int 1238290055
+    5068: iastore
+    5069: dup
+    5070: sipush        237
+    5073: ldc_w         #446                // int -11184726
+    5076: iastore
+    5077: dup
+    5078: sipush        238
+    5081: ldc_w         #587                // int 2015897680
+    5084: iastore
+    5085: dup
+    5086: sipush        239
+    5089: ldc_w         #591                // int 2061492133
+    5092: iastore
+    5093: dup
+    5094: sipush        240
+    5097: ldc_w         #309                // int -1886614525
+    5100: iastore
+    5101: dup
+    5102: sipush        241
+    5105: ldc_w         #436                // int -123625127
+    5108: iastore
+    5109: dup
+    5110: sipush        242
+    5113: ldc_w         #291                // int -2138470135
+    5116: iastore
+    5117: dup
+    5118: sipush        243
+    5121: ldc_w         #476                // int 386731290
+    5124: iastore
+    5125: dup
+    5126: sipush        244
+    5129: ldc_w         #405                // int -624967835
+    5132: iastore
+    5133: dup
+    5134: sipush        245
+    5137: ldc_w         #507                // int 837215959
+    5140: iastore
+    5141: dup
+    5142: sipush        246
+    5145: ldc_w         #379                // int -968736124
+    5148: iastore
+    5149: dup
+    5150: sipush        247
+    5153: ldc_w         #361                // int -1201116976
+    5156: iastore
+    5157: dup
+    5158: sipush        248
+    5161: ldc_w         #374                // int -1019133566
+    5164: iastore
+    5165: dup
+    5166: sipush        249
+    5169: ldc_w         #349                // int -1332111063
+    5172: iastore
+    5173: dup
+    5174: sipush        250
+    5177: ldc_w         #585                // int 1999449434
+    5180: iastore
+    5181: dup
+    5182: sipush        251
+    5185: ldc_w         #467                // int 286199582
+    5188: iastore
+    5189: dup
+    5190: sipush        252
+    5193: ldc_w         #386                // int -877612933
+    5196: iastore
+    5197: dup
+    5198: sipush        253
+    5201: ldc_w         #441                // int -61582168
+    5204: iastore
+    5205: dup
+    5206: sipush        254
+    5209: ldc_w         #399                // int -692339859
+    5212: iastore
+    5213: dup
+    5214: sipush        255
+    5217: ldc_w         #518                // int 974525996
+    5220: iastore
+    5221: putstatic     #647                // Field T0:[I
+    5224: sipush        256
+    5227: newarray       int
+    5229: dup
+    5230: iconst_0
+    5231: ldc_w         #543                // int 1353184337
+    5234: iastore
+    5235: dup
+    5236: iconst_1
+    5237: ldc_w         #546                // int 1399144830
+    5240: iastore
+    5241: dup
+    5242: iconst_2
+    5243: ldc_w         #375                // int -1012656358
+    5246: iastore
+    5247: dup
+    5248: iconst_3
+    5249: ldc_w         #320                // int -1772214470
+    5252: iastore
+    5253: dup
+    5254: iconst_4
+    5255: ldc_w         #385                // int -882136261
+    5258: iastore
+    5259: dup
+    5260: iconst_5
+    5261: ldc_w         #428                // int -247096033
+    5264: iastore
+    5265: dup
+    5266: bipush        6
+    5268: ldc_w         #344                // int -1420232020
+    5271: iastore
+    5272: dup
+    5273: bipush        7
+    5275: ldc_w         #317                // int -1828461749
+    5278: iastore
+    5279: dup
+    5280: bipush        8
+    5282: ldc_w         #548                // int 1442459680
+    5285: iastore
+    5286: dup
+    5287: bipush        9
+    5289: ldc_w         #433                // int -160598355
+    5292: iastore
+    5293: dup
+    5294: bipush        10
+    5296: ldc_w         #313                // int -1854485368
+    5299: iastore
+    5300: dup
+    5301: bipush        11
+    5303: ldc_w         #493                // int 625738485
+    5306: iastore
+    5307: dup
+    5308: bipush        12
+    5310: ldc_w         #442                // int -52959921
+    5313: iastore
+    5314: dup
+    5315: bipush        13
+    5317: ldc_w         #400                // int -674551099
+    5320: iastore
+    5321: dup
+    5322: bipush        14
+    5324: ldc_w         #290                // int -2143013594
+    5327: iastore
+    5328: dup
+    5329: bipush        15
+    5331: ldc_w         #310                // int -1885117771
+    5334: iastore
+    5335: dup
+    5336: bipush        16
+    5338: ldc_w         #535                // int 1230680542
+    5341: iastore
+    5342: dup
+    5343: bipush        17
+    5345: ldc_w         #568                // int 1729870373
+    5348: iastore
+    5349: dup
+    5350: bipush        18
+    5352: ldc_w         #322                // int -1743852987
+    5355: iastore
+    5356: dup
+    5357: bipush        19
+    5359: ldc_w         #412                // int -507445667
+    5362: iastore
+    5363: dup
+    5364: bipush        20
+    5366: ldc_w         #451                // int 41234371
+    5369: iastore
+    5370: dup
+    5371: bipush        21
+    5373: ldc_w         #470                // int 317738113
+    5376: iastore
+    5377: dup
+    5378: bipush        22
+    5380: ldc_w         #334                // int -1550367091
+    5383: iastore
+    5384: dup
+    5385: bipush        23
+    5387: ldc_w         #380                // int -956705941
+    5390: iastore
+    5391: dup
+    5392: bipush        24
+    5394: ldc_w         #418                // int -413167869
+    5397: iastore
+    5398: dup
+    5399: bipush        25
+    5401: ldc_w         #319                // int -1784901099
+    5404: iastore
+    5405: dup
+    5406: bipush        26
+    5408: ldc_w         #422                // int -344298049
+    5411: iastore
+    5412: dup
+    5413: bipush        27
+    5415: ldc_w         #404                // int -631680363
+    5418: iastore
+    5419: dup
+    5420: bipush        28
+    5422: ldc_w         #502                // int 763608788
+    5425: iastore
+    5426: dup
+    5427: bipush        29
+    5429: ldc_w         #395                // int -752782248
+    5432: iastore
+    5433: dup
+    5434: bipush        30
+    5436: ldc_w         #498                // int 694804553
+    5439: iastore
+    5440: dup
+    5441: bipush        31
+    5443: ldc_w         #530                // int 1154009486
+    5446: iastore
+    5447: dup
+    5448: bipush        32
+    5450: ldc_w         #571                // int 1787413109
+    5453: iastore
+    5454: dup
+    5455: bipush        33
+    5457: ldc_w         #588                // int 2021232372
+    5460: iastore
+    5461: dup
+    5462: bipush        34
+    5464: ldc_w         #572                // int 1799248025
+    5467: iastore
+    5468: dup
+    5469: bipush        35
+    5471: ldc_w         #408                // int -579749593
+    5474: iastore
+    5475: dup
+    5476: bipush        36
+    5478: ldc_w         #357                // int -1236278850
+    5481: iastore
+    5482: dup
+    5483: bipush        37
+    5485: ldc_w         #477                // int 397248752
+    5488: iastore
+    5489: dup
+    5490: bipush        38
+    5492: ldc_w         #567                // int 1722556617
+    5495: iastore
+    5496: dup
+    5497: bipush        39
+    5499: ldc_w         #355                // int -1271214467
+    5502: iastore
+    5503: dup
+    5504: bipush        40
+    5506: ldc_w         #478                // int 407560035
+    5509: iastore
+    5510: dup
+    5511: bipush        41
+    5513: ldc_w         #293                // int -2110711067
+    5516: iastore
+    5517: dup
+    5518: bipush        42
+    5520: ldc_w         #561                // int 1613975959
+    5523: iastore
+    5524: dup
+    5525: bipush        43
+    5527: ldc_w         #531                // int 1165972322
+    5530: iastore
+    5531: dup
+    5532: bipush        44
+    5534: ldc_w         #411                // int -529046351
+    5537: iastore
+    5538: dup
+    5539: bipush        45
+    5541: ldc_w         #295                // int -2068943941
+    5544: iastore
+    5545: dup
+    5546: bipush        46
+    5548: ldc_w         #482                // int 480281086
+    5551: iastore
+    5552: dup
+    5553: bipush        47
+    5555: ldc_w         #318                // int -1809118983
+    5558: iastore
+    5559: dup
+    5560: bipush        48
+    5562: ldc_w         #551                // int 1483229296
+    5565: iastore
+    5566: dup
+    5567: bipush        49
+    5569: ldc_w         #479                // int 436028815
+    5572: iastore
+    5573: dup
+    5574: bipush        50
+    5576: ldc_w         #300                // int -2022908268
+    5579: iastore
+    5580: dup
+    5581: bipush        51
+    5583: ldc_w         #359                // int -1208452270
+    5586: iastore
+    5587: dup
+    5588: bipush        52
+    5590: ldc_w         #491                // int 601060267
+    5593: iastore
+    5594: dup
+    5595: bipush        53
+    5597: ldc_w         #413                // int -503166094
+    5600: iastore
+    5601: dup
+    5602: bipush        54
+    5604: ldc_w         #550                // int 1468997603
+    5607: iastore
+    5608: dup
+    5609: bipush        55
+    5611: ldc_w         #499                // int 715871590
+    5614: iastore
+    5615: dup
+    5616: bipush        56
+    5618: ldc_w         #457                // int 120122290
+    5621: iastore
+    5622: dup
+    5623: bipush        57
+    5625: ldc_w         #452                // int 63092015
+    5628: iastore
+    5629: dup
+    5630: bipush        58
+    5632: ldc_w         #324                // int -1703164538
+    5635: iastore
+    5636: dup
+    5637: bipush        59
+    5639: ldc_w         #336                // int -1526188077
+    5642: iastore
+    5643: dup
+    5644: bipush        60
+    5646: ldc_w         #429                // int -226023376
+    5649: iastore
+    5650: dup
+    5651: bipush        61
+    5653: ldc_w         #352                // int -1297760477
+    5656: iastore
+    5657: dup
+    5658: bipush        62
+    5660: ldc_w         #364                // int -1167457534
+    5663: iastore
+    5664: dup
+    5665: bipush        63
+    5667: ldc_w         #556                // int 1552029421
+    5670: iastore
+    5671: dup
+    5672: bipush        64
+    5674: ldc_w         #500                // int 723308426
+    5677: iastore
+    5678: dup
+    5679: bipush        65
+    5681: ldc_w         #316                // int -1833666137
+    5684: iastore
+    5685: dup
+    5686: bipush        66
+    5688: ldc_w         #427                // int -252573709
+    5691: iastore
+    5692: dup
+    5693: bipush        67
+    5695: ldc_w         #331                // int -1578997426
+    5698: iastore
+    5699: dup
+    5700: bipush        68
+    5702: ldc_w         #388                // int -839591323
+    5705: iastore
+    5706: dup
+    5707: bipush        69
+    5709: ldc_w         #397                // int -708967162
+    5712: iastore
+    5713: dup
+    5714: bipush        70
+    5716: ldc_w         #485                // int 526529745
+    5719: iastore
+    5720: dup
+    5721: bipush        71
+    5723: ldc_w         #304                // int -1963022652
+    5726: iastore
+    5727: dup
+    5728: bipush        72
+    5730: ldc_w         #327                // int -1655493068
+    5733: iastore
+    5734: dup
+    5735: bipush        73
+    5737: ldc_w         #330                // int -1604979806
+    5740: iastore
+    5741: dup
+    5742: bipush        74
+    5744: ldc_w         #508                // int 853641733
+    5747: iastore
+    5748: dup
+    5749: bipush        75
+    5751: ldc_w         #583                // int 1978398372
+    5754: iastore
+    5755: dup
+    5756: bipush        76
+    5758: ldc_w         #517                // int 971801355
+    5761: iastore
+    5762: dup
+    5763: bipush        77
+    5765: ldc_w         #343                // int -1427152832
+    5768: iastore
+    5769: dup
+    5770: bipush        78
+    5772: ldc_w         #456                // int 111112542
+    5775: iastore
+    5776: dup
+    5777: bipush        79
+    5779: ldc_w         #544                // int 1360031421
+    5782: iastore
+    5783: dup
+    5784: bipush        80
+    5786: ldc_w         #438                // int -108388034
+    5789: iastore
+    5790: dup
+    5791: bipush        81
+    5793: ldc_w         #522                // int 1023860118
+    5796: iastore
+    5797: dup
+    5798: bipush        82
+    5800: ldc_w         #347                // int -1375387939
+    5803: iastore
+    5804: dup
+    5805: bipush        83
+    5807: ldc_w         #532                // int 1186850381
+    5810: iastore
+    5811: dup
+    5812: bipush        84
+    5814: ldc_w         #356                // int -1249028975
+    5817: iastore
+    5818: dup
+    5819: bipush        85
+    5821: ldc_w         #455                // int 90031217
+    5824: iastore
+    5825: dup
+    5826: bipush        86
+    5828: ldc_w         #576                // int 1876166148
+    5831: iastore
+    5832: dup
+    5833: bipush        87
+    5835: ldc_w         #445                // int -15380384
+    5838: iastore
+    5839: dup
+    5840: bipush        88
+    5842: ldc_w         #492                // int 620468249
+    5845: iastore
+    5846: dup
+    5847: bipush        89
+    5849: ldc_w         #321                // int -1746289194
+    5852: iastore
+    5853: dup
+    5854: bipush        90
+    5856: ldc_w         #387                // int -868007799
+    5859: iastore
+    5860: dup
+    5861: bipush        91
+    5863: ldc_w         #586                // int 2006899047
+    5866: iastore
+    5867: dup
+    5868: bipush        92
+    5870: ldc_w         #368                // int -1119688528
+    5873: iastore
+    5874: dup
+    5875: bipush        93
+    5877: ldc_w         #301                // int -2004121337
+    5880: iastore
+    5881: dup
+    5882: bipush        94
+    5884: ldc_w         #515                // int 945494503
+    5887: iastore
+    5888: dup
+    5889: bipush        95
+    5891: ldc_w         #406                // int -605108103
+    5894: iastore
+    5895: dup
+    5896: bipush        96
+    5898: ldc_w         #533                // int 1191869601
+    5901: iastore
+    5902: dup
+    5903: bipush        97
+    5905: ldc_w         #420                // int -384875908
+    5908: iastore
+    5909: dup
+    5910: bipush        98
+    5912: ldc_w         #383                // int -920746760
+    5915: iastore
+    5916: dup
+    5917: bipush        99
+    5919: iconst_0
+    5920: iastore
+    5921: dup
+    5922: bipush        100
+    5924: ldc_w         #294                // int -2088337399
+    5927: iastore
+    5928: dup
+    5929: bipush        101
+    5931: ldc_w         #534                // int 1223502642
+    5934: iastore
+    5935: dup
+    5936: bipush        102
+    5938: ldc_w         #345                // int -1401941730
+    5941: iastore
+    5942: dup
+    5943: bipush        103
+    5945: ldc_w         #541                // int 1316117100
+    5948: iastore
+    5949: dup
+    5950: bipush        104
+    5952: ldc_w         #440                // int -67170563
+    5955: iastore
+    5956: dup
+    5957: bipush        105
+    5959: ldc_w         #549                // int 1446544655
+    5962: iastore
+    5963: dup
+    5964: bipush        106
+    5966: ldc_w         #484                // int 517320253
+    5969: iastore
+    5970: dup
+    5971: bipush        107
+    5973: ldc_w         #496                // int 658058550
+    5976: iastore
+    5977: dup
+    5978: bipush        108
+    5980: ldc_w         #565                // int 1691946762
+    5983: iastore
+    5984: dup
+    5985: bipush        109
+    5987: ldc_w         #488                // int 564550760
+    5990: iastore
+    5991: dup
+    5992: bipush        110
+    5994: ldc_w         #393                // int -783000677
+    5997: iastore
+    5998: dup
+    5999: bipush        111
+    6001: ldc_w         #519                // int 976107044
+    6004: iastore
+    6005: dup
+    6006: bipush        112
+    6008: ldc_w         #351                // int -1318647284
+    6011: iastore
+    6012: dup
+    6013: bipush        113
+    6015: ldc_w         #465                // int 266819475
+    6018: iastore
+    6019: dup
+    6020: bipush        114
+    6022: ldc_w         #394                // int -761860428
+    6025: iastore
+    6026: dup
+    6027: bipush        115
+    6029: ldc_w         #328                // int -1634624741
+    6032: iastore
+    6033: dup
+    6034: bipush        116
+    6036: ldc_w         #542                // int 1338359936
+    6039: iastore
+    6040: dup
+    6041: bipush        117
+    6043: ldc_w         #332                // int -1574904735
+    6046: iastore
+    6047: dup
+    6048: bipush        118
+    6050: ldc_w         #570                // int 1766553434
+    6053: iastore
+    6054: dup
+    6055: bipush        119
+    6057: ldc_w         #475                // int 370807324
+    6060: iastore
+    6061: dup
+    6062: bipush        120
+    6064: ldc_w         #460                // int 179999714
+    6067: iastore
+    6068: dup
+    6069: bipush        121
+    6071: ldc_w         #416                // int -450191168
+    6074: iastore
+    6075: dup
+    6076: bipush        122
+    6078: ldc_w         #529                // int 1138762300
+    6081: iastore
+    6082: dup
+    6083: bipush        123
+    6085: ldc_w         #483                // int 488053522
+    6088: iastore
+    6089: dup
+    6090: bipush        124
+    6092: ldc_w         #461                // int 185403662
+    6095: iastore
+    6096: dup
+    6097: bipush        125
+    6099: ldc_w         #346                // int -1379431438
+    6102: iastore
+    6103: dup
+    6104: bipush        126
+    6106: ldc_w         #363                // int -1180125651
+    6109: iastore
+    6110: dup
+    6111: bipush        127
+    6113: ldc_w         #382                // int -928440812
+    6116: iastore
+    6117: dup
+    6118: sipush        128
+    6121: ldc_w         #296                // int -2061897385
+    6124: iastore
+    6125: dup
+    6126: sipush        129
+    6129: ldc_w         #539                // int 1275557295
+    6132: iastore
+    6133: dup
+    6134: sipush        130
+    6137: ldc_w         #366                // int -1143105042
+    6140: iastore
+    6141: dup
+    6142: sipush        131
+    6145: ldc_w         #443                // int -44007517
+    6148: iastore
+    6149: dup
+    6150: sipush        132
+    6153: ldc_w         #329                // int -1624899081
+    6156: iastore
+    6157: dup
+    6158: sipush        133
+    6161: ldc_w         #367                // int -1124765092
+    6164: iastore
+    6165: dup
+    6166: sipush        134
+    6169: ldc_w         #378                // int -985962940
+    6172: iastore
+    6173: dup
+    6174: sipush        135
+    6177: ldc_w         #511                // int 880737115
+    6180: iastore
+    6181: dup
+    6182: sipush        136
+    6185: ldc_w         #584                // int 1982415755
+    6188: iastore
+    6189: dup
+    6190: sipush        137
+    6193: ldc_w         #407                // int -590994485
+    6196: iastore
+    6197: dup
+    6198: sipush        138
+    6201: ldc_w         #569                // int 1761406390
+    6204: iastore
+    6205: dup
+    6206: sipush        139
+    6209: ldc_w         #564                // int 1676797112
+    6212: iastore
+    6213: dup
+    6214: sipush        140
+    6217: ldc_w         #384                // int -891538985
+    6220: iastore
+    6221: dup
+    6222: sipush        141
+    6225: ldc_w         #466                // int 277177154
+    6228: iastore
+    6229: dup
+    6230: sipush        142
+    6233: ldc_w         #525                // int 1076008723
+    6236: iastore
+    6237: dup
+    6238: sipush        143
+    6241: ldc_w         #486                // int 538035844
+    6244: iastore
+    6245: dup
+    6246: sipush        144
+    6249: ldc_w         #594                // int 2099530373
+    6252: iastore
+    6253: dup
+    6254: sipush        145
+    6257: ldc_w         #435                // int -130171950
+    6260: iastore
+    6261: dup
+    6262: sipush        146
+    6265: ldc_w         #468                // int 288553390
+    6268: iastore
+    6269: dup
+    6270: sipush        147
+    6273: ldc_w         #574                // int 1839278535
+    6276: iastore
+    6277: dup
+    6278: sipush        148
+    6281: ldc_w         #538                // int 1261411869
+    6284: iastore
+    6285: dup
+    6286: sipush        149
+    6289: ldc_w         #430                // int -214912292
+    6292: iastore
+    6293: dup
+    6294: sipush        150
+    6297: ldc_w         #423                // int -330136051
+    6300: iastore
+    6301: dup
+    6302: sipush        151
+    6305: ldc_w         #392                // int -790380169
+    6308: iastore
+    6309: dup
+    6310: sipush        152
+    6313: ldc_w         #573                // int 1813426987
+    6316: iastore
+    6317: dup
+    6318: sipush        153
+    6321: ldc_w         #323                // int -1715900247
+    6324: iastore
+    6325: dup
+    6326: sipush        154
+    6329: ldc_w         #439                // int -95906799
+    6332: iastore
+    6333: dup
+    6334: sipush        155
+    6337: ldc_w         #490                // int 577038663
+    6340: iastore
+    6341: dup
+    6342: sipush        156
+    6345: ldc_w         #376                // int -997393240
+    6348: iastore
+    6349: dup
+    6350: sipush        157
+    6353: ldc_w         #480                // int 440397984
+    6356: iastore
+    6357: dup
+    6358: sipush        158
+    6361: ldc_w         #401                // int -668172970
+    6364: iastore
+    6365: dup
+    6366: sipush        159
+    6369: ldc_w         #426                // int -275762398
+    6372: iastore
+    6373: dup
+    6374: sipush        160
+    6377: ldc_w         #381                // int -951170681
+    6380: iastore
+    6381: dup
+    6382: sipush        161
+    6385: ldc_w         #372                // int -1043253031
+    6388: iastore
+    6389: dup
+    6390: sipush        162
+    6393: ldc_w         #444                // int -22885748
+    6396: iastore
+    6397: dup
+    6398: sipush        163
+    6401: ldc_w         #513                // int 906744984
+    6404: iastore
+    6405: dup
+    6406: sipush        164
+    6409: ldc_w         #390                // int -813566554
+    6412: iastore
+    6413: dup
+    6414: sipush        165
+    6417: ldc_w         #497                // int 685669029
+    6420: iastore
+    6421: dup
+    6422: sipush        166
+    6425: ldc_w         #494                // int 646887386
+    6428: iastore
+    6429: dup
+    6430: sipush        167
+    6433: ldc_w         #335                // int -1530942145
+    6436: iastore
+    6437: dup
+    6438: sipush        168
+    6441: ldc_w         #415                // int -459458004
+    6444: iastore
+    6445: dup
+    6446: sipush        169
+    6449: ldc_w         #463                // int 227702864
+    6452: iastore
+    6453: dup
+    6454: sipush        170
+    6457: ldc_w         #325                // int -1681105046
+    6460: iastore
+    6461: dup
+    6462: sipush        171
+    6465: ldc_w         #563                // int 1648787028
+    6468: iastore
+    6469: dup
+    6470: sipush        172
+    6473: ldc_w         #373                // int -1038905866
+    6476: iastore
+    6477: dup
+    6478: sipush        173
+    6481: ldc_w         #419                // int -390539120
+    6484: iastore
+    6485: dup
+    6486: sipush        174
+    6489: ldc_w         #558                // int 1593260334
+    6492: iastore
+    6493: dup
+    6494: sipush        175
+    6497: ldc_w         #432                // int -173030526
+    6500: iastore
+    6501: dup
+    6502: sipush        176
+    6505: ldc_w         #369                // int -1098883681
+    6508: iastore
+    6509: dup
+    6510: sipush        177
+    6513: ldc_w         #593                // int 2090061929
+    6516: iastore
+    6517: dup
+    6518: sipush        178
+    6521: ldc_w         #341                // int -1456614033
+    6524: iastore
+    6525: dup
+    6526: sipush        179
+    6529: ldc_w         #353                // int -1290656305
+    6532: iastore
+    6533: dup
+    6534: sipush        180
+    6537: ldc_w         #520                // int 999926984
+    6540: iastore
+    6541: dup
+    6542: sipush        181
+    6545: ldc_w         #338                // int -1484974064
+    6548: iastore
+    6549: dup
+    6550: sipush        182
+    6553: ldc_w         #575                // int 1852021992
+    6556: iastore
+    6557: dup
+    6558: sipush        183
+    6561: ldc_w         #592                // int 2075868123
+    6564: iastore
+    6565: dup
+    6566: sipush        184
+    6569: ldc_w         #459                // int 158869197
+    6572: iastore
+    6573: dup
+    6574: sipush        185
+    6577: ldc_w         #431                // int -199730834
+    6580: iastore
+    6581: dup
+    6582: sipush        186
+    6585: ldc_w         #449                // int 28809964
+    6588: iastore
+    6589: dup
+    6590: sipush        187
+    6593: ldc_w         #340                // int -1466282109
+    6596: iastore
+    6597: dup
+    6598: sipush        188
+    6601: ldc_w         #566                // int 1701746150
+    6604: iastore
+    6605: dup
+    6606: sipush        189
+    6609: ldc_w         #595                // int 2129067946
+    6612: iastore
+    6613: dup
+    6614: sipush        190
+    6617: ldc_w         #458                // int 147831841
+    6620: iastore
+    6621: dup
+    6622: sipush        191
+    6625: ldc_w         #417                // int -420997649
+    6628: iastore
+    6629: dup
+    6630: sipush        192
+    6633: ldc_w         #403                // int -644094022
+    6636: iastore
+    6637: dup
+    6638: sipush        193
+    6641: ldc_w         #389                // int -835293366
+    6644: iastore
+    6645: dup
+    6646: sipush        194
+    6649: ldc_w         #396                // int -737566742
+    6652: iastore
+    6653: dup
+    6654: sipush        195
+    6657: ldc_w         #398                // int -696471511
+    6660: iastore
+    6661: dup
+    6662: sipush        196
+    6665: ldc_w         #348                // int -1347247055
+    6668: iastore
+    6669: dup
+    6670: sipush        197
+    6673: ldc_w         #506                // int 824393514
+    6676: iastore
+    6677: dup
+    6678: sipush        198
+    6681: ldc_w         #505                // int 815048134
+    6684: iastore
+    6685: dup
+    6686: sipush        199
+    6689: ldc_w         #371                // int -1067015627
+    6692: iastore
+    6693: dup
+    6694: sipush        200
+    6697: ldc_w         #514                // int 935087732
+    6700: iastore
+    6701: dup
+    6702: sipush        201
+    6705: ldc_w         #337                // int -1496677636
+    6708: iastore
+    6709: dup
+    6710: sipush        202
+    6713: ldc_w         #350                // int -1328508704
+    6716: iastore
+    6717: dup
+    6718: sipush        203
+    6721: ldc_w         #474                // int 366520115
+    6724: iastore
+    6725: dup
+    6726: sipush        204
+    6729: ldc_w         #537                // int 1251476721
+    6732: iastore
+    6733: dup
+    6734: sipush        205
+    6737: ldc_w         #434                // int -136647615
+    6740: iastore
+    6741: dup
+    6742: sipush        206
+    6745: ldc_w         #464                // int 240176511
+    6748: iastore
+    6749: dup
+    6750: sipush        207
+    6753: ldc_w         #504                // int 804688151
+    6756: iastore
+    6757: dup
+    6758: sipush        208
+    6761: ldc_w         #307                // int -1915335306
+    6764: iastore
+    6765: dup
+    6766: sipush        209
+    6769: ldc_w         #540                // int 1303441219
+    6772: iastore
+    6773: dup
+    6774: sipush        210
+    6777: ldc_w         #547                // int 1414376140
+    6780: iastore
+    6781: dup
+    6782: sipush        211
+    6785: ldc_w         #410                // int -553347356
+    6788: iastore
+    6789: dup
+    6790: sipush        212
+    6793: ldc_w         #414                // int -474623586
+    6796: iastore
+    6797: dup
+    6798: sipush        213
+    6801: ldc_w         #481                // int 461924940
+    6804: iastore
+    6805: dup
+    6806: sipush        214
+    6809: ldc_w         #360                // int -1205916479
+    6812: iastore
+    6813: dup
+    6814: sipush        215
+    6817: ldc_w         #596                // int 2136040774
+    6820: iastore
+    6821: dup
+    6822: sipush        216
+    6825: ldc_w         #453                // int 82468509
+    6828: iastore
+    6829: dup
+    6830: sipush        217
+    6833: ldc_w         #557                // int 1563790337
+    6836: iastore
+    6837: dup
+    6838: sipush        218
+    6841: ldc_w         #581                // int 1937016826
+    6844: iastore
+    6845: dup
+    6846: sipush        219
+    6849: ldc_w         #503                // int 776014843
+    6852: iastore
+    6853: dup
+    6854: sipush        220
+    6857: ldc_w         #554                // int 1511876531
+    6860: iastore
+    6861: dup
+    6862: sipush        221
+    6865: ldc_w         #545                // int 1389550482
+    6868: iastore
+    6869: dup
+    6870: sipush        222
+    6873: ldc_w         #510                // int 861278441
+    6876: iastore
+    6877: dup
+    6878: sipush        223
+    6881: ldc_w         #471                // int 323475053
+    6884: iastore
+    6885: dup
+    6886: sipush        224
+    6889: ldc_w         #306                // int -1939744870
+    6892: iastore
+    6893: dup
+    6894: sipush        225
+    6897: ldc_w         #590                // int 2047648055
+    6900: iastore
+    6901: dup
+    6902: sipush        226
+    6905: ldc_w         #308                // int -1911228327
+    6908: iastore
+    6909: dup
+    6910: sipush        227
+    6913: ldc_w         #302                // int -1992551445
+    6916: iastore
+    6917: dup
+    6918: sipush        228
+    6921: ldc_w         #425                // int -299390514
+    6924: iastore
+    6925: dup
+    6926: sipush        229
+    6929: ldc_w         #512                // int 902390199
+    6932: iastore
+    6933: dup
+    6934: sipush        230
+    6937: ldc_w         #424                // int -303751967
+    6940: iastore
+    6941: dup
+    6942: sipush        231
+    6945: ldc_w         #521                // int 1018251130
+    6948: iastore
+    6949: dup
+    6950: sipush        232
+    6953: ldc_w         #553                // int 1507840668
+    6956: iastore
+    6957: dup
+    6958: sipush        233
+    6961: ldc_w         #524                // int 1064563285
+    6964: iastore
+    6965: dup
+    6966: sipush        234
+    6969: ldc_w         #589                // int 2043548696
+    6972: iastore
+    6973: dup
+    6974: sipush        235
+    6977: ldc_w         #370                // int -1086863501
+    6980: iastore
+    6981: dup
+    6982: sipush        236
+    6985: ldc_w         #421                // int -355600557
+    6988: iastore
+    6989: dup
+    6990: sipush        237
+    6993: ldc_w         #555                // int 1537932639
+    6996: iastore
+    6997: dup
+    6998: sipush        238
+    7001: ldc_w         #473                // int 342834655
+    7004: iastore
+    7005: dup
+    7006: sipush        239
+    7009: ldc_w         #299                // int -2032450440
+    7012: iastore
+    7013: dup
+    7014: sipush        240
+    7017: ldc_w         #292                // int -2114736182
+    7020: iastore
+    7021: dup
+    7022: sipush        241
+    7025: ldc_w         #523                // int 1053059257
+    7028: iastore
+    7029: dup
+    7030: sipush        242
+    7033: ldc_w         #501                // int 741614648
+    7036: iastore
+    7037: dup
+    7038: sipush        243
+    7041: ldc_w         #560                // int 1598071746
+    7044: iastore
+    7045: dup
+    7046: sipush        244
+    7049: ldc_w         #580                // int 1925389590
+    7052: iastore
+    7053: dup
+    7054: sipush        245
+    7057: ldc_w         #462                // int 203809468
+    7060: iastore
+    7061: dup
+    7062: sipush        246
+    7065: ldc_w         #305                // int -1958134744
+    7068: iastore
+    7069: dup
+    7070: sipush        247
+    7073: ldc_w         #526                // int 1100287487
+    7076: iastore
+    7077: dup
+    7078: sipush        248
+    7081: ldc_w         #579                // int 1895934009
+    7084: iastore
+    7085: dup
+    7086: sipush        249
+    7089: ldc_w         #409                // int -558691320
+    7092: iastore
+    7093: dup
+    7094: sipush        250
+    7097: ldc_w         #326                // int -1662733096
+    7100: iastore
+    7101: dup
+    7102: sipush        251
+    7105: ldc_w         #312                // int -1866377628
+    7108: iastore
+    7109: dup
+    7110: sipush        252
+    7113: ldc_w         #562                // int 1636092795
+    7116: iastore
+    7117: dup
+    7118: sipush        253
+    7121: ldc_w         #577                // int 1890988757
+    7124: iastore
+    7125: dup
+    7126: sipush        254
+    7129: ldc_w         #582                // int 1952214088
+    7132: iastore
+    7133: dup
+    7134: sipush        255
+    7137: ldc_w         #528                // int 1113045200
+    7140: iastore
+    7141: putstatic     #648                // Field Tinv0:[I
+    7144: return
+}

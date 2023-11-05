@@ -1,0 +1,1178 @@
+public class org.bouncycastle.crypto.modes.ChaCha20Poly1305 implements org.bouncycastle.crypto.modes.AEADCipher {
+  private static final int BUF_SIZE;
+
+  private static final int KEY_SIZE;
+
+  private static final int NONCE_SIZE;
+
+  private static final int MAC_SIZE;
+
+  private static final byte[] ZEROES;
+
+  private static final long AAD_LIMIT;
+
+  private static final long DATA_LIMIT;
+
+  private final org.bouncycastle.crypto.engines.ChaCha7539Engine chacha20;
+
+  private final org.bouncycastle.crypto.Mac poly1305;
+
+  private final byte[] key;
+
+  private final byte[] nonce;
+
+  private final byte[] buf;
+
+  private final byte[] mac;
+
+  private byte[] initialAAD;
+
+  private long aadCount;
+
+  private long dataCount;
+
+  private int state;
+
+  private int bufPos;
+
+  public org.bouncycastle.crypto.modes.ChaCha20Poly1305();
+    Code:
+       0: aload_0
+       1: new           #162                // class org/bouncycastle/crypto/macs/Poly1305
+       4: dup
+       5: invokespecial #265                // Method org/bouncycastle/crypto/macs/Poly1305."<init>":()V
+       8: invokespecial #276                // Method "<init>":(Lorg/bouncycastle/crypto/Mac;)V
+      11: return
+
+  public org.bouncycastle.crypto.modes.ChaCha20Poly1305(org.bouncycastle.crypto.Mac);
+    Code:
+       0: aload_0
+       1: invokespecial #252                // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: bipush        32
+       7: newarray       byte
+       9: putfield      #242                // Field key:[B
+      12: aload_0
+      13: bipush        12
+      15: newarray       byte
+      17: putfield      #244                // Field nonce:[B
+      20: aload_0
+      21: bipush        80
+      23: newarray       byte
+      25: putfield      #240                // Field buf:[B
+      28: aload_0
+      29: bipush        16
+      31: newarray       byte
+      33: putfield      #243                // Field mac:[B
+      36: aload_0
+      37: iconst_0
+      38: putfield      #236                // Field state:I
+      41: aconst_null
+      42: aload_1
+      43: if_acmpne     56
+      46: new           #153                // class java/lang/NullPointerException
+      49: dup
+      50: ldc           #6                  // String \'poly1305\' cannot be null
+      52: invokespecial #251                // Method java/lang/NullPointerException."<init>":(Ljava/lang/String;)V
+      55: athrow
+      56: bipush        16
+      58: aload_1
+      59: invokeinterface #291,  1          // InterfaceMethod org/bouncycastle/crypto/Mac.getMacSize:()I
+      64: if_icmpeq     77
+      67: new           #150                // class java/lang/IllegalArgumentException
+      70: dup
+      71: ldc           #7                  // String \'poly1305\' must be a 128-bit MAC
+      73: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      76: athrow
+      77: aload_0
+      78: new           #161                // class org/bouncycastle/crypto/engines/ChaCha7539Engine
+      81: dup
+      82: invokespecial #261                // Method org/bouncycastle/crypto/engines/ChaCha7539Engine."<init>":()V
+      85: putfield      #246                // Field chacha20:Lorg/bouncycastle/crypto/engines/ChaCha7539Engine;
+      88: aload_0
+      89: aload_1
+      90: putfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+      93: return
+
+  public java.lang.String getAlgorithmName();
+    Code:
+       0: ldc           #8                  // String ChaCha20Poly1305
+       2: areturn
+
+  public void init(boolean, org.bouncycastle.crypto.CipherParameters) throws java.lang.IllegalArgumentException;
+    Code:
+       0: aload_2
+       1: instanceof    #166                // class org/bouncycastle/crypto/params/AEADParameters
+       4: ifeq          93
+       7: aload_2
+       8: checkcast     #166                // class org/bouncycastle/crypto/params/AEADParameters
+      11: astore        6
+      13: aload         6
+      15: invokevirtual #277                // Method org/bouncycastle/crypto/params/AEADParameters.getMacSize:()I
+      18: istore        7
+      20: sipush        128
+      23: iload         7
+      25: if_icmpeq     56
+      28: new           #150                // class java/lang/IllegalArgumentException
+      31: dup
+      32: new           #155                // class java/lang/StringBuilder
+      35: dup
+      36: invokespecial #253                // Method java/lang/StringBuilder."<init>":()V
+      39: ldc           #11                 // String Invalid value for MAC size:
+      41: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      44: iload         7
+      46: invokevirtual #255                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      49: invokevirtual #254                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      52: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      55: athrow
+      56: aload         6
+      58: invokevirtual #280                // Method org/bouncycastle/crypto/params/AEADParameters.getKey:()Lorg/bouncycastle/crypto/params/KeyParameter;
+      61: astore_3
+      62: aload         6
+      64: invokevirtual #279                // Method org/bouncycastle/crypto/params/AEADParameters.getNonce:()[B
+      67: astore        4
+      69: new           #168                // class org/bouncycastle/crypto/params/ParametersWithIV
+      72: dup
+      73: aload_3
+      74: aload         4
+      76: invokespecial #285                // Method org/bouncycastle/crypto/params/ParametersWithIV."<init>":(Lorg/bouncycastle/crypto/CipherParameters;[B)V
+      79: astore        5
+      81: aload_0
+      82: aload         6
+      84: invokevirtual #278                // Method org/bouncycastle/crypto/params/AEADParameters.getAssociatedText:()[B
+      87: putfield      #241                // Field initialAAD:[B
+      90: goto          144
+      93: aload_2
+      94: instanceof    #168                // class org/bouncycastle/crypto/params/ParametersWithIV
+      97: ifeq          134
+     100: aload_2
+     101: checkcast     #168                // class org/bouncycastle/crypto/params/ParametersWithIV
+     104: astore        6
+     106: aload         6
+     108: invokevirtual #284                // Method org/bouncycastle/crypto/params/ParametersWithIV.getParameters:()Lorg/bouncycastle/crypto/CipherParameters;
+     111: checkcast     #167                // class org/bouncycastle/crypto/params/KeyParameter
+     114: astore_3
+     115: aload         6
+     117: invokevirtual #283                // Method org/bouncycastle/crypto/params/ParametersWithIV.getIV:()[B
+     120: astore        4
+     122: aload         6
+     124: astore        5
+     126: aload_0
+     127: aconst_null
+     128: putfield      #241                // Field initialAAD:[B
+     131: goto          144
+     134: new           #150                // class java/lang/IllegalArgumentException
+     137: dup
+     138: ldc           #19                 // String invalid parameters passed to ChaCha20Poly1305
+     140: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     143: athrow
+     144: aconst_null
+     145: aload_3
+     146: if_acmpne     167
+     149: iconst_0
+     150: aload_0
+     151: getfield      #236                // Field state:I
+     154: if_icmpne     187
+     157: new           #150                // class java/lang/IllegalArgumentException
+     160: dup
+     161: ldc           #13                 // String Key must be specified in initial init
+     163: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     166: athrow
+     167: bipush        32
+     169: aload_3
+     170: invokevirtual #281                // Method org/bouncycastle/crypto/params/KeyParameter.getKey:()[B
+     173: arraylength
+     174: if_icmpeq     187
+     177: new           #150                // class java/lang/IllegalArgumentException
+     180: dup
+     181: ldc           #12                 // String Key must be 256 bits
+     183: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     186: athrow
+     187: aconst_null
+     188: aload         4
+     190: if_acmpeq     201
+     193: bipush        12
+     195: aload         4
+     197: arraylength
+     198: if_icmpeq     211
+     201: new           #150                // class java/lang/IllegalArgumentException
+     204: dup
+     205: ldc           #15                 // String Nonce must be 96 bits
+     207: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     210: athrow
+     211: iconst_0
+     212: aload_0
+     213: getfield      #236                // Field state:I
+     216: if_icmpeq     264
+     219: iload_1
+     220: ifeq          264
+     223: aload_0
+     224: getfield      #244                // Field nonce:[B
+     227: aload         4
+     229: invokestatic  #289                // Method org/bouncycastle/util/Arrays.areEqual:([B[B)Z
+     232: ifeq          264
+     235: aconst_null
+     236: aload_3
+     237: if_acmpeq     254
+     240: aload_0
+     241: getfield      #242                // Field key:[B
+     244: aload_3
+     245: invokevirtual #281                // Method org/bouncycastle/crypto/params/KeyParameter.getKey:()[B
+     248: invokestatic  #289                // Method org/bouncycastle/util/Arrays.areEqual:([B[B)Z
+     251: ifeq          264
+     254: new           #150                // class java/lang/IllegalArgumentException
+     257: dup
+     258: ldc           #17                 // String cannot reuse nonce for ChaCha20Poly1305 encryption
+     260: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     263: athrow
+     264: aconst_null
+     265: aload_3
+     266: if_acmpeq     284
+     269: aload_3
+     270: invokevirtual #281                // Method org/bouncycastle/crypto/params/KeyParameter.getKey:()[B
+     273: iconst_0
+     274: aload_0
+     275: getfield      #242                // Field key:[B
+     278: iconst_0
+     279: bipush        32
+     281: invokestatic  #257                // Method java/lang/System.arraycopy:(Ljava/lang/Object;ILjava/lang/Object;II)V
+     284: aload         4
+     286: iconst_0
+     287: aload_0
+     288: getfield      #244                // Field nonce:[B
+     291: iconst_0
+     292: bipush        12
+     294: invokestatic  #257                // Method java/lang/System.arraycopy:(Ljava/lang/Object;ILjava/lang/Object;II)V
+     297: aload_0
+     298: getfield      #246                // Field chacha20:Lorg/bouncycastle/crypto/engines/ChaCha7539Engine;
+     301: iconst_1
+     302: aload         5
+     304: invokevirtual #264                // Method org/bouncycastle/crypto/engines/ChaCha7539Engine.init:(ZLorg/bouncycastle/crypto/CipherParameters;)V
+     307: aload_0
+     308: iload_1
+     309: ifeq          316
+     312: iconst_1
+     313: goto          317
+     316: iconst_5
+     317: putfield      #236                // Field state:I
+     320: aload_0
+     321: iconst_1
+     322: iconst_0
+     323: invokespecial #273                // Method reset:(ZZ)V
+     326: return
+
+  public int getOutputSize(int);
+    Code:
+       0: iconst_0
+       1: iload_1
+       2: invokestatic  #250                // Method java/lang/Math.max:(II)I
+       5: aload_0
+       6: getfield      #235                // Field bufPos:I
+       9: iadd
+      10: istore_2
+      11: aload_0
+      12: getfield      #236                // Field state:I
+      15: tableswitch   { // 1 to 7
+                     1: 65
+                     2: 65
+                     3: 65
+                     4: 70
+                     5: 56
+                     6: 56
+                     7: 56
+               default: 70
+          }
+      56: iconst_0
+      57: iload_2
+      58: bipush        16
+      60: isub
+      61: invokestatic  #250                // Method java/lang/Math.max:(II)I
+      64: ireturn
+      65: iload_2
+      66: bipush        16
+      68: iadd
+      69: ireturn
+      70: new           #151                // class java/lang/IllegalStateException
+      73: dup
+      74: invokespecial #248                // Method java/lang/IllegalStateException."<init>":()V
+      77: athrow
+
+  public int getUpdateOutputSize(int);
+    Code:
+       0: iconst_0
+       1: iload_1
+       2: invokestatic  #250                // Method java/lang/Math.max:(II)I
+       5: aload_0
+       6: getfield      #235                // Field bufPos:I
+       9: iadd
+      10: istore_2
+      11: aload_0
+      12: getfield      #236                // Field state:I
+      15: tableswitch   { // 1 to 7
+                     1: 68
+                     2: 68
+                     3: 68
+                     4: 71
+                     5: 56
+                     6: 56
+                     7: 56
+               default: 71
+          }
+      56: iconst_0
+      57: iload_2
+      58: bipush        16
+      60: isub
+      61: invokestatic  #250                // Method java/lang/Math.max:(II)I
+      64: istore_2
+      65: goto          79
+      68: goto          79
+      71: new           #151                // class java/lang/IllegalStateException
+      74: dup
+      75: invokespecial #248                // Method java/lang/IllegalStateException."<init>":()V
+      78: athrow
+      79: iload_2
+      80: iload_2
+      81: bipush        64
+      83: irem
+      84: isub
+      85: ireturn
+
+  public void processAADByte(byte);
+    Code:
+       0: aload_0
+       1: invokespecial #266                // Method checkAAD:()V
+       4: aload_0
+       5: aload_0
+       6: aload_0
+       7: getfield      #237                // Field aadCount:J
+      10: iconst_1
+      11: ldc2_w        #146                // long -1l
+      14: invokespecial #272                // Method incrementCount:(JIJ)J
+      17: putfield      #237                // Field aadCount:J
+      20: aload_0
+      21: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+      24: iload_1
+      25: invokeinterface #292,  2          // InterfaceMethod org/bouncycastle/crypto/Mac.update:(B)V
+      30: return
+
+  public void processAADBytes(byte[], int, int);
+    Code:
+       0: aconst_null
+       1: aload_1
+       2: if_acmpne     15
+       5: new           #153                // class java/lang/NullPointerException
+       8: dup
+       9: ldc           #1                  // String \'in\' cannot be null
+      11: invokespecial #251                // Method java/lang/NullPointerException."<init>":(Ljava/lang/String;)V
+      14: athrow
+      15: iload_2
+      16: ifge          29
+      19: new           #150                // class java/lang/IllegalArgumentException
+      22: dup
+      23: ldc           #2                  // String \'inOff\' cannot be negative
+      25: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      28: athrow
+      29: iload_3
+      30: ifge          43
+      33: new           #150                // class java/lang/IllegalArgumentException
+      36: dup
+      37: ldc           #3                  // String \'len\' cannot be negative
+      39: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      42: athrow
+      43: iload_2
+      44: aload_1
+      45: arraylength
+      46: iload_3
+      47: isub
+      48: if_icmple     61
+      51: new           #157                // class org/bouncycastle/crypto/DataLengthException
+      54: dup
+      55: ldc           #10                 // String Input buffer too short
+      57: invokespecial #258                // Method org/bouncycastle/crypto/DataLengthException."<init>":(Ljava/lang/String;)V
+      60: athrow
+      61: aload_0
+      62: invokespecial #266                // Method checkAAD:()V
+      65: iload_3
+      66: ifle          97
+      69: aload_0
+      70: aload_0
+      71: aload_0
+      72: getfield      #237                // Field aadCount:J
+      75: iload_3
+      76: ldc2_w        #146                // long -1l
+      79: invokespecial #272                // Method incrementCount:(JIJ)J
+      82: putfield      #237                // Field aadCount:J
+      85: aload_0
+      86: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+      89: aload_1
+      90: iload_2
+      91: iload_3
+      92: invokeinterface #294,  4          // InterfaceMethod org/bouncycastle/crypto/Mac.update:([BII)V
+      97: return
+
+  public int processByte(byte, byte[], int) throws org.bouncycastle.crypto.DataLengthException;
+    Code:
+       0: aload_0
+       1: invokespecial #267                // Method checkData:()V
+       4: aload_0
+       5: getfield      #236                // Field state:I
+       8: lookupswitch  { // 2
+                     3: 121
+                     7: 36
+               default: 183
+          }
+      36: aload_0
+      37: getfield      #240                // Field buf:[B
+      40: aload_0
+      41: getfield      #235                // Field bufPos:I
+      44: iload_1
+      45: bastore
+      46: aload_0
+      47: dup
+      48: getfield      #235                // Field bufPos:I
+      51: iconst_1
+      52: iadd
+      53: dup_x1
+      54: putfield      #235                // Field bufPos:I
+      57: aload_0
+      58: getfield      #240                // Field buf:[B
+      61: arraylength
+      62: if_icmpne     119
+      65: aload_0
+      66: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+      69: aload_0
+      70: getfield      #240                // Field buf:[B
+      73: iconst_0
+      74: bipush        64
+      76: invokeinterface #294,  4          // InterfaceMethod org/bouncycastle/crypto/Mac.update:([BII)V
+      81: aload_0
+      82: aload_0
+      83: getfield      #240                // Field buf:[B
+      86: iconst_0
+      87: bipush        64
+      89: aload_2
+      90: iload_3
+      91: invokespecial #275                // Method processData:([BII[BI)V
+      94: aload_0
+      95: getfield      #240                // Field buf:[B
+      98: bipush        64
+     100: aload_0
+     101: getfield      #240                // Field buf:[B
+     104: iconst_0
+     105: bipush        16
+     107: invokestatic  #257                // Method java/lang/System.arraycopy:(Ljava/lang/Object;ILjava/lang/Object;II)V
+     110: aload_0
+     111: bipush        16
+     113: putfield      #235                // Field bufPos:I
+     116: bipush        64
+     118: ireturn
+     119: iconst_0
+     120: ireturn
+     121: aload_0
+     122: getfield      #240                // Field buf:[B
+     125: aload_0
+     126: getfield      #235                // Field bufPos:I
+     129: iload_1
+     130: bastore
+     131: aload_0
+     132: dup
+     133: getfield      #235                // Field bufPos:I
+     136: iconst_1
+     137: iadd
+     138: dup_x1
+     139: putfield      #235                // Field bufPos:I
+     142: bipush        64
+     144: if_icmpne     181
+     147: aload_0
+     148: aload_0
+     149: getfield      #240                // Field buf:[B
+     152: iconst_0
+     153: bipush        64
+     155: aload_2
+     156: iload_3
+     157: invokespecial #275                // Method processData:([BII[BI)V
+     160: aload_0
+     161: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+     164: aload_2
+     165: iload_3
+     166: bipush        64
+     168: invokeinterface #294,  4          // InterfaceMethod org/bouncycastle/crypto/Mac.update:([BII)V
+     173: aload_0
+     174: iconst_0
+     175: putfield      #235                // Field bufPos:I
+     178: bipush        64
+     180: ireturn
+     181: iconst_0
+     182: ireturn
+     183: new           #151                // class java/lang/IllegalStateException
+     186: dup
+     187: invokespecial #248                // Method java/lang/IllegalStateException."<init>":()V
+     190: athrow
+
+  public int processBytes(byte[], int, int, byte[], int) throws org.bouncycastle.crypto.DataLengthException;
+    Code:
+       0: aconst_null
+       1: aload_1
+       2: if_acmpne     15
+       5: new           #153                // class java/lang/NullPointerException
+       8: dup
+       9: ldc           #1                  // String \'in\' cannot be null
+      11: invokespecial #251                // Method java/lang/NullPointerException."<init>":(Ljava/lang/String;)V
+      14: athrow
+      15: aconst_null
+      16: aload         4
+      18: if_acmpne     21
+      21: iload_2
+      22: ifge          35
+      25: new           #150                // class java/lang/IllegalArgumentException
+      28: dup
+      29: ldc           #2                  // String \'inOff\' cannot be negative
+      31: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      34: athrow
+      35: iload_3
+      36: ifge          49
+      39: new           #150                // class java/lang/IllegalArgumentException
+      42: dup
+      43: ldc           #3                  // String \'len\' cannot be negative
+      45: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      48: athrow
+      49: iload_2
+      50: aload_1
+      51: arraylength
+      52: iload_3
+      53: isub
+      54: if_icmple     67
+      57: new           #157                // class org/bouncycastle/crypto/DataLengthException
+      60: dup
+      61: ldc           #10                 // String Input buffer too short
+      63: invokespecial #258                // Method org/bouncycastle/crypto/DataLengthException."<init>":(Ljava/lang/String;)V
+      66: athrow
+      67: iload         5
+      69: ifge          82
+      72: new           #150                // class java/lang/IllegalArgumentException
+      75: dup
+      76: ldc           #5                  // String \'outOff\' cannot be negative
+      78: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      81: athrow
+      82: aload_0
+      83: invokespecial #267                // Method checkData:()V
+      86: iconst_0
+      87: istore        6
+      89: aload_0
+      90: getfield      #236                // Field state:I
+      93: lookupswitch  { // 2
+                     3: 231
+                     7: 120
+               default: 392
+          }
+     120: iconst_0
+     121: istore        7
+     123: iload         7
+     125: iload_3
+     126: if_icmpge     228
+     129: aload_0
+     130: getfield      #240                // Field buf:[B
+     133: aload_0
+     134: getfield      #235                // Field bufPos:I
+     137: aload_1
+     138: iload_2
+     139: iload         7
+     141: iadd
+     142: baload
+     143: bastore
+     144: aload_0
+     145: dup
+     146: getfield      #235                // Field bufPos:I
+     149: iconst_1
+     150: iadd
+     151: dup_x1
+     152: putfield      #235                // Field bufPos:I
+     155: aload_0
+     156: getfield      #240                // Field buf:[B
+     159: arraylength
+     160: if_icmpne     222
+     163: aload_0
+     164: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+     167: aload_0
+     168: getfield      #240                // Field buf:[B
+     171: iconst_0
+     172: bipush        64
+     174: invokeinterface #294,  4          // InterfaceMethod org/bouncycastle/crypto/Mac.update:([BII)V
+     179: aload_0
+     180: aload_0
+     181: getfield      #240                // Field buf:[B
+     184: iconst_0
+     185: bipush        64
+     187: aload         4
+     189: iload         5
+     191: iload         6
+     193: iadd
+     194: invokespecial #275                // Method processData:([BII[BI)V
+     197: aload_0
+     198: getfield      #240                // Field buf:[B
+     201: bipush        64
+     203: aload_0
+     204: getfield      #240                // Field buf:[B
+     207: iconst_0
+     208: bipush        16
+     210: invokestatic  #257                // Method java/lang/System.arraycopy:(Ljava/lang/Object;ILjava/lang/Object;II)V
+     213: aload_0
+     214: bipush        16
+     216: putfield      #235                // Field bufPos:I
+     219: iinc          6, 64
+     222: iinc          7, 1
+     225: goto          123
+     228: goto          400
+     231: aload_0
+     232: getfield      #235                // Field bufPos:I
+     235: ifeq          318
+     238: iload_3
+     239: ifle          318
+     242: iinc          3, -1
+     245: aload_0
+     246: getfield      #240                // Field buf:[B
+     249: aload_0
+     250: getfield      #235                // Field bufPos:I
+     253: aload_1
+     254: iload_2
+     255: iinc          2, 1
+     258: baload
+     259: bastore
+     260: aload_0
+     261: dup
+     262: getfield      #235                // Field bufPos:I
+     265: iconst_1
+     266: iadd
+     267: dup_x1
+     268: putfield      #235                // Field bufPos:I
+     271: bipush        64
+     273: if_icmpne     238
+     276: aload_0
+     277: aload_0
+     278: getfield      #240                // Field buf:[B
+     281: iconst_0
+     282: bipush        64
+     284: aload         4
+     286: iload         5
+     288: invokespecial #275                // Method processData:([BII[BI)V
+     291: aload_0
+     292: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+     295: aload         4
+     297: iload         5
+     299: bipush        64
+     301: invokeinterface #294,  4          // InterfaceMethod org/bouncycastle/crypto/Mac.update:([BII)V
+     306: aload_0
+     307: iconst_0
+     308: putfield      #235                // Field bufPos:I
+     311: bipush        64
+     313: istore        6
+     315: goto          318
+     318: iload_3
+     319: bipush        64
+     321: if_icmplt     369
+     324: aload_0
+     325: aload_1
+     326: iload_2
+     327: bipush        64
+     329: aload         4
+     331: iload         5
+     333: iload         6
+     335: iadd
+     336: invokespecial #275                // Method processData:([BII[BI)V
+     339: aload_0
+     340: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+     343: aload         4
+     345: iload         5
+     347: iload         6
+     349: iadd
+     350: bipush        64
+     352: invokeinterface #294,  4          // InterfaceMethod org/bouncycastle/crypto/Mac.update:([BII)V
+     357: iinc          2, 64
+     360: iinc          3, -64
+     363: iinc          6, 64
+     366: goto          318
+     369: iload_3
+     370: ifle          400
+     373: aload_1
+     374: iload_2
+     375: aload_0
+     376: getfield      #240                // Field buf:[B
+     379: iconst_0
+     380: iload_3
+     381: invokestatic  #257                // Method java/lang/System.arraycopy:(Ljava/lang/Object;ILjava/lang/Object;II)V
+     384: aload_0
+     385: iload_3
+     386: putfield      #235                // Field bufPos:I
+     389: goto          400
+     392: new           #151                // class java/lang/IllegalStateException
+     395: dup
+     396: invokespecial #248                // Method java/lang/IllegalStateException."<init>":()V
+     399: athrow
+     400: iload         6
+     402: ireturn
+
+  public int doFinal(byte[], int) throws java.lang.IllegalStateException, org.bouncycastle.crypto.InvalidCipherTextException;
+    Code:
+       0: aconst_null
+       1: aload_1
+       2: if_acmpne     15
+       5: new           #153                // class java/lang/NullPointerException
+       8: dup
+       9: ldc           #4                  // String \'out\' cannot be null
+      11: invokespecial #251                // Method java/lang/NullPointerException."<init>":(Ljava/lang/String;)V
+      14: athrow
+      15: iload_2
+      16: ifge          29
+      19: new           #150                // class java/lang/IllegalArgumentException
+      22: dup
+      23: ldc           #5                  // String \'outOff\' cannot be negative
+      25: invokespecial #247                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      28: athrow
+      29: aload_0
+      30: invokespecial #267                // Method checkData:()V
+      33: aload_0
+      34: getfield      #243                // Field mac:[B
+      37: invokestatic  #287                // Method org/bouncycastle/util/Arrays.clear:([B)V
+      40: iconst_0
+      41: istore_3
+      42: aload_0
+      43: getfield      #236                // Field state:I
+      46: lookupswitch  { // 2
+                     3: 182
+                     7: 72
+               default: 270
+          }
+      72: aload_0
+      73: getfield      #235                // Field bufPos:I
+      76: bipush        16
+      78: if_icmpge     91
+      81: new           #158                // class org/bouncycastle/crypto/InvalidCipherTextException
+      84: dup
+      85: ldc           #18                 // String data too short
+      87: invokespecial #259                // Method org/bouncycastle/crypto/InvalidCipherTextException."<init>":(Ljava/lang/String;)V
+      90: athrow
+      91: aload_0
+      92: getfield      #235                // Field bufPos:I
+      95: bipush        16
+      97: isub
+      98: istore_3
+      99: iload_2
+     100: aload_1
+     101: arraylength
+     102: iload_3
+     103: isub
+     104: if_icmple     117
+     107: new           #160                // class org/bouncycastle/crypto/OutputLengthException
+     110: dup
+     111: ldc           #16                 // String Output buffer too short
+     113: invokespecial #260                // Method org/bouncycastle/crypto/OutputLengthException."<init>":(Ljava/lang/String;)V
+     116: athrow
+     117: iload_3
+     118: ifle          148
+     121: aload_0
+     122: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+     125: aload_0
+     126: getfield      #240                // Field buf:[B
+     129: iconst_0
+     130: iload_3
+     131: invokeinterface #294,  4          // InterfaceMethod org/bouncycastle/crypto/Mac.update:([BII)V
+     136: aload_0
+     137: aload_0
+     138: getfield      #240                // Field buf:[B
+     141: iconst_0
+     142: iload_3
+     143: aload_1
+     144: iload_2
+     145: invokespecial #275                // Method processData:([BII[BI)V
+     148: aload_0
+     149: bipush        8
+     151: invokespecial #270                // Method finishData:(I)V
+     154: bipush        16
+     156: aload_0
+     157: getfield      #243                // Field mac:[B
+     160: iconst_0
+     161: aload_0
+     162: getfield      #240                // Field buf:[B
+     165: iload_3
+     166: invokestatic  #286                // Method org/bouncycastle/util/Arrays.constantTimeAreEqual:(I[BI[BI)Z
+     169: ifne          278
+     172: new           #158                // class org/bouncycastle/crypto/InvalidCipherTextException
+     175: dup
+     176: ldc           #20                 // String mac check in ChaCha20Poly1305 failed
+     178: invokespecial #259                // Method org/bouncycastle/crypto/InvalidCipherTextException."<init>":(Ljava/lang/String;)V
+     181: athrow
+     182: aload_0
+     183: getfield      #235                // Field bufPos:I
+     186: bipush        16
+     188: iadd
+     189: istore_3
+     190: iload_2
+     191: aload_1
+     192: arraylength
+     193: iload_3
+     194: isub
+     195: if_icmple     208
+     198: new           #160                // class org/bouncycastle/crypto/OutputLengthException
+     201: dup
+     202: ldc           #16                 // String Output buffer too short
+     204: invokespecial #260                // Method org/bouncycastle/crypto/OutputLengthException."<init>":(Ljava/lang/String;)V
+     207: athrow
+     208: aload_0
+     209: getfield      #235                // Field bufPos:I
+     212: ifle          245
+     215: aload_0
+     216: aload_0
+     217: getfield      #240                // Field buf:[B
+     220: iconst_0
+     221: aload_0
+     222: getfield      #235                // Field bufPos:I
+     225: aload_1
+     226: iload_2
+     227: invokespecial #275                // Method processData:([BII[BI)V
+     230: aload_0
+     231: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+     234: aload_1
+     235: iload_2
+     236: aload_0
+     237: getfield      #235                // Field bufPos:I
+     240: invokeinterface #294,  4          // InterfaceMethod org/bouncycastle/crypto/Mac.update:([BII)V
+     245: aload_0
+     246: iconst_4
+     247: invokespecial #270                // Method finishData:(I)V
+     250: aload_0
+     251: getfield      #243                // Field mac:[B
+     254: iconst_0
+     255: aload_1
+     256: iload_2
+     257: aload_0
+     258: getfield      #235                // Field bufPos:I
+     261: iadd
+     262: bipush        16
+     264: invokestatic  #257                // Method java/lang/System.arraycopy:(Ljava/lang/Object;ILjava/lang/Object;II)V
+     267: goto          278
+     270: new           #151                // class java/lang/IllegalStateException
+     273: dup
+     274: invokespecial #248                // Method java/lang/IllegalStateException."<init>":()V
+     277: athrow
+     278: aload_0
+     279: iconst_0
+     280: iconst_1
+     281: invokespecial #273                // Method reset:(ZZ)V
+     284: iload_3
+     285: ireturn
+
+  public byte[] getMac();
+    Code:
+       0: aload_0
+       1: getfield      #243                // Field mac:[B
+       4: invokestatic  #288                // Method org/bouncycastle/util/Arrays.clone:([B)[B
+       7: areturn
+
+  public void reset();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: iconst_1
+       3: invokespecial #273                // Method reset:(ZZ)V
+       6: return
+
+  private void checkAAD();
+    Code:
+       0: aload_0
+       1: getfield      #236                // Field state:I
+       4: tableswitch   { // 1 to 6
+                     1: 53
+                     2: 61
+                     3: 74
+                     4: 64
+                     5: 44
+                     6: 61
+               default: 74
+          }
+      44: aload_0
+      45: bipush        6
+      47: putfield      #236                // Field state:I
+      50: goto          82
+      53: aload_0
+      54: iconst_2
+      55: putfield      #236                // Field state:I
+      58: goto          82
+      61: goto          82
+      64: new           #151                // class java/lang/IllegalStateException
+      67: dup
+      68: ldc           #9                  // String ChaCha20Poly1305 cannot be reused for encryption
+      70: invokespecial #249                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      73: athrow
+      74: new           #151                // class java/lang/IllegalStateException
+      77: dup
+      78: invokespecial #248                // Method java/lang/IllegalStateException."<init>":()V
+      81: athrow
+      82: return
+
+  private void checkData();
+    Code:
+       0: aload_0
+       1: getfield      #236                // Field state:I
+       4: tableswitch   { // 1 to 7
+                     1: 57
+                     2: 57
+                     3: 65
+                     4: 68
+                     5: 48
+                     6: 48
+                     7: 65
+               default: 78
+          }
+      48: aload_0
+      49: bipush        7
+      51: invokespecial #269                // Method finishAAD:(I)V
+      54: goto          86
+      57: aload_0
+      58: iconst_3
+      59: invokespecial #269                // Method finishAAD:(I)V
+      62: goto          86
+      65: goto          86
+      68: new           #151                // class java/lang/IllegalStateException
+      71: dup
+      72: ldc           #9                  // String ChaCha20Poly1305 cannot be reused for encryption
+      74: invokespecial #249                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      77: athrow
+      78: new           #151                // class java/lang/IllegalStateException
+      81: dup
+      82: invokespecial #248                // Method java/lang/IllegalStateException."<init>":()V
+      85: athrow
+      86: return
+
+  private void finishAAD(int);
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #237                // Field aadCount:J
+       5: invokespecial #271                // Method padMAC:(J)V
+       8: aload_0
+       9: iload_1
+      10: putfield      #236                // Field state:I
+      13: return
+
+  private void finishData(int);
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #238                // Field dataCount:J
+       5: invokespecial #271                // Method padMAC:(J)V
+       8: bipush        16
+      10: newarray       byte
+      12: astore_2
+      13: aload_0
+      14: getfield      #237                // Field aadCount:J
+      17: aload_2
+      18: iconst_0
+      19: invokestatic  #290                // Method org/bouncycastle/util/Pack.longToLittleEndian:(J[BI)V
+      22: aload_0
+      23: getfield      #238                // Field dataCount:J
+      26: aload_2
+      27: bipush        8
+      29: invokestatic  #290                // Method org/bouncycastle/util/Pack.longToLittleEndian:(J[BI)V
+      32: aload_0
+      33: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+      36: aload_2
+      37: iconst_0
+      38: bipush        16
+      40: invokeinterface #294,  4          // InterfaceMethod org/bouncycastle/crypto/Mac.update:([BII)V
+      45: aload_0
+      46: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+      49: aload_0
+      50: getfield      #243                // Field mac:[B
+      53: iconst_0
+      54: invokeinterface #293,  3          // InterfaceMethod org/bouncycastle/crypto/Mac.doFinal:([BI)I
+      59: pop
+      60: aload_0
+      61: iload_1
+      62: putfield      #236                // Field state:I
+      65: return
+
+  private long incrementCount(long, int, long);
+    Code:
+       0: lload_1
+       1: ldc2_w        #144                // long -9223372036854775808l
+       4: ladd
+       5: lload         4
+       7: iload_3
+       8: i2l
+       9: lsub
+      10: ldc2_w        #144                // long -9223372036854775808l
+      13: ladd
+      14: lcmp
+      15: ifle          28
+      18: new           #151                // class java/lang/IllegalStateException
+      21: dup
+      22: ldc           #14                 // String Limit exceeded
+      24: invokespecial #249                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      27: athrow
+      28: lload_1
+      29: iload_3
+      30: i2l
+      31: ladd
+      32: lreturn
+
+  private void initMAC();
+    Code:
+       0: bipush        64
+       2: newarray       byte
+       4: astore_1
+       5: aload_0
+       6: getfield      #246                // Field chacha20:Lorg/bouncycastle/crypto/engines/ChaCha7539Engine;
+       9: aload_1
+      10: iconst_0
+      11: bipush        64
+      13: aload_1
+      14: iconst_0
+      15: invokevirtual #263                // Method org/bouncycastle/crypto/engines/ChaCha7539Engine.processBytes:([BII[BI)I
+      18: pop
+      19: aload_0
+      20: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+      23: new           #167                // class org/bouncycastle/crypto/params/KeyParameter
+      26: dup
+      27: aload_1
+      28: iconst_0
+      29: bipush        32
+      31: invokespecial #282                // Method org/bouncycastle/crypto/params/KeyParameter."<init>":([BII)V
+      34: invokeinterface #295,  2          // InterfaceMethod org/bouncycastle/crypto/Mac.init:(Lorg/bouncycastle/crypto/CipherParameters;)V
+      39: aload_1
+      40: invokestatic  #287                // Method org/bouncycastle/util/Arrays.clear:([B)V
+      43: goto          53
+      46: astore_2
+      47: aload_1
+      48: invokestatic  #287                // Method org/bouncycastle/util/Arrays.clear:([B)V
+      51: aload_2
+      52: athrow
+      53: return
+    Exception table:
+       from    to  target type
+           5    39    46   any
+
+  private void padMAC(long);
+    Code:
+       0: lload_1
+       1: l2i
+       2: bipush        15
+       4: iand
+       5: istore_3
+       6: iconst_0
+       7: iload_3
+       8: if_icmpeq     28
+      11: aload_0
+      12: getfield      #245                // Field poly1305:Lorg/bouncycastle/crypto/Mac;
+      15: getstatic     #239                // Field ZEROES:[B
+      18: iconst_0
+      19: bipush        16
+      21: iload_3
+      22: isub
+      23: invokeinterface #294,  4          // InterfaceMethod org/bouncycastle/crypto/Mac.update:([BII)V
+      28: return
+
+  private void processData(byte[], int, int, byte[], int);
+    Code:
+       0: iload         5
+       2: aload         4
+       4: arraylength
+       5: iload_3
+       6: isub
+       7: if_icmple     20
+      10: new           #160                // class org/bouncycastle/crypto/OutputLengthException
+      13: dup
+      14: ldc           #16                 // String Output buffer too short
+      16: invokespecial #260                // Method org/bouncycastle/crypto/OutputLengthException."<init>":(Ljava/lang/String;)V
+      19: athrow
+      20: aload_0
+      21: getfield      #246                // Field chacha20:Lorg/bouncycastle/crypto/engines/ChaCha7539Engine;
+      24: aload_1
+      25: iload_2
+      26: iload_3
+      27: aload         4
+      29: iload         5
+      31: invokevirtual #263                // Method org/bouncycastle/crypto/engines/ChaCha7539Engine.processBytes:([BII[BI)I
+      34: pop
+      35: aload_0
+      36: aload_0
+      37: aload_0
+      38: getfield      #238                // Field dataCount:J
+      41: iload_3
+      42: ldc2_w        #148                // long 274877906880l
+      45: invokespecial #272                // Method incrementCount:(JIJ)J
+      48: putfield      #238                // Field dataCount:J
+      51: return
+
+  private void reset(boolean, boolean);
+    Code:
+       0: aload_0
+       1: getfield      #240                // Field buf:[B
+       4: invokestatic  #287                // Method org/bouncycastle/util/Arrays.clear:([B)V
+       7: iload_1
+       8: ifeq          18
+      11: aload_0
+      12: getfield      #243                // Field mac:[B
+      15: invokestatic  #287                // Method org/bouncycastle/util/Arrays.clear:([B)V
+      18: aload_0
+      19: lconst_0
+      20: putfield      #237                // Field aadCount:J
+      23: aload_0
+      24: lconst_0
+      25: putfield      #238                // Field dataCount:J
+      28: aload_0
+      29: iconst_0
+      30: putfield      #235                // Field bufPos:I
+      33: aload_0
+      34: getfield      #236                // Field state:I
+      37: tableswitch   { // 1 to 8
+                     1: 84
+                     2: 95
+                     3: 95
+                     4: 95
+                     5: 84
+                     6: 87
+                     7: 87
+                     8: 87
+               default: 101
+          }
+      84: goto          109
+      87: aload_0
+      88: iconst_5
+      89: putfield      #236                // Field state:I
+      92: goto          109
+      95: aload_0
+      96: iconst_4
+      97: putfield      #236                // Field state:I
+     100: return
+     101: new           #151                // class java/lang/IllegalStateException
+     104: dup
+     105: invokespecial #248                // Method java/lang/IllegalStateException."<init>":()V
+     108: athrow
+     109: iload_2
+     110: ifeq          120
+     113: aload_0
+     114: getfield      #246                // Field chacha20:Lorg/bouncycastle/crypto/engines/ChaCha7539Engine;
+     117: invokevirtual #262                // Method org/bouncycastle/crypto/engines/ChaCha7539Engine.reset:()V
+     120: aload_0
+     121: invokespecial #268                // Method initMAC:()V
+     124: aconst_null
+     125: aload_0
+     126: getfield      #241                // Field initialAAD:[B
+     129: if_acmpeq     146
+     132: aload_0
+     133: aload_0
+     134: getfield      #241                // Field initialAAD:[B
+     137: iconst_0
+     138: aload_0
+     139: getfield      #241                // Field initialAAD:[B
+     142: arraylength
+     143: invokevirtual #274                // Method processAADBytes:([BII)V
+     146: return
+
+  static {};
+    Code:
+       0: bipush        15
+       2: newarray       byte
+       4: putstatic     #239                // Field ZEROES:[B
+       7: return
+}

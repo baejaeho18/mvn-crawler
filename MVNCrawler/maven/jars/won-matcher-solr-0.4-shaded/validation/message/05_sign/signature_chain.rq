@@ -1,0 +1,95 @@
+  prefix dc:    <http://purl.org/dc/elements/1.1/>
+prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+prefix geo:   <http://www.w3.org/2003/01/geo/wgs84_pos#>
+prefix conn:  <http://localhost:8080/won/resource/connection/>
+prefix event: <http://localhost:8080/won/resource/event/>
+prefix woncrypt: <https://w3id.org/won/core#>
+prefix xsd:   <http://www.w3.org/2001/XMLSchema#>
+prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+prefix rdfg:   <http://www.w3.org/2004/03/trix/rdfg-1/>
+prefix local: <http://localhost:8080/won/resource/>
+prefix won:   <https://w3id.org/won/core#>
+prefix msg:   <https://w3id.org/won/message#>
+prefix signature: <http://icp.it-risk.iwvi.uni-koblenz.de/ontologies/signature.owl#>
+prefix ldp:   <http://www.w3.org/ns/ldp#>
+
+# signature chain must be parallel to the content/envelope chain (assumes content/envelope chain has been validated
+# and found valid)
+
+#ASK
+#{
+  SELECT
+
+    ?envChainSize
+    ?parallelEnvSigChainSize
+    ?contentChainSize
+    ?parallelContentSigChainSize
+
+    (if((bound(?type) && (?type = msg:AtomHintMessage || ?type = msg:SocketHintMessage )) || ! (?envChainSize != ?parallelEnvSigChainSize || ?contentChainSize != ?parallelContentSigChainSize), "OK",
+    "FAIL")
+    AS ?check)
+
+  WHERE
+  {
+
+    {SELECT ?type
+      WHERE
+      { 
+        optional {
+          graph ?g{
+            ?g rdfg:subGraphOf ?event.
+                 ?event msg:messageType ?type.
+               ?event a msg:FromExternal
+          }
+        }
+      }
+    }
+
+
+    { SELECT (count(distinct ?envelope) as ?envChainSize)
+      WHERE
+      {
+        GRAPH ?envelope
+        {
+          ?envelope a msg:EnvelopeGraph .
+        } .
+      }
+    }
+
+    { SELECT (count(distinct ?g2) as ?parallelEnvSigChainSize)
+      WHERE
+      {
+        GRAPH ?envelope
+        {
+          ?envelope a msg:EnvelopeGraph .
+        }
+        GRAPH ?g2 {
+          ?signature msg:signedGraph ?envelope .
+        }
+      }
+    }
+
+    { SELECT (count(distinct ?g) as ?contentChainSize)
+      WHERE
+      {
+        GRAPH ?envelope
+        {
+          ?event msg:content ?g .
+        } .
+      }
+    }
+
+    { SELECT (count(distinct ?g) as ?parallelContentSigChainSize)
+      WHERE
+      {
+        GRAPH ?envelope
+        {
+          ?event msg:content ?g .
+          ?envelope msg:containsSignature ?ref .
+          ?ref msg:signedGraph ?g .
+        } .
+      }
+    }
+
+  }
+#}

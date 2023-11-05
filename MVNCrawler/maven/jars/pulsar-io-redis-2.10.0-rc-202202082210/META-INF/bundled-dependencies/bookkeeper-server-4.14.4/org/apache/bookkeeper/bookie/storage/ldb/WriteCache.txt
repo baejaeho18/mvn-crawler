@@ -1,0 +1,716 @@
+Compiled from "WriteCache.java"
+public class org.apache.bookkeeper.bookie.storage.ldb.WriteCache implements java.io.Closeable {
+  private final org.apache.bookkeeper.util.collections.ConcurrentLongLongPairHashMap index;
+
+  private final org.apache.bookkeeper.util.collections.ConcurrentLongLongHashMap lastEntryMap;
+
+  private final io.netty.buffer.ByteBuf[] cacheSegments;
+
+  private final int segmentsCount;
+
+  private final long maxCacheSize;
+
+  private final int maxSegmentSize;
+
+  private final long segmentOffsetMask;
+
+  private final long segmentOffsetBits;
+
+  private final java.util.concurrent.atomic.AtomicLong cacheSize;
+
+  private final java.util.concurrent.atomic.AtomicLong cacheOffset;
+
+  private final java.util.concurrent.atomic.LongAdder cacheCount;
+
+  private final org.apache.bookkeeper.util.collections.ConcurrentLongHashSet deletedLedgers;
+
+  private final io.netty.buffer.ByteBufAllocator allocator;
+
+  private static final org.apache.bookkeeper.bookie.storage.ldb.ArrayGroupSort groupSorter;
+
+  private static final int ALIGN_64_MASK;
+
+  private final java.util.concurrent.locks.ReentrantLock sortedEntriesLock;
+
+  private long[] sortedEntries;
+
+  private int sortedEntriesIdx;
+
+  private static final org.slf4j.Logger log;
+
+  public org.apache.bookkeeper.bookie.storage.ldb.WriteCache(io.netty.buffer.ByteBufAllocator, long);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_2
+       3: ldc           #1                  // int 1073741824
+       5: invokespecial #2                  // Method "<init>":(Lio/netty/buffer/ByteBufAllocator;JI)V
+       8: return
+
+  public org.apache.bookkeeper.bookie.storage.ldb.WriteCache(io.netty.buffer.ByteBufAllocator, long, int);
+    Code:
+       0: aload_0
+       1: invokespecial #3                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #4                  // class org/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap
+       8: dup
+       9: sipush        4096
+      12: iconst_2
+      13: invokestatic  #5                  // Method java/lang/Runtime.getRuntime:()Ljava/lang/Runtime;
+      16: invokevirtual #6                  // Method java/lang/Runtime.availableProcessors:()I
+      19: imul
+      20: invokespecial #7                  // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap."<init>":(II)V
+      23: putfield      #8                  // Field index:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap;
+      26: aload_0
+      27: new           #9                  // class org/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap
+      30: dup
+      31: sipush        4096
+      34: iconst_2
+      35: invokestatic  #5                  // Method java/lang/Runtime.getRuntime:()Ljava/lang/Runtime;
+      38: invokevirtual #6                  // Method java/lang/Runtime.availableProcessors:()I
+      41: imul
+      42: invokespecial #10                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap."<init>":(II)V
+      45: putfield      #11                 // Field lastEntryMap:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap;
+      48: aload_0
+      49: new           #12                 // class java/util/concurrent/atomic/AtomicLong
+      52: dup
+      53: lconst_0
+      54: invokespecial #13                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      57: putfield      #14                 // Field cacheSize:Ljava/util/concurrent/atomic/AtomicLong;
+      60: aload_0
+      61: new           #12                 // class java/util/concurrent/atomic/AtomicLong
+      64: dup
+      65: lconst_0
+      66: invokespecial #13                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      69: putfield      #15                 // Field cacheOffset:Ljava/util/concurrent/atomic/AtomicLong;
+      72: aload_0
+      73: new           #16                 // class java/util/concurrent/atomic/LongAdder
+      76: dup
+      77: invokespecial #17                 // Method java/util/concurrent/atomic/LongAdder."<init>":()V
+      80: putfield      #18                 // Field cacheCount:Ljava/util/concurrent/atomic/LongAdder;
+      83: aload_0
+      84: new           #19                 // class org/apache/bookkeeper/util/collections/ConcurrentLongHashSet
+      87: dup
+      88: invokespecial #20                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongHashSet."<init>":()V
+      91: putfield      #21                 // Field deletedLedgers:Lorg/apache/bookkeeper/util/collections/ConcurrentLongHashSet;
+      94: aload_0
+      95: new           #22                 // class java/util/concurrent/locks/ReentrantLock
+      98: dup
+      99: invokespecial #23                 // Method java/util/concurrent/locks/ReentrantLock."<init>":()V
+     102: putfield      #24                 // Field sortedEntriesLock:Ljava/util/concurrent/locks/ReentrantLock;
+     105: iload         4
+     107: ifle          114
+     110: iconst_1
+     111: goto          115
+     114: iconst_0
+     115: invokestatic  #25                 // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+     118: iload         4
+     120: i2l
+     121: invokestatic  #26                 // Method alignToPowerOfTwo:(J)J
+     124: lstore        5
+     126: iload         4
+     128: i2l
+     129: lload         5
+     131: lcmp
+     132: ifne          139
+     135: iconst_1
+     136: goto          140
+     139: iconst_0
+     140: ldc           #27                 // String Max segment size needs to be in form of 2^n
+     142: invokestatic  #28                 // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+     145: aload_0
+     146: aload_1
+     147: putfield      #29                 // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+     150: aload_0
+     151: lload_2
+     152: putfield      #30                 // Field maxCacheSize:J
+     155: aload_0
+     156: iload         4
+     158: putfield      #31                 // Field maxSegmentSize:I
+     161: aload_0
+     162: iload         4
+     164: iconst_1
+     165: isub
+     166: i2l
+     167: putfield      #32                 // Field segmentOffsetMask:J
+     170: aload_0
+     171: bipush        63
+     173: iload         4
+     175: i2l
+     176: invokestatic  #33                 // Method java/lang/Long.numberOfLeadingZeros:(J)I
+     179: isub
+     180: i2l
+     181: putfield      #34                 // Field segmentOffsetBits:J
+     184: aload_0
+     185: iconst_1
+     186: lload_2
+     187: iload         4
+     189: i2l
+     190: ldiv
+     191: l2i
+     192: iadd
+     193: putfield      #35                 // Field segmentsCount:I
+     196: aload_0
+     197: aload_0
+     198: getfield      #35                 // Field segmentsCount:I
+     201: anewarray     #36                 // class io/netty/buffer/ByteBuf
+     204: putfield      #37                 // Field cacheSegments:[Lio/netty/buffer/ByteBuf;
+     207: iconst_0
+     208: istore        7
+     210: iload         7
+     212: aload_0
+     213: getfield      #35                 // Field segmentsCount:I
+     216: iconst_1
+     217: isub
+     218: if_icmpge     241
+     221: aload_0
+     222: getfield      #37                 // Field cacheSegments:[Lio/netty/buffer/ByteBuf;
+     225: iload         7
+     227: iload         4
+     229: iload         4
+     231: invokestatic  #38                 // Method io/netty/buffer/Unpooled.directBuffer:(II)Lio/netty/buffer/ByteBuf;
+     234: aastore
+     235: iinc          7, 1
+     238: goto          210
+     241: lload_2
+     242: iload         4
+     244: i2l
+     245: lrem
+     246: l2i
+     247: istore        7
+     249: aload_0
+     250: getfield      #37                 // Field cacheSegments:[Lio/netty/buffer/ByteBuf;
+     253: aload_0
+     254: getfield      #35                 // Field segmentsCount:I
+     257: iconst_1
+     258: isub
+     259: iload         7
+     261: iload         7
+     263: invokestatic  #38                 // Method io/netty/buffer/Unpooled.directBuffer:(II)Lio/netty/buffer/ByteBuf;
+     266: aastore
+     267: return
+
+  public void clear();
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field cacheSize:Ljava/util/concurrent/atomic/AtomicLong;
+       4: lconst_0
+       5: invokevirtual #39                 // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+       8: aload_0
+       9: getfield      #15                 // Field cacheOffset:Ljava/util/concurrent/atomic/AtomicLong;
+      12: lconst_0
+      13: invokevirtual #39                 // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+      16: aload_0
+      17: getfield      #18                 // Field cacheCount:Ljava/util/concurrent/atomic/LongAdder;
+      20: invokevirtual #40                 // Method java/util/concurrent/atomic/LongAdder.reset:()V
+      23: aload_0
+      24: getfield      #8                  // Field index:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap;
+      27: invokevirtual #41                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap.clear:()V
+      30: aload_0
+      31: getfield      #11                 // Field lastEntryMap:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap;
+      34: invokevirtual #42                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap.clear:()V
+      37: aload_0
+      38: getfield      #21                 // Field deletedLedgers:Lorg/apache/bookkeeper/util/collections/ConcurrentLongHashSet;
+      41: invokevirtual #43                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongHashSet.clear:()V
+      44: return
+
+  public void close();
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field cacheSegments:[Lio/netty/buffer/ByteBuf;
+       4: astore_1
+       5: aload_1
+       6: arraylength
+       7: istore_2
+       8: iconst_0
+       9: istore_3
+      10: iload_3
+      11: iload_2
+      12: if_icmpge     32
+      15: aload_1
+      16: iload_3
+      17: aaload
+      18: astore        4
+      20: aload         4
+      22: invokevirtual #44                 // Method io/netty/buffer/ByteBuf.release:()Z
+      25: pop
+      26: iinc          3, 1
+      29: goto          10
+      32: return
+
+  public boolean put(long, long, io.netty.buffer.ByteBuf);
+    Code:
+       0: aload         5
+       2: invokevirtual #45                 // Method io/netty/buffer/ByteBuf.readableBytes:()I
+       5: istore        6
+       7: iload         6
+       9: invokestatic  #46                 // Method align64:(I)I
+      12: istore        7
+      14: aload_0
+      15: getfield      #15                 // Field cacheOffset:Ljava/util/concurrent/atomic/AtomicLong;
+      18: iload         7
+      20: i2l
+      21: invokevirtual #47                 // Method java/util/concurrent/atomic/AtomicLong.getAndAdd:(J)J
+      24: lstore        8
+      26: lload         8
+      28: aload_0
+      29: getfield      #32                 // Field segmentOffsetMask:J
+      32: land
+      33: l2i
+      34: istore        10
+      36: lload         8
+      38: aload_0
+      39: getfield      #34                 // Field segmentOffsetBits:J
+      42: l2i
+      43: lushr
+      44: l2i
+      45: istore        11
+      47: lload         8
+      49: iload         6
+      51: i2l
+      52: ladd
+      53: aload_0
+      54: getfield      #30                 // Field maxCacheSize:J
+      57: lcmp
+      58: ifle          63
+      61: iconst_0
+      62: ireturn
+      63: aload_0
+      64: getfield      #31                 // Field maxSegmentSize:I
+      67: iload         10
+      69: isub
+      70: iload         6
+      72: if_icmpge     78
+      75: goto          14
+      78: aload_0
+      79: getfield      #37                 // Field cacheSegments:[Lio/netty/buffer/ByteBuf;
+      82: iload         11
+      84: aaload
+      85: iload         10
+      87: aload         5
+      89: aload         5
+      91: invokevirtual #48                 // Method io/netty/buffer/ByteBuf.readerIndex:()I
+      94: aload         5
+      96: invokevirtual #45                 // Method io/netty/buffer/ByteBuf.readableBytes:()I
+      99: invokevirtual #49                 // Method io/netty/buffer/ByteBuf.setBytes:(ILio/netty/buffer/ByteBuf;II)Lio/netty/buffer/ByteBuf;
+     102: pop
+     103: aload_0
+     104: getfield      #11                 // Field lastEntryMap:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap;
+     107: lload_1
+     108: invokevirtual #50                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap.get:(J)J
+     111: lstore        12
+     113: lload         12
+     115: lload_3
+     116: lcmp
+     117: ifle          123
+     120: goto          143
+     123: aload_0
+     124: getfield      #11                 // Field lastEntryMap:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap;
+     127: lload_1
+     128: lload         12
+     130: lload_3
+     131: invokevirtual #51                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap.compareAndSet:(JJJ)Z
+     134: ifeq          140
+     137: goto          143
+     140: goto          103
+     143: aload_0
+     144: getfield      #8                  // Field index:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap;
+     147: lload_1
+     148: lload_3
+     149: lload         8
+     151: iload         6
+     153: i2l
+     154: invokevirtual #52                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap.put:(JJJJ)Z
+     157: pop
+     158: aload_0
+     159: getfield      #18                 // Field cacheCount:Ljava/util/concurrent/atomic/LongAdder;
+     162: invokevirtual #53                 // Method java/util/concurrent/atomic/LongAdder.increment:()V
+     165: aload_0
+     166: getfield      #14                 // Field cacheSize:Ljava/util/concurrent/atomic/AtomicLong;
+     169: iload         6
+     171: i2l
+     172: invokevirtual #54                 // Method java/util/concurrent/atomic/AtomicLong.addAndGet:(J)J
+     175: pop2
+     176: iconst_1
+     177: ireturn
+
+  public io.netty.buffer.ByteBuf get(long, long);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field index:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap;
+       4: lload_1
+       5: lload_3
+       6: invokevirtual #55                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap.get:(JJ)Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap$LongPair;
+       9: astore        5
+      11: aload         5
+      13: ifnonnull     18
+      16: aconst_null
+      17: areturn
+      18: aload         5
+      20: getfield      #56                 // Field org/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap$LongPair.first:J
+      23: lstore        6
+      25: aload         5
+      27: getfield      #57                 // Field org/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap$LongPair.second:J
+      30: l2i
+      31: istore        8
+      33: aload_0
+      34: getfield      #29                 // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+      37: iload         8
+      39: iload         8
+      41: invokeinterface #58,  3           // InterfaceMethod io/netty/buffer/ByteBufAllocator.buffer:(II)Lio/netty/buffer/ByteBuf;
+      46: astore        9
+      48: lload         6
+      50: aload_0
+      51: getfield      #32                 // Field segmentOffsetMask:J
+      54: land
+      55: l2i
+      56: istore        10
+      58: lload         6
+      60: aload_0
+      61: getfield      #34                 // Field segmentOffsetBits:J
+      64: l2i
+      65: lushr
+      66: l2i
+      67: istore        11
+      69: aload         9
+      71: aload_0
+      72: getfield      #37                 // Field cacheSegments:[Lio/netty/buffer/ByteBuf;
+      75: iload         11
+      77: aaload
+      78: iload         10
+      80: iload         8
+      82: invokevirtual #59                 // Method io/netty/buffer/ByteBuf.writeBytes:(Lio/netty/buffer/ByteBuf;II)Lio/netty/buffer/ByteBuf;
+      85: pop
+      86: aload         9
+      88: areturn
+
+  public io.netty.buffer.ByteBuf getLastEntry(long);
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field lastEntryMap:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap;
+       4: lload_1
+       5: invokevirtual #50                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongHashMap.get:(J)J
+       8: lstore_3
+       9: lload_3
+      10: ldc2_w        #60                 // long -1l
+      13: lcmp
+      14: ifne          19
+      17: aconst_null
+      18: areturn
+      19: aload_0
+      20: lload_1
+      21: lload_3
+      22: invokevirtual #62                 // Method get:(JJ)Lio/netty/buffer/ByteBuf;
+      25: areturn
+
+  public void deleteLedger(long);
+    Code:
+       0: aload_0
+       1: getfield      #21                 // Field deletedLedgers:Lorg/apache/bookkeeper/util/collections/ConcurrentLongHashSet;
+       4: lload_1
+       5: invokevirtual #63                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongHashSet.add:(J)Z
+       8: pop
+       9: return
+
+  public void forEach(org.apache.bookkeeper.bookie.storage.ldb.WriteCache$EntryConsumer);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field sortedEntriesLock:Ljava/util/concurrent/locks/ReentrantLock;
+       4: invokevirtual #64                 // Method java/util/concurrent/locks/ReentrantLock.lock:()V
+       7: aload_0
+       8: getfield      #8                  // Field index:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap;
+      11: invokevirtual #65                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap.size:()J
+      14: l2i
+      15: istore_2
+      16: iload_2
+      17: iconst_4
+      18: imul
+      19: istore_3
+      20: aload_0
+      21: getfield      #66                 // Field sortedEntries:[J
+      24: ifnull        36
+      27: aload_0
+      28: getfield      #66                 // Field sortedEntries:[J
+      31: arraylength
+      32: iload_3
+      33: if_icmpge     45
+      36: aload_0
+      37: iload_3
+      38: iconst_2
+      39: imul
+      40: newarray       long
+      42: putfield      #66                 // Field sortedEntries:[J
+      45: invokestatic  #67                 // Method org/apache/bookkeeper/common/util/MathUtils.nowInNano:()J
+      48: lstore        4
+      50: aload_0
+      51: iconst_0
+      52: putfield      #68                 // Field sortedEntriesIdx:I
+      55: aload_0
+      56: getfield      #8                  // Field index:Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap;
+      59: aload_0
+      60: invokedynamic #69,  0             // InvokeDynamic #0:accept:(Lorg/apache/bookkeeper/bookie/storage/ldb/WriteCache;)Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap$BiConsumerLongPair;
+      65: invokevirtual #70                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap.forEach:(Lorg/apache/bookkeeper/util/collections/ConcurrentLongLongPairHashMap$BiConsumerLongPair;)V
+      68: getstatic     #71                 // Field log:Lorg/slf4j/Logger;
+      71: invokeinterface #72,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      76: ifeq          102
+      79: getstatic     #71                 // Field log:Lorg/slf4j/Logger;
+      82: ldc           #73                 // String iteration took {} ms
+      84: lload         4
+      86: invokestatic  #74                 // Method org/apache/bookkeeper/common/util/MathUtils.elapsedNanos:(J)J
+      89: l2d
+      90: ldc2_w        #75                 // double 1000000.0d
+      93: ddiv
+      94: invokestatic  #77                 // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+      97: invokeinterface #78,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     102: invokestatic  #67                 // Method org/apache/bookkeeper/common/util/MathUtils.nowInNano:()J
+     105: lstore        4
+     107: getstatic     #79                 // Field groupSorter:Lorg/apache/bookkeeper/bookie/storage/ldb/ArrayGroupSort;
+     110: aload_0
+     111: getfield      #66                 // Field sortedEntries:[J
+     114: iconst_0
+     115: aload_0
+     116: getfield      #68                 // Field sortedEntriesIdx:I
+     119: invokevirtual #80                 // Method org/apache/bookkeeper/bookie/storage/ldb/ArrayGroupSort.sort:([JII)V
+     122: getstatic     #71                 // Field log:Lorg/slf4j/Logger;
+     125: invokeinterface #72,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     130: ifeq          156
+     133: getstatic     #71                 // Field log:Lorg/slf4j/Logger;
+     136: ldc           #81                 // String sorting {} ms
+     138: lload         4
+     140: invokestatic  #74                 // Method org/apache/bookkeeper/common/util/MathUtils.elapsedNanos:(J)J
+     143: l2d
+     144: ldc2_w        #75                 // double 1000000.0d
+     147: ddiv
+     148: invokestatic  #77                 // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+     151: invokeinterface #78,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     156: invokestatic  #67                 // Method org/apache/bookkeeper/common/util/MathUtils.nowInNano:()J
+     159: lstore        4
+     161: aload_0
+     162: getfield      #35                 // Field segmentsCount:I
+     165: anewarray     #36                 // class io/netty/buffer/ByteBuf
+     168: astore        6
+     170: iconst_0
+     171: istore        7
+     173: iload         7
+     175: aload_0
+     176: getfield      #35                 // Field segmentsCount:I
+     179: if_icmpge     214
+     182: aload         6
+     184: iload         7
+     186: aload_0
+     187: getfield      #37                 // Field cacheSegments:[Lio/netty/buffer/ByteBuf;
+     190: iload         7
+     192: aaload
+     193: iconst_0
+     194: aload_0
+     195: getfield      #37                 // Field cacheSegments:[Lio/netty/buffer/ByteBuf;
+     198: iload         7
+     200: aaload
+     201: invokevirtual #82                 // Method io/netty/buffer/ByteBuf.capacity:()I
+     204: invokevirtual #83                 // Method io/netty/buffer/ByteBuf.slice:(II)Lio/netty/buffer/ByteBuf;
+     207: aastore
+     208: iinc          7, 1
+     211: goto          173
+     214: iconst_0
+     215: istore        7
+     217: iload         7
+     219: aload_0
+     220: getfield      #68                 // Field sortedEntriesIdx:I
+     223: if_icmpge     328
+     226: aload_0
+     227: getfield      #66                 // Field sortedEntries:[J
+     230: iload         7
+     232: laload
+     233: lstore        8
+     235: aload_0
+     236: getfield      #66                 // Field sortedEntries:[J
+     239: iload         7
+     241: iconst_1
+     242: iadd
+     243: laload
+     244: lstore        10
+     246: aload_0
+     247: getfield      #66                 // Field sortedEntries:[J
+     250: iload         7
+     252: iconst_2
+     253: iadd
+     254: laload
+     255: lstore        12
+     257: aload_0
+     258: getfield      #66                 // Field sortedEntries:[J
+     261: iload         7
+     263: iconst_3
+     264: iadd
+     265: laload
+     266: lstore        14
+     268: lload         12
+     270: aload_0
+     271: getfield      #32                 // Field segmentOffsetMask:J
+     274: land
+     275: l2i
+     276: istore        16
+     278: lload         12
+     280: aload_0
+     281: getfield      #34                 // Field segmentOffsetBits:J
+     284: l2i
+     285: lushr
+     286: l2i
+     287: istore        17
+     289: aload         6
+     291: iload         17
+     293: aaload
+     294: astore        18
+     296: aload         18
+     298: iload         16
+     300: iload         16
+     302: lload         14
+     304: l2i
+     305: iadd
+     306: invokevirtual #84                 // Method io/netty/buffer/ByteBuf.setIndex:(II)Lio/netty/buffer/ByteBuf;
+     309: pop
+     310: aload_1
+     311: lload         8
+     313: lload         10
+     315: aload         18
+     317: invokeinterface #85,  6           // InterfaceMethod org/apache/bookkeeper/bookie/storage/ldb/WriteCache$EntryConsumer.accept:(JJLio/netty/buffer/ByteBuf;)V
+     322: iinc          7, 4
+     325: goto          217
+     328: getstatic     #71                 // Field log:Lorg/slf4j/Logger;
+     331: invokeinterface #72,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     336: ifeq          362
+     339: getstatic     #71                 // Field log:Lorg/slf4j/Logger;
+     342: ldc           #86                 // String entry log adding {} ms
+     344: lload         4
+     346: invokestatic  #74                 // Method org/apache/bookkeeper/common/util/MathUtils.elapsedNanos:(J)J
+     349: l2d
+     350: ldc2_w        #75                 // double 1000000.0d
+     353: ddiv
+     354: invokestatic  #77                 // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+     357: invokeinterface #78,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     362: aload_0
+     363: getfield      #24                 // Field sortedEntriesLock:Ljava/util/concurrent/locks/ReentrantLock;
+     366: invokevirtual #87                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     369: goto          384
+     372: astore        19
+     374: aload_0
+     375: getfield      #24                 // Field sortedEntriesLock:Ljava/util/concurrent/locks/ReentrantLock;
+     378: invokevirtual #87                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     381: aload         19
+     383: athrow
+     384: return
+    Exception table:
+       from    to  target type
+           7   362   372   any
+         372   374   372   any
+
+  public long size();
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field cacheSize:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #88                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  public long count();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field cacheCount:Ljava/util/concurrent/atomic/LongAdder;
+       4: invokevirtual #89                 // Method java/util/concurrent/atomic/LongAdder.sum:()J
+       7: lreturn
+
+  public boolean isEmpty();
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field cacheSize:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #88                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lconst_0
+       8: lcmp
+       9: ifne          16
+      12: iconst_1
+      13: goto          17
+      16: iconst_0
+      17: ireturn
+
+  static int align64(int);
+    Code:
+       0: iload_0
+       1: bipush        64
+       3: iadd
+       4: iconst_1
+       5: isub
+       6: bipush        -64
+       8: iand
+       9: ireturn
+
+  private static long alignToPowerOfTwo(long);
+    Code:
+       0: ldc2_w        #91                 // double 2.0d
+       3: bipush        64
+       5: lload_0
+       6: lconst_1
+       7: lsub
+       8: invokestatic  #33                 // Method java/lang/Long.numberOfLeadingZeros:(J)I
+      11: isub
+      12: i2d
+      13: invokestatic  #93                 // Method java/lang/Math.pow:(DD)D
+      16: d2l
+      17: lreturn
+
+  private void lambda$forEach$0(long, long, long, long);
+    Code:
+       0: aload_0
+       1: getfield      #21                 // Field deletedLedgers:Lorg/apache/bookkeeper/util/collections/ConcurrentLongHashSet;
+       4: lload_1
+       5: invokevirtual #94                 // Method org/apache/bookkeeper/util/collections/ConcurrentLongHashSet.contains:(J)Z
+       8: ifeq          12
+      11: return
+      12: aload_0
+      13: getfield      #66                 // Field sortedEntries:[J
+      16: aload_0
+      17: getfield      #68                 // Field sortedEntriesIdx:I
+      20: lload_1
+      21: lastore
+      22: aload_0
+      23: getfield      #66                 // Field sortedEntries:[J
+      26: aload_0
+      27: getfield      #68                 // Field sortedEntriesIdx:I
+      30: iconst_1
+      31: iadd
+      32: lload_3
+      33: lastore
+      34: aload_0
+      35: getfield      #66                 // Field sortedEntries:[J
+      38: aload_0
+      39: getfield      #68                 // Field sortedEntriesIdx:I
+      42: iconst_2
+      43: iadd
+      44: lload         5
+      46: lastore
+      47: aload_0
+      48: getfield      #66                 // Field sortedEntries:[J
+      51: aload_0
+      52: getfield      #68                 // Field sortedEntriesIdx:I
+      55: iconst_3
+      56: iadd
+      57: lload         7
+      59: lastore
+      60: aload_0
+      61: dup
+      62: getfield      #68                 // Field sortedEntriesIdx:I
+      65: iconst_4
+      66: iadd
+      67: putfield      #68                 // Field sortedEntriesIdx:I
+      70: return
+
+  static {};
+    Code:
+       0: new           #95                 // class org/apache/bookkeeper/bookie/storage/ldb/ArrayGroupSort
+       3: dup
+       4: iconst_2
+       5: iconst_4
+       6: invokespecial #96                 // Method org/apache/bookkeeper/bookie/storage/ldb/ArrayGroupSort."<init>":(II)V
+       9: putstatic     #79                 // Field groupSorter:Lorg/apache/bookkeeper/bookie/storage/ldb/ArrayGroupSort;
+      12: ldc           #90                 // class org/apache/bookkeeper/bookie/storage/ldb/WriteCache
+      14: invokestatic  #97                 // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      17: putstatic     #71                 // Field log:Lorg/slf4j/Logger;
+      20: return
+}

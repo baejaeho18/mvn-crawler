@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one or more
+  ~ contributor license agreements. See the NOTICE file distributed with
+  ~ this work for additional information regarding copyright ownership.
+  ~ The ASF licenses this file to You under the Apache license, Version 2.0
+  ~ (the "License"); you may not use this file except in compliance with
+  ~ the License. You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the license for the specific language governing permissions and
+  ~ limitations under the license.
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j</artifactId>
+    <version>2.20.0</version>
+  </parent>
+
+  <artifactId>log4j-layout-template-json</artifactId>
+  <name>Apache Log4j Layout for JSON template</name>
+  <description>
+    Apache Log4j Layout for JSON template.
+  </description>
+
+  <properties>
+    <log4jParentDir>${basedir}/..</log4jParentDir>
+    <docLabel>Log4j Layout for JSON Template Documentation</docLabel>
+    <projectDir>/log4j-layout-template-json</projectDir>
+    <module.name>org.apache.logging.log4j.layout.template.json</module.name>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jctools</groupId>
+      <artifactId>jctools-core</artifactId>
+      <optional>true</optional>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <configuration>
+          <instructions>
+            <Fragment-Host>org.apache.logging.log4j.core</Fragment-Host>
+            <Bundle-SymbolicName>org.apache.logging.log4j.layout.template.json</Bundle-SymbolicName>
+            <Export-Package>org.apache.logging.log4j.layout.template.json.*</Export-Package>
+          </instructions>
+        </configuration>
+      </plugin>
+      <!-- Disable ITs, which are Docker-dependent, by default. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-jar</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+            <configuration combine.self="override">
+              <archive>
+                <manifestFile>${manifestfile}</manifestFile>
+                <manifestEntries>
+                  <Specification-Title>${project.name}</Specification-Title>
+                  <Specification-Version>${project.version}</Specification-Version>
+                  <Specification-Vendor>${project.organization.name}</Specification-Vendor>
+                  <Implementation-Title>${project.name}</Implementation-Title>
+                  <Implementation-Version>${project.version}</Implementation-Version>
+                  <Implementation-Vendor>${project.organization.name}</Implementation-Vendor>
+                  <Implementation-Vendor-Id>org.apache</Implementation-Vendor-Id>
+                  <X-Compile-Source-JDK>${maven.compiler.source}</X-Compile-Source-JDK>
+                  <X-Compile-Target-JDK>${maven.compiler.target}</X-Compile-Target-JDK>
+                  <Multi-Release>true</Multi-Release>
+                </manifestEntries>
+              </archive>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <!-- Enforcing a non-UTF-8 encoding to check that the layout
+               indeed handles everything in UTF-8 without implicitly
+               relying on the system defaults. -->
+          <argLine>-Dfile.encoding=US-ASCII</argLine>
+          <systemPropertyVariables>
+            <!-- Enable JUnit 5 parallel execution. -->
+            <junit.jupiter.execution.parallel.enabled>true</junit.jupiter.execution.parallel.enabled>
+            <junit.jupiter.execution.parallel.mode.default>concurrent</junit.jupiter.execution.parallel.mode.default>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>docker</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>io.fabric8</groupId>
+            <artifactId>docker-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>start</id>
+                <phase>pre-integration-test</phase>
+                <goals>
+                  <goal>start</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>stop</id>
+                <phase>post-integration-test</phase>
+                <goals>
+                  <goal>stop</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <verbose>all</verbose>
+              <startParallel>true</startParallel>
+              <autoCreateCustomNetworks>true</autoCreateCustomNetworks>
+              <images>
+                <image>
+                  <alias>elasticsearch</alias>
+                  <name>elasticsearch:${elastic.version}</name>
+                  <run>
+                    <env>
+                      <discovery.type>single-node</discovery.type>
+                    </env>
+                    <ports>
+                      <port>9200:9200</port>
+                    </ports>
+                    <network>
+                      <mode>custom</mode>
+                      <name>log4j-layout-template-json-network</name>
+                      <alias>elasticsearch</alias>
+                    </network>
+                    <log>
+                      <prefix>[ES]</prefix>
+                      <color>cyan</color>
+                    </log>
+                    <wait>
+                      <log>recovered \[0\] indices into cluster_state</log>
+                      <time>60000</time>
+                    </wait>
+                  </run>
+                </image>
+                <image>
+                  <alias>logstash</alias>
+                  <name>logstash:${elastic.version}</name>
+                  <run>
+                    <dependsOn>
+                      <container>elasticsearch</container>
+                    </dependsOn>
+                    <network>
+                      <mode>custom</mode>
+                      <name>log4j-layout-template-json-network</name>
+                      <alias>logstash</alias>
+                    </network>
+                    <ports>
+                      <port>12222:12222</port>
+                      <port>12345:12345</port>
+                    </ports>
+                    <log>
+                      <prefix>[LS]</prefix>
+                      <color>green</color>
+                    </log>
+                    <entrypoint>
+                      <exec>
+                        <arg>logstash</arg>
+                        <arg>--pipeline.batch.size</arg>
+                        <arg>1</arg>
+                        <arg>-e</arg>
+                        <arg>
+                          
+                          input {
+                            gelf {
+                              host =&gt; "logstash"
+                              use_tcp =&gt; true
+                              use_udp =&gt; false
+                              port =&gt; 12222
+                              type =&gt; "gelf"
+                            }
+                            tcp {
+                              port =&gt; 12345
+                              codec =&gt; json
+                              type =&gt; "tcp"
+                            }
+                          }
+
+                          filter {
+                            if [type] == "gelf" {
+                              # These are GELF/Syslog logging levels as defined in RFC 3164.
+                              # Map the integer level to its human readable format.
+                              translate {
+                                field =&gt; "[level]"
+                                destination =&gt; "[levelName]"
+                                dictionary =&gt; {
+                                  "0" =&gt; "EMERG"
+                                  "1" =&gt; "ALERT"
+                                  "2" =&gt; "CRITICAL"
+                                  "3" =&gt; "ERROR"
+                                  "4" =&gt; "WARN"
+                                  "5" =&gt; "NOTICE"
+                                  "6" =&gt; "INFO"
+                                  "7" =&gt; "DEBUG"
+                                }
+                              }
+                            }
+                          }
+
+                          output {
+                            # (Un)comment for debugging purposes
+                            # stdout { codec =&gt; rubydebug }
+                            elasticsearch {
+                              hosts =&gt; ["http://elasticsearch:9200"]
+                              index =&gt; "log4j"
+                            }
+                          }
+                          
+                        </arg>
+                      </exec>
+                    </entrypoint>
+                    <wait>
+                      <log>Successfully started Logstash API endpoint</log>
+                      <time>60000</time>
+                    </wait>
+                  </run>
+                </image>
+              </images>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <includes>
+                <include>**/*IT.java</include>
+              </includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+</project>

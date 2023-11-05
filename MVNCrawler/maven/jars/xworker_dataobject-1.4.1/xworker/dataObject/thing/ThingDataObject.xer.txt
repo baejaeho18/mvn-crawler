@@ -1,0 +1,822 @@
+^1393395997580
+@xworker.dataObject.thing.ThingDataObject
+sname
+ThingDataObject
+slabel
+ThingDataObject
+sdescriptors
+xworker.lang.MetaDescriptor3,xworker.lang.MetaDescriptor2
+sextends
+xworker.dataObject.DataObject
+smany
+true
+seditCols
+2
+sinitialization
+false
+smodifier
+public
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p>使用事物保存数据的数据对象。</p>
+<p>建议使用ThingDataObjectSet保存数据实例，generateId方法是用数据实例对象的seq作为标识种子。</p>
+#$@text#$@
+sid
+ThingDataObject
+@xworker.dataObject.thing.ThingDataObject/@actions1
+sname
+actions
+sid
+actions1
+slabel
+actions
+sdescriptors
+xworker.lang.MetaDescriptor3/@actions
+@xworker.dataObject.thing.ThingDataObject/@actions1/@load
+sname
+doLoad
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import xworker.dataObject.DataObject;
+import xworker.dataObject.DataObjectList;
+import xworker.dataObject.utils.DbUtil;
+
+def descriptor = theData.getMetadata().descriptor;
+def keyDatas = theData.getKeyAndDatas();
+if(keyDatas == null || keyDatas.length == 0){
+    log.warn("no keys data cannot load, dataObjectPath=" + descriptor.metadata.path);
+    throw new Exception("No keys, data cannot laod");
+}
+
+def datas = self.doAction("getInstances", actionContext);
+if(datas == null){
+    log.warn("no thing datas setted, dataObjectPath=" + descriptor.metadata.path);
+    throw new Exception("No thing datas setted");
+}
+
+def data = null;
+for(child in datas.childs){
+    def have = true;
+    for(int i=0; i<keyDatas.length; i++){
+        if(child.get(keyDatas[i][0].name) !=  keyDatas[i][1]){
+           have = false;
+           break;
+        }        
+    }
+    if(have){
+         data = child;
+         break;
+    }
+}
+
+if(data != null){
+    for(key in data.getAttributes().keySet()){
+        theData.put(key, data.get(key));
+    }
+    
+    return theData;
+}else{
+    //log.info("数据对象不存在");
+    return null;
+}
+#$@text#$@
+sinitBreakPoint
+false
+ssuccessBreakPoint
+false
+sexceptionBreakPoint
+false
+seditBreakPoint
+false
+sinterpretationType
+Action
+ssaveReturn
+false
+sid
+load
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.thing.ThingDataObject/@actions1/@query
+sname
+doQuery
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//获取数据实例
+def instance = self.doAction("getInstances", actionContext);
+
+def matchedDatas = [];
+
+//log.info("conditionData=" + conditionData);
+//从实例中查询匹配的数据
+if(actionContext.get("conditionConfig") == null){
+    //没有条件，返回全部
+    for(child in instance.childs){
+        def dobj = self.doAction("createDataObjectFromThing", actionContext, ["thing":child, "descriptor":self]);
+        if(dobj != null){
+            matchedDatas.add(dobj);
+        }
+    }
+}else{
+    for(child in instance.childs){    
+        def matched = conditionConfig.doAction("isMatch", actionContext, ["condition":conditionData, "data":child]);        
+        //log.info("thingName=" + child.getThingName() + ",conditionData=" + conditionData + ",matched=" + matched + ",provinceId=" + child.provinceId + ",cityId=" + child.cityId);
+        if(matched){
+            def dobj = self.doAction("createDataObjectFromThing", actionContext, ["thing":child, "descriptor":self]);
+            if(dobj != null){
+                matchedDatas.add(dobj);
+            }
+        }        
+    }
+}
+
+if(actionContext.get("pageInfo") != null){
+    //是否排序
+    if(pageInfo.sort != null && pageInfo.sort != ""){
+        matchedDatas.sort(){ a,b->   
+            def av = a == null ? null : a.get(pageInfo.sort);
+            def bv = b == null ? null : b.get(pageInfo.sort);
+            if(av == null && bv == null){
+                return 0;
+            }else if(av == null && bv != null){
+                return pageInfo.dir == "DESC" ? 1 : -1;
+            }else if(av != null && bv == null){
+                return pageInfo.dir == "DESC" ? -1 : 1;
+            }else{
+                return pageInfo.dir == "DESC" ? -av.compareTo(bv) : av.compareTo(bv);
+            }            
+        }   	
+    
+    }
+    pageInfo.totalCount = matchedDatas.size();
+    if(pageInfo.limit > 0){
+        if(pageInfo.start > matchedDatas.size()){
+            pageInfo.start = matchedDatas.size();
+        }
+        def toIndex = pageInfo.start + pageInfo.limit;
+        if(toIndex > matchedDatas.size()){ 
+            toIndex = matchedDatas.size();
+        }
+        def startIndex = pageInfo.start;
+        if(startIndex < 0){
+            startIndex = 0;
+        }    
+        pageInfo.datas = matchedDatas.subList(pageInfo.start, toIndex);
+    }else{
+        pageInfo.datas = matchedDatas;
+    }
+    return pageInfo.datas;
+}else{
+    if(actionContext.get("pageInfo") != null){
+        pageInfo.totalCount = matchedDatas.size();
+        pageInfo.datas = matchedDatas;
+    }
+    return matchedDatas;
+}
+#$@text#$@
+sinitBreakPoint
+false
+ssuccessBreakPoint
+false
+sexceptionBreakPoint
+false
+seditBreakPoint
+false
+sinterpretationType
+Action
+ssaveReturn
+false
+sid
+query
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.thing.ThingDataObject/@actions1/@update
+sname
+doUpdate
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+def dataObjects = self.doAction("getInstances", actionContext);
+def keyDatas = theData.getKeyAndDatas();
+def updated = false;
+for(child in dataObjects.getChilds()){
+    def ok = true;
+    for(keyData in keyDatas){
+        if(keyData[1] != child.get(keyData[0].name)){
+            ok = false;
+            break;
+        }
+    }
+    
+    if(ok){
+        child.getAttributes().putAll(theData);
+        //theData = child.doAction("toDataObject", actionContext);
+        theData.putAll(child.getAttributes());
+        updated = true;
+        
+        if(actionContext.get("result") != null){
+            result.success = true;
+            result.msg = "数据更新成功";
+        }
+        break;
+    }
+}
+
+if(!updated && actionContext.get("result") != null){
+    result.success = false;
+    result.msg = "没有匹配的数据，更新失败";
+}else{
+    dataObjects.save();
+}
+#$@text#$@
+sinitBreakPoint
+false
+ssuccessBreakPoint
+false
+sexceptionBreakPoint
+false
+seditBreakPoint
+false
+sinterpretationType
+Action
+ssaveReturn
+false
+sid
+update
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.thing.ThingDataObject/@actions1/@create
+sname
+doCreate
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import org.xmeta.Thing;
+
+def dataObjects = theData.doAction("getInstances", actionContext);
+def keyDatas = theData.getKeyAndDatas();
+if(self.autoGenerateId == "true"){
+    def id = self.doAction("generateId", actionContext);
+    theData.put(keyDatas[0][0].name, id);
+    keyDatas[0][1] = id;
+}
+
+//log.info("data=" + theData);
+
+//是否需要自动初始化
+if(self.getBoolean("autoInit")){
+    theData.doAction(self.autoInitAction, actionContext);
+}
+
+def have = false;
+for(child in dataObjects.getChilds()){
+    def ok = true;
+    for(keyData in keyDatas){
+        if(keyData[1] != null && keyData[1].toString() != child.getString(keyData[0].name)){
+            ok = false;
+            break;
+        }
+    }
+    
+    if(ok){        
+        have = true;
+        break;
+    }
+}
+
+if(!have){        
+    def child = new Thing(self.getMetadata().path);
+    child.initDefaultValue();
+    child.getAttributes().putAll(theData);
+    dataObjects.addChild(child);
+    dataObjects.save();
+    
+    if(actionContext.get("result") != null){
+        result.success = true;
+        result.msg = "数据创建成功";
+    }
+    
+    return theData;
+}else{
+    if(actionContext.get("result") != null){
+        result.success = false;
+        result.msg = "数据重复，不能创建新数据";
+    }else{
+        throw new Exception("数据重复，不能创建新数据");
+    }
+}
+#$@text#$@
+sinitBreakPoint
+false
+ssuccessBreakPoint
+false
+sexceptionBreakPoint
+false
+seditBreakPoint
+false
+sinterpretationType
+Action
+ssaveReturn
+false
+sid
+create
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.thing.ThingDataObject/@actions1/@delete
+sname
+doDelete
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+def dataObjects = theData.doAction("getInstances", actionContext);
+def keyDatas = theData.getKeyAndDatas();
+def deleted = false;
+for(child in dataObjects.getChilds()){
+    def ok = true;
+    for(keyData in keyDatas){
+        if(keyData[1] != null && keyData[1].toString() != child.getString(keyData[0].name)){
+            ok = false;
+            break;
+        }
+    }
+    
+    if(ok){
+        dataObjects.removeChild(child);
+        deleted = true;
+        if(actionContext.get("result") != null){
+            result.success = true;
+            result.msg = "数据删除成功";
+        }
+        break;
+    }
+}
+
+if(!deleted && actionContext.get("result") != null){
+    result.success = true;
+    result.msg = "没有匹配的记录";
+}else{
+    dataObjects.save();
+}
+#$@text#$@
+sinitBreakPoint
+false
+ssuccessBreakPoint
+false
+sexceptionBreakPoint
+false
+seditBreakPoint
+false
+sinterpretationType
+Action
+ssaveReturn
+false
+sid
+delete
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.thing.ThingDataObject/@actions1/@getInstances
+sname
+getInstances
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+if(actionContext.get("theData") != null){
+    return world.getThing(theData.getMetadata().descriptor.dataObjects);
+}else{
+    return world.getThing(self.dataObjects);
+}
+#$@text#$@
+sid
+getInstances
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.thing.ThingDataObject/@actions1/@updateBatch
+sname
+updateBatch
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//获取数据实例
+def instance = self.doAction("getInstances", actionContext);
+
+int count = 0;
+//从实例中查询匹配的数据
+if(actionContext.get("conditionConfig") == null){
+    //没有条件，返回全部
+    for(child in instance.childs){
+        boolean ok = false;
+        for(attrName in theData.getMetadata().getDirtyFields()){
+            def attribute = theData.getMetadata().getDefinition(attrName);
+            if(attribute != null){
+                child.put(attrName, theData.get(attrName));     
+                ok = true;          
+            }
+        } 
+        
+        if(ok){
+            count++;
+        }
+    }
+}else{
+    for(child in instance.childs){
+        def matched = conditionConfig.doAction("isMatch", actionContext, ["condition":conditionData, "data":child]);        
+        //log.info("matched=" + matched);
+        if(matched){
+            boolean ok = false;
+            for(attrName in theData.getMetadata().getDirtyFields()){
+                def attribute = theData.getMetadata().getDefinition(attrName);
+                if(attribute != null){
+                    child.put(attrName, theData.get(attrName));     
+                    ok = true;          
+                }
+            } 
+            
+            if(ok){
+                count++;
+            }
+        }        
+    }
+}
+
+if(count > 0){
+    instance.save();
+}
+
+return count;
+#$@text#$@
+sdescription
+<p>批量更新，根据查询条件查找并更新符合条件的记录。</p>
+sid
+updateBatch
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.thing.ThingDataObject/@actions1/@updateBatch/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@xworker.dataObject.thing.ThingDataObject/@actions1/@updateBatch/@ins/@theData
+sname
+theData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@xworker.dataObject.thing.ThingDataObject/@actions1/@updateBatch/@ins/@conditionConfig
+sname
+conditionConfig
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionConfig
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@xworker.dataObject.thing.ThingDataObject/@actions1/@updateBatch/@ins/@conditionData
+sname
+conditionData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@xworker.dataObject.thing.ThingDataObject/@actions1/@deleteBatch
+sname
+deleteBatch
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import xworker.dataObject.DataObject;
+
+def dataObjects = self.doAction("getInstances", actionContext);
+def datas = self.doAction("query", actionContext);
+def count = 0;
+if(datas != null && datas.size() > 0){
+    for(theData in datas){
+        def keyDatas = theData.getKeyAndDatas();
+        def deleted = false;
+        for(child in dataObjects.getChilds()){
+            def ok = true;
+            for(keyData in keyDatas){
+                if(keyData[1] != null && keyData[1].toString() != child.getString(keyData[0].name)){
+                    ok = false;
+                    break;
+                }
+            }
+            
+            if(ok){
+                dataObjects.removeChild(child);       
+                count++;      
+                break;
+            }
+        }
+    }
+    
+    dataObjects.save();
+}
+
+return count;
+#$@text#$@
+sdescription
+<p>批量删除，根据查询条件查找并删除符合条件的记录。</p>
+sid
+deleteBatch
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.thing.ThingDataObject/@actions1/@deleteBatch/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@xworker.dataObject.thing.ThingDataObject/@actions1/@deleteBatch/@ins/@theData
+sname
+theData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@xworker.dataObject.thing.ThingDataObject/@actions1/@deleteBatch/@ins/@conditionConfig
+sname
+conditionConfig
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionConfig
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@xworker.dataObject.thing.ThingDataObject/@actions1/@deleteBatch/@ins/@conditionData
+sname
+conditionData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@xworker.dataObject.thing.ThingDataObject/@actions1/@generateId
+sname
+generateId
+sisSynchronized
+true
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+def instance = self.doAction("getInstances", actionContext);
+if(instance != null){
+    def seq = instance.getLong("seq", 0);
+    seq = seq + 1;
+    instance.set("seq", seq);
+    instance.save();
+    
+    return seq;
+}else{
+    return null;
+}
+#$@text#$@
+sid
+generateId
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.thing.ThingDataObject/@dataObjects
+sname
+dataObjects
+slabel
+数据对象实例
+sinputtype
+dataSelector
+sshowLabel
+true
+ssize
+60
+scolspan
+2
+sgroup
+DataObject
+sreadOnly
+false
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p>数据对象模拟的是关系数据库，必须指定一个包含改数据对象的实例的事物，否则无法对事物形式存在数据对象操作。</p>
+
+<p>如果保存数据的事物不是确定的，那么可以通过重载getInstances方法返回指定的事物。</p>
+#$@text#$@
+svalidateAllowBlank
+true
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+dataObjects
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.thing.ThingDataObject/@attribute
+sname
+attribute
+slabel
+Attribute
+sdescriptors
+xworker.lang.MetaDescriptor3/@thing
+sextends
+xworker.dataObject.Attribute
+smany
+true
+seditCols
+2
+sinitialization
+false
+smodifier
+public
+sinheritDescription
+true
+sid
+attribute
+@xworker.dataObject.thing.ThingDataObject/@thing
+sname
+thing
+slabel
+Thing
+sdescriptors
+xworker.lang.MetaDescriptor3/@thing
+sextends
+xworker.dataObject.RelationDataObject
+smany
+true
+seditCols
+2
+sinitialization
+false
+smodifier
+public
+sinheritDescription
+true
+sdescription
+<p>与其他数据对象有关联的属性或属性列表。</p>
+sid
+thing
+@xworker.dataObject.thing.ThingDataObject/@actions
+sname
+actions
+slabel
+Actions
+sdescriptors
+xworker.lang.MetaDescriptor3/@thing
+sextends
+xworker.lang.actions.Actions
+smany
+true
+seditCols
+2
+sinitialization
+false
+smodifier
+public
+sinheritDescription
+true
+sid
+actions
+@xworker.dataObject.thing.ThingDataObject/@actions/@name
+sname
+name
+sid
+name
+sdescriptors
+xworker.lang.MetaDescriptor2/@attribute

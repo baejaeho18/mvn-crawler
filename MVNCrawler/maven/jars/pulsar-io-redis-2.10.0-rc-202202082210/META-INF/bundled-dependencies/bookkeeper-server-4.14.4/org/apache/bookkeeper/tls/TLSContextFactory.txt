@@ -1,0 +1,1095 @@
+Compiled from "TLSContextFactory.java"
+public class org.apache.bookkeeper.tls.TLSContextFactory implements org.apache.bookkeeper.tls.SecurityHandlerFactory {
+  private static final org.slf4j.Logger log;
+
+  public static final java.security.Provider BC_PROVIDER;
+
+  public static final java.lang.String BC_FIPS_PROVIDER_CLASS;
+
+  public static final java.lang.String BC_NON_FIPS_PROVIDER_CLASS;
+
+  public static final java.lang.String BC_FIPS;
+
+  public static final java.lang.String BC;
+
+  private static final java.lang.String TLSCONTEXT_HANDLER_NAME;
+
+  private java.lang.String[] protocols;
+
+  private java.lang.String[] ciphers;
+
+  private volatile io.netty.handler.ssl.SslContext sslContext;
+
+  private io.netty.buffer.ByteBufAllocator allocator;
+
+  private org.apache.bookkeeper.conf.AbstractConfiguration config;
+
+  private org.apache.bookkeeper.tls.FileModifiedTimeUpdater tlsCertificateFilePath;
+
+  private org.apache.bookkeeper.tls.FileModifiedTimeUpdater tlsKeyStoreFilePath;
+
+  private org.apache.bookkeeper.tls.FileModifiedTimeUpdater tlsKeyStorePasswordFilePath;
+
+  private org.apache.bookkeeper.tls.FileModifiedTimeUpdater tlsTrustStoreFilePath;
+
+  private org.apache.bookkeeper.tls.FileModifiedTimeUpdater tlsTrustStorePasswordFilePath;
+
+  private long certRefreshTime;
+
+  private volatile long certLastRefreshTime;
+
+  private boolean isServerCtx;
+
+  public org.apache.bookkeeper.tls.TLSContextFactory();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static java.security.Provider getProvider();
+    Code:
+       0: ldc           #3                  // String BC
+       2: invokestatic  #4                  // Method java/security/Security.getProvider:(Ljava/lang/String;)Ljava/security/Provider;
+       5: ifnonnull     16
+       8: ldc           #5                  // String BCFIPS
+      10: invokestatic  #4                  // Method java/security/Security.getProvider:(Ljava/lang/String;)Ljava/security/Provider;
+      13: ifnull        20
+      16: iconst_1
+      17: goto          21
+      20: iconst_0
+      21: istore_0
+      22: iload_0
+      23: ifeq          75
+      26: ldc           #3                  // String BC
+      28: invokestatic  #4                  // Method java/security/Security.getProvider:(Ljava/lang/String;)Ljava/security/Provider;
+      31: ifnull        42
+      34: ldc           #3                  // String BC
+      36: invokestatic  #4                  // Method java/security/Security.getProvider:(Ljava/lang/String;)Ljava/security/Provider;
+      39: goto          47
+      42: ldc           #5                  // String BCFIPS
+      44: invokestatic  #4                  // Method java/security/Security.getProvider:(Ljava/lang/String;)Ljava/security/Provider;
+      47: astore_1
+      48: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      51: invokeinterface #7,  1            // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      56: ifeq          73
+      59: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      62: ldc           #8                  // String Already instantiated Bouncy Castle provider {}
+      64: aload_1
+      65: invokevirtual #9                  // Method java/security/Provider.getName:()Ljava/lang/String;
+      68: invokeinterface #10,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      73: aload_1
+      74: areturn
+      75: invokestatic  #11                 // Method getBCProviderFromClassPath:()Ljava/security/Provider;
+      78: areturn
+      79: astore_1
+      80: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      83: ldc           #13                 // String Not able to get Bouncy Castle provider for both FIPS and Non-FIPS from class path:
+      85: aload_1
+      86: invokeinterface #14,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      91: new           #15                 // class java/lang/RuntimeException
+      94: dup
+      95: aload_1
+      96: invokespecial #16                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/Throwable;)V
+      99: athrow
+    Exception table:
+       from    to  target type
+          75    78    79   Class java/lang/Exception
+
+  public static java.security.Provider getBCProviderFromClassPath() throws java.lang.Exception;
+    Code:
+       0: ldc           #17                 // String org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider
+       2: invokestatic  #18                 // Method java/lang/Class.forName:(Ljava/lang/String;)Ljava/lang/Class;
+       5: astore_0
+       6: goto          41
+       9: astore_1
+      10: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      13: invokeinterface #7,  1            // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      18: ifeq          35
+      21: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      24: ldc           #20                 // String Not able to get Bouncy Castle provider: {}, try to get FIPS provider {}
+      26: ldc           #21                 // String org.bouncycastle.jce.provider.BouncyCastleProvider
+      28: ldc           #17                 // String org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider
+      30: invokeinterface #22,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      35: ldc           #21                 // String org.bouncycastle.jce.provider.BouncyCastleProvider
+      37: invokestatic  #18                 // Method java/lang/Class.forName:(Ljava/lang/String;)Ljava/lang/Class;
+      40: astore_0
+      41: aload_0
+      42: iconst_0
+      43: anewarray     #23                 // class java/lang/Class
+      46: invokevirtual #24                 // Method java/lang/Class.getDeclaredConstructor:([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
+      49: iconst_0
+      50: anewarray     #25                 // class java/lang/Object
+      53: invokevirtual #26                 // Method java/lang/reflect/Constructor.newInstance:([Ljava/lang/Object;)Ljava/lang/Object;
+      56: checkcast     #27                 // class java/security/Provider
+      59: astore_1
+      60: aload_1
+      61: invokestatic  #28                 // Method java/security/Security.addProvider:(Ljava/security/Provider;)I
+      64: pop
+      65: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      68: invokeinterface #7,  1            // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      73: ifeq          90
+      76: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      79: ldc           #29                 // String Found and Instantiated Bouncy Castle provider in classpath {}
+      81: aload_1
+      82: invokevirtual #9                  // Method java/security/Provider.getName:()Ljava/lang/String;
+      85: invokeinterface #10,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      90: aload_1
+      91: areturn
+    Exception table:
+       from    to  target type
+           0     6     9   Class java/lang/ClassNotFoundException
+
+  private java.lang.String getPasswordFromFile(java.lang.String) throws java.io.IOException;
+    Code:
+       0: new           #30                 // class java/io/File
+       3: dup
+       4: aload_1
+       5: invokespecial #31                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+       8: astore_3
+       9: aload_3
+      10: invokevirtual #32                 // Method java/io/File.length:()J
+      13: lconst_0
+      14: lcmp
+      15: ifne          21
+      18: ldc           #33                 // String
+      20: areturn
+      21: aload_3
+      22: invokestatic  #34                 // Method org/apache/commons/io/FileUtils.readFileToByteArray:(Ljava/io/File;)[B
+      25: astore_2
+      26: new           #35                 // class java/lang/String
+      29: dup
+      30: aload_2
+      31: getstatic     #36                 // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+      34: invokespecial #37                 // Method java/lang/String."<init>":([BLjava/nio/charset/Charset;)V
+      37: areturn
+
+  private java.security.KeyStore loadKeyStore(java.lang.String, java.lang.String, java.lang.String) throws java.security.KeyStoreException, java.security.NoSuchAlgorithmException, java.security.cert.CertificateException, java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokestatic  #38                 // Method java/security/KeyStore.getInstance:(Ljava/lang/String;)Ljava/security/KeyStore;
+       4: astore        4
+       6: new           #39                 // class java/io/FileInputStream
+       9: dup
+      10: aload_2
+      11: invokespecial #40                 // Method java/io/FileInputStream."<init>":(Ljava/lang/String;)V
+      14: astore        5
+      16: aconst_null
+      17: astore        6
+      19: aload         4
+      21: aload         5
+      23: aload_3
+      24: invokevirtual #41                 // Method java/lang/String.trim:()Ljava/lang/String;
+      27: invokevirtual #42                 // Method java/lang/String.toCharArray:()[C
+      30: invokevirtual #43                 // Method java/security/KeyStore.load:(Ljava/io/InputStream;[C)V
+      33: aload         5
+      35: ifnull        120
+      38: aload         6
+      40: ifnull        63
+      43: aload         5
+      45: invokevirtual #44                 // Method java/io/FileInputStream.close:()V
+      48: goto          120
+      51: astore        7
+      53: aload         6
+      55: aload         7
+      57: invokevirtual #46                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+      60: goto          120
+      63: aload         5
+      65: invokevirtual #44                 // Method java/io/FileInputStream.close:()V
+      68: goto          120
+      71: astore        7
+      73: aload         7
+      75: astore        6
+      77: aload         7
+      79: athrow
+      80: astore        8
+      82: aload         5
+      84: ifnull        117
+      87: aload         6
+      89: ifnull        112
+      92: aload         5
+      94: invokevirtual #44                 // Method java/io/FileInputStream.close:()V
+      97: goto          117
+     100: astore        9
+     102: aload         6
+     104: aload         9
+     106: invokevirtual #46                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     109: goto          117
+     112: aload         5
+     114: invokevirtual #44                 // Method java/io/FileInputStream.close:()V
+     117: aload         8
+     119: athrow
+     120: aload         4
+     122: areturn
+    Exception table:
+       from    to  target type
+          43    48    51   Class java/lang/Throwable
+          19    33    71   Class java/lang/Throwable
+          19    33    80   any
+          92    97   100   Class java/lang/Throwable
+          71    82    80   any
+
+  public java.lang.String getHandlerName();
+    Code:
+       0: ldc           #47                 // String tls
+       2: areturn
+
+  private javax.net.ssl.KeyManagerFactory initKeyManagerFactory(java.lang.String, java.lang.String, java.lang.String) throws org.apache.bookkeeper.tls.SecurityException, java.security.KeyStoreException, java.security.NoSuchAlgorithmException, java.security.cert.CertificateException, java.io.IOException, java.security.UnrecoverableKeyException, java.security.spec.InvalidKeySpecException;
+    Code:
+       0: aconst_null
+       1: astore        4
+       3: aload_2
+       4: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+       7: ifeq          30
+      10: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      13: ldc           #49                 // String Key store location cannot be empty when Mutual Authentication is enabled!
+      15: invokeinterface #50,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      20: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+      23: dup
+      24: ldc           #49                 // String Key store location cannot be empty when Mutual Authentication is enabled!
+      26: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+      29: athrow
+      30: ldc           #33                 // String
+      32: astore        5
+      34: aload_3
+      35: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+      38: ifne          48
+      41: aload_0
+      42: aload_3
+      43: invokespecial #53                 // Method getPasswordFromFile:(Ljava/lang/String;)Ljava/lang/String;
+      46: astore        5
+      48: aload_0
+      49: aload_1
+      50: aload_2
+      51: aload         5
+      53: invokespecial #54                 // Method loadKeyStore:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/security/KeyStore;
+      56: astore        6
+      58: invokestatic  #55                 // Method javax/net/ssl/KeyManagerFactory.getDefaultAlgorithm:()Ljava/lang/String;
+      61: invokestatic  #56                 // Method javax/net/ssl/KeyManagerFactory.getInstance:(Ljava/lang/String;)Ljavax/net/ssl/KeyManagerFactory;
+      64: astore        4
+      66: aload         4
+      68: aload         6
+      70: aload         5
+      72: invokevirtual #41                 // Method java/lang/String.trim:()Ljava/lang/String;
+      75: invokevirtual #42                 // Method java/lang/String.toCharArray:()[C
+      78: invokevirtual #57                 // Method javax/net/ssl/KeyManagerFactory.init:(Ljava/security/KeyStore;[C)V
+      81: aload         4
+      83: areturn
+
+  private javax.net.ssl.TrustManagerFactory initTrustManagerFactory(java.lang.String, java.lang.String, java.lang.String) throws java.security.KeyStoreException, java.security.NoSuchAlgorithmException, java.security.cert.CertificateException, java.io.IOException, org.apache.bookkeeper.tls.SecurityException;
+    Code:
+       0: aload_2
+       1: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+       4: ifeq          27
+       7: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      10: ldc           #58                 // String Trust Store location cannot be empty!
+      12: invokeinterface #50,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      17: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+      20: dup
+      21: ldc           #58                 // String Trust Store location cannot be empty!
+      23: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+      26: athrow
+      27: ldc           #33                 // String
+      29: astore        5
+      31: aload_3
+      32: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+      35: ifne          45
+      38: aload_0
+      39: aload_3
+      40: invokespecial #53                 // Method getPasswordFromFile:(Ljava/lang/String;)Ljava/lang/String;
+      43: astore        5
+      45: aload_0
+      46: aload_1
+      47: aload_2
+      48: aload         5
+      50: invokespecial #54                 // Method loadKeyStore:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/security/KeyStore;
+      53: astore        6
+      55: invokestatic  #59                 // Method javax/net/ssl/TrustManagerFactory.getDefaultAlgorithm:()Ljava/lang/String;
+      58: invokestatic  #60                 // Method javax/net/ssl/TrustManagerFactory.getInstance:(Ljava/lang/String;)Ljavax/net/ssl/TrustManagerFactory;
+      61: astore        4
+      63: aload         4
+      65: aload         6
+      67: invokevirtual #61                 // Method javax/net/ssl/TrustManagerFactory.init:(Ljava/security/KeyStore;)V
+      70: aload         4
+      72: areturn
+
+  private io.netty.handler.ssl.SslProvider getTLSProvider(java.lang.String);
+    Code:
+       0: aload_1
+       1: invokevirtual #41                 // Method java/lang/String.trim:()Ljava/lang/String;
+       4: ldc           #62                 // String OpenSSL
+       6: invokevirtual #63                 // Method java/lang/String.equalsIgnoreCase:(Ljava/lang/String;)Z
+       9: ifeq          61
+      12: invokestatic  #64                 // Method io/netty/handler/ssl/OpenSsl.isAvailable:()Z
+      15: ifeq          32
+      18: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      21: ldc           #65                 // String Security provider - OpenSSL
+      23: invokeinterface #66,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      28: getstatic     #67                 // Field io/netty/handler/ssl/SslProvider.OPENSSL:Lio/netty/handler/ssl/SslProvider;
+      31: areturn
+      32: invokestatic  #68                 // Method io/netty/handler/ssl/OpenSsl.unavailabilityCause:()Ljava/lang/Throwable;
+      35: astore_2
+      36: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      39: ldc           #69                 // String OpenSSL Unavailable:
+      41: aload_2
+      42: invokeinterface #14,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      47: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      50: ldc           #70                 // String Security provider - JDK
+      52: invokeinterface #66,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      57: getstatic     #71                 // Field io/netty/handler/ssl/SslProvider.JDK:Lio/netty/handler/ssl/SslProvider;
+      60: areturn
+      61: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      64: ldc           #70                 // String Security provider - JDK
+      66: invokeinterface #66,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      71: getstatic     #71                 // Field io/netty/handler/ssl/SslProvider.JDK:Lio/netty/handler/ssl/SslProvider;
+      74: areturn
+
+  private void createClientContext() throws org.apache.bookkeeper.tls.SecurityException, java.security.KeyStoreException, java.security.NoSuchAlgorithmException, java.security.cert.CertificateException, java.io.IOException, java.security.UnrecoverableKeyException, java.security.spec.InvalidKeySpecException, java.security.NoSuchProviderException;
+    Code:
+       0: aload_0
+       1: getfield      #72                 // Field config:Lorg/apache/bookkeeper/conf/AbstractConfiguration;
+       4: checkcast     #73                 // class org/apache/bookkeeper/conf/ClientConfiguration
+       7: astore_1
+       8: aload_0
+       9: aload_1
+      10: invokevirtual #74                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSCertificatePath:()Ljava/lang/String;
+      13: aload_1
+      14: invokevirtual #75                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStore:()Ljava/lang/String;
+      17: aload_1
+      18: invokevirtual #76                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStorePasswordPath:()Ljava/lang/String;
+      21: aload_1
+      22: invokevirtual #77                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSTrustStore:()Ljava/lang/String;
+      25: aload_1
+      26: invokevirtual #78                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSTrustStorePasswordPath:()Ljava/lang/String;
+      29: invokespecial #79                 // Method markAutoCertRefresh:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+      32: aload_0
+      33: invokespecial #80                 // Method updateClientContext:()V
+      36: return
+
+  private synchronized void updateClientContext() throws org.apache.bookkeeper.tls.SecurityException, java.security.KeyStoreException, java.security.NoSuchAlgorithmException, java.security.cert.CertificateException, java.io.IOException, java.security.UnrecoverableKeyException, java.security.spec.InvalidKeySpecException, java.security.NoSuchProviderException;
+    Code:
+       0: aload_0
+       1: getfield      #72                 // Field config:Lorg/apache/bookkeeper/conf/AbstractConfiguration;
+       4: instanceof    #73                 // class org/apache/bookkeeper/conf/ClientConfiguration
+       7: ifne          20
+      10: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+      13: dup
+      14: ldc           #81                 // String Client configruation not provided
+      16: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+      19: athrow
+      20: aload_0
+      21: getfield      #72                 // Field config:Lorg/apache/bookkeeper/conf/AbstractConfiguration;
+      24: checkcast     #73                 // class org/apache/bookkeeper/conf/ClientConfiguration
+      27: astore_2
+      28: aload_0
+      29: aload_2
+      30: invokevirtual #82                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSProvider:()Ljava/lang/String;
+      33: invokespecial #83                 // Method getTLSProvider:(Ljava/lang/String;)Lio/netty/handler/ssl/SslProvider;
+      36: astore_3
+      37: aload_2
+      38: invokevirtual #84                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSClientAuthentication:()Z
+      41: istore        4
+      43: getstatic     #85                 // Field org/apache/bookkeeper/tls/TLSContextFactory$1.$SwitchMap$org$apache$bookkeeper$tls$TLSContextFactory$KeyStoreType:[I
+      46: aload_2
+      47: invokevirtual #86                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSTrustStoreType:()Ljava/lang/String;
+      50: invokestatic  #87                 // Method org/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType.valueOf:(Ljava/lang/String;)Lorg/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType;
+      53: invokevirtual #88                 // Method org/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType.ordinal:()I
+      56: iaload
+      57: tableswitch   { // 1 to 3
+                     1: 84
+                     2: 147
+                     3: 147
+               default: 199
+          }
+      84: aload_2
+      85: invokevirtual #77                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSTrustStore:()Ljava/lang/String;
+      88: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+      91: ifeq          104
+      94: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+      97: dup
+      98: ldc           #89                 // String CA Certificate required
+     100: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+     103: athrow
+     104: invokestatic  #90                 // Method io/netty/handler/ssl/SslContextBuilder.forClient:()Lio/netty/handler/ssl/SslContextBuilder;
+     107: new           #30                 // class java/io/File
+     110: dup
+     111: aload_2
+     112: invokevirtual #77                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSTrustStore:()Ljava/lang/String;
+     115: invokespecial #31                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+     118: invokevirtual #91                 // Method io/netty/handler/ssl/SslContextBuilder.trustManager:(Ljava/io/File;)Lio/netty/handler/ssl/SslContextBuilder;
+     121: aconst_null
+     122: invokevirtual #92                 // Method io/netty/handler/ssl/SslContextBuilder.ciphers:(Ljava/lang/Iterable;)Lio/netty/handler/ssl/SslContextBuilder;
+     125: lconst_0
+     126: invokevirtual #93                 // Method io/netty/handler/ssl/SslContextBuilder.sessionCacheSize:(J)Lio/netty/handler/ssl/SslContextBuilder;
+     129: lconst_0
+     130: invokevirtual #94                 // Method io/netty/handler/ssl/SslContextBuilder.sessionTimeout:(J)Lio/netty/handler/ssl/SslContextBuilder;
+     133: aload_3
+     134: invokevirtual #95                 // Method io/netty/handler/ssl/SslContextBuilder.sslProvider:(Lio/netty/handler/ssl/SslProvider;)Lio/netty/handler/ssl/SslContextBuilder;
+     137: getstatic     #96                 // Field io/netty/handler/ssl/ClientAuth.REQUIRE:Lio/netty/handler/ssl/ClientAuth;
+     140: invokevirtual #97                 // Method io/netty/handler/ssl/SslContextBuilder.clientAuth:(Lio/netty/handler/ssl/ClientAuth;)Lio/netty/handler/ssl/SslContextBuilder;
+     143: astore_1
+     144: goto          229
+     147: aload_0
+     148: aload_2
+     149: invokevirtual #86                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSTrustStoreType:()Ljava/lang/String;
+     152: aload_2
+     153: invokevirtual #77                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSTrustStore:()Ljava/lang/String;
+     156: aload_2
+     157: invokevirtual #78                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSTrustStorePasswordPath:()Ljava/lang/String;
+     160: invokespecial #98                 // Method initTrustManagerFactory:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljavax/net/ssl/TrustManagerFactory;
+     163: astore        5
+     165: invokestatic  #90                 // Method io/netty/handler/ssl/SslContextBuilder.forClient:()Lio/netty/handler/ssl/SslContextBuilder;
+     168: aload         5
+     170: invokevirtual #99                 // Method io/netty/handler/ssl/SslContextBuilder.trustManager:(Ljavax/net/ssl/TrustManagerFactory;)Lio/netty/handler/ssl/SslContextBuilder;
+     173: aconst_null
+     174: invokevirtual #92                 // Method io/netty/handler/ssl/SslContextBuilder.ciphers:(Ljava/lang/Iterable;)Lio/netty/handler/ssl/SslContextBuilder;
+     177: lconst_0
+     178: invokevirtual #93                 // Method io/netty/handler/ssl/SslContextBuilder.sessionCacheSize:(J)Lio/netty/handler/ssl/SslContextBuilder;
+     181: lconst_0
+     182: invokevirtual #94                 // Method io/netty/handler/ssl/SslContextBuilder.sessionTimeout:(J)Lio/netty/handler/ssl/SslContextBuilder;
+     185: aload_3
+     186: invokevirtual #95                 // Method io/netty/handler/ssl/SslContextBuilder.sslProvider:(Lio/netty/handler/ssl/SslProvider;)Lio/netty/handler/ssl/SslContextBuilder;
+     189: getstatic     #96                 // Field io/netty/handler/ssl/ClientAuth.REQUIRE:Lio/netty/handler/ssl/ClientAuth;
+     192: invokevirtual #97                 // Method io/netty/handler/ssl/SslContextBuilder.clientAuth:(Lio/netty/handler/ssl/ClientAuth;)Lio/netty/handler/ssl/SslContextBuilder;
+     195: astore_1
+     196: goto          229
+     199: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     202: dup
+     203: new           #100                // class java/lang/StringBuilder
+     206: dup
+     207: invokespecial #101                // Method java/lang/StringBuilder."<init>":()V
+     210: ldc           #102                // String Invalid Truststore type:
+     212: invokevirtual #103                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     215: aload_2
+     216: invokevirtual #86                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSTrustStoreType:()Ljava/lang/String;
+     219: invokevirtual #103                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     222: invokevirtual #104                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     225: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+     228: athrow
+     229: iload         4
+     231: ifeq          432
+     234: getstatic     #85                 // Field org/apache/bookkeeper/tls/TLSContextFactory$1.$SwitchMap$org$apache$bookkeeper$tls$TLSContextFactory$KeyStoreType:[I
+     237: aload_2
+     238: invokevirtual #105                // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStoreType:()Ljava/lang/String;
+     241: invokestatic  #87                 // Method org/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType.valueOf:(Ljava/lang/String;)Lorg/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType;
+     244: invokevirtual #88                 // Method org/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType.ordinal:()I
+     247: iaload
+     248: tableswitch   { // 1 to 3
+                     1: 276
+                     2: 374
+                     3: 374
+               default: 402
+          }
+     276: aload_2
+     277: invokevirtual #74                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSCertificatePath:()Ljava/lang/String;
+     280: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+     283: ifeq          296
+     286: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     289: dup
+     290: ldc           #106                // String Valid Certificate is missing
+     292: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+     295: athrow
+     296: aload_2
+     297: invokevirtual #75                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStore:()Ljava/lang/String;
+     300: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+     303: ifeq          316
+     306: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     309: dup
+     310: ldc           #107                // String Valid Key is missing
+     312: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+     315: athrow
+     316: aload_2
+     317: invokevirtual #76                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStorePasswordPath:()Ljava/lang/String;
+     320: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+     323: ifne          339
+     326: aload_0
+     327: aload_2
+     328: invokevirtual #76                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStorePasswordPath:()Ljava/lang/String;
+     331: invokespecial #53                 // Method getPasswordFromFile:(Ljava/lang/String;)Ljava/lang/String;
+     334: astore        5
+     336: goto          342
+     339: aconst_null
+     340: astore        5
+     342: aload_1
+     343: new           #30                 // class java/io/File
+     346: dup
+     347: aload_2
+     348: invokevirtual #74                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSCertificatePath:()Ljava/lang/String;
+     351: invokespecial #31                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+     354: new           #30                 // class java/io/File
+     357: dup
+     358: aload_2
+     359: invokevirtual #75                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStore:()Ljava/lang/String;
+     362: invokespecial #31                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+     365: aload         5
+     367: invokevirtual #108                // Method io/netty/handler/ssl/SslContextBuilder.keyManager:(Ljava/io/File;Ljava/io/File;Ljava/lang/String;)Lio/netty/handler/ssl/SslContextBuilder;
+     370: pop
+     371: goto          432
+     374: aload_0
+     375: aload_2
+     376: invokevirtual #105                // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStoreType:()Ljava/lang/String;
+     379: aload_2
+     380: invokevirtual #75                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStore:()Ljava/lang/String;
+     383: aload_2
+     384: invokevirtual #76                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStorePasswordPath:()Ljava/lang/String;
+     387: invokespecial #109                // Method initKeyManagerFactory:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljavax/net/ssl/KeyManagerFactory;
+     390: astore        6
+     392: aload_1
+     393: aload         6
+     395: invokevirtual #110                // Method io/netty/handler/ssl/SslContextBuilder.keyManager:(Ljavax/net/ssl/KeyManagerFactory;)Lio/netty/handler/ssl/SslContextBuilder;
+     398: pop
+     399: goto          432
+     402: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     405: dup
+     406: new           #100                // class java/lang/StringBuilder
+     409: dup
+     410: invokespecial #101                // Method java/lang/StringBuilder."<init>":()V
+     413: ldc           #111                // String Invalid Keyfile type
+     415: invokevirtual #103                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     418: aload_2
+     419: invokevirtual #105                // Method org/apache/bookkeeper/conf/ClientConfiguration.getTLSKeyStoreType:()Ljava/lang/String;
+     422: invokevirtual #103                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     425: invokevirtual #104                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     428: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+     431: athrow
+     432: aload_0
+     433: aload_1
+     434: invokevirtual #112                // Method io/netty/handler/ssl/SslContextBuilder.build:()Lio/netty/handler/ssl/SslContext;
+     437: putfield      #113                // Field sslContext:Lio/netty/handler/ssl/SslContext;
+     440: aload_0
+     441: invokestatic  #114                // Method java/lang/System.currentTimeMillis:()J
+     444: putfield      #115                // Field certLastRefreshTime:J
+     447: return
+
+  private void createServerContext() throws org.apache.bookkeeper.tls.SecurityException, java.security.KeyStoreException, java.security.NoSuchAlgorithmException, java.security.cert.CertificateException, java.io.IOException, java.security.UnrecoverableKeyException, java.security.spec.InvalidKeySpecException, java.lang.IllegalArgumentException;
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: putfield      #116                // Field isServerCtx:Z
+       5: aload_0
+       6: getfield      #72                 // Field config:Lorg/apache/bookkeeper/conf/AbstractConfiguration;
+       9: checkcast     #117                // class org/apache/bookkeeper/conf/ServerConfiguration
+      12: astore_1
+      13: aload_0
+      14: aload_1
+      15: invokevirtual #118                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSCertificatePath:()Ljava/lang/String;
+      18: aload_1
+      19: invokevirtual #119                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStore:()Ljava/lang/String;
+      22: aload_1
+      23: invokevirtual #120                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStorePasswordPath:()Ljava/lang/String;
+      26: aload_1
+      27: invokevirtual #121                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSTrustStore:()Ljava/lang/String;
+      30: aload_1
+      31: invokevirtual #122                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSTrustStorePasswordPath:()Ljava/lang/String;
+      34: invokespecial #79                 // Method markAutoCertRefresh:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+      37: aload_0
+      38: invokespecial #123                // Method updateServerContext:()V
+      41: return
+
+  private synchronized io.netty.handler.ssl.SslContext getSSLContext();
+    Code:
+       0: invokestatic  #114                // Method java/lang/System.currentTimeMillis:()J
+       3: lstore_1
+       4: aload_0
+       5: getfield      #124                // Field certRefreshTime:J
+       8: lconst_0
+       9: lcmp
+      10: ifle          154
+      13: lload_1
+      14: aload_0
+      15: getfield      #115                // Field certLastRefreshTime:J
+      18: aload_0
+      19: getfield      #124                // Field certRefreshTime:J
+      22: ladd
+      23: lcmp
+      24: ifle          154
+      27: aload_0
+      28: getfield      #125                // Field tlsCertificateFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      31: invokevirtual #126                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater.checkAndRefresh:()Z
+      34: ifne          77
+      37: aload_0
+      38: getfield      #127                // Field tlsKeyStoreFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      41: invokevirtual #126                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater.checkAndRefresh:()Z
+      44: ifne          77
+      47: aload_0
+      48: getfield      #128                // Field tlsKeyStorePasswordFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      51: invokevirtual #126                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater.checkAndRefresh:()Z
+      54: ifne          77
+      57: aload_0
+      58: getfield      #129                // Field tlsTrustStoreFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      61: invokevirtual #126                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater.checkAndRefresh:()Z
+      64: ifne          77
+      67: aload_0
+      68: getfield      #130                // Field tlsTrustStorePasswordFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      71: invokevirtual #126                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater.checkAndRefresh:()Z
+      74: ifeq          154
+      77: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      80: ldc           #131                // String Updating tls certs certFile={}, keyStoreFile={}, trustStoreFile={}
+      82: iconst_3
+      83: anewarray     #25                 // class java/lang/Object
+      86: dup
+      87: iconst_0
+      88: aload_0
+      89: getfield      #125                // Field tlsCertificateFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      92: invokevirtual #132                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater.getFileName:()Ljava/lang/String;
+      95: aastore
+      96: dup
+      97: iconst_1
+      98: aload_0
+      99: getfield      #127                // Field tlsKeyStoreFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+     102: invokevirtual #132                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater.getFileName:()Ljava/lang/String;
+     105: aastore
+     106: dup
+     107: iconst_2
+     108: aload_0
+     109: getfield      #129                // Field tlsTrustStoreFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+     112: invokevirtual #132                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater.getFileName:()Ljava/lang/String;
+     115: aastore
+     116: invokeinterface #133,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+     121: aload_0
+     122: getfield      #116                // Field isServerCtx:Z
+     125: ifeq          135
+     128: aload_0
+     129: invokespecial #123                // Method updateServerContext:()V
+     132: goto          139
+     135: aload_0
+     136: invokespecial #80                 // Method updateClientContext:()V
+     139: goto          154
+     142: astore_3
+     143: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+     146: ldc           #134                // String Failed to refresh tls certs
+     148: aload_3
+     149: invokeinterface #135,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     154: aload_0
+     155: getfield      #113                // Field sslContext:Lio/netty/handler/ssl/SslContext;
+     158: areturn
+    Exception table:
+       from    to  target type
+          77   139   142   Class java/lang/Exception
+
+  private synchronized void updateServerContext() throws org.apache.bookkeeper.tls.SecurityException, java.security.KeyStoreException, java.security.NoSuchAlgorithmException, java.security.cert.CertificateException, java.io.IOException, java.security.UnrecoverableKeyException, java.security.spec.InvalidKeySpecException, java.lang.IllegalArgumentException;
+    Code:
+       0: aload_0
+       1: getfield      #72                 // Field config:Lorg/apache/bookkeeper/conf/AbstractConfiguration;
+       4: instanceof    #117                // class org/apache/bookkeeper/conf/ServerConfiguration
+       7: ifne          20
+      10: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+      13: dup
+      14: ldc           #136                // String Server configruation not provided
+      16: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+      19: athrow
+      20: aload_0
+      21: getfield      #72                 // Field config:Lorg/apache/bookkeeper/conf/AbstractConfiguration;
+      24: checkcast     #117                // class org/apache/bookkeeper/conf/ServerConfiguration
+      27: astore_2
+      28: aload_0
+      29: aload_2
+      30: invokevirtual #137                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSProvider:()Ljava/lang/String;
+      33: invokespecial #83                 // Method getTLSProvider:(Ljava/lang/String;)Lio/netty/handler/ssl/SslProvider;
+      36: astore_3
+      37: aload_2
+      38: invokevirtual #138                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSClientAuthentication:()Z
+      41: istore        4
+      43: getstatic     #85                 // Field org/apache/bookkeeper/tls/TLSContextFactory$1.$SwitchMap$org$apache$bookkeeper$tls$TLSContextFactory$KeyStoreType:[I
+      46: aload_2
+      47: invokevirtual #139                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStoreType:()Ljava/lang/String;
+      50: invokestatic  #87                 // Method org/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType.valueOf:(Ljava/lang/String;)Lorg/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType;
+      53: invokevirtual #88                 // Method org/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType.ordinal:()I
+      56: iaload
+      57: tableswitch   { // 1 to 3
+                     1: 84
+                     2: 201
+                     3: 201
+               default: 248
+          }
+      84: aload_2
+      85: invokevirtual #119                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStore:()Ljava/lang/String;
+      88: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+      91: ifeq          104
+      94: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+      97: dup
+      98: ldc           #140                // String Key path is required
+     100: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+     103: athrow
+     104: aload_2
+     105: invokevirtual #118                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSCertificatePath:()Ljava/lang/String;
+     108: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+     111: ifeq          124
+     114: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     117: dup
+     118: ldc           #141                // String Certificate path is required
+     120: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+     123: athrow
+     124: aload_2
+     125: invokevirtual #120                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStorePasswordPath:()Ljava/lang/String;
+     128: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+     131: ifne          147
+     134: aload_0
+     135: aload_2
+     136: invokevirtual #120                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStorePasswordPath:()Ljava/lang/String;
+     139: invokespecial #53                 // Method getPasswordFromFile:(Ljava/lang/String;)Ljava/lang/String;
+     142: astore        5
+     144: goto          150
+     147: aconst_null
+     148: astore        5
+     150: new           #30                 // class java/io/File
+     153: dup
+     154: aload_2
+     155: invokevirtual #118                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSCertificatePath:()Ljava/lang/String;
+     158: invokespecial #31                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+     161: new           #30                 // class java/io/File
+     164: dup
+     165: aload_2
+     166: invokevirtual #119                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStore:()Ljava/lang/String;
+     169: invokespecial #31                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+     172: aload         5
+     174: invokestatic  #142                // Method io/netty/handler/ssl/SslContextBuilder.forServer:(Ljava/io/File;Ljava/io/File;Ljava/lang/String;)Lio/netty/handler/ssl/SslContextBuilder;
+     177: aconst_null
+     178: invokevirtual #92                 // Method io/netty/handler/ssl/SslContextBuilder.ciphers:(Ljava/lang/Iterable;)Lio/netty/handler/ssl/SslContextBuilder;
+     181: lconst_0
+     182: invokevirtual #93                 // Method io/netty/handler/ssl/SslContextBuilder.sessionCacheSize:(J)Lio/netty/handler/ssl/SslContextBuilder;
+     185: lconst_0
+     186: invokevirtual #94                 // Method io/netty/handler/ssl/SslContextBuilder.sessionTimeout:(J)Lio/netty/handler/ssl/SslContextBuilder;
+     189: aload_3
+     190: invokevirtual #95                 // Method io/netty/handler/ssl/SslContextBuilder.sslProvider:(Lio/netty/handler/ssl/SslProvider;)Lio/netty/handler/ssl/SslContextBuilder;
+     193: iconst_1
+     194: invokevirtual #143                // Method io/netty/handler/ssl/SslContextBuilder.startTls:(Z)Lio/netty/handler/ssl/SslContextBuilder;
+     197: astore_1
+     198: goto          278
+     201: aload_0
+     202: aload_2
+     203: invokevirtual #139                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStoreType:()Ljava/lang/String;
+     206: aload_2
+     207: invokevirtual #119                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStore:()Ljava/lang/String;
+     210: aload_2
+     211: invokevirtual #120                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStorePasswordPath:()Ljava/lang/String;
+     214: invokespecial #109                // Method initKeyManagerFactory:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljavax/net/ssl/KeyManagerFactory;
+     217: astore        6
+     219: aload         6
+     221: invokestatic  #144                // Method io/netty/handler/ssl/SslContextBuilder.forServer:(Ljavax/net/ssl/KeyManagerFactory;)Lio/netty/handler/ssl/SslContextBuilder;
+     224: aconst_null
+     225: invokevirtual #92                 // Method io/netty/handler/ssl/SslContextBuilder.ciphers:(Ljava/lang/Iterable;)Lio/netty/handler/ssl/SslContextBuilder;
+     228: lconst_0
+     229: invokevirtual #93                 // Method io/netty/handler/ssl/SslContextBuilder.sessionCacheSize:(J)Lio/netty/handler/ssl/SslContextBuilder;
+     232: lconst_0
+     233: invokevirtual #94                 // Method io/netty/handler/ssl/SslContextBuilder.sessionTimeout:(J)Lio/netty/handler/ssl/SslContextBuilder;
+     236: aload_3
+     237: invokevirtual #95                 // Method io/netty/handler/ssl/SslContextBuilder.sslProvider:(Lio/netty/handler/ssl/SslProvider;)Lio/netty/handler/ssl/SslContextBuilder;
+     240: iconst_1
+     241: invokevirtual #143                // Method io/netty/handler/ssl/SslContextBuilder.startTls:(Z)Lio/netty/handler/ssl/SslContextBuilder;
+     244: astore_1
+     245: goto          278
+     248: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     251: dup
+     252: new           #100                // class java/lang/StringBuilder
+     255: dup
+     256: invokespecial #101                // Method java/lang/StringBuilder."<init>":()V
+     259: ldc           #111                // String Invalid Keyfile type
+     261: invokevirtual #103                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     264: aload_2
+     265: invokevirtual #139                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSKeyStoreType:()Ljava/lang/String;
+     268: invokevirtual #103                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     271: invokevirtual #104                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     274: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+     277: athrow
+     278: iload         4
+     280: ifeq          429
+     283: aload_1
+     284: getstatic     #96                 // Field io/netty/handler/ssl/ClientAuth.REQUIRE:Lio/netty/handler/ssl/ClientAuth;
+     287: invokevirtual #97                 // Method io/netty/handler/ssl/SslContextBuilder.clientAuth:(Lio/netty/handler/ssl/ClientAuth;)Lio/netty/handler/ssl/SslContextBuilder;
+     290: pop
+     291: getstatic     #85                 // Field org/apache/bookkeeper/tls/TLSContextFactory$1.$SwitchMap$org$apache$bookkeeper$tls$TLSContextFactory$KeyStoreType:[I
+     294: aload_2
+     295: invokevirtual #145                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSTrustStoreType:()Ljava/lang/String;
+     298: invokestatic  #87                 // Method org/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType.valueOf:(Ljava/lang/String;)Lorg/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType;
+     301: invokevirtual #88                 // Method org/apache/bookkeeper/tls/TLSContextFactory$KeyStoreType.ordinal:()I
+     304: iaload
+     305: tableswitch   { // 1 to 3
+                     1: 332
+                     2: 371
+                     3: 371
+               default: 399
+          }
+     332: aload_2
+     333: invokevirtual #121                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSTrustStore:()Ljava/lang/String;
+     336: invokestatic  #48                 // Method com/google/common/base/Strings.isNullOrEmpty:(Ljava/lang/String;)Z
+     339: ifeq          352
+     342: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     345: dup
+     346: ldc           #146                // String CA Certificate chain is required
+     348: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+     351: athrow
+     352: aload_1
+     353: new           #30                 // class java/io/File
+     356: dup
+     357: aload_2
+     358: invokevirtual #121                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSTrustStore:()Ljava/lang/String;
+     361: invokespecial #31                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+     364: invokevirtual #91                 // Method io/netty/handler/ssl/SslContextBuilder.trustManager:(Ljava/io/File;)Lio/netty/handler/ssl/SslContextBuilder;
+     367: pop
+     368: goto          429
+     371: aload_0
+     372: aload_2
+     373: invokevirtual #145                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSTrustStoreType:()Ljava/lang/String;
+     376: aload_2
+     377: invokevirtual #121                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSTrustStore:()Ljava/lang/String;
+     380: aload_2
+     381: invokevirtual #122                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSTrustStorePasswordPath:()Ljava/lang/String;
+     384: invokespecial #98                 // Method initTrustManagerFactory:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljavax/net/ssl/TrustManagerFactory;
+     387: astore        5
+     389: aload_1
+     390: aload         5
+     392: invokevirtual #99                 // Method io/netty/handler/ssl/SslContextBuilder.trustManager:(Ljavax/net/ssl/TrustManagerFactory;)Lio/netty/handler/ssl/SslContextBuilder;
+     395: pop
+     396: goto          429
+     399: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     402: dup
+     403: new           #100                // class java/lang/StringBuilder
+     406: dup
+     407: invokespecial #101                // Method java/lang/StringBuilder."<init>":()V
+     410: ldc           #147                // String Invalid Truststore type
+     412: invokevirtual #103                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     415: aload_2
+     416: invokevirtual #145                // Method org/apache/bookkeeper/conf/ServerConfiguration.getTLSTrustStoreType:()Ljava/lang/String;
+     419: invokevirtual #103                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     422: invokevirtual #104                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     425: invokespecial #52                 // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;)V
+     428: athrow
+     429: aload_0
+     430: aload_1
+     431: invokevirtual #112                // Method io/netty/handler/ssl/SslContextBuilder.build:()Lio/netty/handler/ssl/SslContext;
+     434: putfield      #113                // Field sslContext:Lio/netty/handler/ssl/SslContext;
+     437: aload_0
+     438: invokestatic  #114                // Method java/lang/System.currentTimeMillis:()J
+     441: putfield      #115                // Field certLastRefreshTime:J
+     444: return
+
+  public synchronized void init(org.apache.bookkeeper.tls.SecurityHandlerFactory$NodeType, org.apache.bookkeeper.conf.AbstractConfiguration, io.netty.buffer.ByteBufAllocator) throws org.apache.bookkeeper.tls.SecurityException;
+    Code:
+       0: aload_0
+       1: aload_3
+       2: putfield      #148                // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+       5: aload_0
+       6: aload_2
+       7: putfield      #72                 // Field config:Lorg/apache/bookkeeper/conf/AbstractConfiguration;
+      10: aload_0
+      11: getstatic     #149                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      14: aload_2
+      15: invokevirtual #150                // Method org/apache/bookkeeper/conf/AbstractConfiguration.getTLSCertFilesRefreshDurationSeconds:()J
+      18: invokevirtual #151                // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+      21: putfield      #124                // Field certRefreshTime:J
+      24: aload_2
+      25: invokevirtual #152                // Method org/apache/bookkeeper/conf/AbstractConfiguration.getTLSEnabledCipherSuites:()Ljava/lang/String;
+      28: astore        5
+      30: aload_2
+      31: invokevirtual #153                // Method org/apache/bookkeeper/conf/AbstractConfiguration.getTLSEnabledProtocols:()Ljava/lang/String;
+      34: astore        4
+      36: getstatic     #154                // Field org/apache/bookkeeper/tls/TLSContextFactory$1.$SwitchMap$org$apache$bookkeeper$tls$SecurityHandlerFactory$NodeType:[I
+      39: aload_1
+      40: invokevirtual #155                // Method org/apache/bookkeeper/tls/SecurityHandlerFactory$NodeType.ordinal:()I
+      43: iaload
+      44: lookupswitch  { // 2
+                     1: 72
+                     2: 79
+               default: 86
+          }
+      72: aload_0
+      73: invokespecial #156                // Method createClientContext:()V
+      76: goto          103
+      79: aload_0
+      80: invokespecial #157                // Method createServerContext:()V
+      83: goto          103
+      86: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+      89: dup
+      90: new           #158                // class java/lang/IllegalArgumentException
+      93: dup
+      94: ldc           #159                // String Invalid NodeType
+      96: invokespecial #160                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      99: invokespecial #161                // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/Throwable;)V
+     102: athrow
+     103: aload         4
+     105: ifnull        127
+     108: aload         4
+     110: invokevirtual #162                // Method java/lang/String.isEmpty:()Z
+     113: ifne          127
+     116: aload_0
+     117: aload         4
+     119: ldc           #163                // String ,
+     121: invokevirtual #164                // Method java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+     124: putfield      #165                // Field protocols:[Ljava/lang/String;
+     127: aload         5
+     129: ifnull        151
+     132: aload         5
+     134: invokevirtual #162                // Method java/lang/String.isEmpty:()Z
+     137: ifne          151
+     140: aload_0
+     141: aload         5
+     143: ldc           #163                // String ,
+     145: invokevirtual #164                // Method java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+     148: putfield      #166                // Field ciphers:[Ljava/lang/String;
+     151: goto          266
+     154: astore        6
+     156: new           #15                 // class java/lang/RuntimeException
+     159: dup
+     160: ldc           #168                // String Standard keystore type missing
+     162: aload         6
+     164: invokespecial #169                // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     167: athrow
+     168: astore        6
+     170: new           #15                 // class java/lang/RuntimeException
+     173: dup
+     174: ldc           #171                // String Standard algorithm missing
+     176: aload         6
+     178: invokespecial #169                // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     181: athrow
+     182: astore        6
+     184: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     187: dup
+     188: ldc           #173                // String Unable to load keystore
+     190: aload         6
+     192: invokespecial #174                // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     195: athrow
+     196: astore        6
+     198: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     201: dup
+     202: ldc           #176                // String Error initializing SSLContext
+     204: aload         6
+     206: invokespecial #174                // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     209: athrow
+     210: astore        6
+     212: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     215: dup
+     216: ldc           #178                // String Unable to load key manager, possibly bad password
+     218: aload         6
+     220: invokespecial #174                // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     223: athrow
+     224: astore        6
+     226: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     229: dup
+     230: ldc           #180                // String Unable to load key manager
+     232: aload         6
+     234: invokespecial #174                // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     237: athrow
+     238: astore        6
+     240: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     243: dup
+     244: ldc           #181                // String Invalid TLS configuration
+     246: aload         6
+     248: invokespecial #174                // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     251: athrow
+     252: astore        6
+     254: new           #51                 // class org/apache/bookkeeper/tls/SecurityException
+     257: dup
+     258: ldc           #183                // String No such provider
+     260: aload         6
+     262: invokespecial #174                // Method org/apache/bookkeeper/tls/SecurityException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     265: athrow
+     266: return
+    Exception table:
+       from    to  target type
+          36   151   154   Class java/security/KeyStoreException
+          36   151   168   Class java/security/NoSuchAlgorithmException
+          36   151   182   Class java/security/cert/CertificateException
+          36   151   196   Class java/io/IOException
+          36   151   210   Class java/security/UnrecoverableKeyException
+          36   151   224   Class java/security/spec/InvalidKeySpecException
+          36   151   238   Class java/lang/IllegalArgumentException
+          36   151   252   Class java/security/NoSuchProviderException
+
+  public io.netty.handler.ssl.SslHandler newTLSHandler();
+    Code:
+       0: aload_0
+       1: invokespecial #184                // Method getSSLContext:()Lio/netty/handler/ssl/SslContext;
+       4: aload_0
+       5: getfield      #148                // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+       8: invokevirtual #185                // Method io/netty/handler/ssl/SslContext.newHandler:(Lio/netty/buffer/ByteBufAllocator;)Lio/netty/handler/ssl/SslHandler;
+      11: astore_1
+      12: aload_0
+      13: getfield      #165                // Field protocols:[Ljava/lang/String;
+      16: ifnull        38
+      19: aload_0
+      20: getfield      #165                // Field protocols:[Ljava/lang/String;
+      23: arraylength
+      24: ifeq          38
+      27: aload_1
+      28: invokevirtual #186                // Method io/netty/handler/ssl/SslHandler.engine:()Ljavax/net/ssl/SSLEngine;
+      31: aload_0
+      32: getfield      #165                // Field protocols:[Ljava/lang/String;
+      35: invokevirtual #187                // Method javax/net/ssl/SSLEngine.setEnabledProtocols:([Ljava/lang/String;)V
+      38: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      41: invokeinterface #7,  1            // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      46: ifeq          69
+      49: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      52: ldc           #188                // String Enabled cipher protocols: {}
+      54: aload_1
+      55: invokevirtual #186                // Method io/netty/handler/ssl/SslHandler.engine:()Ljavax/net/ssl/SSLEngine;
+      58: invokevirtual #189                // Method javax/net/ssl/SSLEngine.getEnabledProtocols:()[Ljava/lang/String;
+      61: invokestatic  #190                // Method java/util/Arrays.toString:([Ljava/lang/Object;)Ljava/lang/String;
+      64: invokeinterface #10,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      69: aload_0
+      70: getfield      #166                // Field ciphers:[Ljava/lang/String;
+      73: ifnull        95
+      76: aload_0
+      77: getfield      #166                // Field ciphers:[Ljava/lang/String;
+      80: arraylength
+      81: ifeq          95
+      84: aload_1
+      85: invokevirtual #186                // Method io/netty/handler/ssl/SslHandler.engine:()Ljavax/net/ssl/SSLEngine;
+      88: aload_0
+      89: getfield      #166                // Field ciphers:[Ljava/lang/String;
+      92: invokevirtual #191                // Method javax/net/ssl/SSLEngine.setEnabledCipherSuites:([Ljava/lang/String;)V
+      95: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+      98: invokeinterface #7,  1            // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     103: ifeq          126
+     106: getstatic     #6                  // Field log:Lorg/slf4j/Logger;
+     109: ldc           #192                // String Enabled cipher suites: {}
+     111: aload_1
+     112: invokevirtual #186                // Method io/netty/handler/ssl/SslHandler.engine:()Ljavax/net/ssl/SSLEngine;
+     115: invokevirtual #193                // Method javax/net/ssl/SSLEngine.getEnabledCipherSuites:()[Ljava/lang/String;
+     118: invokestatic  #190                // Method java/util/Arrays.toString:([Ljava/lang/Object;)Ljava/lang/String;
+     121: invokeinterface #10,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     126: aload_1
+     127: areturn
+
+  private void markAutoCertRefresh(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+    Code:
+       0: aload_0
+       1: new           #194                // class org/apache/bookkeeper/tls/FileModifiedTimeUpdater
+       4: dup
+       5: aload_1
+       6: invokespecial #195                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater."<init>":(Ljava/lang/String;)V
+       9: putfield      #125                // Field tlsCertificateFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      12: aload_0
+      13: new           #194                // class org/apache/bookkeeper/tls/FileModifiedTimeUpdater
+      16: dup
+      17: aload_2
+      18: invokespecial #195                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater."<init>":(Ljava/lang/String;)V
+      21: putfield      #127                // Field tlsKeyStoreFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      24: aload_0
+      25: new           #194                // class org/apache/bookkeeper/tls/FileModifiedTimeUpdater
+      28: dup
+      29: aload_3
+      30: invokespecial #195                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater."<init>":(Ljava/lang/String;)V
+      33: putfield      #128                // Field tlsKeyStorePasswordFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      36: aload_0
+      37: new           #194                // class org/apache/bookkeeper/tls/FileModifiedTimeUpdater
+      40: dup
+      41: aload         4
+      43: invokespecial #195                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater."<init>":(Ljava/lang/String;)V
+      46: putfield      #129                // Field tlsTrustStoreFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      49: aload_0
+      50: new           #194                // class org/apache/bookkeeper/tls/FileModifiedTimeUpdater
+      53: dup
+      54: aload         5
+      56: invokespecial #195                // Method org/apache/bookkeeper/tls/FileModifiedTimeUpdater."<init>":(Ljava/lang/String;)V
+      59: putfield      #130                // Field tlsTrustStorePasswordFilePath:Lorg/apache/bookkeeper/tls/FileModifiedTimeUpdater;
+      62: return
+
+  static {};
+    Code:
+       0: ldc           #2                  // class org/apache/bookkeeper/tls/TLSContextFactory
+       2: invokestatic  #196                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #6                  // Field log:Lorg/slf4j/Logger;
+       8: invokestatic  #197                // Method getProvider:()Ljava/security/Provider;
+      11: putstatic     #198                // Field BC_PROVIDER:Ljava/security/Provider;
+      14: return
+}

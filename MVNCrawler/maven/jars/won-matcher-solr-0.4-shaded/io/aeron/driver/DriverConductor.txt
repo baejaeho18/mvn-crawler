@@ -1,0 +1,2277 @@
+Compiled from "DriverConductor.java"
+public class io.aeron.driver.DriverConductor implements org.agrona.concurrent.Agent {
+  private final long imageLivenessTimeoutNs;
+
+  private final long clientLivenessTimeoutNs;
+
+  private final long publicationUnblockTimeoutNs;
+
+  private long timeOfLastToDriverPositionChange;
+
+  private long lastConsumerCommandPosition;
+
+  private long timeOfLastTimeoutCheck;
+
+  private int nextSessionId;
+
+  private final io.aeron.driver.NetworkPublicationThreadLocals networkPublicationThreadLocals;
+
+  private final io.aeron.driver.MediaDriver$Context context;
+
+  private final io.aeron.driver.buffer.RawLogFactory rawLogFactory;
+
+  private final io.aeron.driver.ReceiverProxy receiverProxy;
+
+  private final io.aeron.driver.SenderProxy senderProxy;
+
+  private final io.aeron.driver.ClientProxy clientProxy;
+
+  private final io.aeron.driver.DriverConductorProxy fromReceiverConductorProxy;
+
+  private final org.agrona.concurrent.ringbuffer.RingBuffer toDriverCommands;
+
+  private final org.agrona.concurrent.OneToOneConcurrentArrayQueue<io.aeron.driver.cmd.DriverConductorCmd> fromReceiverDriverConductorCmdQueue;
+
+  private final org.agrona.concurrent.OneToOneConcurrentArrayQueue<io.aeron.driver.cmd.DriverConductorCmd> fromSenderDriverConductorCmdQueue;
+
+  private final java.util.HashMap<java.lang.String, io.aeron.driver.media.SendChannelEndpoint> sendChannelEndpointByChannelMap;
+
+  private final java.util.HashMap<java.lang.String, io.aeron.driver.media.ReceiveChannelEndpoint> receiveChannelEndpointByChannelMap;
+
+  private final java.util.ArrayList<io.aeron.driver.PublicationLink> publicationLinks;
+
+  private final java.util.ArrayList<io.aeron.driver.NetworkPublication> networkPublications;
+
+  private final java.util.ArrayList<io.aeron.driver.SubscriptionLink> subscriptionLinks;
+
+  private final java.util.ArrayList<io.aeron.driver.PublicationImage> publicationImages;
+
+  private final java.util.ArrayList<io.aeron.driver.AeronClient> clients;
+
+  private final java.util.ArrayList<io.aeron.driver.DirectPublication> directPublications;
+
+  private final io.aeron.command.PublicationMessageFlyweight publicationMsgFlyweight;
+
+  private final io.aeron.command.SubscriptionMessageFlyweight subscriptionMsgFlyweight;
+
+  private final io.aeron.command.CorrelatedMessageFlyweight correlatedMsgFlyweight;
+
+  private final io.aeron.command.RemoveMessageFlyweight removeMsgFlyweight;
+
+  private final org.agrona.concurrent.EpochClock epochClock;
+
+  private final org.agrona.concurrent.NanoClock nanoClock;
+
+  private final org.agrona.concurrent.errors.DistinctErrorLog errorLog;
+
+  private final java.util.function.Consumer<io.aeron.driver.cmd.DriverConductorCmd> onDriverConductorCmdFunc;
+
+  private final org.agrona.concurrent.MessageHandler onClientCommandFunc;
+
+  private final org.agrona.concurrent.status.CountersManager countersManager;
+
+  private final org.agrona.concurrent.status.AtomicCounter clientKeepAlives;
+
+  private final org.agrona.concurrent.status.AtomicCounter errors;
+
+  public io.aeron.driver.DriverConductor(io.aeron.driver.MediaDriver$Context);
+    Code:
+       0: aload_0
+       1: invokespecial #3                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: invokestatic  #4                  // Method org/agrona/BitUtil.generateRandomisedId:()I
+       8: putfield      #5                  // Field nextSessionId:I
+      11: aload_0
+      12: new           #6                  // class io/aeron/driver/NetworkPublicationThreadLocals
+      15: dup
+      16: invokespecial #7                  // Method io/aeron/driver/NetworkPublicationThreadLocals."<init>":()V
+      19: putfield      #8                  // Field networkPublicationThreadLocals:Lio/aeron/driver/NetworkPublicationThreadLocals;
+      22: aload_0
+      23: new           #9                  // class java/util/HashMap
+      26: dup
+      27: invokespecial #10                 // Method java/util/HashMap."<init>":()V
+      30: putfield      #11                 // Field sendChannelEndpointByChannelMap:Ljava/util/HashMap;
+      33: aload_0
+      34: new           #9                  // class java/util/HashMap
+      37: dup
+      38: invokespecial #10                 // Method java/util/HashMap."<init>":()V
+      41: putfield      #12                 // Field receiveChannelEndpointByChannelMap:Ljava/util/HashMap;
+      44: aload_0
+      45: new           #13                 // class java/util/ArrayList
+      48: dup
+      49: invokespecial #14                 // Method java/util/ArrayList."<init>":()V
+      52: putfield      #15                 // Field publicationLinks:Ljava/util/ArrayList;
+      55: aload_0
+      56: new           #13                 // class java/util/ArrayList
+      59: dup
+      60: invokespecial #14                 // Method java/util/ArrayList."<init>":()V
+      63: putfield      #16                 // Field networkPublications:Ljava/util/ArrayList;
+      66: aload_0
+      67: new           #13                 // class java/util/ArrayList
+      70: dup
+      71: invokespecial #14                 // Method java/util/ArrayList."<init>":()V
+      74: putfield      #17                 // Field subscriptionLinks:Ljava/util/ArrayList;
+      77: aload_0
+      78: new           #13                 // class java/util/ArrayList
+      81: dup
+      82: invokespecial #14                 // Method java/util/ArrayList."<init>":()V
+      85: putfield      #18                 // Field publicationImages:Ljava/util/ArrayList;
+      88: aload_0
+      89: new           #13                 // class java/util/ArrayList
+      92: dup
+      93: invokespecial #14                 // Method java/util/ArrayList."<init>":()V
+      96: putfield      #19                 // Field clients:Ljava/util/ArrayList;
+      99: aload_0
+     100: new           #13                 // class java/util/ArrayList
+     103: dup
+     104: invokespecial #14                 // Method java/util/ArrayList."<init>":()V
+     107: putfield      #20                 // Field directPublications:Ljava/util/ArrayList;
+     110: aload_0
+     111: new           #21                 // class io/aeron/command/PublicationMessageFlyweight
+     114: dup
+     115: invokespecial #22                 // Method io/aeron/command/PublicationMessageFlyweight."<init>":()V
+     118: putfield      #23                 // Field publicationMsgFlyweight:Lio/aeron/command/PublicationMessageFlyweight;
+     121: aload_0
+     122: new           #24                 // class io/aeron/command/SubscriptionMessageFlyweight
+     125: dup
+     126: invokespecial #25                 // Method io/aeron/command/SubscriptionMessageFlyweight."<init>":()V
+     129: putfield      #26                 // Field subscriptionMsgFlyweight:Lio/aeron/command/SubscriptionMessageFlyweight;
+     132: aload_0
+     133: new           #27                 // class io/aeron/command/CorrelatedMessageFlyweight
+     136: dup
+     137: invokespecial #28                 // Method io/aeron/command/CorrelatedMessageFlyweight."<init>":()V
+     140: putfield      #29                 // Field correlatedMsgFlyweight:Lio/aeron/command/CorrelatedMessageFlyweight;
+     143: aload_0
+     144: new           #30                 // class io/aeron/command/RemoveMessageFlyweight
+     147: dup
+     148: invokespecial #31                 // Method io/aeron/command/RemoveMessageFlyweight."<init>":()V
+     151: putfield      #32                 // Field removeMsgFlyweight:Lio/aeron/command/RemoveMessageFlyweight;
+     154: aload_0
+     155: aload_0
+     156: invokedynamic #33,  0             // InvokeDynamic #0:accept:(Lio/aeron/driver/DriverConductor;)Ljava/util/function/Consumer;
+     161: putfield      #34                 // Field onDriverConductorCmdFunc:Ljava/util/function/Consumer;
+     164: aload_0
+     165: aload_0
+     166: invokedynamic #35,  0             // InvokeDynamic #1:onMessage:(Lio/aeron/driver/DriverConductor;)Lorg/agrona/concurrent/MessageHandler;
+     171: putfield      #36                 // Field onClientCommandFunc:Lorg/agrona/concurrent/MessageHandler;
+     174: aload_0
+     175: aload_1
+     176: putfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+     179: aload_0
+     180: aload_1
+     181: invokevirtual #38                 // Method io/aeron/driver/MediaDriver$Context.imageLivenessTimeoutNs:()J
+     184: putfield      #39                 // Field imageLivenessTimeoutNs:J
+     187: aload_0
+     188: aload_1
+     189: invokevirtual #40                 // Method io/aeron/driver/MediaDriver$Context.clientLivenessTimeoutNs:()J
+     192: putfield      #41                 // Field clientLivenessTimeoutNs:J
+     195: aload_0
+     196: aload_1
+     197: invokevirtual #42                 // Method io/aeron/driver/MediaDriver$Context.publicationUnblockTimeoutNs:()J
+     200: putfield      #43                 // Field publicationUnblockTimeoutNs:J
+     203: aload_0
+     204: aload_1
+     205: invokevirtual #44                 // Method io/aeron/driver/MediaDriver$Context.toConductorFromReceiverCommandQueue:()Lorg/agrona/concurrent/OneToOneConcurrentArrayQueue;
+     208: putfield      #45                 // Field fromReceiverDriverConductorCmdQueue:Lorg/agrona/concurrent/OneToOneConcurrentArrayQueue;
+     211: aload_0
+     212: aload_1
+     213: invokevirtual #46                 // Method io/aeron/driver/MediaDriver$Context.toConductorFromSenderCommandQueue:()Lorg/agrona/concurrent/OneToOneConcurrentArrayQueue;
+     216: putfield      #47                 // Field fromSenderDriverConductorCmdQueue:Lorg/agrona/concurrent/OneToOneConcurrentArrayQueue;
+     219: aload_0
+     220: aload_1
+     221: invokevirtual #48                 // Method io/aeron/driver/MediaDriver$Context.receiverProxy:()Lio/aeron/driver/ReceiverProxy;
+     224: putfield      #49                 // Field receiverProxy:Lio/aeron/driver/ReceiverProxy;
+     227: aload_0
+     228: aload_1
+     229: invokevirtual #50                 // Method io/aeron/driver/MediaDriver$Context.senderProxy:()Lio/aeron/driver/SenderProxy;
+     232: putfield      #51                 // Field senderProxy:Lio/aeron/driver/SenderProxy;
+     235: aload_0
+     236: aload_1
+     237: invokevirtual #52                 // Method io/aeron/driver/MediaDriver$Context.rawLogBuffersFactory:()Lio/aeron/driver/buffer/RawLogFactory;
+     240: putfield      #53                 // Field rawLogFactory:Lio/aeron/driver/buffer/RawLogFactory;
+     243: aload_0
+     244: aload_1
+     245: invokevirtual #54                 // Method io/aeron/driver/MediaDriver$Context.epochClock:()Lorg/agrona/concurrent/EpochClock;
+     248: putfield      #55                 // Field epochClock:Lorg/agrona/concurrent/EpochClock;
+     251: aload_0
+     252: aload_1
+     253: invokevirtual #56                 // Method io/aeron/driver/MediaDriver$Context.nanoClock:()Lorg/agrona/concurrent/NanoClock;
+     256: putfield      #57                 // Field nanoClock:Lorg/agrona/concurrent/NanoClock;
+     259: aload_0
+     260: aload_1
+     261: invokevirtual #58                 // Method io/aeron/driver/MediaDriver$Context.toDriverCommands:()Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+     264: putfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+     267: aload_0
+     268: aload_1
+     269: invokevirtual #60                 // Method io/aeron/driver/MediaDriver$Context.clientProxy:()Lio/aeron/driver/ClientProxy;
+     272: putfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+     275: aload_0
+     276: aload_1
+     277: invokevirtual #62                 // Method io/aeron/driver/MediaDriver$Context.fromReceiverDriverConductorProxy:()Lio/aeron/driver/DriverConductorProxy;
+     280: putfield      #63                 // Field fromReceiverConductorProxy:Lio/aeron/driver/DriverConductorProxy;
+     283: aload_0
+     284: aload_1
+     285: invokevirtual #64                 // Method io/aeron/driver/MediaDriver$Context.errorLog:()Lorg/agrona/concurrent/errors/DistinctErrorLog;
+     288: putfield      #65                 // Field errorLog:Lorg/agrona/concurrent/errors/DistinctErrorLog;
+     291: aload_0
+     292: aload_0
+     293: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+     296: invokevirtual #66                 // Method io/aeron/driver/MediaDriver$Context.countersManager:()Lorg/agrona/concurrent/status/CountersManager;
+     299: putfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+     302: aload_0
+     303: aload_0
+     304: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+     307: invokevirtual #68                 // Method io/aeron/driver/MediaDriver$Context.systemCounters:()Lio/aeron/driver/status/SystemCounters;
+     310: getstatic     #69                 // Field io/aeron/driver/status/SystemCounterDescriptor.CLIENT_KEEP_ALIVES:Lio/aeron/driver/status/SystemCounterDescriptor;
+     313: invokevirtual #70                 // Method io/aeron/driver/status/SystemCounters.get:(Lio/aeron/driver/status/SystemCounterDescriptor;)Lorg/agrona/concurrent/status/AtomicCounter;
+     316: putfield      #71                 // Field clientKeepAlives:Lorg/agrona/concurrent/status/AtomicCounter;
+     319: aload_0
+     320: aload_0
+     321: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+     324: invokevirtual #68                 // Method io/aeron/driver/MediaDriver$Context.systemCounters:()Lio/aeron/driver/status/SystemCounters;
+     327: getstatic     #72                 // Field io/aeron/driver/status/SystemCounterDescriptor.ERRORS:Lio/aeron/driver/status/SystemCounterDescriptor;
+     330: invokevirtual #70                 // Method io/aeron/driver/status/SystemCounters.get:(Lio/aeron/driver/status/SystemCounterDescriptor;)Lorg/agrona/concurrent/status/AtomicCounter;
+     333: putfield      #73                 // Field errors:Lorg/agrona/concurrent/status/AtomicCounter;
+     336: aload_0
+     337: getfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+     340: aload_0
+     341: getfield      #55                 // Field epochClock:Lorg/agrona/concurrent/EpochClock;
+     344: invokeinterface #74,  1           // InterfaceMethod org/agrona/concurrent/EpochClock.time:()J
+     349: invokeinterface #75,  3           // InterfaceMethod org/agrona/concurrent/ringbuffer/RingBuffer.consumerHeartbeatTime:(J)V
+     354: aload_0
+     355: getfield      #57                 // Field nanoClock:Lorg/agrona/concurrent/NanoClock;
+     358: invokeinterface #76,  1           // InterfaceMethod org/agrona/concurrent/NanoClock.nanoTime:()J
+     363: lstore_2
+     364: aload_0
+     365: lload_2
+     366: putfield      #77                 // Field timeOfLastTimeoutCheck:J
+     369: aload_0
+     370: lload_2
+     371: putfield      #78                 // Field timeOfLastToDriverPositionChange:J
+     374: aload_0
+     375: aload_0
+     376: getfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+     379: invokeinterface #79,  1           // InterfaceMethod org/agrona/concurrent/ringbuffer/RingBuffer.consumerPosition:()J
+     384: putfield      #80                 // Field lastConsumerCommandPosition:J
+     387: return
+
+  public void onClose();
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field networkPublications:Ljava/util/ArrayList;
+       4: invokedynamic #81,  0             // InvokeDynamic #2:accept:()Ljava/util/function/Consumer;
+       9: invokevirtual #82                 // Method java/util/ArrayList.forEach:(Ljava/util/function/Consumer;)V
+      12: aload_0
+      13: getfield      #18                 // Field publicationImages:Ljava/util/ArrayList;
+      16: invokedynamic #83,  0             // InvokeDynamic #3:accept:()Ljava/util/function/Consumer;
+      21: invokevirtual #82                 // Method java/util/ArrayList.forEach:(Ljava/util/function/Consumer;)V
+      24: aload_0
+      25: getfield      #20                 // Field directPublications:Ljava/util/ArrayList;
+      28: invokedynamic #84,  0             // InvokeDynamic #4:accept:()Ljava/util/function/Consumer;
+      33: invokevirtual #82                 // Method java/util/ArrayList.forEach:(Ljava/util/function/Consumer;)V
+      36: aload_0
+      37: getfield      #11                 // Field sendChannelEndpointByChannelMap:Ljava/util/HashMap;
+      40: invokevirtual #85                 // Method java/util/HashMap.values:()Ljava/util/Collection;
+      43: invokedynamic #86,  0             // InvokeDynamic #5:accept:()Ljava/util/function/Consumer;
+      48: invokeinterface #87,  2           // InterfaceMethod java/util/Collection.forEach:(Ljava/util/function/Consumer;)V
+      53: aload_0
+      54: getfield      #12                 // Field receiveChannelEndpointByChannelMap:Ljava/util/HashMap;
+      57: invokevirtual #85                 // Method java/util/HashMap.values:()Ljava/util/Collection;
+      60: invokedynamic #88,  0             // InvokeDynamic #6:accept:()Ljava/util/function/Consumer;
+      65: invokeinterface #87,  2           // InterfaceMethod java/util/Collection.forEach:(Ljava/util/function/Consumer;)V
+      70: return
+
+  public java.lang.String roleName();
+    Code:
+       0: ldc           #89                 // String driver-conductor
+       2: areturn
+
+  io.aeron.driver.media.SendChannelEndpoint senderChannelEndpoint(io.aeron.driver.media.UdpChannel);
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field sendChannelEndpointByChannelMap:Ljava/util/HashMap;
+       4: aload_1
+       5: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+       8: invokevirtual #91                 // Method java/util/HashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      11: checkcast     #92                 // class io/aeron/driver/media/SendChannelEndpoint
+      14: areturn
+
+  io.aeron.driver.media.ReceiveChannelEndpoint receiverChannelEndpoint(io.aeron.driver.media.UdpChannel);
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field receiveChannelEndpointByChannelMap:Ljava/util/HashMap;
+       4: aload_1
+       5: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+       8: invokevirtual #91                 // Method java/util/HashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      11: checkcast     #93                 // class io/aeron/driver/media/ReceiveChannelEndpoint
+      14: areturn
+
+  io.aeron.driver.DirectPublication getDirectPublication(long);
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field directPublications:Ljava/util/ArrayList;
+       4: lload_1
+       5: invokestatic  #94                 // Method findDirectPublication:(Ljava/util/ArrayList;J)Lio/aeron/driver/DirectPublication;
+       8: areturn
+
+  public int doWork() throws java.lang.Exception;
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: iload_1
+       3: aload_0
+       4: getfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+       7: aload_0
+       8: getfield      #36                 // Field onClientCommandFunc:Lorg/agrona/concurrent/MessageHandler;
+      11: invokeinterface #95,  2           // InterfaceMethod org/agrona/concurrent/ringbuffer/RingBuffer.read:(Lorg/agrona/concurrent/MessageHandler;)I
+      16: iadd
+      17: istore_1
+      18: iload_1
+      19: aload_0
+      20: getfield      #45                 // Field fromReceiverDriverConductorCmdQueue:Lorg/agrona/concurrent/OneToOneConcurrentArrayQueue;
+      23: aload_0
+      24: getfield      #34                 // Field onDriverConductorCmdFunc:Ljava/util/function/Consumer;
+      27: invokevirtual #96                 // Method org/agrona/concurrent/OneToOneConcurrentArrayQueue.drain:(Ljava/util/function/Consumer;)I
+      30: iadd
+      31: istore_1
+      32: iload_1
+      33: aload_0
+      34: getfield      #47                 // Field fromSenderDriverConductorCmdQueue:Lorg/agrona/concurrent/OneToOneConcurrentArrayQueue;
+      37: aload_0
+      38: getfield      #34                 // Field onDriverConductorCmdFunc:Ljava/util/function/Consumer;
+      41: invokevirtual #96                 // Method org/agrona/concurrent/OneToOneConcurrentArrayQueue.drain:(Ljava/util/function/Consumer;)I
+      44: iadd
+      45: istore_1
+      46: aload_0
+      47: getfield      #57                 // Field nanoClock:Lorg/agrona/concurrent/NanoClock;
+      50: invokeinterface #76,  1           // InterfaceMethod org/agrona/concurrent/NanoClock.nanoTime:()J
+      55: lstore_2
+      56: iload_1
+      57: aload_0
+      58: lload_2
+      59: invokespecial #97                 // Method processTimers:(J)I
+      62: iadd
+      63: istore_1
+      64: aload_0
+      65: getfield      #18                 // Field publicationImages:Ljava/util/ArrayList;
+      68: astore        4
+      70: iconst_0
+      71: istore        5
+      73: aload         4
+      75: invokevirtual #98                 // Method java/util/ArrayList.size:()I
+      78: istore        6
+      80: iload         5
+      82: iload         6
+      84: if_icmpge     110
+      87: iload_1
+      88: aload         4
+      90: iload         5
+      92: invokevirtual #99                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+      95: checkcast     #100                // class io/aeron/driver/PublicationImage
+      98: lload_2
+      99: invokevirtual #101                // Method io/aeron/driver/PublicationImage.trackRebuild:(J)I
+     102: iadd
+     103: istore_1
+     104: iinc          5, 1
+     107: goto          80
+     110: aload_0
+     111: getfield      #16                 // Field networkPublications:Ljava/util/ArrayList;
+     114: astore        5
+     116: iconst_0
+     117: istore        6
+     119: aload         5
+     121: invokevirtual #98                 // Method java/util/ArrayList.size:()I
+     124: istore        7
+     126: iload         6
+     128: iload         7
+     130: if_icmpge     155
+     133: iload_1
+     134: aload         5
+     136: iload         6
+     138: invokevirtual #99                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+     141: checkcast     #102                // class io/aeron/driver/NetworkPublication
+     144: invokevirtual #103                // Method io/aeron/driver/NetworkPublication.updatePublishersLimit:()I
+     147: iadd
+     148: istore_1
+     149: iinc          6, 1
+     152: goto          126
+     155: aload_0
+     156: getfield      #20                 // Field directPublications:Ljava/util/ArrayList;
+     159: astore        6
+     161: iconst_0
+     162: istore        7
+     164: aload         6
+     166: invokevirtual #98                 // Method java/util/ArrayList.size:()I
+     169: istore        8
+     171: iload         7
+     173: iload         8
+     175: if_icmpge     209
+     178: iload_1
+     179: aload         6
+     181: iload         7
+     183: invokevirtual #99                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+     186: checkcast     #104                // class io/aeron/driver/DirectPublication
+     189: aload_0
+     190: getfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+     193: invokeinterface #105,  1          // InterfaceMethod org/agrona/concurrent/ringbuffer/RingBuffer.consumerHeartbeatTime:()J
+     198: invokevirtual #106                // Method io/aeron/driver/DirectPublication.updatePublishersLimit:(J)I
+     201: iadd
+     202: istore_1
+     203: iinc          7, 1
+     206: goto          171
+     209: iload_1
+     210: ireturn
+
+  public void onCreatePublicationImage(int, int, int, int, int, int, int, java.net.InetSocketAddress, java.net.InetSocketAddress, io.aeron.driver.media.ReceiveChannelEndpoint);
+    Code:
+       0: aload         10
+       2: iload         7
+       4: invokevirtual #107                // Method io/aeron/driver/media/ReceiveChannelEndpoint.validateSenderMtuLength:(I)V
+       7: aload         10
+       9: aload_0
+      10: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      13: invokevirtual #108                // Method io/aeron/driver/MediaDriver$Context.initialWindowLength:()I
+      16: invokevirtual #109                // Method io/aeron/driver/media/ReceiveChannelEndpoint.validateWindowMaxLength:(I)V
+      19: aload         10
+      21: invokevirtual #110                // Method io/aeron/driver/media/ReceiveChannelEndpoint.udpChannel:()Lio/aeron/driver/media/UdpChannel;
+      24: astore        11
+      26: aload         11
+      28: invokevirtual #111                // Method io/aeron/driver/media/UdpChannel.originalUriString:()Ljava/lang/String;
+      31: astore        12
+      33: aload_0
+      34: invokespecial #112                // Method nextImageCorrelationId:()J
+      37: lstore        13
+      39: iload         4
+      41: iload         5
+      43: iload         6
+      45: invokestatic  #113                // Method java/lang/Integer.numberOfTrailingZeros:(I)I
+      48: iload_3
+      49: invokestatic  #114                // Method io/aeron/logbuffer/LogBufferDescriptor.computePosition:(IIII)J
+      52: lstore        15
+      54: aload_0
+      55: iload_1
+      56: iload_2
+      57: aload         10
+      59: aload         12
+      61: lload         15
+      63: invokespecial #115                // Method listSubscriberPositions:(IILio/aeron/driver/media/ReceiveChannelEndpoint;Ljava/lang/String;J)Ljava/util/List;
+      66: astore        17
+      68: aload         17
+      70: invokeinterface #116,  1          // InterfaceMethod java/util/List.size:()I
+      75: ifle          274
+      78: aload_0
+      79: iload_1
+      80: iload_2
+      81: iload_3
+      82: iload         6
+      84: iload         7
+      86: aload         11
+      88: lload         13
+      90: invokespecial #117                // Method newPublicationImageLog:(IIIIILio/aeron/driver/media/UdpChannel;J)Lio/aeron/driver/buffer/RawLog;
+      93: astore        18
+      95: new           #100                // class io/aeron/driver/PublicationImage
+      98: dup
+      99: lload         13
+     101: aload_0
+     102: getfield      #39                 // Field imageLivenessTimeoutNs:J
+     105: aload         10
+     107: aload         8
+     109: iload_1
+     110: iload_2
+     111: iload_3
+     112: iload         4
+     114: iload         5
+     116: aload_0
+     117: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+     120: invokevirtual #108                // Method io/aeron/driver/MediaDriver$Context.initialWindowLength:()I
+     123: aload         18
+     125: aload         11
+     127: invokevirtual #118                // Method io/aeron/driver/media/UdpChannel.isMulticast:()Z
+     130: ifeq          139
+     133: getstatic     #119                // Field io/aeron/driver/Configuration.NAK_MULTICAST_DELAY_GENERATOR:Lio/aeron/driver/OptimalMulticastDelayGenerator;
+     136: goto          142
+     139: getstatic     #120                // Field io/aeron/driver/Configuration.NAK_UNICAST_DELAY_GENERATOR:Lio/aeron/driver/StaticDelayGenerator;
+     142: aload         17
+     144: invokeinterface #121,  1          // InterfaceMethod java/util/List.stream:()Ljava/util/stream/Stream;
+     149: invokedynamic #122,  0            // InvokeDynamic #7:apply:()Ljava/util/function/Function;
+     154: invokeinterface #123,  2          // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+     159: invokestatic  #124                // Method java/util/stream/Collectors.toList:()Ljava/util/stream/Collector;
+     162: invokeinterface #125,  2          // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+     167: checkcast     #126                // class java/util/List
+     170: aload_0
+     171: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+     174: lload         13
+     176: iload_1
+     177: iload_2
+     178: aload         12
+     180: invokestatic  #127                // Method io/aeron/driver/status/ReceiverHwm.allocate:(Lorg/agrona/concurrent/status/CountersManager;JIILjava/lang/String;)Lorg/agrona/concurrent/status/UnsafeBufferPosition;
+     183: aload_0
+     184: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+     187: lload         13
+     189: iload_1
+     190: iload_2
+     191: aload         12
+     193: invokestatic  #128                // Method io/aeron/driver/status/ReceiverPos.allocate:(Lorg/agrona/concurrent/status/CountersManager;JIILjava/lang/String;)Lorg/agrona/concurrent/status/UnsafeBufferPosition;
+     196: aload_0
+     197: getfield      #57                 // Field nanoClock:Lorg/agrona/concurrent/NanoClock;
+     200: aload_0
+     201: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+     204: invokevirtual #68                 // Method io/aeron/driver/MediaDriver$Context.systemCounters:()Lio/aeron/driver/status/SystemCounters;
+     207: aload         9
+     209: invokespecial #129                // Method io/aeron/driver/PublicationImage."<init>":(JJLio/aeron/driver/media/ReceiveChannelEndpoint;Ljava/net/InetSocketAddress;IIIIIILio/aeron/driver/buffer/RawLog;Lio/aeron/driver/FeedbackDelayGenerator;Ljava/util/List;Lorg/agrona/concurrent/status/Position;Lorg/agrona/concurrent/status/Position;Lorg/agrona/concurrent/NanoClock;Lio/aeron/driver/status/SystemCounters;Ljava/net/InetSocketAddress;)V
+     212: astore        19
+     214: aload         17
+     216: aload         19
+     218: invokedynamic #130,  0            // InvokeDynamic #8:accept:(Lio/aeron/driver/PublicationImage;)Ljava/util/function/Consumer;
+     223: invokeinterface #131,  2          // InterfaceMethod java/util/List.forEach:(Ljava/util/function/Consumer;)V
+     228: aload_0
+     229: getfield      #18                 // Field publicationImages:Ljava/util/ArrayList;
+     232: aload         19
+     234: invokevirtual #132                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+     237: pop
+     238: aload_0
+     239: getfield      #49                 // Field receiverProxy:Lio/aeron/driver/ReceiverProxy;
+     242: aload         10
+     244: aload         19
+     246: invokevirtual #133                // Method io/aeron/driver/ReceiverProxy.newPublicationImage:(Lio/aeron/driver/media/ReceiveChannelEndpoint;Lio/aeron/driver/PublicationImage;)V
+     249: aload_0
+     250: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+     253: lload         13
+     255: iload_2
+     256: iload_1
+     257: aload         18
+     259: invokeinterface #134,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logFileName:()Ljava/lang/String;
+     264: aload         17
+     266: aload         9
+     268: invokestatic  #135                // Method generateSourceIdentity:(Ljava/net/InetSocketAddress;)Ljava/lang/String;
+     271: invokevirtual #136                // Method io/aeron/driver/ClientProxy.onAvailableImage:(JIILjava/lang/String;Ljava/util/List;Ljava/lang/String;)V
+     274: return
+
+  public void onClosePublication(io.aeron.driver.NetworkPublication);
+    Code:
+       0: aload_1
+       1: invokevirtual #137                // Method io/aeron/driver/NetworkPublication.close:()V
+       4: return
+
+  void cleanupPublication(io.aeron.driver.NetworkPublication);
+    Code:
+       0: aload_1
+       1: invokevirtual #138                // Method io/aeron/driver/NetworkPublication.sendChannelEndpoint:()Lio/aeron/driver/media/SendChannelEndpoint;
+       4: astore_2
+       5: aload_0
+       6: getfield      #51                 // Field senderProxy:Lio/aeron/driver/SenderProxy;
+       9: aload_1
+      10: invokevirtual #139                // Method io/aeron/driver/SenderProxy.removeNetworkPublication:(Lio/aeron/driver/NetworkPublication;)V
+      13: aload_1
+      14: invokevirtual #140                // Method io/aeron/driver/NetworkPublication.hasSpies:()Z
+      17: ifeq          79
+      20: aload_0
+      21: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+      24: aload_1
+      25: invokevirtual #141                // Method io/aeron/driver/NetworkPublication.rawLog:()Lio/aeron/driver/buffer/RawLog;
+      28: invokeinterface #142,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logMetaData:()Lorg/agrona/concurrent/UnsafeBuffer;
+      33: invokestatic  #143                // Method io/aeron/logbuffer/LogBufferDescriptor.correlationId:(Lorg/agrona/concurrent/UnsafeBuffer;)J
+      36: aload_1
+      37: invokevirtual #144                // Method io/aeron/driver/NetworkPublication.streamId:()I
+      40: aload_1
+      41: invokevirtual #138                // Method io/aeron/driver/NetworkPublication.sendChannelEndpoint:()Lio/aeron/driver/media/SendChannelEndpoint;
+      44: invokevirtual #145                // Method io/aeron/driver/media/SendChannelEndpoint.originalUriString:()Ljava/lang/String;
+      47: invokevirtual #146                // Method io/aeron/driver/ClientProxy.onUnavailableImage:(JILjava/lang/String;)V
+      50: aload_0
+      51: getfield      #17                 // Field subscriptionLinks:Ljava/util/ArrayList;
+      54: invokevirtual #147                // Method java/util/ArrayList.stream:()Ljava/util/stream/Stream;
+      57: aload_2
+      58: aload_1
+      59: invokedynamic #148,  0            // InvokeDynamic #9:test:(Lio/aeron/driver/media/SendChannelEndpoint;Lio/aeron/driver/NetworkPublication;)Ljava/util/function/Predicate;
+      64: invokeinterface #149,  2          // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      69: invokedynamic #150,  0            // InvokeDynamic #10:accept:()Ljava/util/function/Consumer;
+      74: invokeinterface #151,  2          // InterfaceMethod java/util/stream/Stream.forEach:(Ljava/util/function/Consumer;)V
+      79: aload_2
+      80: invokevirtual #152                // Method io/aeron/driver/media/SendChannelEndpoint.sessionCount:()I
+      83: ifne          109
+      86: aload_0
+      87: getfield      #11                 // Field sendChannelEndpointByChannelMap:Ljava/util/HashMap;
+      90: aload_2
+      91: invokevirtual #153                // Method io/aeron/driver/media/SendChannelEndpoint.udpChannel:()Lio/aeron/driver/media/UdpChannel;
+      94: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+      97: invokevirtual #154                // Method java/util/HashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     100: pop
+     101: aload_0
+     102: getfield      #51                 // Field senderProxy:Lio/aeron/driver/SenderProxy;
+     105: aload_2
+     106: invokevirtual #155                // Method io/aeron/driver/SenderProxy.closeSendChannelEndpoint:(Lio/aeron/driver/media/SendChannelEndpoint;)V
+     109: return
+
+  void cleanupSubscriptionLink(io.aeron.driver.SubscriptionLink);
+    Code:
+       0: aload_1
+       1: invokevirtual #156                // Method io/aeron/driver/SubscriptionLink.channelEndpoint:()Lio/aeron/driver/media/ReceiveChannelEndpoint;
+       4: astore_2
+       5: aconst_null
+       6: aload_2
+       7: if_acmpeq     66
+      10: aload_1
+      11: invokevirtual #157                // Method io/aeron/driver/SubscriptionLink.streamId:()I
+      14: istore_3
+      15: iconst_0
+      16: aload_2
+      17: aload_1
+      18: invokevirtual #157                // Method io/aeron/driver/SubscriptionLink.streamId:()I
+      21: invokevirtual #158                // Method io/aeron/driver/media/ReceiveChannelEndpoint.decRefToStream:(I)I
+      24: if_icmpne     36
+      27: aload_0
+      28: getfield      #49                 // Field receiverProxy:Lio/aeron/driver/ReceiverProxy;
+      31: aload_2
+      32: iload_3
+      33: invokevirtual #159                // Method io/aeron/driver/ReceiverProxy.removeSubscription:(Lio/aeron/driver/media/ReceiveChannelEndpoint;I)V
+      36: aload_2
+      37: invokevirtual #160                // Method io/aeron/driver/media/ReceiveChannelEndpoint.streamCount:()I
+      40: ifne          66
+      43: aload_0
+      44: getfield      #12                 // Field receiveChannelEndpointByChannelMap:Ljava/util/HashMap;
+      47: aload_2
+      48: invokevirtual #110                // Method io/aeron/driver/media/ReceiveChannelEndpoint.udpChannel:()Lio/aeron/driver/media/UdpChannel;
+      51: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+      54: invokevirtual #154                // Method java/util/HashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      57: pop
+      58: aload_0
+      59: getfield      #49                 // Field receiverProxy:Lio/aeron/driver/ReceiverProxy;
+      62: aload_2
+      63: invokevirtual #161                // Method io/aeron/driver/ReceiverProxy.closeReceiveChannelEndpoint:(Lio/aeron/driver/media/ReceiveChannelEndpoint;)V
+      66: return
+
+  void imageTransitionToLinger(io.aeron.driver.PublicationImage);
+    Code:
+       0: aload_0
+       1: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+       4: aload_1
+       5: invokevirtual #162                // Method io/aeron/driver/PublicationImage.correlationId:()J
+       8: aload_1
+       9: invokevirtual #163                // Method io/aeron/driver/PublicationImage.streamId:()I
+      12: aload_1
+      13: invokevirtual #164                // Method io/aeron/driver/PublicationImage.channelUriString:()Ljava/lang/String;
+      16: invokevirtual #146                // Method io/aeron/driver/ClientProxy.onUnavailableImage:(JILjava/lang/String;)V
+      19: aload_0
+      20: getfield      #49                 // Field receiverProxy:Lio/aeron/driver/ReceiverProxy;
+      23: aload_1
+      24: invokevirtual #165                // Method io/aeron/driver/PublicationImage.channelEndpoint:()Lio/aeron/driver/media/ReceiveChannelEndpoint;
+      27: aload_1
+      28: invokevirtual #166                // Method io/aeron/driver/PublicationImage.sessionId:()I
+      31: aload_1
+      32: invokevirtual #163                // Method io/aeron/driver/PublicationImage.streamId:()I
+      35: invokevirtual #167                // Method io/aeron/driver/ReceiverProxy.removeCoolDown:(Lio/aeron/driver/media/ReceiveChannelEndpoint;II)V
+      38: return
+
+  void cleanupImage(io.aeron.driver.PublicationImage);
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field subscriptionLinks:Ljava/util/ArrayList;
+       4: invokevirtual #147                // Method java/util/ArrayList.stream:()Ljava/util/stream/Stream;
+       7: aload_1
+       8: invokedynamic #168,  0            // InvokeDynamic #11:test:(Lio/aeron/driver/PublicationImage;)Ljava/util/function/Predicate;
+      13: invokeinterface #149,  2          // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      18: aload_1
+      19: invokedynamic #169,  0            // InvokeDynamic #12:accept:(Lio/aeron/driver/PublicationImage;)Ljava/util/function/Consumer;
+      24: invokeinterface #151,  2          // InterfaceMethod java/util/stream/Stream.forEach:(Ljava/util/function/Consumer;)V
+      29: return
+
+  private java.util.List<io.aeron.driver.SubscriberPosition> listSubscriberPositions(int, int, io.aeron.driver.media.ReceiveChannelEndpoint, java.lang.String, long);
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field subscriptionLinks:Ljava/util/ArrayList;
+       4: invokevirtual #147                // Method java/util/ArrayList.stream:()Ljava/util/stream/Stream;
+       7: aload_3
+       8: iload_2
+       9: invokedynamic #170,  0            // InvokeDynamic #13:test:(Lio/aeron/driver/media/ReceiveChannelEndpoint;I)Ljava/util/function/Predicate;
+      14: invokeinterface #149,  2          // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      19: aload_0
+      20: iload_1
+      21: iload_2
+      22: aload         4
+      24: lload         5
+      26: invokedynamic #171,  0            // InvokeDynamic #14:apply:(Lio/aeron/driver/DriverConductor;IILjava/lang/String;J)Ljava/util/function/Function;
+      31: invokeinterface #123,  2          // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+      36: invokestatic  #124                // Method java/util/stream/Collectors.toList:()Ljava/util/stream/Collector;
+      39: invokeinterface #125,  2          // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+      44: checkcast     #126                // class java/util/List
+      47: areturn
+
+  private <T extends io.aeron.driver.DriverManagedResource> void onCheckManagedResources(java.util.ArrayList<T>, long);
+    Code:
+       0: aload_1
+       1: invokevirtual #98                 // Method java/util/ArrayList.size:()I
+       4: iconst_1
+       5: isub
+       6: istore        4
+       8: iload         4
+      10: iflt          63
+      13: aload_1
+      14: iload         4
+      16: invokevirtual #99                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+      19: checkcast     #172                // class io/aeron/driver/DriverManagedResource
+      22: astore        5
+      24: aload         5
+      26: lload_2
+      27: aload_0
+      28: invokeinterface #173,  4          // InterfaceMethod io/aeron/driver/DriverManagedResource.onTimeEvent:(JLio/aeron/driver/DriverConductor;)V
+      33: aload         5
+      35: invokeinterface #174,  1          // InterfaceMethod io/aeron/driver/DriverManagedResource.hasReachedEndOfLife:()Z
+      40: ifeq          57
+      43: aload         5
+      45: invokeinterface #175,  1          // InterfaceMethod io/aeron/driver/DriverManagedResource.delete:()V
+      50: aload_1
+      51: iload         4
+      53: invokevirtual #176                // Method java/util/ArrayList.remove:(I)Ljava/lang/Object;
+      56: pop
+      57: iinc          4, -1
+      60: goto          8
+      63: return
+
+  private void onHeartbeatCheckTimeouts(long);
+    Code:
+       0: aload_0
+       1: getfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+       4: aload_0
+       5: getfield      #55                 // Field epochClock:Lorg/agrona/concurrent/EpochClock;
+       8: invokeinterface #74,  1           // InterfaceMethod org/agrona/concurrent/EpochClock.time:()J
+      13: invokeinterface #75,  3           // InterfaceMethod org/agrona/concurrent/ringbuffer/RingBuffer.consumerHeartbeatTime:(J)V
+      18: aload_0
+      19: aload_0
+      20: getfield      #19                 // Field clients:Ljava/util/ArrayList;
+      23: lload_1
+      24: invokespecial #177                // Method onCheckManagedResources:(Ljava/util/ArrayList;J)V
+      27: aload_0
+      28: aload_0
+      29: getfield      #15                 // Field publicationLinks:Ljava/util/ArrayList;
+      32: lload_1
+      33: invokespecial #177                // Method onCheckManagedResources:(Ljava/util/ArrayList;J)V
+      36: aload_0
+      37: aload_0
+      38: getfield      #16                 // Field networkPublications:Ljava/util/ArrayList;
+      41: lload_1
+      42: invokespecial #177                // Method onCheckManagedResources:(Ljava/util/ArrayList;J)V
+      45: aload_0
+      46: aload_0
+      47: getfield      #17                 // Field subscriptionLinks:Ljava/util/ArrayList;
+      50: lload_1
+      51: invokespecial #177                // Method onCheckManagedResources:(Ljava/util/ArrayList;J)V
+      54: aload_0
+      55: aload_0
+      56: getfield      #18                 // Field publicationImages:Ljava/util/ArrayList;
+      59: lload_1
+      60: invokespecial #177                // Method onCheckManagedResources:(Ljava/util/ArrayList;J)V
+      63: aload_0
+      64: aload_0
+      65: getfield      #20                 // Field directPublications:Ljava/util/ArrayList;
+      68: lload_1
+      69: invokespecial #177                // Method onCheckManagedResources:(Ljava/util/ArrayList;J)V
+      72: return
+
+  private void onCheckForBlockedToDriverCommands(long);
+    Code:
+       0: aload_0
+       1: getfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+       4: invokeinterface #79,  1           // InterfaceMethod org/agrona/concurrent/ringbuffer/RingBuffer.consumerPosition:()J
+       9: lstore_3
+      10: lload_3
+      11: aload_0
+      12: getfield      #80                 // Field lastConsumerCommandPosition:J
+      15: lcmp
+      16: ifne          79
+      19: aload_0
+      20: getfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+      23: invokeinterface #178,  1          // InterfaceMethod org/agrona/concurrent/ringbuffer/RingBuffer.producerPosition:()J
+      28: lload_3
+      29: lcmp
+      30: ifle          89
+      33: lload_1
+      34: aload_0
+      35: getfield      #78                 // Field timeOfLastToDriverPositionChange:J
+      38: aload_0
+      39: getfield      #41                 // Field clientLivenessTimeoutNs:J
+      42: ladd
+      43: lcmp
+      44: ifle          89
+      47: aload_0
+      48: getfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+      51: invokeinterface #179,  1          // InterfaceMethod org/agrona/concurrent/ringbuffer/RingBuffer.unblock:()Z
+      56: ifeq          89
+      59: aload_0
+      60: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      63: invokevirtual #68                 // Method io/aeron/driver/MediaDriver$Context.systemCounters:()Lio/aeron/driver/status/SystemCounters;
+      66: getstatic     #180                // Field io/aeron/driver/status/SystemCounterDescriptor.UNBLOCKED_COMMANDS:Lio/aeron/driver/status/SystemCounterDescriptor;
+      69: invokevirtual #70                 // Method io/aeron/driver/status/SystemCounters.get:(Lio/aeron/driver/status/SystemCounterDescriptor;)Lorg/agrona/concurrent/status/AtomicCounter;
+      72: invokevirtual #181                // Method org/agrona/concurrent/status/AtomicCounter.orderedIncrement:()J
+      75: pop2
+      76: goto          89
+      79: aload_0
+      80: lload_1
+      81: putfield      #78                 // Field timeOfLastToDriverPositionChange:J
+      84: aload_0
+      85: lload_3
+      86: putfield      #80                 // Field lastConsumerCommandPosition:J
+      89: return
+
+  private void onClientCommand(int, org.agrona.MutableDirectBuffer, int, int);
+    Code:
+       0: lconst_0
+       1: lstore        5
+       3: iload_1
+       4: tableswitch   { // 1 to 6
+                     1: 44
+                     2: 126
+                     3: 344
+                     4: 161
+                     5: 276
+                     6: 311
+               default: 344
+          }
+      44: aload_0
+      45: getfield      #23                 // Field publicationMsgFlyweight:Lio/aeron/command/PublicationMessageFlyweight;
+      48: astore        7
+      50: aload         7
+      52: aload_2
+      53: iload_3
+      54: invokevirtual #182                // Method io/aeron/command/PublicationMessageFlyweight.wrap:(Lorg/agrona/MutableDirectBuffer;I)Lio/aeron/command/CorrelatedMessageFlyweight;
+      57: pop
+      58: aload         7
+      60: invokevirtual #183                // Method io/aeron/command/PublicationMessageFlyweight.correlationId:()J
+      63: lstore        5
+      65: aload         7
+      67: invokevirtual #184                // Method io/aeron/command/PublicationMessageFlyweight.streamId:()I
+      70: istore        8
+      72: aload         7
+      74: invokevirtual #185                // Method io/aeron/command/PublicationMessageFlyweight.clientId:()J
+      77: lstore        9
+      79: aload         7
+      81: invokevirtual #186                // Method io/aeron/command/PublicationMessageFlyweight.channel:()Ljava/lang/String;
+      84: astore        11
+      86: aload         11
+      88: ldc           #187                // String aeron:ipc
+      90: invokevirtual #188                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+      93: ifeq          111
+      96: aload_0
+      97: aload         11
+      99: iload         8
+     101: lload         5
+     103: lload         9
+     105: invokespecial #189                // Method onAddDirectPublication:(Ljava/lang/String;IJJ)V
+     108: goto          344
+     111: aload_0
+     112: aload         11
+     114: iload         8
+     116: lload         5
+     118: lload         9
+     120: invokespecial #190                // Method onAddNetworkPublication:(Ljava/lang/String;IJJ)V
+     123: goto          344
+     126: aload_0
+     127: getfield      #32                 // Field removeMsgFlyweight:Lio/aeron/command/RemoveMessageFlyweight;
+     130: astore        7
+     132: aload         7
+     134: aload_2
+     135: iload_3
+     136: invokevirtual #191                // Method io/aeron/command/RemoveMessageFlyweight.wrap:(Lorg/agrona/MutableDirectBuffer;I)Lio/aeron/command/CorrelatedMessageFlyweight;
+     139: pop
+     140: aload         7
+     142: invokevirtual #192                // Method io/aeron/command/RemoveMessageFlyweight.correlationId:()J
+     145: lstore        5
+     147: aload_0
+     148: aload         7
+     150: invokevirtual #193                // Method io/aeron/command/RemoveMessageFlyweight.registrationId:()J
+     153: lload         5
+     155: invokespecial #194                // Method onRemovePublication:(JJ)V
+     158: goto          344
+     161: aload_0
+     162: getfield      #26                 // Field subscriptionMsgFlyweight:Lio/aeron/command/SubscriptionMessageFlyweight;
+     165: astore        7
+     167: aload         7
+     169: aload_2
+     170: iload_3
+     171: invokevirtual #195                // Method io/aeron/command/SubscriptionMessageFlyweight.wrap:(Lorg/agrona/MutableDirectBuffer;I)Lio/aeron/command/CorrelatedMessageFlyweight;
+     174: pop
+     175: aload         7
+     177: invokevirtual #196                // Method io/aeron/command/SubscriptionMessageFlyweight.correlationId:()J
+     180: lstore        5
+     182: aload         7
+     184: invokevirtual #197                // Method io/aeron/command/SubscriptionMessageFlyweight.streamId:()I
+     187: istore        8
+     189: aload         7
+     191: invokevirtual #198                // Method io/aeron/command/SubscriptionMessageFlyweight.clientId:()J
+     194: lstore        9
+     196: aload         7
+     198: invokevirtual #199                // Method io/aeron/command/SubscriptionMessageFlyweight.channel:()Ljava/lang/String;
+     201: astore        11
+     203: aload         11
+     205: ldc           #187                // String aeron:ipc
+     207: invokevirtual #188                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+     210: ifeq          228
+     213: aload_0
+     214: aload         11
+     216: iload         8
+     218: lload         5
+     220: lload         9
+     222: invokespecial #200                // Method onAddDirectSubscription:(Ljava/lang/String;IJJ)V
+     225: goto          344
+     228: aload         11
+     230: ldc           #201                // String aeron-spy:
+     232: invokevirtual #188                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+     235: ifeq          261
+     238: aload_0
+     239: aload         11
+     241: ldc           #201                // String aeron-spy:
+     243: invokevirtual #202                // Method java/lang/String.length:()I
+     246: invokevirtual #203                // Method java/lang/String.substring:(I)Ljava/lang/String;
+     249: iload         8
+     251: lload         5
+     253: lload         9
+     255: invokespecial #204                // Method onAddSpySubscription:(Ljava/lang/String;IJJ)V
+     258: goto          344
+     261: aload_0
+     262: aload         11
+     264: iload         8
+     266: lload         5
+     268: lload         9
+     270: invokespecial #205                // Method onAddNetworkSubscription:(Ljava/lang/String;IJJ)V
+     273: goto          344
+     276: aload_0
+     277: getfield      #32                 // Field removeMsgFlyweight:Lio/aeron/command/RemoveMessageFlyweight;
+     280: astore        7
+     282: aload         7
+     284: aload_2
+     285: iload_3
+     286: invokevirtual #191                // Method io/aeron/command/RemoveMessageFlyweight.wrap:(Lorg/agrona/MutableDirectBuffer;I)Lio/aeron/command/CorrelatedMessageFlyweight;
+     289: pop
+     290: aload         7
+     292: invokevirtual #192                // Method io/aeron/command/RemoveMessageFlyweight.correlationId:()J
+     295: lstore        5
+     297: aload_0
+     298: aload         7
+     300: invokevirtual #193                // Method io/aeron/command/RemoveMessageFlyweight.registrationId:()J
+     303: lload         5
+     305: invokespecial #206                // Method onRemoveSubscription:(JJ)V
+     308: goto          344
+     311: aload_0
+     312: getfield      #29                 // Field correlatedMsgFlyweight:Lio/aeron/command/CorrelatedMessageFlyweight;
+     315: astore        7
+     317: aload         7
+     319: aload_2
+     320: iload_3
+     321: invokevirtual #207                // Method io/aeron/command/CorrelatedMessageFlyweight.wrap:(Lorg/agrona/MutableDirectBuffer;I)Lio/aeron/command/CorrelatedMessageFlyweight;
+     324: pop
+     325: aload         7
+     327: invokevirtual #208                // Method io/aeron/command/CorrelatedMessageFlyweight.correlationId:()J
+     330: lstore        5
+     332: aload_0
+     333: aload         7
+     335: invokevirtual #209                // Method io/aeron/command/CorrelatedMessageFlyweight.clientId:()J
+     338: invokespecial #210                // Method onClientKeepalive:(J)V
+     341: goto          344
+     344: goto          426
+     347: astore        7
+     349: aload_0
+     350: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+     353: aload         7
+     355: invokevirtual #212                // Method io/aeron/driver/exceptions/ControlProtocolException.errorCode:()Lio/aeron/ErrorCode;
+     358: aload         7
+     360: invokevirtual #213                // Method io/aeron/driver/exceptions/ControlProtocolException.getMessage:()Ljava/lang/String;
+     363: lload         5
+     365: invokevirtual #214                // Method io/aeron/driver/ClientProxy.onError:(Lio/aeron/ErrorCode;Ljava/lang/String;J)V
+     368: aload_0
+     369: getfield      #73                 // Field errors:Lorg/agrona/concurrent/status/AtomicCounter;
+     372: invokevirtual #215                // Method org/agrona/concurrent/status/AtomicCounter.increment:()J
+     375: pop2
+     376: aload_0
+     377: getfield      #65                 // Field errorLog:Lorg/agrona/concurrent/errors/DistinctErrorLog;
+     380: aload         7
+     382: invokevirtual #216                // Method org/agrona/concurrent/errors/DistinctErrorLog.record:(Ljava/lang/Throwable;)Z
+     385: pop
+     386: goto          426
+     389: astore        7
+     391: aload_0
+     392: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+     395: getstatic     #218                // Field io/aeron/ErrorCode.GENERIC_ERROR:Lio/aeron/ErrorCode;
+     398: aload         7
+     400: invokevirtual #219                // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+     403: lload         5
+     405: invokevirtual #214                // Method io/aeron/driver/ClientProxy.onError:(Lio/aeron/ErrorCode;Ljava/lang/String;J)V
+     408: aload_0
+     409: getfield      #73                 // Field errors:Lorg/agrona/concurrent/status/AtomicCounter;
+     412: invokevirtual #215                // Method org/agrona/concurrent/status/AtomicCounter.increment:()J
+     415: pop2
+     416: aload_0
+     417: getfield      #65                 // Field errorLog:Lorg/agrona/concurrent/errors/DistinctErrorLog;
+     420: aload         7
+     422: invokevirtual #216                // Method org/agrona/concurrent/errors/DistinctErrorLog.record:(Ljava/lang/Throwable;)Z
+     425: pop
+     426: return
+    Exception table:
+       from    to  target type
+           3   344   347   Class io/aeron/driver/exceptions/ControlProtocolException
+           3   344   389   Class java/lang/Exception
+
+  private int processTimers(long);
+    Code:
+       0: iconst_0
+       1: istore_3
+       2: lload_1
+       3: aload_0
+       4: getfield      #77                 // Field timeOfLastTimeoutCheck:J
+       7: getstatic     #220                // Field io/aeron/driver/Configuration.HEARTBEAT_TIMEOUT_NS:J
+      10: ladd
+      11: lcmp
+      12: ifle          32
+      15: aload_0
+      16: lload_1
+      17: invokespecial #221                // Method onHeartbeatCheckTimeouts:(J)V
+      20: aload_0
+      21: lload_1
+      22: invokespecial #222                // Method onCheckForBlockedToDriverCommands:(J)V
+      25: aload_0
+      26: lload_1
+      27: putfield      #77                 // Field timeOfLastTimeoutCheck:J
+      30: iconst_1
+      31: istore_3
+      32: iload_3
+      33: ireturn
+
+  private void onAddNetworkPublication(java.lang.String, int, long, long);
+    Code:
+       0: aload_1
+       1: invokestatic  #223                // Method io/aeron/driver/media/UdpChannel.parse:(Ljava/lang/String;)Lio/aeron/driver/media/UdpChannel;
+       4: astore        7
+       6: aload_0
+       7: aload         7
+       9: invokespecial #224                // Method getOrCreateSendChannelEndpoint:(Lio/aeron/driver/media/UdpChannel;)Lio/aeron/driver/media/SendChannelEndpoint;
+      12: astore        8
+      14: aload         8
+      16: iload_2
+      17: invokevirtual #225                // Method io/aeron/driver/media/SendChannelEndpoint.getPublication:(I)Lio/aeron/driver/NetworkPublication;
+      20: astore        9
+      22: aconst_null
+      23: aload         9
+      25: if_acmpne     284
+      28: aload         7
+      30: invokevirtual #226                // Method io/aeron/driver/media/UdpChannel.aeronUri:()Lio/aeron/driver/uri/AeronUri;
+      33: aload_0
+      34: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      37: invokevirtual #227                // Method io/aeron/driver/MediaDriver$Context.publicationTermBufferLength:()I
+      40: invokestatic  #228                // Method getTermBufferLength:(Lio/aeron/driver/uri/AeronUri;I)I
+      43: istore        10
+      45: aload_0
+      46: invokespecial #229                // Method nextSessionId:()I
+      49: istore        11
+      51: invokestatic  #4                  // Method org/agrona/BitUtil.generateRandomisedId:()I
+      54: istore        12
+      56: new           #230                // class io/aeron/driver/RetransmitHandler
+      59: dup
+      60: aload_0
+      61: getfield      #57                 // Field nanoClock:Lorg/agrona/concurrent/NanoClock;
+      64: aload_0
+      65: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      68: invokevirtual #68                 // Method io/aeron/driver/MediaDriver$Context.systemCounters:()Lio/aeron/driver/status/SystemCounters;
+      71: getstatic     #231                // Field io/aeron/driver/Configuration.RETRANSMIT_UNICAST_DELAY_GENERATOR:Lio/aeron/driver/FeedbackDelayGenerator;
+      74: getstatic     #232                // Field io/aeron/driver/Configuration.RETRANSMIT_UNICAST_LINGER_GENERATOR:Lio/aeron/driver/FeedbackDelayGenerator;
+      77: invokespecial #233                // Method io/aeron/driver/RetransmitHandler."<init>":(Lorg/agrona/concurrent/NanoClock;Lio/aeron/driver/status/SystemCounters;Lio/aeron/driver/FeedbackDelayGenerator;Lio/aeron/driver/FeedbackDelayGenerator;)V
+      80: astore        13
+      82: aload         7
+      84: invokevirtual #118                // Method io/aeron/driver/media/UdpChannel.isMulticast:()Z
+      87: ifeq          109
+      90: aload_0
+      91: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      94: invokevirtual #234                // Method io/aeron/driver/MediaDriver$Context.multicastFlowControlSupplier:()Lio/aeron/driver/FlowControlSupplier;
+      97: aload         7
+      99: iload_2
+     100: lload_3
+     101: invokeinterface #235,  5          // InterfaceMethod io/aeron/driver/FlowControlSupplier.newInstance:(Lio/aeron/driver/media/UdpChannel;IJ)Lio/aeron/driver/FlowControl;
+     106: goto          125
+     109: aload_0
+     110: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+     113: invokevirtual #236                // Method io/aeron/driver/MediaDriver$Context.unicastFlowControlSupplier:()Lio/aeron/driver/FlowControlSupplier;
+     116: aload         7
+     118: iload_2
+     119: lload_3
+     120: invokeinterface #235,  5          // InterfaceMethod io/aeron/driver/FlowControlSupplier.newInstance:(Lio/aeron/driver/media/UdpChannel;IJ)Lio/aeron/driver/FlowControl;
+     125: astore        14
+     127: new           #102                // class io/aeron/driver/NetworkPublication
+     130: dup
+     131: aload         8
+     133: aload_0
+     134: getfield      #57                 // Field nanoClock:Lorg/agrona/concurrent/NanoClock;
+     137: aload_0
+     138: getfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+     141: dup
+     142: invokevirtual #237                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     145: pop
+     146: invokedynamic #238,  0            // InvokeDynamic #15:time:(Lorg/agrona/concurrent/ringbuffer/RingBuffer;)Lorg/agrona/concurrent/EpochClock;
+     151: aload_0
+     152: iload         11
+     154: iload_2
+     155: iload         12
+     157: aload         7
+     159: lload_3
+     160: iload         10
+     162: invokespecial #239                // Method newNetworkPublicationLog:(IIILio/aeron/driver/media/UdpChannel;JI)Lio/aeron/driver/buffer/RawLog;
+     165: aload_0
+     166: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+     169: lload_3
+     170: iload         11
+     172: iload_2
+     173: aload_1
+     174: invokestatic  #240                // Method io/aeron/driver/status/PublisherLimit.allocate:(Lorg/agrona/concurrent/status/CountersManager;JIILjava/lang/String;)Lorg/agrona/concurrent/status/UnsafeBufferPosition;
+     177: aload_0
+     178: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+     181: lload_3
+     182: iload         11
+     184: iload_2
+     185: aload_1
+     186: invokestatic  #241                // Method io/aeron/driver/status/SenderPos.allocate:(Lorg/agrona/concurrent/status/CountersManager;JIILjava/lang/String;)Lorg/agrona/concurrent/status/UnsafeBufferPosition;
+     189: iload         11
+     191: iload_2
+     192: iload         12
+     194: aload_0
+     195: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+     198: invokevirtual #242                // Method io/aeron/driver/MediaDriver$Context.mtuLength:()I
+     201: aload_0
+     202: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+     205: invokevirtual #68                 // Method io/aeron/driver/MediaDriver$Context.systemCounters:()Lio/aeron/driver/status/SystemCounters;
+     208: aload         14
+     210: aload         13
+     212: aload_0
+     213: getfield      #8                  // Field networkPublicationThreadLocals:Lio/aeron/driver/NetworkPublicationThreadLocals;
+     216: invokespecial #243                // Method io/aeron/driver/NetworkPublication."<init>":(Lio/aeron/driver/media/SendChannelEndpoint;Lorg/agrona/concurrent/NanoClock;Lorg/agrona/concurrent/EpochClock;Lio/aeron/driver/buffer/RawLog;Lorg/agrona/concurrent/status/Position;Lorg/agrona/concurrent/status/Position;IIIILio/aeron/driver/status/SystemCounters;Lio/aeron/driver/FlowControl;Lio/aeron/driver/RetransmitHandler;Lio/aeron/driver/NetworkPublicationThreadLocals;)V
+     219: astore        9
+     221: aload         8
+     223: aload         9
+     225: invokevirtual #244                // Method io/aeron/driver/media/SendChannelEndpoint.addPublication:(Lio/aeron/driver/NetworkPublication;)V
+     228: aload_0
+     229: getfield      #16                 // Field networkPublications:Ljava/util/ArrayList;
+     232: aload         9
+     234: invokevirtual #132                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+     237: pop
+     238: aload_0
+     239: getfield      #51                 // Field senderProxy:Lio/aeron/driver/SenderProxy;
+     242: aload         9
+     244: invokevirtual #245                // Method io/aeron/driver/SenderProxy.newNetworkPublication:(Lio/aeron/driver/NetworkPublication;)V
+     247: aload         9
+     249: astore        15
+     251: aload_0
+     252: getfield      #17                 // Field subscriptionLinks:Ljava/util/ArrayList;
+     255: invokevirtual #147                // Method java/util/ArrayList.stream:()Ljava/util/stream/Stream;
+     258: aload         8
+     260: iload_2
+     261: invokedynamic #246,  0            // InvokeDynamic #16:test:(Lio/aeron/driver/media/SendChannelEndpoint;I)Ljava/util/function/Predicate;
+     266: invokeinterface #149,  2          // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+     271: aload_0
+     272: aload         15
+     274: invokedynamic #247,  0            // InvokeDynamic #17:accept:(Lio/aeron/driver/DriverConductor;Lio/aeron/driver/NetworkPublication;)Ljava/util/function/Consumer;
+     279: invokeinterface #151,  2          // InterfaceMethod java/util/stream/Stream.forEach:(Ljava/util/function/Consumer;)V
+     284: aload_0
+     285: lload_3
+     286: aload         9
+     288: aload_0
+     289: lload         5
+     291: invokespecial #248                // Method getOrAddClient:(J)Lio/aeron/driver/AeronClient;
+     294: invokespecial #249                // Method linkPublication:(JLio/aeron/driver/DriverManagedResource;Lio/aeron/driver/AeronClient;)V
+     297: aload_0
+     298: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+     301: lload_3
+     302: iload_2
+     303: aload         9
+     305: invokevirtual #250                // Method io/aeron/driver/NetworkPublication.sessionId:()I
+     308: aload         9
+     310: invokevirtual #141                // Method io/aeron/driver/NetworkPublication.rawLog:()Lio/aeron/driver/buffer/RawLog;
+     313: invokeinterface #134,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logFileName:()Ljava/lang/String;
+     318: aload         9
+     320: invokevirtual #251                // Method io/aeron/driver/NetworkPublication.publisherLimitId:()I
+     323: invokevirtual #252                // Method io/aeron/driver/ClientProxy.onPublicationReady:(JIILjava/lang/String;I)V
+     326: return
+
+  private static int getTermBufferLength(io.aeron.driver.uri.AeronUri, int);
+    Code:
+       0: aload_0
+       1: ldc           #253                // String term-length
+       3: invokevirtual #254                // Method io/aeron/driver/uri/AeronUri.get:(Ljava/lang/String;)Ljava/lang/String;
+       6: astore_2
+       7: iload_1
+       8: istore_3
+       9: aconst_null
+      10: aload_2
+      11: if_acmpeq     23
+      14: aload_2
+      15: invokestatic  #255                // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+      18: istore_3
+      19: iload_3
+      20: invokestatic  #256                // Method io/aeron/driver/Configuration.validateTermBufferLength:(I)V
+      23: iload_3
+      24: ireturn
+
+  private void onAddDirectPublication(java.lang.String, int, long, long);
+    Code:
+       0: aload_0
+       1: iload_2
+       2: aload_1
+       3: invokespecial #257                // Method getOrAddDirectPublication:(ILjava/lang/String;)Lio/aeron/driver/DirectPublication;
+       6: astore        7
+       8: aload_0
+       9: lload_3
+      10: aload         7
+      12: aload_0
+      13: lload         5
+      15: invokespecial #248                // Method getOrAddClient:(J)Lio/aeron/driver/AeronClient;
+      18: invokespecial #249                // Method linkPublication:(JLio/aeron/driver/DriverManagedResource;Lio/aeron/driver/AeronClient;)V
+      21: aload_0
+      22: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+      25: lload_3
+      26: iload_2
+      27: aload         7
+      29: invokevirtual #258                // Method io/aeron/driver/DirectPublication.sessionId:()I
+      32: aload         7
+      34: invokevirtual #259                // Method io/aeron/driver/DirectPublication.rawLog:()Lio/aeron/driver/buffer/RawLog;
+      37: invokeinterface #134,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logFileName:()Ljava/lang/String;
+      42: aload         7
+      44: invokevirtual #260                // Method io/aeron/driver/DirectPublication.publisherLimitId:()I
+      47: invokevirtual #252                // Method io/aeron/driver/ClientProxy.onPublicationReady:(JIILjava/lang/String;I)V
+      50: return
+
+  private int nextSessionId();
+    Code:
+       0: aload_0
+       1: dup
+       2: getfield      #5                  // Field nextSessionId:I
+       5: dup_x1
+       6: iconst_1
+       7: iadd
+       8: putfield      #5                  // Field nextSessionId:I
+      11: ireturn
+
+  private void linkPublication(long, io.aeron.driver.DriverManagedResource, io.aeron.driver.AeronClient);
+    Code:
+       0: aconst_null
+       1: aload_0
+       2: getfield      #15                 // Field publicationLinks:Ljava/util/ArrayList;
+       5: lload_1
+       6: invokestatic  #261                // Method findPublicationLink:(Ljava/util/ArrayList;J)Lio/aeron/driver/PublicationLink;
+       9: if_acmpeq     26
+      12: new           #211                // class io/aeron/driver/exceptions/ControlProtocolException
+      15: dup
+      16: getstatic     #218                // Field io/aeron/ErrorCode.GENERIC_ERROR:Lio/aeron/ErrorCode;
+      19: ldc_w         #262                // String registration id already in use.
+      22: invokespecial #263                // Method io/aeron/driver/exceptions/ControlProtocolException."<init>":(Lio/aeron/ErrorCode;Ljava/lang/String;)V
+      25: athrow
+      26: aload_0
+      27: getfield      #15                 // Field publicationLinks:Ljava/util/ArrayList;
+      30: new           #264                // class io/aeron/driver/PublicationLink
+      33: dup
+      34: lload_1
+      35: aload_3
+      36: aload         4
+      38: aload_0
+      39: getfield      #57                 // Field nanoClock:Lorg/agrona/concurrent/NanoClock;
+      42: invokeinterface #76,  1           // InterfaceMethod org/agrona/concurrent/NanoClock.nanoTime:()J
+      47: aload_0
+      48: getfield      #43                 // Field publicationUnblockTimeoutNs:J
+      51: aload_0
+      52: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      55: invokevirtual #68                 // Method io/aeron/driver/MediaDriver$Context.systemCounters:()Lio/aeron/driver/status/SystemCounters;
+      58: invokespecial #265                // Method io/aeron/driver/PublicationLink."<init>":(JLio/aeron/driver/DriverManagedResource;Lio/aeron/driver/AeronClient;JJLio/aeron/driver/status/SystemCounters;)V
+      61: invokevirtual #132                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+      64: pop
+      65: return
+
+  private io.aeron.driver.buffer.RawLog newNetworkPublicationLog(int, int, int, io.aeron.driver.media.UdpChannel, long, int);
+    Code:
+       0: aload_0
+       1: getfield      #53                 // Field rawLogFactory:Lio/aeron/driver/buffer/RawLogFactory;
+       4: aload         4
+       6: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+       9: iload_1
+      10: iload_2
+      11: lload         5
+      13: iload         7
+      15: invokevirtual #266                // Method io/aeron/driver/buffer/RawLogFactory.newNetworkPublication:(Ljava/lang/String;IIJI)Lio/aeron/driver/buffer/RawLog;
+      18: astore        8
+      20: aload         8
+      22: invokeinterface #142,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logMetaData:()Lorg/agrona/concurrent/UnsafeBuffer;
+      27: astore        9
+      29: aload         9
+      31: iload_1
+      32: iload_2
+      33: iload_3
+      34: invokestatic  #267                // Method io/aeron/protocol/DataHeaderFlyweight.createDefaultHeader:(III)Lorg/agrona/concurrent/UnsafeBuffer;
+      37: invokestatic  #268                // Method io/aeron/logbuffer/LogBufferDescriptor.storeDefaultFrameHeader:(Lorg/agrona/concurrent/UnsafeBuffer;Lorg/agrona/DirectBuffer;)V
+      40: aload         9
+      42: iconst_0
+      43: iload_3
+      44: invokestatic  #269                // Method io/aeron/logbuffer/LogBufferDescriptor.initialiseTailWithTermId:(Lorg/agrona/concurrent/UnsafeBuffer;II)V
+      47: aload         9
+      49: iload_3
+      50: invokestatic  #270                // Method io/aeron/logbuffer/LogBufferDescriptor.initialTermId:(Lorg/agrona/concurrent/UnsafeBuffer;I)V
+      53: aload         9
+      55: aload_0
+      56: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      59: invokevirtual #242                // Method io/aeron/driver/MediaDriver$Context.mtuLength:()I
+      62: invokestatic  #271                // Method io/aeron/logbuffer/LogBufferDescriptor.mtuLength:(Lorg/agrona/concurrent/UnsafeBuffer;I)V
+      65: aload         9
+      67: lload         5
+      69: invokestatic  #272                // Method io/aeron/logbuffer/LogBufferDescriptor.correlationId:(Lorg/agrona/concurrent/UnsafeBuffer;J)V
+      72: aload         9
+      74: lconst_0
+      75: invokestatic  #273                // Method io/aeron/logbuffer/LogBufferDescriptor.timeOfLastStatusMessage:(Lorg/agrona/concurrent/UnsafeBuffer;J)V
+      78: aload         8
+      80: areturn
+
+  private io.aeron.driver.buffer.RawLog newPublicationImageLog(int, int, int, int, int, io.aeron.driver.media.UdpChannel, long);
+    Code:
+       0: aload_0
+       1: getfield      #53                 // Field rawLogFactory:Lio/aeron/driver/buffer/RawLogFactory;
+       4: aload         6
+       6: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+       9: iload_1
+      10: iload_2
+      11: lload         7
+      13: iload         4
+      15: invokevirtual #274                // Method io/aeron/driver/buffer/RawLogFactory.newNetworkedImage:(Ljava/lang/String;IIJI)Lio/aeron/driver/buffer/RawLog;
+      18: astore        9
+      20: aload         9
+      22: invokeinterface #142,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logMetaData:()Lorg/agrona/concurrent/UnsafeBuffer;
+      27: astore        10
+      29: aload         10
+      31: iload_1
+      32: iload_2
+      33: iload_3
+      34: invokestatic  #267                // Method io/aeron/protocol/DataHeaderFlyweight.createDefaultHeader:(III)Lorg/agrona/concurrent/UnsafeBuffer;
+      37: invokestatic  #268                // Method io/aeron/logbuffer/LogBufferDescriptor.storeDefaultFrameHeader:(Lorg/agrona/concurrent/UnsafeBuffer;Lorg/agrona/DirectBuffer;)V
+      40: aload         10
+      42: iload_3
+      43: invokestatic  #270                // Method io/aeron/logbuffer/LogBufferDescriptor.initialTermId:(Lorg/agrona/concurrent/UnsafeBuffer;I)V
+      46: aload         10
+      48: iload         5
+      50: invokestatic  #271                // Method io/aeron/logbuffer/LogBufferDescriptor.mtuLength:(Lorg/agrona/concurrent/UnsafeBuffer;I)V
+      53: aload         10
+      55: lload         7
+      57: invokestatic  #272                // Method io/aeron/logbuffer/LogBufferDescriptor.correlationId:(Lorg/agrona/concurrent/UnsafeBuffer;J)V
+      60: aload         10
+      62: lconst_0
+      63: invokestatic  #273                // Method io/aeron/logbuffer/LogBufferDescriptor.timeOfLastStatusMessage:(Lorg/agrona/concurrent/UnsafeBuffer;J)V
+      66: aload         9
+      68: areturn
+
+  private io.aeron.driver.buffer.RawLog newDirectPublicationLog(int, int, int, int, long);
+    Code:
+       0: aload_0
+       1: getfield      #53                 // Field rawLogFactory:Lio/aeron/driver/buffer/RawLogFactory;
+       4: iload_2
+       5: iload_3
+       6: lload         5
+       8: iload_1
+       9: invokevirtual #275                // Method io/aeron/driver/buffer/RawLogFactory.newDirectPublication:(IIJI)Lio/aeron/driver/buffer/RawLog;
+      12: astore        7
+      14: aload         7
+      16: invokeinterface #142,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logMetaData:()Lorg/agrona/concurrent/UnsafeBuffer;
+      21: astore        8
+      23: aload         8
+      25: iload_2
+      26: iload_3
+      27: iload         4
+      29: invokestatic  #267                // Method io/aeron/protocol/DataHeaderFlyweight.createDefaultHeader:(III)Lorg/agrona/concurrent/UnsafeBuffer;
+      32: invokestatic  #268                // Method io/aeron/logbuffer/LogBufferDescriptor.storeDefaultFrameHeader:(Lorg/agrona/concurrent/UnsafeBuffer;Lorg/agrona/DirectBuffer;)V
+      35: aload         8
+      37: iconst_0
+      38: iload         4
+      40: invokestatic  #269                // Method io/aeron/logbuffer/LogBufferDescriptor.initialiseTailWithTermId:(Lorg/agrona/concurrent/UnsafeBuffer;II)V
+      43: aload         8
+      45: iload         4
+      47: invokestatic  #270                // Method io/aeron/logbuffer/LogBufferDescriptor.initialTermId:(Lorg/agrona/concurrent/UnsafeBuffer;I)V
+      50: aload         8
+      52: iload_1
+      53: invokestatic  #276                // Method io/aeron/logbuffer/FrameDescriptor.computeMaxMessageLength:(I)I
+      56: invokestatic  #271                // Method io/aeron/logbuffer/LogBufferDescriptor.mtuLength:(Lorg/agrona/concurrent/UnsafeBuffer;I)V
+      59: aload         8
+      61: lload         5
+      63: invokestatic  #272                // Method io/aeron/logbuffer/LogBufferDescriptor.correlationId:(Lorg/agrona/concurrent/UnsafeBuffer;J)V
+      66: aload         8
+      68: lconst_0
+      69: invokestatic  #273                // Method io/aeron/logbuffer/LogBufferDescriptor.timeOfLastStatusMessage:(Lorg/agrona/concurrent/UnsafeBuffer;J)V
+      72: aload         7
+      74: areturn
+
+  private io.aeron.driver.media.SendChannelEndpoint getOrCreateSendChannelEndpoint(io.aeron.driver.media.UdpChannel);
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field sendChannelEndpointByChannelMap:Ljava/util/HashMap;
+       4: aload_1
+       5: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+       8: invokevirtual #91                 // Method java/util/HashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      11: checkcast     #92                 // class io/aeron/driver/media/SendChannelEndpoint
+      14: astore_2
+      15: aconst_null
+      16: aload_2
+      17: if_acmpne     70
+      20: aload_0
+      21: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      24: invokevirtual #277                // Method io/aeron/driver/MediaDriver$Context.sendChannelEndpointSupplier:()Lio/aeron/driver/SendChannelEndpointSupplier;
+      27: aload_1
+      28: aload_0
+      29: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+      32: aload_1
+      33: invokevirtual #111                // Method io/aeron/driver/media/UdpChannel.originalUriString:()Ljava/lang/String;
+      36: invokestatic  #278                // Method io/aeron/driver/status/SendChannelStatus.allocate:(Lorg/agrona/concurrent/status/CountersManager;Ljava/lang/String;)Lorg/agrona/concurrent/status/AtomicCounter;
+      39: aload_0
+      40: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      43: invokeinterface #279,  4          // InterfaceMethod io/aeron/driver/SendChannelEndpointSupplier.newInstance:(Lio/aeron/driver/media/UdpChannel;Lorg/agrona/concurrent/status/AtomicCounter;Lio/aeron/driver/MediaDriver$Context;)Lio/aeron/driver/media/SendChannelEndpoint;
+      48: astore_2
+      49: aload_0
+      50: getfield      #11                 // Field sendChannelEndpointByChannelMap:Ljava/util/HashMap;
+      53: aload_1
+      54: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+      57: aload_2
+      58: invokevirtual #280                // Method java/util/HashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      61: pop
+      62: aload_0
+      63: getfield      #51                 // Field senderProxy:Lio/aeron/driver/SenderProxy;
+      66: aload_2
+      67: invokevirtual #281                // Method io/aeron/driver/SenderProxy.registerSendChannelEndpoint:(Lio/aeron/driver/media/SendChannelEndpoint;)V
+      70: aload_2
+      71: areturn
+
+  private void onRemovePublication(long, long);
+    Code:
+       0: aconst_null
+       1: astore        5
+       3: aload_0
+       4: getfield      #15                 // Field publicationLinks:Ljava/util/ArrayList;
+       7: astore        6
+       9: iconst_0
+      10: istore        7
+      12: aload         6
+      14: invokevirtual #98                 // Method java/util/ArrayList.size:()I
+      17: istore        8
+      19: iload         7
+      21: iload         8
+      23: if_icmpge     69
+      26: aload         6
+      28: iload         7
+      30: invokevirtual #99                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+      33: checkcast     #264                // class io/aeron/driver/PublicationLink
+      36: astore        9
+      38: lload_1
+      39: aload         9
+      41: invokevirtual #282                // Method io/aeron/driver/PublicationLink.registrationId:()J
+      44: lcmp
+      45: ifne          63
+      48: aload         9
+      50: astore        5
+      52: aload         6
+      54: iload         7
+      56: invokevirtual #176                // Method java/util/ArrayList.remove:(I)Ljava/lang/Object;
+      59: pop
+      60: goto          69
+      63: iinc          7, 1
+      66: goto          19
+      69: aconst_null
+      70: aload         5
+      72: if_acmpne     106
+      75: new           #211                // class io/aeron/driver/exceptions/ControlProtocolException
+      78: dup
+      79: getstatic     #283                // Field io/aeron/ErrorCode.UNKNOWN_PUBLICATION:Lio/aeron/ErrorCode;
+      82: new           #284                // class java/lang/StringBuilder
+      85: dup
+      86: invokespecial #285                // Method java/lang/StringBuilder."<init>":()V
+      89: ldc_w         #286                // String Unknown publication:
+      92: invokevirtual #287                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      95: lload_1
+      96: invokevirtual #288                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      99: invokevirtual #289                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     102: invokespecial #263                // Method io/aeron/driver/exceptions/ControlProtocolException."<init>":(Lio/aeron/ErrorCode;Ljava/lang/String;)V
+     105: athrow
+     106: aload         5
+     108: invokevirtual #290                // Method io/aeron/driver/PublicationLink.close:()V
+     111: aload_0
+     112: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+     115: lload_3
+     116: invokevirtual #291                // Method io/aeron/driver/ClientProxy.operationSucceeded:(J)V
+     119: return
+
+  private void onAddNetworkSubscription(java.lang.String, int, long, long);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokestatic  #223                // Method io/aeron/driver/media/UdpChannel.parse:(Ljava/lang/String;)Lio/aeron/driver/media/UdpChannel;
+       5: invokespecial #292                // Method getOrCreateReceiveChannelEndpoint:(Lio/aeron/driver/media/UdpChannel;)Lio/aeron/driver/media/ReceiveChannelEndpoint;
+       8: astore        7
+      10: aload         7
+      12: iload_2
+      13: invokevirtual #293                // Method io/aeron/driver/media/ReceiveChannelEndpoint.incRefToStream:(I)I
+      16: istore        8
+      18: iconst_1
+      19: iload         8
+      21: if_icmpne     34
+      24: aload_0
+      25: getfield      #49                 // Field receiverProxy:Lio/aeron/driver/ReceiverProxy;
+      28: aload         7
+      30: iload_2
+      31: invokevirtual #294                // Method io/aeron/driver/ReceiverProxy.addSubscription:(Lio/aeron/driver/media/ReceiveChannelEndpoint;I)V
+      34: aload_0
+      35: lload         5
+      37: invokespecial #248                // Method getOrAddClient:(J)Lio/aeron/driver/AeronClient;
+      40: astore        9
+      42: new           #295                // class io/aeron/driver/SubscriptionLink
+      45: dup
+      46: lload_3
+      47: aload         7
+      49: iload_2
+      50: aload         9
+      52: aload_0
+      53: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      56: invokevirtual #40                 // Method io/aeron/driver/MediaDriver$Context.clientLivenessTimeoutNs:()J
+      59: invokespecial #296                // Method io/aeron/driver/SubscriptionLink."<init>":(JLio/aeron/driver/media/ReceiveChannelEndpoint;ILio/aeron/driver/AeronClient;J)V
+      62: astore        10
+      64: aload_0
+      65: getfield      #17                 // Field subscriptionLinks:Ljava/util/ArrayList;
+      68: aload         10
+      70: invokevirtual #132                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+      73: pop
+      74: aload_0
+      75: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+      78: lload_3
+      79: invokevirtual #291                // Method io/aeron/driver/ClientProxy.operationSucceeded:(J)V
+      82: aload_0
+      83: getfield      #18                 // Field publicationImages:Ljava/util/ArrayList;
+      86: invokevirtual #147                // Method java/util/ArrayList.stream:()Ljava/util/stream/Stream;
+      89: aload         7
+      91: iload_2
+      92: invokedynamic #297,  0            // InvokeDynamic #18:test:(Lio/aeron/driver/media/ReceiveChannelEndpoint;I)Ljava/util/function/Predicate;
+      97: invokeinterface #149,  2          // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+     102: aload_0
+     103: lload_3
+     104: iload_2
+     105: aload_1
+     106: aload         10
+     108: invokedynamic #298,  0            // InvokeDynamic #19:accept:(Lio/aeron/driver/DriverConductor;JILjava/lang/String;Lio/aeron/driver/SubscriptionLink;)Ljava/util/function/Consumer;
+     113: invokeinterface #151,  2          // InterfaceMethod java/util/stream/Stream.forEach:(Ljava/util/function/Consumer;)V
+     118: return
+
+  private void onAddDirectSubscription(java.lang.String, int, long, long);
+    Code:
+       0: aload_0
+       1: iload_2
+       2: aload_1
+       3: invokespecial #257                // Method getOrAddDirectPublication:(ILjava/lang/String;)Lio/aeron/driver/DirectPublication;
+       6: astore        7
+       8: aload_0
+       9: lload         5
+      11: invokespecial #248                // Method getOrAddClient:(J)Lio/aeron/driver/AeronClient;
+      14: astore        8
+      16: aload         7
+      18: invokevirtual #299                // Method io/aeron/driver/DirectPublication.joiningPosition:()J
+      21: lstore        9
+      23: aload         7
+      25: invokevirtual #258                // Method io/aeron/driver/DirectPublication.sessionId:()I
+      28: istore        11
+      30: aload_0
+      31: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+      34: lload_3
+      35: iload         11
+      37: iload_2
+      38: ldc           #187                // String aeron:ipc
+      40: lload         9
+      42: invokestatic  #300                // Method io/aeron/driver/status/SubscriberPos.allocate:(Lorg/agrona/concurrent/status/CountersManager;JIILjava/lang/String;J)Lorg/agrona/concurrent/status/UnsafeBufferPosition;
+      45: astore        12
+      47: aload         12
+      49: lload         9
+      51: invokeinterface #301,  3          // InterfaceMethod org/agrona/concurrent/status/Position.setOrdered:(J)V
+      56: new           #295                // class io/aeron/driver/SubscriptionLink
+      59: dup
+      60: lload_3
+      61: iload_2
+      62: aload         7
+      64: aload         12
+      66: aload         8
+      68: aload_0
+      69: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      72: invokevirtual #40                 // Method io/aeron/driver/MediaDriver$Context.clientLivenessTimeoutNs:()J
+      75: invokespecial #302                // Method io/aeron/driver/SubscriptionLink."<init>":(JILio/aeron/driver/DirectPublication;Lorg/agrona/concurrent/status/ReadablePosition;Lio/aeron/driver/AeronClient;J)V
+      78: astore        13
+      80: aload_0
+      81: getfield      #17                 // Field subscriptionLinks:Ljava/util/ArrayList;
+      84: aload         13
+      86: invokevirtual #132                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+      89: pop
+      90: aload         7
+      92: aload         12
+      94: invokevirtual #303                // Method io/aeron/driver/DirectPublication.addSubscription:(Lorg/agrona/concurrent/status/ReadablePosition;)V
+      97: aload_0
+      98: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+     101: lload_3
+     102: invokevirtual #291                // Method io/aeron/driver/ClientProxy.operationSucceeded:(J)V
+     105: new           #13                 // class java/util/ArrayList
+     108: dup
+     109: invokespecial #14                 // Method java/util/ArrayList."<init>":()V
+     112: astore        14
+     114: aload         14
+     116: new           #304                // class io/aeron/driver/SubscriberPosition
+     119: dup
+     120: aload         13
+     122: aload         12
+     124: invokespecial #305                // Method io/aeron/driver/SubscriberPosition."<init>":(Lio/aeron/driver/SubscriptionLink;Lorg/agrona/concurrent/status/Position;)V
+     127: invokeinterface #306,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     132: pop
+     133: aload_0
+     134: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+     137: aload         7
+     139: invokevirtual #307                // Method io/aeron/driver/DirectPublication.correlationId:()J
+     142: iload_2
+     143: iload         11
+     145: aload         7
+     147: invokevirtual #259                // Method io/aeron/driver/DirectPublication.rawLog:()Lio/aeron/driver/buffer/RawLog;
+     150: invokeinterface #134,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logFileName:()Ljava/lang/String;
+     155: aload         14
+     157: ldc           #187                // String aeron:ipc
+     159: invokevirtual #136                // Method io/aeron/driver/ClientProxy.onAvailableImage:(JIILjava/lang/String;Ljava/util/List;Ljava/lang/String;)V
+     162: return
+
+  private void onAddSpySubscription(java.lang.String, int, long, long);
+    Code:
+       0: aload_1
+       1: invokestatic  #223                // Method io/aeron/driver/media/UdpChannel.parse:(Ljava/lang/String;)Lio/aeron/driver/media/UdpChannel;
+       4: astore        7
+       6: aload_0
+       7: aload         7
+       9: invokevirtual #308                // Method senderChannelEndpoint:(Lio/aeron/driver/media/UdpChannel;)Lio/aeron/driver/media/SendChannelEndpoint;
+      12: astore        8
+      14: aconst_null
+      15: aload         8
+      17: if_acmpne     24
+      20: aconst_null
+      21: goto          30
+      24: aload         8
+      26: iload_2
+      27: invokevirtual #225                // Method io/aeron/driver/media/SendChannelEndpoint.getPublication:(I)Lio/aeron/driver/NetworkPublication;
+      30: astore        9
+      32: aload_0
+      33: lload         5
+      35: invokespecial #248                // Method getOrAddClient:(J)Lio/aeron/driver/AeronClient;
+      38: astore        10
+      40: new           #295                // class io/aeron/driver/SubscriptionLink
+      43: dup
+      44: lload_3
+      45: aload         7
+      47: iload_2
+      48: aload         10
+      50: aload_0
+      51: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      54: invokevirtual #40                 // Method io/aeron/driver/MediaDriver$Context.clientLivenessTimeoutNs:()J
+      57: invokespecial #309                // Method io/aeron/driver/SubscriptionLink."<init>":(JLio/aeron/driver/media/UdpChannel;ILio/aeron/driver/AeronClient;J)V
+      60: astore        11
+      62: aload_0
+      63: getfield      #17                 // Field subscriptionLinks:Ljava/util/ArrayList;
+      66: aload         11
+      68: invokevirtual #132                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+      71: pop
+      72: aload_0
+      73: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+      76: lload_3
+      77: invokevirtual #291                // Method io/aeron/driver/ClientProxy.operationSucceeded:(J)V
+      80: aconst_null
+      81: aload         9
+      83: if_acmpeq     94
+      86: aload_0
+      87: aload         9
+      89: aload         11
+      91: invokespecial #310                // Method linkSpy:(Lio/aeron/driver/NetworkPublication;Lio/aeron/driver/SubscriptionLink;)V
+      94: return
+
+  private void linkSpy(io.aeron.driver.NetworkPublication, io.aeron.driver.SubscriptionLink);
+    Code:
+       0: aload_1
+       1: invokevirtual #311                // Method io/aeron/driver/NetworkPublication.spyJoiningPosition:()J
+       4: lstore_3
+       5: aload_1
+       6: invokevirtual #144                // Method io/aeron/driver/NetworkPublication.streamId:()I
+       9: istore        5
+      11: aload_1
+      12: invokevirtual #250                // Method io/aeron/driver/NetworkPublication.sessionId:()I
+      15: istore        6
+      17: aload_2
+      18: invokevirtual #312                // Method io/aeron/driver/SubscriptionLink.spiedChannel:()Lio/aeron/driver/media/UdpChannel;
+      21: invokevirtual #111                // Method io/aeron/driver/media/UdpChannel.originalUriString:()Ljava/lang/String;
+      24: astore        7
+      26: aload_0
+      27: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+      30: aload_2
+      31: invokevirtual #313                // Method io/aeron/driver/SubscriptionLink.registrationId:()J
+      34: iload         6
+      36: iload         5
+      38: aload         7
+      40: lload_3
+      41: invokestatic  #300                // Method io/aeron/driver/status/SubscriberPos.allocate:(Lorg/agrona/concurrent/status/CountersManager;JIILjava/lang/String;J)Lorg/agrona/concurrent/status/UnsafeBufferPosition;
+      44: astore        8
+      46: aload         8
+      48: lload_3
+      49: invokeinterface #301,  3          // InterfaceMethod org/agrona/concurrent/status/Position.setOrdered:(J)V
+      54: new           #13                 // class java/util/ArrayList
+      57: dup
+      58: invokespecial #14                 // Method java/util/ArrayList."<init>":()V
+      61: astore        9
+      63: aload         9
+      65: new           #304                // class io/aeron/driver/SubscriberPosition
+      68: dup
+      69: aload_2
+      70: aload         8
+      72: invokespecial #305                // Method io/aeron/driver/SubscriberPosition."<init>":(Lio/aeron/driver/SubscriptionLink;Lorg/agrona/concurrent/status/Position;)V
+      75: invokeinterface #306,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      80: pop
+      81: aload_1
+      82: aload         8
+      84: invokevirtual #314                // Method io/aeron/driver/NetworkPublication.addSpyPosition:(Lorg/agrona/concurrent/status/ReadablePosition;)V
+      87: aload_2
+      88: aload_1
+      89: aload         8
+      91: invokevirtual #315                // Method io/aeron/driver/SubscriptionLink.addSpiedPublication:(Lio/aeron/driver/NetworkPublication;Lorg/agrona/concurrent/status/ReadablePosition;)V
+      94: aload_0
+      95: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+      98: aload_1
+      99: invokevirtual #141                // Method io/aeron/driver/NetworkPublication.rawLog:()Lio/aeron/driver/buffer/RawLog;
+     102: invokeinterface #142,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logMetaData:()Lorg/agrona/concurrent/UnsafeBuffer;
+     107: invokestatic  #143                // Method io/aeron/logbuffer/LogBufferDescriptor.correlationId:(Lorg/agrona/concurrent/UnsafeBuffer;)J
+     110: iload         5
+     112: iload         6
+     114: aload_1
+     115: invokevirtual #141                // Method io/aeron/driver/NetworkPublication.rawLog:()Lio/aeron/driver/buffer/RawLog;
+     118: invokeinterface #134,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logFileName:()Ljava/lang/String;
+     123: aload         9
+     125: aload         7
+     127: invokevirtual #136                // Method io/aeron/driver/ClientProxy.onAvailableImage:(JIILjava/lang/String;Ljava/util/List;Ljava/lang/String;)V
+     130: return
+
+  private io.aeron.driver.media.ReceiveChannelEndpoint getOrCreateReceiveChannelEndpoint(io.aeron.driver.media.UdpChannel);
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field receiveChannelEndpointByChannelMap:Ljava/util/HashMap;
+       4: aload_1
+       5: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+       8: invokevirtual #91                 // Method java/util/HashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      11: checkcast     #93                 // class io/aeron/driver/media/ReceiveChannelEndpoint
+      14: astore_2
+      15: aconst_null
+      16: aload_2
+      17: if_acmpne     88
+      20: aload_0
+      21: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      24: invokevirtual #316                // Method io/aeron/driver/MediaDriver$Context.receiveChannelEndpointSupplier:()Lio/aeron/driver/ReceiveChannelEndpointSupplier;
+      27: aload_1
+      28: new           #317                // class io/aeron/driver/DataPacketDispatcher
+      31: dup
+      32: aload_0
+      33: getfield      #63                 // Field fromReceiverConductorProxy:Lio/aeron/driver/DriverConductorProxy;
+      36: aload_0
+      37: getfield      #49                 // Field receiverProxy:Lio/aeron/driver/ReceiverProxy;
+      40: invokevirtual #318                // Method io/aeron/driver/ReceiverProxy.receiver:()Lio/aeron/driver/Receiver;
+      43: invokespecial #319                // Method io/aeron/driver/DataPacketDispatcher."<init>":(Lio/aeron/driver/DriverConductorProxy;Lio/aeron/driver/Receiver;)V
+      46: aload_0
+      47: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+      50: aload_1
+      51: invokevirtual #111                // Method io/aeron/driver/media/UdpChannel.originalUriString:()Ljava/lang/String;
+      54: invokestatic  #320                // Method io/aeron/driver/status/ReceiveChannelStatus.allocate:(Lorg/agrona/concurrent/status/CountersManager;Ljava/lang/String;)Lorg/agrona/concurrent/status/AtomicCounter;
+      57: aload_0
+      58: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      61: invokeinterface #321,  5          // InterfaceMethod io/aeron/driver/ReceiveChannelEndpointSupplier.newInstance:(Lio/aeron/driver/media/UdpChannel;Lio/aeron/driver/DataPacketDispatcher;Lorg/agrona/concurrent/status/AtomicCounter;Lio/aeron/driver/MediaDriver$Context;)Lio/aeron/driver/media/ReceiveChannelEndpoint;
+      66: astore_2
+      67: aload_0
+      68: getfield      #12                 // Field receiveChannelEndpointByChannelMap:Ljava/util/HashMap;
+      71: aload_1
+      72: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+      75: aload_2
+      76: invokevirtual #280                // Method java/util/HashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      79: pop
+      80: aload_0
+      81: getfield      #49                 // Field receiverProxy:Lio/aeron/driver/ReceiverProxy;
+      84: aload_2
+      85: invokevirtual #322                // Method io/aeron/driver/ReceiverProxy.registerReceiveChannelEndpoint:(Lio/aeron/driver/media/ReceiveChannelEndpoint;)V
+      88: aload_2
+      89: areturn
+
+  private void onRemoveSubscription(long, long);
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field subscriptionLinks:Ljava/util/ArrayList;
+       4: lload_1
+       5: invokestatic  #323                // Method removeSubscriptionLink:(Ljava/util/ArrayList;J)Lio/aeron/driver/SubscriptionLink;
+       8: astore        5
+      10: aconst_null
+      11: aload         5
+      13: if_acmpne     47
+      16: new           #211                // class io/aeron/driver/exceptions/ControlProtocolException
+      19: dup
+      20: getstatic     #324                // Field io/aeron/ErrorCode.UNKNOWN_SUBSCRIPTION:Lio/aeron/ErrorCode;
+      23: new           #284                // class java/lang/StringBuilder
+      26: dup
+      27: invokespecial #285                // Method java/lang/StringBuilder."<init>":()V
+      30: ldc_w         #325                // String Unknown subscription link:
+      33: invokevirtual #287                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      36: lload_1
+      37: invokevirtual #288                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      40: invokevirtual #289                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      43: invokespecial #263                // Method io/aeron/driver/exceptions/ControlProtocolException."<init>":(Lio/aeron/ErrorCode;Ljava/lang/String;)V
+      46: athrow
+      47: aload         5
+      49: invokevirtual #326                // Method io/aeron/driver/SubscriptionLink.close:()V
+      52: aload         5
+      54: invokevirtual #156                // Method io/aeron/driver/SubscriptionLink.channelEndpoint:()Lio/aeron/driver/media/ReceiveChannelEndpoint;
+      57: astore        6
+      59: aconst_null
+      60: aload         6
+      62: if_acmpeq     145
+      65: aload         6
+      67: aload         5
+      69: invokevirtual #157                // Method io/aeron/driver/SubscriptionLink.streamId:()I
+      72: invokevirtual #158                // Method io/aeron/driver/media/ReceiveChannelEndpoint.decRefToStream:(I)I
+      75: istore        7
+      77: iconst_0
+      78: iload         7
+      80: if_icmpne     97
+      83: aload_0
+      84: getfield      #49                 // Field receiverProxy:Lio/aeron/driver/ReceiverProxy;
+      87: aload         6
+      89: aload         5
+      91: invokevirtual #157                // Method io/aeron/driver/SubscriptionLink.streamId:()I
+      94: invokevirtual #159                // Method io/aeron/driver/ReceiverProxy.removeSubscription:(Lio/aeron/driver/media/ReceiveChannelEndpoint;I)V
+      97: iconst_0
+      98: aload         6
+     100: invokevirtual #160                // Method io/aeron/driver/media/ReceiveChannelEndpoint.streamCount:()I
+     103: if_icmpne     145
+     106: aload_0
+     107: getfield      #12                 // Field receiveChannelEndpointByChannelMap:Ljava/util/HashMap;
+     110: aload         6
+     112: invokevirtual #110                // Method io/aeron/driver/media/ReceiveChannelEndpoint.udpChannel:()Lio/aeron/driver/media/UdpChannel;
+     115: invokevirtual #90                 // Method io/aeron/driver/media/UdpChannel.canonicalForm:()Ljava/lang/String;
+     118: invokevirtual #154                // Method java/util/HashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     121: pop
+     122: aload_0
+     123: getfield      #49                 // Field receiverProxy:Lio/aeron/driver/ReceiverProxy;
+     126: aload         6
+     128: invokevirtual #161                // Method io/aeron/driver/ReceiverProxy.closeReceiveChannelEndpoint:(Lio/aeron/driver/media/ReceiveChannelEndpoint;)V
+     131: aload         6
+     133: invokevirtual #327                // Method io/aeron/driver/media/ReceiveChannelEndpoint.isClosed:()Z
+     136: ifne          145
+     139: invokestatic  #328                // Method java/lang/Thread.yield:()V
+     142: goto          131
+     145: aload_0
+     146: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+     149: lload_3
+     150: invokevirtual #291                // Method io/aeron/driver/ClientProxy.operationSucceeded:(J)V
+     153: return
+
+  private void onClientKeepalive(long);
+    Code:
+       0: aload_0
+       1: getfield      #71                 // Field clientKeepAlives:Lorg/agrona/concurrent/status/AtomicCounter;
+       4: lconst_1
+       5: invokevirtual #329                // Method org/agrona/concurrent/status/AtomicCounter.addOrdered:(J)J
+       8: pop2
+       9: aload_0
+      10: getfield      #19                 // Field clients:Ljava/util/ArrayList;
+      13: lload_1
+      14: invokestatic  #330                // Method findClient:(Ljava/util/ArrayList;J)Lio/aeron/driver/AeronClient;
+      17: astore_3
+      18: aconst_null
+      19: aload_3
+      20: if_acmpeq     36
+      23: aload_3
+      24: aload_0
+      25: getfield      #57                 // Field nanoClock:Lorg/agrona/concurrent/NanoClock;
+      28: invokeinterface #76,  1           // InterfaceMethod org/agrona/concurrent/NanoClock.nanoTime:()J
+      33: invokevirtual #331                // Method io/aeron/driver/AeronClient.timeOfLastKeepalive:(J)V
+      36: return
+
+  private void onDriverConductorCmd(io.aeron.driver.cmd.DriverConductorCmd);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: invokeinterface #332,  2          // InterfaceMethod io/aeron/driver/cmd/DriverConductorCmd.execute:(Lio/aeron/driver/DriverConductor;)V
+       7: return
+
+  private io.aeron.driver.AeronClient getOrAddClient(long);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field clients:Ljava/util/ArrayList;
+       4: lload_1
+       5: invokestatic  #330                // Method findClient:(Ljava/util/ArrayList;J)Lio/aeron/driver/AeronClient;
+       8: astore_3
+       9: aconst_null
+      10: aload_3
+      11: if_acmpne     45
+      14: new           #333                // class io/aeron/driver/AeronClient
+      17: dup
+      18: lload_1
+      19: aload_0
+      20: getfield      #41                 // Field clientLivenessTimeoutNs:J
+      23: aload_0
+      24: getfield      #57                 // Field nanoClock:Lorg/agrona/concurrent/NanoClock;
+      27: invokeinterface #76,  1           // InterfaceMethod org/agrona/concurrent/NanoClock.nanoTime:()J
+      32: invokespecial #334                // Method io/aeron/driver/AeronClient."<init>":(JJJ)V
+      35: astore_3
+      36: aload_0
+      37: getfield      #19                 // Field clients:Ljava/util/ArrayList;
+      40: aload_3
+      41: invokevirtual #132                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+      44: pop
+      45: aload_3
+      46: areturn
+
+  private io.aeron.driver.DirectPublication getOrAddDirectPublication(int, java.lang.String);
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field directPublications:Ljava/util/ArrayList;
+       4: iload_1
+       5: i2l
+       6: invokestatic  #94                 // Method findDirectPublication:(Ljava/util/ArrayList;J)Lio/aeron/driver/DirectPublication;
+       9: astore_3
+      10: aconst_null
+      11: aload_3
+      12: if_acmpne     105
+      15: aload_2
+      16: invokestatic  #335                // Method io/aeron/driver/uri/AeronUri.parse:(Ljava/lang/CharSequence;)Lio/aeron/driver/uri/AeronUri;
+      19: aload_0
+      20: getfield      #37                 // Field context:Lio/aeron/driver/MediaDriver$Context;
+      23: invokevirtual #336                // Method io/aeron/driver/MediaDriver$Context.ipcTermBufferLength:()I
+      26: invokestatic  #228                // Method getTermBufferLength:(Lio/aeron/driver/uri/AeronUri;I)I
+      29: istore        4
+      31: aload_0
+      32: invokespecial #112                // Method nextImageCorrelationId:()J
+      35: lstore        5
+      37: aload_0
+      38: invokespecial #229                // Method nextSessionId:()I
+      41: istore        7
+      43: invokestatic  #4                  // Method org/agrona/BitUtil.generateRandomisedId:()I
+      46: istore        8
+      48: aload_0
+      49: iload         4
+      51: iload         7
+      53: iload_1
+      54: iload         8
+      56: lload         5
+      58: invokespecial #337                // Method newDirectPublicationLog:(IIIIJ)Lio/aeron/driver/buffer/RawLog;
+      61: astore        9
+      63: aload_0
+      64: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+      67: lload         5
+      69: iload         7
+      71: iload_1
+      72: ldc           #187                // String aeron:ipc
+      74: invokestatic  #240                // Method io/aeron/driver/status/PublisherLimit.allocate:(Lorg/agrona/concurrent/status/CountersManager;JIILjava/lang/String;)Lorg/agrona/concurrent/status/UnsafeBufferPosition;
+      77: astore        10
+      79: new           #104                // class io/aeron/driver/DirectPublication
+      82: dup
+      83: lload         5
+      85: iload         7
+      87: iload_1
+      88: aload         10
+      90: aload         9
+      92: invokespecial #338                // Method io/aeron/driver/DirectPublication."<init>":(JIILorg/agrona/concurrent/status/Position;Lio/aeron/driver/buffer/RawLog;)V
+      95: astore_3
+      96: aload_0
+      97: getfield      #20                 // Field directPublications:Ljava/util/ArrayList;
+     100: aload_3
+     101: invokevirtual #132                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+     104: pop
+     105: aload_3
+     106: areturn
+
+  private long nextImageCorrelationId();
+    Code:
+       0: aload_0
+       1: getfield      #59                 // Field toDriverCommands:Lorg/agrona/concurrent/ringbuffer/RingBuffer;
+       4: invokeinterface #339,  1          // InterfaceMethod org/agrona/concurrent/ringbuffer/RingBuffer.nextCorrelationId:()J
+       9: lreturn
+
+  private static io.aeron.driver.AeronClient findClient(java.util.ArrayList<io.aeron.driver.AeronClient>, long);
+    Code:
+       0: aconst_null
+       1: astore_3
+       2: iconst_0
+       3: istore        4
+       5: aload_0
+       6: invokevirtual #98                 // Method java/util/ArrayList.size:()I
+       9: istore        5
+      11: iload         4
+      13: iload         5
+      15: if_icmpge     51
+      18: aload_0
+      19: iload         4
+      21: invokevirtual #99                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+      24: checkcast     #333                // class io/aeron/driver/AeronClient
+      27: astore        6
+      29: aload         6
+      31: invokevirtual #340                // Method io/aeron/driver/AeronClient.clientId:()J
+      34: lload_1
+      35: lcmp
+      36: ifne          45
+      39: aload         6
+      41: astore_3
+      42: goto          51
+      45: iinc          4, 1
+      48: goto          11
+      51: aload_3
+      52: areturn
+
+  private static io.aeron.driver.PublicationLink findPublicationLink(java.util.ArrayList<io.aeron.driver.PublicationLink>, long);
+    Code:
+       0: aconst_null
+       1: astore_3
+       2: iconst_0
+       3: istore        4
+       5: aload_0
+       6: invokevirtual #98                 // Method java/util/ArrayList.size:()I
+       9: istore        5
+      11: iload         4
+      13: iload         5
+      15: if_icmpge     51
+      18: aload_0
+      19: iload         4
+      21: invokevirtual #99                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+      24: checkcast     #264                // class io/aeron/driver/PublicationLink
+      27: astore        6
+      29: lload_1
+      30: aload         6
+      32: invokevirtual #282                // Method io/aeron/driver/PublicationLink.registrationId:()J
+      35: lcmp
+      36: ifne          45
+      39: aload         6
+      41: astore_3
+      42: goto          51
+      45: iinc          4, 1
+      48: goto          11
+      51: aload_3
+      52: areturn
+
+  private static io.aeron.driver.SubscriptionLink removeSubscriptionLink(java.util.ArrayList<io.aeron.driver.SubscriptionLink>, long);
+    Code:
+       0: aconst_null
+       1: astore_3
+       2: iconst_0
+       3: istore        4
+       5: aload_0
+       6: invokevirtual #98                 // Method java/util/ArrayList.size:()I
+       9: istore        5
+      11: iload         4
+      13: iload         5
+      15: if_icmpge     58
+      18: aload_0
+      19: iload         4
+      21: invokevirtual #99                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+      24: checkcast     #295                // class io/aeron/driver/SubscriptionLink
+      27: astore        6
+      29: aload         6
+      31: invokevirtual #313                // Method io/aeron/driver/SubscriptionLink.registrationId:()J
+      34: lload_1
+      35: lcmp
+      36: ifne          52
+      39: aload         6
+      41: astore_3
+      42: aload_0
+      43: iload         4
+      45: invokevirtual #176                // Method java/util/ArrayList.remove:(I)Ljava/lang/Object;
+      48: pop
+      49: goto          58
+      52: iinc          4, 1
+      55: goto          11
+      58: aload_3
+      59: areturn
+
+  private static io.aeron.driver.DirectPublication findDirectPublication(java.util.ArrayList<io.aeron.driver.DirectPublication>, long);
+    Code:
+       0: aconst_null
+       1: astore_3
+       2: iconst_0
+       3: istore        4
+       5: aload_0
+       6: invokevirtual #98                 // Method java/util/ArrayList.size:()I
+       9: istore        5
+      11: iload         4
+      13: iload         5
+      15: if_icmpge     52
+      18: aload_0
+      19: iload         4
+      21: invokevirtual #99                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+      24: checkcast     #104                // class io/aeron/driver/DirectPublication
+      27: astore        6
+      29: aload         6
+      31: invokevirtual #341                // Method io/aeron/driver/DirectPublication.streamId:()I
+      34: i2l
+      35: lload_1
+      36: lcmp
+      37: ifne          46
+      40: aload         6
+      42: astore_3
+      43: goto          52
+      46: iinc          4, 1
+      49: goto          11
+      52: aload_3
+      53: areturn
+
+  private static java.lang.String generateSourceIdentity(java.net.InetSocketAddress);
+    Code:
+       0: new           #284                // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #285                // Method java/lang/StringBuilder."<init>":()V
+       7: aload_0
+       8: invokevirtual #342                // Method java/net/InetSocketAddress.getHostString:()Ljava/lang/String;
+      11: invokevirtual #287                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      14: bipush        58
+      16: invokevirtual #343                // Method java/lang/StringBuilder.append:(C)Ljava/lang/StringBuilder;
+      19: aload_0
+      20: invokevirtual #344                // Method java/net/InetSocketAddress.getPort:()I
+      23: invokevirtual #345                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      26: invokevirtual #289                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      29: areturn
+
+  private void lambda$onAddNetworkSubscription$9(long, int, java.lang.String, io.aeron.driver.SubscriptionLink, io.aeron.driver.PublicationImage);
+    Code:
+       0: aload         6
+       2: invokevirtual #346                // Method io/aeron/driver/PublicationImage.rebuildPosition:()J
+       5: lstore        7
+       7: aload         6
+       9: invokevirtual #166                // Method io/aeron/driver/PublicationImage.sessionId:()I
+      12: istore        9
+      14: aload_0
+      15: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+      18: lload_1
+      19: iload         9
+      21: iload_3
+      22: aload         4
+      24: lload         7
+      26: invokestatic  #300                // Method io/aeron/driver/status/SubscriberPos.allocate:(Lorg/agrona/concurrent/status/CountersManager;JIILjava/lang/String;J)Lorg/agrona/concurrent/status/UnsafeBufferPosition;
+      29: astore        10
+      31: aload         10
+      33: lload         7
+      35: invokeinterface #301,  3          // InterfaceMethod org/agrona/concurrent/status/Position.setOrdered:(J)V
+      40: aload         6
+      42: aload         10
+      44: invokevirtual #347                // Method io/aeron/driver/PublicationImage.addSubscriber:(Lorg/agrona/concurrent/status/ReadablePosition;)V
+      47: aload         5
+      49: aload         6
+      51: aload         10
+      53: invokevirtual #348                // Method io/aeron/driver/SubscriptionLink.addImage:(Lio/aeron/driver/PublicationImage;Lorg/agrona/concurrent/status/ReadablePosition;)V
+      56: aload_0
+      57: getfield      #61                 // Field clientProxy:Lio/aeron/driver/ClientProxy;
+      60: aload         6
+      62: invokevirtual #162                // Method io/aeron/driver/PublicationImage.correlationId:()J
+      65: iload_3
+      66: iload         9
+      68: aload         6
+      70: invokevirtual #349                // Method io/aeron/driver/PublicationImage.rawLog:()Lio/aeron/driver/buffer/RawLog;
+      73: invokeinterface #134,  1          // InterfaceMethod io/aeron/driver/buffer/RawLog.logFileName:()Ljava/lang/String;
+      78: new           #304                // class io/aeron/driver/SubscriberPosition
+      81: dup
+      82: aload         5
+      84: aload         10
+      86: invokespecial #305                // Method io/aeron/driver/SubscriberPosition."<init>":(Lio/aeron/driver/SubscriptionLink;Lorg/agrona/concurrent/status/Position;)V
+      89: invokestatic  #350                // Method java/util/Collections.singletonList:(Ljava/lang/Object;)Ljava/util/List;
+      92: aload         6
+      94: invokevirtual #351                // Method io/aeron/driver/PublicationImage.sourceAddress:()Ljava/net/InetSocketAddress;
+      97: invokestatic  #135                // Method generateSourceIdentity:(Ljava/net/InetSocketAddress;)Ljava/lang/String;
+     100: invokevirtual #136                // Method io/aeron/driver/ClientProxy.onAvailableImage:(JIILjava/lang/String;Ljava/util/List;Ljava/lang/String;)V
+     103: return
+
+  private static boolean lambda$onAddNetworkSubscription$8(io.aeron.driver.media.ReceiveChannelEndpoint, int, io.aeron.driver.PublicationImage);
+    Code:
+       0: aload_2
+       1: aload_0
+       2: iload_1
+       3: invokevirtual #352                // Method io/aeron/driver/PublicationImage.matches:(Lio/aeron/driver/media/ReceiveChannelEndpoint;I)Z
+       6: ifeq          30
+       9: aload_2
+      10: invokevirtual #353                // Method io/aeron/driver/PublicationImage.subscriberCount:()I
+      13: ifle          30
+      16: aload_2
+      17: invokevirtual #354                // Method io/aeron/driver/PublicationImage.status:()Lio/aeron/driver/PublicationImage$Status;
+      20: getstatic     #355                // Field io/aeron/driver/PublicationImage$Status.ACTIVE:Lio/aeron/driver/PublicationImage$Status;
+      23: if_acmpne     30
+      26: iconst_1
+      27: goto          31
+      30: iconst_0
+      31: ireturn
+
+  private void lambda$onAddNetworkPublication$7(io.aeron.driver.NetworkPublication, io.aeron.driver.SubscriptionLink);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #310                // Method linkSpy:(Lio/aeron/driver/NetworkPublication;Lio/aeron/driver/SubscriptionLink;)V
+       6: return
+
+  private static boolean lambda$onAddNetworkPublication$6(io.aeron.driver.media.SendChannelEndpoint, int, io.aeron.driver.SubscriptionLink);
+    Code:
+       0: aload_2
+       1: aload_0
+       2: iload_1
+       3: invokevirtual #356                // Method io/aeron/driver/SubscriptionLink.matches:(Lio/aeron/driver/media/SendChannelEndpoint;I)Z
+       6: ireturn
+
+  private io.aeron.driver.SubscriberPosition lambda$listSubscriberPositions$5(int, int, java.lang.String, long, io.aeron.driver.SubscriptionLink);
+    Code:
+       0: aload_0
+       1: getfield      #67                 // Field countersManager:Lorg/agrona/concurrent/status/CountersManager;
+       4: aload         6
+       6: invokevirtual #313                // Method io/aeron/driver/SubscriptionLink.registrationId:()J
+       9: iload_1
+      10: iload_2
+      11: aload_3
+      12: lload         4
+      14: invokestatic  #300                // Method io/aeron/driver/status/SubscriberPos.allocate:(Lorg/agrona/concurrent/status/CountersManager;JIILjava/lang/String;J)Lorg/agrona/concurrent/status/UnsafeBufferPosition;
+      17: astore        7
+      19: aload         7
+      21: lload         4
+      23: invokeinterface #301,  3          // InterfaceMethod org/agrona/concurrent/status/Position.setOrdered:(J)V
+      28: new           #304                // class io/aeron/driver/SubscriberPosition
+      31: dup
+      32: aload         6
+      34: aload         7
+      36: invokespecial #305                // Method io/aeron/driver/SubscriberPosition."<init>":(Lio/aeron/driver/SubscriptionLink;Lorg/agrona/concurrent/status/Position;)V
+      39: areturn
+
+  private static boolean lambda$listSubscriberPositions$4(io.aeron.driver.media.ReceiveChannelEndpoint, int, io.aeron.driver.SubscriptionLink);
+    Code:
+       0: aload_2
+       1: aload_0
+       2: iload_1
+       3: invokevirtual #357                // Method io/aeron/driver/SubscriptionLink.matches:(Lio/aeron/driver/media/ReceiveChannelEndpoint;I)Z
+       6: ireturn
+
+  private static void lambda$cleanupImage$3(io.aeron.driver.PublicationImage, io.aeron.driver.SubscriptionLink);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: invokevirtual #358                // Method io/aeron/driver/SubscriptionLink.removeImage:(Lio/aeron/driver/PublicationImage;)V
+       5: return
+
+  private static boolean lambda$cleanupImage$2(io.aeron.driver.PublicationImage, io.aeron.driver.SubscriptionLink);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #156                // Method io/aeron/driver/SubscriptionLink.channelEndpoint:()Lio/aeron/driver/media/ReceiveChannelEndpoint;
+       5: aload_1
+       6: invokevirtual #157                // Method io/aeron/driver/SubscriptionLink.streamId:()I
+       9: invokevirtual #352                // Method io/aeron/driver/PublicationImage.matches:(Lio/aeron/driver/media/ReceiveChannelEndpoint;I)Z
+      12: ireturn
+
+  private static boolean lambda$cleanupPublication$1(io.aeron.driver.media.SendChannelEndpoint, io.aeron.driver.NetworkPublication, io.aeron.driver.SubscriptionLink);
+    Code:
+       0: aload_2
+       1: aload_0
+       2: aload_1
+       3: invokevirtual #144                // Method io/aeron/driver/NetworkPublication.streamId:()I
+       6: invokevirtual #356                // Method io/aeron/driver/SubscriptionLink.matches:(Lio/aeron/driver/media/SendChannelEndpoint;I)Z
+       9: ireturn
+
+  private static void lambda$onCreatePublicationImage$0(io.aeron.driver.PublicationImage, io.aeron.driver.SubscriberPosition);
+    Code:
+       0: aload_1
+       1: invokevirtual #359                // Method io/aeron/driver/SubscriberPosition.subscription:()Lio/aeron/driver/SubscriptionLink;
+       4: aload_0
+       5: aload_1
+       6: invokevirtual #360                // Method io/aeron/driver/SubscriberPosition.position:()Lorg/agrona/concurrent/status/Position;
+       9: invokevirtual #348                // Method io/aeron/driver/SubscriptionLink.addImage:(Lio/aeron/driver/PublicationImage;Lorg/agrona/concurrent/status/ReadablePosition;)V
+      12: return
+}

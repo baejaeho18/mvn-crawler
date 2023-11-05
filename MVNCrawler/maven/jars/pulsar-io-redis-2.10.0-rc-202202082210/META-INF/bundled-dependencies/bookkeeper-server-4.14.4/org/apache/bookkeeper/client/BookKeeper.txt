@@ -1,0 +1,1674 @@
+Compiled from "BookKeeper.java"
+public class org.apache.bookkeeper.client.BookKeeper implements org.apache.bookkeeper.client.api.BookKeeper {
+  private static final org.slf4j.Logger LOG;
+
+  final io.netty.channel.EventLoopGroup eventLoopGroup;
+
+  private final io.netty.buffer.ByteBufAllocator allocator;
+
+  private final org.apache.bookkeeper.stats.StatsLogger statsLogger;
+
+  private final org.apache.bookkeeper.client.BookKeeperClientStats clientStats;
+
+  private final double bookieQuarantineRatio;
+
+  boolean ownEventLoopGroup;
+
+  final org.apache.bookkeeper.proto.BookieClient bookieClient;
+
+  final org.apache.bookkeeper.client.BookieWatcherImpl bookieWatcher;
+
+  final org.apache.bookkeeper.common.util.OrderedExecutor mainWorkerPool;
+
+  final org.apache.bookkeeper.common.util.OrderedScheduler scheduler;
+
+  final io.netty.util.HashedWheelTimer requestTimer;
+
+  final boolean ownTimer;
+
+  final org.apache.bookkeeper.feature.FeatureProvider featureProvider;
+
+  final java.util.concurrent.ScheduledExecutorService bookieInfoScheduler;
+
+  final org.apache.bookkeeper.meta.MetadataClientDriver metadataDriver;
+
+  final org.apache.bookkeeper.meta.LedgerManagerFactory ledgerManagerFactory;
+
+  final org.apache.bookkeeper.meta.LedgerManager ledgerManager;
+
+  final org.apache.bookkeeper.meta.LedgerIdGenerator ledgerIdGenerator;
+
+  final org.apache.bookkeeper.client.EnsemblePlacementPolicy placementPolicy;
+
+  org.apache.bookkeeper.client.BookieInfoReader bookieInfoReader;
+
+  final org.apache.bookkeeper.conf.ClientConfiguration conf;
+
+  final org.apache.bookkeeper.client.ClientInternalConf internalConf;
+
+  boolean closed;
+
+  final java.util.concurrent.locks.ReentrantReadWriteLock closeLock;
+
+  private final org.apache.bookkeeper.client.ClientContext clientCtx;
+
+  public static org.apache.bookkeeper.client.BookKeeper$Builder forConfig(org.apache.bookkeeper.conf.ClientConfiguration);
+    Code:
+       0: new           #4                  // class org/apache/bookkeeper/client/BookKeeper$Builder
+       3: dup
+       4: aload_0
+       5: invokespecial #5                  // Method org/apache/bookkeeper/client/BookKeeper$Builder."<init>":(Lorg/apache/bookkeeper/conf/ClientConfiguration;)V
+       8: areturn
+
+  public org.apache.bookkeeper.client.BookKeeper(java.lang.String) throws java.io.IOException, java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: new           #6                  // class org/apache/bookkeeper/conf/ClientConfiguration
+       4: dup
+       5: invokespecial #7                  // Method org/apache/bookkeeper/conf/ClientConfiguration."<init>":()V
+       8: new           #8                  // class java/lang/StringBuilder
+      11: dup
+      12: invokespecial #9                  // Method java/lang/StringBuilder."<init>":()V
+      15: ldc           #10                 // String zk+null://
+      17: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      20: aload_1
+      21: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      24: ldc           #12                 // String /ledgers
+      26: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: invokevirtual #13                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      32: invokevirtual #14                 // Method org/apache/bookkeeper/conf/ClientConfiguration.setMetadataServiceUri:(Ljava/lang/String;)Lorg/apache/bookkeeper/conf/AbstractConfiguration;
+      35: checkcast     #6                  // class org/apache/bookkeeper/conf/ClientConfiguration
+      38: invokespecial #15                 // Method "<init>":(Lorg/apache/bookkeeper/conf/ClientConfiguration;)V
+      41: return
+
+  public org.apache.bookkeeper.client.BookKeeper(org.apache.bookkeeper.conf.ClientConfiguration) throws java.io.IOException, java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aconst_null
+       3: aconst_null
+       4: aconst_null
+       5: getstatic     #16                 // Field org/apache/bookkeeper/stats/NullStatsLogger.INSTANCE:Lorg/apache/bookkeeper/stats/NullStatsLogger;
+       8: aconst_null
+       9: aconst_null
+      10: aconst_null
+      11: invokespecial #17                 // Method "<init>":(Lorg/apache/bookkeeper/conf/ClientConfiguration;Lorg/apache/zookeeper/ZooKeeper;Lio/netty/channel/EventLoopGroup;Lio/netty/buffer/ByteBufAllocator;Lorg/apache/bookkeeper/stats/StatsLogger;Lorg/apache/bookkeeper/net/DNSToSwitchMapping;Lio/netty/util/HashedWheelTimer;Lorg/apache/bookkeeper/feature/FeatureProvider;)V
+      14: return
+
+  private static org.apache.zookeeper.ZooKeeper validateZooKeeper(org.apache.zookeeper.ZooKeeper) throws java.lang.NullPointerException, java.io.IOException;
+    Code:
+       0: aload_0
+       1: ldc           #18                 // String No zookeeper instance provided
+       3: invokestatic  #19                 // Method com/google/common/base/Preconditions.checkNotNull:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+       6: pop
+       7: aload_0
+       8: invokevirtual #20                 // Method org/apache/zookeeper/ZooKeeper.getState:()Lorg/apache/zookeeper/ZooKeeper$States;
+      11: invokevirtual #21                 // Method org/apache/zookeeper/ZooKeeper$States.isConnected:()Z
+      14: ifne          41
+      17: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+      20: ldc           #23                 // String Unconnected zookeeper handle passed to bookkeeper
+      22: invokeinterface #24,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      27: new           #25                 // class java/io/IOException
+      30: dup
+      31: getstatic     #26                 // Field org/apache/zookeeper/KeeperException$Code.CONNECTIONLOSS:Lorg/apache/zookeeper/KeeperException$Code;
+      34: invokestatic  #27                 // Method org/apache/zookeeper/KeeperException.create:(Lorg/apache/zookeeper/KeeperException$Code;)Lorg/apache/zookeeper/KeeperException;
+      37: invokespecial #28                 // Method java/io/IOException."<init>":(Ljava/lang/Throwable;)V
+      40: athrow
+      41: aload_0
+      42: areturn
+
+  private static io.netty.channel.EventLoopGroup validateEventLoopGroup(io.netty.channel.EventLoopGroup) throws java.lang.NullPointerException;
+    Code:
+       0: aload_0
+       1: ldc           #29                 // String No Event Loop Group provided
+       3: invokestatic  #19                 // Method com/google/common/base/Preconditions.checkNotNull:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+       6: pop
+       7: aload_0
+       8: areturn
+
+  public org.apache.bookkeeper.client.BookKeeper(org.apache.bookkeeper.conf.ClientConfiguration, org.apache.zookeeper.ZooKeeper) throws java.io.IOException, java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokestatic  #30                 // Method validateZooKeeper:(Lorg/apache/zookeeper/ZooKeeper;)Lorg/apache/zookeeper/ZooKeeper;
+       6: aconst_null
+       7: aconst_null
+       8: getstatic     #16                 // Field org/apache/bookkeeper/stats/NullStatsLogger.INSTANCE:Lorg/apache/bookkeeper/stats/NullStatsLogger;
+      11: aconst_null
+      12: aconst_null
+      13: aconst_null
+      14: invokespecial #17                 // Method "<init>":(Lorg/apache/bookkeeper/conf/ClientConfiguration;Lorg/apache/zookeeper/ZooKeeper;Lio/netty/channel/EventLoopGroup;Lio/netty/buffer/ByteBufAllocator;Lorg/apache/bookkeeper/stats/StatsLogger;Lorg/apache/bookkeeper/net/DNSToSwitchMapping;Lio/netty/util/HashedWheelTimer;Lorg/apache/bookkeeper/feature/FeatureProvider;)V
+      17: return
+
+  public org.apache.bookkeeper.client.BookKeeper(org.apache.bookkeeper.conf.ClientConfiguration, org.apache.zookeeper.ZooKeeper, io.netty.channel.EventLoopGroup) throws java.io.IOException, java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokestatic  #30                 // Method validateZooKeeper:(Lorg/apache/zookeeper/ZooKeeper;)Lorg/apache/zookeeper/ZooKeeper;
+       6: aload_3
+       7: invokestatic  #31                 // Method validateEventLoopGroup:(Lio/netty/channel/EventLoopGroup;)Lio/netty/channel/EventLoopGroup;
+      10: aconst_null
+      11: getstatic     #16                 // Field org/apache/bookkeeper/stats/NullStatsLogger.INSTANCE:Lorg/apache/bookkeeper/stats/NullStatsLogger;
+      14: aconst_null
+      15: aconst_null
+      16: aconst_null
+      17: invokespecial #17                 // Method "<init>":(Lorg/apache/bookkeeper/conf/ClientConfiguration;Lorg/apache/zookeeper/ZooKeeper;Lio/netty/channel/EventLoopGroup;Lio/netty/buffer/ByteBufAllocator;Lorg/apache/bookkeeper/stats/StatsLogger;Lorg/apache/bookkeeper/net/DNSToSwitchMapping;Lio/netty/util/HashedWheelTimer;Lorg/apache/bookkeeper/feature/FeatureProvider;)V
+      20: return
+
+  org.apache.bookkeeper.client.BookKeeper(org.apache.bookkeeper.conf.ClientConfiguration, org.apache.zookeeper.ZooKeeper, io.netty.channel.EventLoopGroup, io.netty.buffer.ByteBufAllocator, org.apache.bookkeeper.stats.StatsLogger, org.apache.bookkeeper.net.DNSToSwitchMapping, io.netty.util.HashedWheelTimer, org.apache.bookkeeper.feature.FeatureProvider) throws java.io.IOException, java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: invokespecial #32                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: iconst_0
+       6: putfield      #33                 // Field ownEventLoopGroup:Z
+       9: aload_0
+      10: iconst_0
+      11: putfield      #34                 // Field closed:Z
+      14: aload_0
+      15: new           #35                 // class java/util/concurrent/locks/ReentrantReadWriteLock
+      18: dup
+      19: invokespecial #36                 // Method java/util/concurrent/locks/ReentrantReadWriteLock."<init>":()V
+      22: putfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      25: aload_0
+      26: new           #38                 // class org/apache/bookkeeper/client/BookKeeper$3
+      29: dup
+      30: aload_0
+      31: invokespecial #39                 // Method org/apache/bookkeeper/client/BookKeeper$3."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;)V
+      34: putfield      #40                 // Field clientCtx:Lorg/apache/bookkeeper/client/ClientContext;
+      37: aload_0
+      38: aload_1
+      39: putfield      #41                 // Field conf:Lorg/apache/bookkeeper/conf/ClientConfiguration;
+      42: aconst_null
+      43: aload         8
+      45: if_acmpne     58
+      48: aload_0
+      49: getstatic     #42                 // Field org/apache/bookkeeper/feature/SettableFeatureProvider.DISABLE_ALL:Lorg/apache/bookkeeper/feature/FeatureProvider;
+      52: putfield      #43                 // Field featureProvider:Lorg/apache/bookkeeper/feature/FeatureProvider;
+      55: goto          64
+      58: aload_0
+      59: aload         8
+      61: putfield      #43                 // Field featureProvider:Lorg/apache/bookkeeper/feature/FeatureProvider;
+      64: aload_0
+      65: aload_1
+      66: aload_0
+      67: getfield      #43                 // Field featureProvider:Lorg/apache/bookkeeper/feature/FeatureProvider;
+      70: invokestatic  #44                 // Method org/apache/bookkeeper/client/ClientInternalConf.fromConfigAndFeatureProvider:(Lorg/apache/bookkeeper/conf/ClientConfiguration;Lorg/apache/bookkeeper/feature/FeatureProvider;)Lorg/apache/bookkeeper/client/ClientInternalConf;
+      73: putfield      #45                 // Field internalConf:Lorg/apache/bookkeeper/client/ClientInternalConf;
+      76: aload_0
+      77: invokestatic  #46                 // Method org/apache/bookkeeper/common/util/OrderedScheduler.newSchedulerBuilder:()Lorg/apache/bookkeeper/common/util/OrderedScheduler$SchedulerBuilder;
+      80: iconst_1
+      81: invokevirtual #47                 // Method org/apache/bookkeeper/common/util/OrderedScheduler$SchedulerBuilder.numThreads:(I)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+      84: ldc           #48                 // String BookKeeperClientScheduler
+      86: invokevirtual #49                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.name:(Ljava/lang/String;)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+      89: invokevirtual #50                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.build:()Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      92: checkcast     #51                 // class org/apache/bookkeeper/common/util/OrderedScheduler
+      95: putfield      #52                 // Field scheduler:Lorg/apache/bookkeeper/common/util/OrderedScheduler;
+      98: aload_0
+      99: invokestatic  #53                 // Method org/apache/bookkeeper/common/util/OrderedExecutor.newBuilder:()Lorg/apache/bookkeeper/common/util/OrderedExecutor$Builder;
+     102: ldc           #54                 // String BookKeeperClientWorker
+     104: invokevirtual #55                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$Builder.name:(Ljava/lang/String;)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+     107: aload_1
+     108: invokevirtual #56                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getNumWorkerThreads:()I
+     111: invokevirtual #57                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.numThreads:(I)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+     114: aload         5
+     116: invokevirtual #58                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.statsLogger:(Lorg/apache/bookkeeper/stats/StatsLogger;)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+     119: aload_1
+     120: invokevirtual #59                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getEnableTaskExecutionStats:()Z
+     123: invokevirtual #60                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.traceTaskExecution:(Z)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+     126: aload_1
+     127: invokevirtual #61                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getPreserveMdcForTaskExecution:()Z
+     130: invokevirtual #62                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.preserveMdcForTaskExecution:(Z)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+     133: aload_1
+     134: invokevirtual #63                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getTaskExecutionWarnTimeMicros:()J
+     137: invokevirtual #64                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.traceTaskWarnTimeMicroSec:(J)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+     140: aload_1
+     141: invokevirtual #65                 // Method org/apache/bookkeeper/conf/ClientConfiguration.isBusyWaitEnabled:()Z
+     144: invokevirtual #66                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.enableBusyWait:(Z)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+     147: invokevirtual #50                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.build:()Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     150: putfield      #67                 // Field mainWorkerPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     153: aload_0
+     154: aload         5
+     156: ldc           #69                 // String bookkeeper_client
+     158: invokeinterface #70,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.scope:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/StatsLogger;
+     163: putfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     166: aload_0
+     167: aload_0
+     168: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     171: invokestatic  #72                 // InterfaceMethod org/apache/bookkeeper/client/BookKeeperClientStats.newInstance:(Lorg/apache/bookkeeper/stats/StatsLogger;)Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+     174: putfield      #3                  // Field clientStats:Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+     177: aload_1
+     178: invokevirtual #73                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getMetadataServiceUri:()Ljava/lang/String;
+     181: astore        9
+     183: aconst_null
+     184: aload         9
+     186: if_acmpeq     204
+     189: aload_0
+     190: aload         9
+     192: invokestatic  #74                 // Method java/net/URI.create:(Ljava/lang/String;)Ljava/net/URI;
+     195: invokestatic  #75                 // Method org/apache/bookkeeper/meta/MetadataDrivers.getClientDriver:(Ljava/net/URI;)Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+     198: putfield      #76                 // Field metadataDriver:Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+     201: goto          220
+     204: aload_2
+     205: ldc           #77                 // String No external zookeeper provided when no metadata service uri is found
+     207: invokestatic  #19                 // Method com/google/common/base/Preconditions.checkNotNull:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     210: pop
+     211: aload_0
+     212: ldc           #78                 // String zk
+     214: invokestatic  #79                 // Method org/apache/bookkeeper/meta/MetadataDrivers.getClientDriver:(Ljava/lang/String;)Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+     217: putfield      #76                 // Field metadataDriver:Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+     220: aload_0
+     221: getfield      #76                 // Field metadataDriver:Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+     224: aload_1
+     225: aload_0
+     226: getfield      #52                 // Field scheduler:Lorg/apache/bookkeeper/common/util/OrderedScheduler;
+     229: aload         5
+     231: aload_2
+     232: invokestatic  #80                 // Method java/util/Optional.ofNullable:(Ljava/lang/Object;)Ljava/util/Optional;
+     235: invokeinterface #81,  5           // InterfaceMethod org/apache/bookkeeper/meta/MetadataClientDriver.initialize:(Lorg/apache/bookkeeper/conf/ClientConfiguration;Ljava/util/concurrent/ScheduledExecutorService;Lorg/apache/bookkeeper/stats/StatsLogger;Ljava/util/Optional;)Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+     240: pop
+     241: goto          296
+     244: astore        9
+     246: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+     249: ldc           #83                 // String Failed to initialize metadata client driver using invalid metadata service uri
+     251: aload         9
+     253: invokeinterface #84,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     258: new           #25                 // class java/io/IOException
+     261: dup
+     262: ldc           #85                 // String Failed to initialize metadata client driver
+     264: aload         9
+     266: invokespecial #86                 // Method java/io/IOException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     269: athrow
+     270: astore        9
+     272: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+     275: ldc           #88                 // String Encountered metadata exceptions on initializing metadata client driver
+     277: aload         9
+     279: invokeinterface #84,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     284: new           #25                 // class java/io/IOException
+     287: dup
+     288: ldc           #85                 // String Failed to initialize metadata client driver
+     290: aload         9
+     292: invokespecial #86                 // Method java/io/IOException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     295: athrow
+     296: aconst_null
+     297: aload_3
+     298: if_acmpne     326
+     301: aload_0
+     302: aload_1
+     303: new           #89                 // class io/netty/util/concurrent/DefaultThreadFactory
+     306: dup
+     307: ldc           #90                 // String bookkeeper-io
+     309: invokespecial #91                 // Method io/netty/util/concurrent/DefaultThreadFactory."<init>":(Ljava/lang/String;)V
+     312: invokestatic  #92                 // Method org/apache/bookkeeper/util/EventLoopUtil.getClientEventLoopGroup:(Lorg/apache/bookkeeper/conf/ClientConfiguration;Ljava/util/concurrent/ThreadFactory;)Lio/netty/channel/EventLoopGroup;
+     315: putfield      #93                 // Field eventLoopGroup:Lio/netty/channel/EventLoopGroup;
+     318: aload_0
+     319: iconst_1
+     320: putfield      #33                 // Field ownEventLoopGroup:Z
+     323: goto          336
+     326: aload_0
+     327: aload_3
+     328: putfield      #93                 // Field eventLoopGroup:Lio/netty/channel/EventLoopGroup;
+     331: aload_0
+     332: iconst_0
+     333: putfield      #33                 // Field ownEventLoopGroup:Z
+     336: aload         4
+     338: ifnull        350
+     341: aload_0
+     342: aload         4
+     344: putfield      #2                  // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+     347: goto          398
+     350: aload_0
+     351: invokestatic  #94                 // InterfaceMethod org/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder.create:()Lorg/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder;
+     354: aload_1
+     355: invokevirtual #95                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getAllocatorPoolingPolicy:()Lorg/apache/bookkeeper/common/allocator/PoolingPolicy;
+     358: invokeinterface #96,  2           // InterfaceMethod org/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder.poolingPolicy:(Lorg/apache/bookkeeper/common/allocator/PoolingPolicy;)Lorg/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder;
+     363: aload_1
+     364: invokevirtual #97                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getAllocatorPoolingConcurrency:()I
+     367: invokeinterface #98,  2           // InterfaceMethod org/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder.poolingConcurrency:(I)Lorg/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder;
+     372: aload_1
+     373: invokevirtual #99                 // Method org/apache/bookkeeper/conf/ClientConfiguration.getAllocatorOutOfMemoryPolicy:()Lorg/apache/bookkeeper/common/allocator/OutOfMemoryPolicy;
+     376: invokeinterface #100,  2          // InterfaceMethod org/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder.outOfMemoryPolicy:(Lorg/apache/bookkeeper/common/allocator/OutOfMemoryPolicy;)Lorg/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder;
+     381: aload_1
+     382: invokevirtual #101                // Method org/apache/bookkeeper/conf/ClientConfiguration.getAllocatorLeakDetectionPolicy:()Lorg/apache/bookkeeper/common/allocator/LeakDetectionPolicy;
+     385: invokeinterface #102,  2          // InterfaceMethod org/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder.leakDetectionPolicy:(Lorg/apache/bookkeeper/common/allocator/LeakDetectionPolicy;)Lorg/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder;
+     390: invokeinterface #103,  1          // InterfaceMethod org/apache/bookkeeper/common/allocator/ByteBufAllocatorBuilder.build:()Lio/netty/buffer/ByteBufAllocator;
+     395: putfield      #2                  // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+     398: aconst_null
+     399: aload         7
+     401: if_acmpne     449
+     404: aload_0
+     405: new           #104                // class io/netty/util/HashedWheelTimer
+     408: dup
+     409: new           #105                // class com/google/common/util/concurrent/ThreadFactoryBuilder
+     412: dup
+     413: invokespecial #106                // Method com/google/common/util/concurrent/ThreadFactoryBuilder."<init>":()V
+     416: ldc           #107                // String BookieClientTimer-%d
+     418: invokevirtual #108                // Method com/google/common/util/concurrent/ThreadFactoryBuilder.setNameFormat:(Ljava/lang/String;)Lcom/google/common/util/concurrent/ThreadFactoryBuilder;
+     421: invokevirtual #109                // Method com/google/common/util/concurrent/ThreadFactoryBuilder.build:()Ljava/util/concurrent/ThreadFactory;
+     424: aload_1
+     425: invokevirtual #110                // Method org/apache/bookkeeper/conf/ClientConfiguration.getTimeoutTimerTickDurationMs:()J
+     428: getstatic     #111                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     431: aload_1
+     432: invokevirtual #112                // Method org/apache/bookkeeper/conf/ClientConfiguration.getTimeoutTimerNumTicks:()I
+     435: invokespecial #113                // Method io/netty/util/HashedWheelTimer."<init>":(Ljava/util/concurrent/ThreadFactory;JLjava/util/concurrent/TimeUnit;I)V
+     438: putfield      #114                // Field requestTimer:Lio/netty/util/HashedWheelTimer;
+     441: aload_0
+     442: iconst_1
+     443: putfield      #115                // Field ownTimer:Z
+     446: goto          460
+     449: aload_0
+     450: aload         7
+     452: putfield      #114                // Field requestTimer:Lio/netty/util/HashedWheelTimer;
+     455: aload_0
+     456: iconst_0
+     457: putfield      #115                // Field ownTimer:Z
+     460: new           #116                // class org/apache/bookkeeper/client/DefaultBookieAddressResolver
+     463: dup
+     464: aload_0
+     465: getfield      #76                 // Field metadataDriver:Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+     468: invokeinterface #117,  1          // InterfaceMethod org/apache/bookkeeper/meta/MetadataClientDriver.getRegistrationClient:()Lorg/apache/bookkeeper/discover/RegistrationClient;
+     473: invokespecial #118                // Method org/apache/bookkeeper/client/DefaultBookieAddressResolver."<init>":(Lorg/apache/bookkeeper/discover/RegistrationClient;)V
+     476: astore        9
+     478: aload         6
+     480: ifnull        492
+     483: aload         6
+     485: aload         9
+     487: invokeinterface #119,  2          // InterfaceMethod org/apache/bookkeeper/net/DNSToSwitchMapping.setBookieAddressResolver:(Lorg/apache/bookkeeper/proto/BookieAddressResolver;)V
+     492: aload_0
+     493: aload_0
+     494: aload_1
+     495: aload         6
+     497: aload_0
+     498: getfield      #114                // Field requestTimer:Lio/netty/util/HashedWheelTimer;
+     501: aload_0
+     502: getfield      #43                 // Field featureProvider:Lorg/apache/bookkeeper/feature/FeatureProvider;
+     505: aload_0
+     506: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     509: aload         9
+     511: invokespecial #120                // Method initializeEnsemblePlacementPolicy:(Lorg/apache/bookkeeper/conf/ClientConfiguration;Lorg/apache/bookkeeper/net/DNSToSwitchMapping;Lio/netty/util/HashedWheelTimer;Lorg/apache/bookkeeper/feature/FeatureProvider;Lorg/apache/bookkeeper/stats/StatsLogger;Lorg/apache/bookkeeper/proto/BookieAddressResolver;)Lorg/apache/bookkeeper/client/EnsemblePlacementPolicy;
+     514: putfield      #121                // Field placementPolicy:Lorg/apache/bookkeeper/client/EnsemblePlacementPolicy;
+     517: aload_0
+     518: new           #122                // class org/apache/bookkeeper/client/BookieWatcherImpl
+     521: dup
+     522: aload_1
+     523: aload_0
+     524: getfield      #121                // Field placementPolicy:Lorg/apache/bookkeeper/client/EnsemblePlacementPolicy;
+     527: aload_0
+     528: getfield      #76                 // Field metadataDriver:Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+     531: invokeinterface #117,  1          // InterfaceMethod org/apache/bookkeeper/meta/MetadataClientDriver.getRegistrationClient:()Lorg/apache/bookkeeper/discover/RegistrationClient;
+     536: aload         9
+     538: aload_0
+     539: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     542: ldc           #123                // String bookie_watcher
+     544: invokeinterface #70,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.scope:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/StatsLogger;
+     549: invokespecial #124                // Method org/apache/bookkeeper/client/BookieWatcherImpl."<init>":(Lorg/apache/bookkeeper/conf/ClientConfiguration;Lorg/apache/bookkeeper/client/EnsemblePlacementPolicy;Lorg/apache/bookkeeper/discover/RegistrationClient;Lorg/apache/bookkeeper/proto/BookieAddressResolver;Lorg/apache/bookkeeper/stats/StatsLogger;)V
+     552: putfield      #125                // Field bookieWatcher:Lorg/apache/bookkeeper/client/BookieWatcherImpl;
+     555: aload_0
+     556: new           #126                // class org/apache/bookkeeper/proto/BookieClientImpl
+     559: dup
+     560: aload_1
+     561: aload_0
+     562: getfield      #93                 // Field eventLoopGroup:Lio/netty/channel/EventLoopGroup;
+     565: aload_0
+     566: getfield      #2                  // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+     569: aload_0
+     570: getfield      #67                 // Field mainWorkerPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     573: aload_0
+     574: getfield      #52                 // Field scheduler:Lorg/apache/bookkeeper/common/util/OrderedScheduler;
+     577: aload         5
+     579: aload_0
+     580: getfield      #125                // Field bookieWatcher:Lorg/apache/bookkeeper/client/BookieWatcherImpl;
+     583: invokevirtual #127                // Method org/apache/bookkeeper/client/BookieWatcherImpl.getBookieAddressResolver:()Lorg/apache/bookkeeper/proto/BookieAddressResolver;
+     586: invokespecial #128                // Method org/apache/bookkeeper/proto/BookieClientImpl."<init>":(Lorg/apache/bookkeeper/conf/ClientConfiguration;Lio/netty/channel/EventLoopGroup;Lio/netty/buffer/ByteBufAllocator;Lorg/apache/bookkeeper/common/util/OrderedExecutor;Ljava/util/concurrent/ScheduledExecutorService;Lorg/apache/bookkeeper/stats/StatsLogger;Lorg/apache/bookkeeper/proto/BookieAddressResolver;)V
+     589: putfield      #129                // Field bookieClient:Lorg/apache/bookkeeper/proto/BookieClient;
+     592: aload_1
+     593: invokevirtual #130                // Method org/apache/bookkeeper/conf/ClientConfiguration.getDiskWeightBasedPlacementEnabled:()Z
+     596: ifeq          669
+     599: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+     602: ldc           #131                // String Weighted ledger placement enabled
+     604: invokeinterface #132,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     609: new           #105                // class com/google/common/util/concurrent/ThreadFactoryBuilder
+     612: dup
+     613: invokespecial #106                // Method com/google/common/util/concurrent/ThreadFactoryBuilder."<init>":()V
+     616: ldc           #133                // String BKClientMetaDataPollScheduler-%d
+     618: invokevirtual #108                // Method com/google/common/util/concurrent/ThreadFactoryBuilder.setNameFormat:(Ljava/lang/String;)Lcom/google/common/util/concurrent/ThreadFactoryBuilder;
+     621: astore        10
+     623: aload_0
+     624: aload         10
+     626: invokevirtual #109                // Method com/google/common/util/concurrent/ThreadFactoryBuilder.build:()Ljava/util/concurrent/ThreadFactory;
+     629: invokestatic  #134                // Method java/util/concurrent/Executors.newSingleThreadScheduledExecutor:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ScheduledExecutorService;
+     632: putfield      #135                // Field bookieInfoScheduler:Ljava/util/concurrent/ScheduledExecutorService;
+     635: aload_0
+     636: new           #136                // class org/apache/bookkeeper/client/BookieInfoReader
+     639: dup
+     640: aload_0
+     641: aload_1
+     642: aload_0
+     643: getfield      #135                // Field bookieInfoScheduler:Ljava/util/concurrent/ScheduledExecutorService;
+     646: invokespecial #137                // Method org/apache/bookkeeper/client/BookieInfoReader."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;Lorg/apache/bookkeeper/conf/ClientConfiguration;Ljava/util/concurrent/ScheduledExecutorService;)V
+     649: putfield      #138                // Field bookieInfoReader:Lorg/apache/bookkeeper/client/BookieInfoReader;
+     652: aload_0
+     653: getfield      #125                // Field bookieWatcher:Lorg/apache/bookkeeper/client/BookieWatcherImpl;
+     656: invokevirtual #139                // Method org/apache/bookkeeper/client/BookieWatcherImpl.initialBlockingBookieRead:()V
+     659: aload_0
+     660: getfield      #138                // Field bookieInfoReader:Lorg/apache/bookkeeper/client/BookieInfoReader;
+     663: invokevirtual #140                // Method org/apache/bookkeeper/client/BookieInfoReader.start:()V
+     666: goto          705
+     669: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+     672: ldc           #141                // String Weighted ledger placement is not enabled
+     674: invokeinterface #132,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     679: aload_0
+     680: aconst_null
+     681: putfield      #135                // Field bookieInfoScheduler:Ljava/util/concurrent/ScheduledExecutorService;
+     684: aload_0
+     685: new           #136                // class org/apache/bookkeeper/client/BookieInfoReader
+     688: dup
+     689: aload_0
+     690: aload_1
+     691: aconst_null
+     692: invokespecial #137                // Method org/apache/bookkeeper/client/BookieInfoReader."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;Lorg/apache/bookkeeper/conf/ClientConfiguration;Ljava/util/concurrent/ScheduledExecutorService;)V
+     695: putfield      #138                // Field bookieInfoReader:Lorg/apache/bookkeeper/client/BookieInfoReader;
+     698: aload_0
+     699: getfield      #125                // Field bookieWatcher:Lorg/apache/bookkeeper/client/BookieWatcherImpl;
+     702: invokevirtual #139                // Method org/apache/bookkeeper/client/BookieWatcherImpl.initialBlockingBookieRead:()V
+     705: aload_0
+     706: aload_0
+     707: getfield      #76                 // Field metadataDriver:Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+     710: invokeinterface #142,  1          // InterfaceMethod org/apache/bookkeeper/meta/MetadataClientDriver.getLedgerManagerFactory:()Lorg/apache/bookkeeper/meta/LedgerManagerFactory;
+     715: putfield      #143                // Field ledgerManagerFactory:Lorg/apache/bookkeeper/meta/LedgerManagerFactory;
+     718: goto          735
+     721: astore        10
+     723: new           #25                 // class java/io/IOException
+     726: dup
+     727: ldc           #144                // String Failed to initialize ledger manager factory
+     729: aload         10
+     731: invokespecial #86                 // Method java/io/IOException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     734: athrow
+     735: aload_0
+     736: new           #145                // class org/apache/bookkeeper/meta/CleanupLedgerManager
+     739: dup
+     740: aload_0
+     741: getfield      #143                // Field ledgerManagerFactory:Lorg/apache/bookkeeper/meta/LedgerManagerFactory;
+     744: invokeinterface #146,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManagerFactory.newLedgerManager:()Lorg/apache/bookkeeper/meta/LedgerManager;
+     749: invokespecial #147                // Method org/apache/bookkeeper/meta/CleanupLedgerManager."<init>":(Lorg/apache/bookkeeper/meta/LedgerManager;)V
+     752: putfield      #148                // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+     755: aload_0
+     756: aload_0
+     757: getfield      #143                // Field ledgerManagerFactory:Lorg/apache/bookkeeper/meta/LedgerManagerFactory;
+     760: invokeinterface #149,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManagerFactory.newLedgerIdGenerator:()Lorg/apache/bookkeeper/meta/LedgerIdGenerator;
+     765: putfield      #150                // Field ledgerIdGenerator:Lorg/apache/bookkeeper/meta/LedgerIdGenerator;
+     768: aload_0
+     769: aload_1
+     770: invokevirtual #151                // Method org/apache/bookkeeper/conf/ClientConfiguration.getBookieQuarantineRatio:()D
+     773: putfield      #152                // Field bookieQuarantineRatio:D
+     776: aload_0
+     777: aload_1
+     778: invokevirtual #153                // Method scheduleBookieHealthCheckIfEnabled:(Lorg/apache/bookkeeper/conf/ClientConfiguration;)V
+     781: return
+    Exception table:
+       from    to  target type
+         177   241   244   Class org/apache/commons/configuration/ConfigurationException
+         177   241   270   Class org/apache/bookkeeper/meta/exceptions/MetadataException
+         705   718   721   Class org/apache/bookkeeper/meta/exceptions/MetadataException
+
+  org.apache.bookkeeper.client.BookKeeper();
+    Code:
+       0: aload_0
+       1: invokespecial #32                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: iconst_0
+       6: putfield      #33                 // Field ownEventLoopGroup:Z
+       9: aload_0
+      10: iconst_0
+      11: putfield      #34                 // Field closed:Z
+      14: aload_0
+      15: new           #35                 // class java/util/concurrent/locks/ReentrantReadWriteLock
+      18: dup
+      19: invokespecial #36                 // Method java/util/concurrent/locks/ReentrantReadWriteLock."<init>":()V
+      22: putfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      25: aload_0
+      26: new           #38                 // class org/apache/bookkeeper/client/BookKeeper$3
+      29: dup
+      30: aload_0
+      31: invokespecial #39                 // Method org/apache/bookkeeper/client/BookKeeper$3."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;)V
+      34: putfield      #40                 // Field clientCtx:Lorg/apache/bookkeeper/client/ClientContext;
+      37: aload_0
+      38: new           #6                  // class org/apache/bookkeeper/conf/ClientConfiguration
+      41: dup
+      42: invokespecial #7                  // Method org/apache/bookkeeper/conf/ClientConfiguration."<init>":()V
+      45: putfield      #41                 // Field conf:Lorg/apache/bookkeeper/conf/ClientConfiguration;
+      48: aload_0
+      49: aload_0
+      50: getfield      #41                 // Field conf:Lorg/apache/bookkeeper/conf/ClientConfiguration;
+      53: invokestatic  #154                // Method org/apache/bookkeeper/client/ClientInternalConf.fromConfig:(Lorg/apache/bookkeeper/conf/ClientConfiguration;)Lorg/apache/bookkeeper/client/ClientInternalConf;
+      56: putfield      #45                 // Field internalConf:Lorg/apache/bookkeeper/client/ClientInternalConf;
+      59: aload_0
+      60: getstatic     #16                 // Field org/apache/bookkeeper/stats/NullStatsLogger.INSTANCE:Lorg/apache/bookkeeper/stats/NullStatsLogger;
+      63: putfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+      66: aload_0
+      67: aload_0
+      68: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+      71: invokestatic  #72                 // InterfaceMethod org/apache/bookkeeper/client/BookKeeperClientStats.newInstance:(Lorg/apache/bookkeeper/stats/StatsLogger;)Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+      74: putfield      #3                  // Field clientStats:Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+      77: aload_0
+      78: aconst_null
+      79: putfield      #52                 // Field scheduler:Lorg/apache/bookkeeper/common/util/OrderedScheduler;
+      82: aload_0
+      83: aconst_null
+      84: putfield      #114                // Field requestTimer:Lio/netty/util/HashedWheelTimer;
+      87: aload_0
+      88: aconst_null
+      89: putfield      #76                 // Field metadataDriver:Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+      92: aload_0
+      93: aconst_null
+      94: putfield      #121                // Field placementPolicy:Lorg/apache/bookkeeper/client/EnsemblePlacementPolicy;
+      97: aload_0
+      98: iconst_0
+      99: putfield      #115                // Field ownTimer:Z
+     102: aload_0
+     103: aconst_null
+     104: putfield      #67                 // Field mainWorkerPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     107: aload_0
+     108: aconst_null
+     109: putfield      #143                // Field ledgerManagerFactory:Lorg/apache/bookkeeper/meta/LedgerManagerFactory;
+     112: aload_0
+     113: aconst_null
+     114: putfield      #148                // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+     117: aload_0
+     118: aconst_null
+     119: putfield      #150                // Field ledgerIdGenerator:Lorg/apache/bookkeeper/meta/LedgerIdGenerator;
+     122: aload_0
+     123: aconst_null
+     124: putfield      #43                 // Field featureProvider:Lorg/apache/bookkeeper/feature/FeatureProvider;
+     127: aload_0
+     128: aconst_null
+     129: putfield      #93                 // Field eventLoopGroup:Lio/netty/channel/EventLoopGroup;
+     132: aload_0
+     133: aconst_null
+     134: putfield      #125                // Field bookieWatcher:Lorg/apache/bookkeeper/client/BookieWatcherImpl;
+     137: aload_0
+     138: aconst_null
+     139: putfield      #135                // Field bookieInfoScheduler:Ljava/util/concurrent/ScheduledExecutorService;
+     142: aload_0
+     143: aconst_null
+     144: putfield      #129                // Field bookieClient:Lorg/apache/bookkeeper/proto/BookieClient;
+     147: aload_0
+     148: getstatic     #155                // Field io/netty/buffer/UnpooledByteBufAllocator.DEFAULT:Lio/netty/buffer/UnpooledByteBufAllocator;
+     151: putfield      #2                  // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+     154: aload_0
+     155: dconst_1
+     156: putfield      #152                // Field bookieQuarantineRatio:D
+     159: return
+
+  private org.apache.bookkeeper.client.EnsemblePlacementPolicy initializeEnsemblePlacementPolicy(org.apache.bookkeeper.conf.ClientConfiguration, org.apache.bookkeeper.net.DNSToSwitchMapping, io.netty.util.HashedWheelTimer, org.apache.bookkeeper.feature.FeatureProvider, org.apache.bookkeeper.stats.StatsLogger, org.apache.bookkeeper.proto.BookieAddressResolver) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokevirtual #156                // Method org/apache/bookkeeper/conf/ClientConfiguration.getEnsemblePlacementPolicy:()Ljava/lang/Class;
+       4: astore        7
+       6: aload         7
+       8: invokestatic  #157                // Method org/apache/bookkeeper/common/util/ReflectionUtils.newInstance:(Ljava/lang/Class;)Ljava/lang/Object;
+      11: checkcast     #158                // class org/apache/bookkeeper/client/EnsemblePlacementPolicy
+      14: aload_1
+      15: aload_2
+      16: invokestatic  #80                 // Method java/util/Optional.ofNullable:(Ljava/lang/Object;)Ljava/util/Optional;
+      19: aload_3
+      20: aload         4
+      22: aload         5
+      24: aload         6
+      26: invokeinterface #159,  7          // InterfaceMethod org/apache/bookkeeper/client/EnsemblePlacementPolicy.initialize:(Lorg/apache/bookkeeper/conf/ClientConfiguration;Ljava/util/Optional;Lio/netty/util/HashedWheelTimer;Lorg/apache/bookkeeper/feature/FeatureProvider;Lorg/apache/bookkeeper/stats/StatsLogger;Lorg/apache/bookkeeper/proto/BookieAddressResolver;)Lorg/apache/bookkeeper/client/EnsemblePlacementPolicy;
+      31: areturn
+      32: astore        7
+      34: new           #25                 // class java/io/IOException
+      37: dup
+      38: ldc           #160                // String Failed to initialize ensemble placement policy :
+      40: aload         7
+      42: invokespecial #86                 // Method java/io/IOException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      45: athrow
+    Exception table:
+       from    to  target type
+           0    31    32   Class org/apache/commons/configuration/ConfigurationException
+
+  int getReturnRc(int);
+    Code:
+       0: aload_0
+       1: getfield      #129                // Field bookieClient:Lorg/apache/bookkeeper/proto/BookieClient;
+       4: iload_1
+       5: invokestatic  #161                // Method getReturnRc:(Lorg/apache/bookkeeper/proto/BookieClient;I)I
+       8: ireturn
+
+  static int getReturnRc(org.apache.bookkeeper.proto.BookieClient, int);
+    Code:
+       0: iconst_0
+       1: iload_1
+       2: if_icmpne     7
+       5: iload_1
+       6: ireturn
+       7: aload_0
+       8: invokeinterface #163,  1          // InterfaceMethod org/apache/bookkeeper/proto/BookieClient.isClosed:()Z
+      13: ifeq          19
+      16: bipush        -19
+      18: ireturn
+      19: iload_1
+      20: ireturn
+
+  void scheduleBookieHealthCheckIfEnabled(org.apache.bookkeeper.conf.ClientConfiguration);
+    Code:
+       0: aload_1
+       1: invokevirtual #164                // Method org/apache/bookkeeper/conf/ClientConfiguration.isBookieHealthCheckEnabled:()Z
+       4: ifeq          36
+       7: aload_0
+       8: getfield      #52                 // Field scheduler:Lorg/apache/bookkeeper/common/util/OrderedScheduler;
+      11: new           #165                // class org/apache/bookkeeper/client/BookKeeper$1
+      14: dup
+      15: aload_0
+      16: invokespecial #166                // Method org/apache/bookkeeper/client/BookKeeper$1."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;)V
+      19: aload_1
+      20: invokevirtual #167                // Method org/apache/bookkeeper/conf/ClientConfiguration.getBookieHealthCheckIntervalSeconds:()I
+      23: i2l
+      24: aload_1
+      25: invokevirtual #167                // Method org/apache/bookkeeper/conf/ClientConfiguration.getBookieHealthCheckIntervalSeconds:()I
+      28: i2l
+      29: getstatic     #168                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      32: invokevirtual #169                // Method org/apache/bookkeeper/common/util/OrderedScheduler.scheduleAtFixedRate:(Lorg/apache/bookkeeper/common/util/SafeRunnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+      35: pop
+      36: return
+
+  void checkForFaultyBookies();
+    Code:
+       0: aload_0
+       1: getfield      #129                // Field bookieClient:Lorg/apache/bookkeeper/proto/BookieClient;
+       4: invokeinterface #170,  1          // InterfaceMethod org/apache/bookkeeper/proto/BookieClient.getFaultyBookies:()Ljava/util/List;
+       9: astore_1
+      10: aload_1
+      11: invokeinterface #171,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      16: astore_2
+      17: aload_2
+      18: invokeinterface #172,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      23: ifeq          93
+      26: aload_2
+      27: invokeinterface #173,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      32: checkcast     #174                // class org/apache/bookkeeper/net/BookieId
+      35: astore_3
+      36: invokestatic  #175                // Method java/lang/Math.random:()D
+      39: aload_0
+      40: getfield      #152                // Field bookieQuarantineRatio:D
+      43: dcmpg
+      44: ifgt          74
+      47: aload_0
+      48: getfield      #125                // Field bookieWatcher:Lorg/apache/bookkeeper/client/BookieWatcherImpl;
+      51: aload_3
+      52: invokevirtual #176                // Method org/apache/bookkeeper/client/BookieWatcherImpl.quarantineBookie:(Lorg/apache/bookkeeper/net/BookieId;)V
+      55: aload_0
+      56: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+      59: ldc           #177                // String BOOKIE_QUARANTINE
+      61: invokeinterface #178,  2          // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getCounter:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/Counter;
+      66: invokeinterface #179,  1          // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+      71: goto          90
+      74: aload_0
+      75: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+      78: ldc           #180                // String BOOKIE_QUARANTINE_SKIP
+      80: invokeinterface #178,  2          // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getCounter:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/Counter;
+      85: invokeinterface #179,  1          // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+      90: goto          17
+      93: return
+
+  public org.apache.bookkeeper.meta.LedgerManager getLedgerManager();
+    Code:
+       0: aload_0
+       1: getfield      #148                // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+       4: areturn
+
+  public org.apache.bookkeeper.meta.LedgerManagerFactory getLedgerManagerFactory();
+    Code:
+       0: aload_0
+       1: getfield      #143                // Field ledgerManagerFactory:Lorg/apache/bookkeeper/meta/LedgerManagerFactory;
+       4: areturn
+
+  org.apache.bookkeeper.meta.LedgerManager getUnderlyingLedgerManager();
+    Code:
+       0: aload_0
+       1: getfield      #148                // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+       4: checkcast     #145                // class org/apache/bookkeeper/meta/CleanupLedgerManager
+       7: invokevirtual #181                // Method org/apache/bookkeeper/meta/CleanupLedgerManager.getUnderlying:()Lorg/apache/bookkeeper/meta/LedgerManager;
+      10: areturn
+
+  org.apache.bookkeeper.meta.LedgerIdGenerator getLedgerIdGenerator();
+    Code:
+       0: aload_0
+       1: getfield      #150                // Field ledgerIdGenerator:Lorg/apache/bookkeeper/meta/LedgerIdGenerator;
+       4: areturn
+
+  java.util.concurrent.locks.ReentrantReadWriteLock getCloseLock();
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+       4: areturn
+
+  boolean isClosed();
+    Code:
+       0: aload_0
+       1: getfield      #34                 // Field closed:Z
+       4: ireturn
+
+  org.apache.bookkeeper.client.BookieWatcher getBookieWatcher();
+    Code:
+       0: aload_0
+       1: getfield      #125                // Field bookieWatcher:Lorg/apache/bookkeeper/client/BookieWatcherImpl;
+       4: areturn
+
+  public org.apache.bookkeeper.proto.BookieAddressResolver getBookieAddressResolver();
+    Code:
+       0: aload_0
+       1: getfield      #125                // Field bookieWatcher:Lorg/apache/bookkeeper/client/BookieWatcherImpl;
+       4: invokevirtual #127                // Method org/apache/bookkeeper/client/BookieWatcherImpl.getBookieAddressResolver:()Lorg/apache/bookkeeper/proto/BookieAddressResolver;
+       7: areturn
+
+  public org.apache.bookkeeper.common.util.OrderedExecutor getMainWorkerPool();
+    Code:
+       0: aload_0
+       1: getfield      #67                 // Field mainWorkerPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+       4: areturn
+
+  org.apache.bookkeeper.common.util.OrderedScheduler getScheduler();
+    Code:
+       0: aload_0
+       1: getfield      #52                 // Field scheduler:Lorg/apache/bookkeeper/common/util/OrderedScheduler;
+       4: areturn
+
+  org.apache.bookkeeper.client.EnsemblePlacementPolicy getPlacementPolicy();
+    Code:
+       0: aload_0
+       1: getfield      #121                // Field placementPolicy:Lorg/apache/bookkeeper/client/EnsemblePlacementPolicy;
+       4: areturn
+
+  public org.apache.bookkeeper.meta.MetadataClientDriver getMetadataClientDriver();
+    Code:
+       0: aload_0
+       1: getfield      #76                 // Field metadataDriver:Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+       4: areturn
+
+  protected org.apache.bookkeeper.conf.ClientConfiguration getConf();
+    Code:
+       0: aload_0
+       1: getfield      #41                 // Field conf:Lorg/apache/bookkeeper/conf/ClientConfiguration;
+       4: areturn
+
+  org.apache.bookkeeper.stats.StatsLogger getStatsLogger();
+    Code:
+       0: aload_0
+       1: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+       4: areturn
+
+  org.apache.bookkeeper.proto.BookieClient getBookieClient();
+    Code:
+       0: aload_0
+       1: getfield      #129                // Field bookieClient:Lorg/apache/bookkeeper/proto/BookieClient;
+       4: areturn
+
+  public java.util.Map<org.apache.bookkeeper.net.BookieId, org.apache.bookkeeper.client.BookieInfoReader$BookieInfo> getBookieInfo() throws org.apache.bookkeeper.client.BKException, java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: getfield      #138                // Field bookieInfoReader:Lorg/apache/bookkeeper/client/BookieInfoReader;
+       4: invokevirtual #182                // Method org/apache/bookkeeper/client/BookieInfoReader.getBookieInfo:()Ljava/util/Map;
+       7: areturn
+
+  public void asyncCreateLedger(int, int, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[], org.apache.bookkeeper.client.AsyncCallback$CreateCallback, java.lang.Object);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iload_2
+       3: iload_2
+       4: aload_3
+       5: aload         4
+       7: aload         5
+       9: aload         6
+      11: invokestatic  #183                // Method java/util/Collections.emptyMap:()Ljava/util/Map;
+      14: invokevirtual #184                // Method asyncCreateLedger:(IIILorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$CreateCallback;Ljava/lang/Object;Ljava/util/Map;)V
+      17: return
+
+  public void asyncCreateLedger(int, int, int, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[], org.apache.bookkeeper.client.AsyncCallback$CreateCallback, java.lang.Object, java.util.Map<java.lang.String, byte[]>);
+    Code:
+       0: iload_2
+       1: iload_3
+       2: if_icmpge     15
+       5: new           #185                // class java/lang/IllegalArgumentException
+       8: dup
+       9: ldc           #186                // String Write quorum must be larger than ack quorum
+      11: invokespecial #187                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      14: athrow
+      15: aload_0
+      16: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      19: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      22: invokevirtual #189                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      25: aload_0
+      26: getfield      #34                 // Field closed:Z
+      29: ifeq          55
+      32: aload         6
+      34: bipush        -19
+      36: aconst_null
+      37: aload         7
+      39: invokeinterface #190,  4          // InterfaceMethod org/apache/bookkeeper/client/AsyncCallback$CreateCallback.createComplete:(ILorg/apache/bookkeeper/client/LedgerHandle;Ljava/lang/Object;)V
+      44: aload_0
+      45: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      48: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      51: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      54: return
+      55: new           #192                // class org/apache/bookkeeper/client/LedgerCreateOp
+      58: dup
+      59: aload_0
+      60: iload_1
+      61: iload_2
+      62: iload_3
+      63: aload         4
+      65: aload         5
+      67: aload         6
+      69: aload         7
+      71: aload         8
+      73: getstatic     #193                // Field org/apache/bookkeeper/client/api/WriteFlag.NONE:Ljava/util/EnumSet;
+      76: aload_0
+      77: getfield      #3                  // Field clientStats:Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+      80: invokespecial #194                // Method org/apache/bookkeeper/client/LedgerCreateOp."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;IIILorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$CreateCallback;Ljava/lang/Object;Ljava/util/Map;Ljava/util/EnumSet;Lorg/apache/bookkeeper/client/BookKeeperClientStats;)V
+      83: invokevirtual #195                // Method org/apache/bookkeeper/client/LedgerCreateOp.initiate:()V
+      86: aload_0
+      87: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      90: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      93: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      96: goto          114
+      99: astore        9
+     101: aload_0
+     102: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     105: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     108: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     111: aload         9
+     113: athrow
+     114: return
+    Exception table:
+       from    to  target type
+          25    44    99   any
+          55    86    99   any
+          99   101    99   any
+
+  public org.apache.bookkeeper.client.LedgerHandle createLedger(org.apache.bookkeeper.client.BookKeeper$DigestType, byte[]) throws org.apache.bookkeeper.client.BKException, java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: iconst_3
+       2: iconst_2
+       3: aload_1
+       4: aload_2
+       5: invokevirtual #196                // Method createLedger:(IILorg/apache/bookkeeper/client/BookKeeper$DigestType;[B)Lorg/apache/bookkeeper/client/LedgerHandle;
+       8: areturn
+
+  public org.apache.bookkeeper.client.LedgerHandle createLedger(int, int, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[]) throws java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iload_2
+       3: iload_2
+       4: aload_3
+       5: aload         4
+       7: invokestatic  #183                // Method java/util/Collections.emptyMap:()Ljava/util/Map;
+      10: invokevirtual #197                // Method createLedger:(IIILorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLjava/util/Map;)Lorg/apache/bookkeeper/client/LedgerHandle;
+      13: areturn
+
+  public org.apache.bookkeeper.client.LedgerHandle createLedger(int, int, int, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[]) throws java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iload_2
+       3: iload_3
+       4: aload         4
+       6: aload         5
+       8: invokestatic  #183                // Method java/util/Collections.emptyMap:()Ljava/util/Map;
+      11: invokevirtual #197                // Method createLedger:(IIILorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLjava/util/Map;)Lorg/apache/bookkeeper/client/LedgerHandle;
+      14: areturn
+
+  public org.apache.bookkeeper.client.LedgerHandle createLedger(int, int, int, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[], java.util.Map<java.lang.String, byte[]>) throws java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: new           #198                // class java/util/concurrent/CompletableFuture
+       3: dup
+       4: invokespecial #199                // Method java/util/concurrent/CompletableFuture."<init>":()V
+       7: astore        7
+       9: new           #200                // class org/apache/bookkeeper/client/SyncCallbackUtils$SyncCreateCallback
+      12: dup
+      13: aload         7
+      15: invokespecial #201                // Method org/apache/bookkeeper/client/SyncCallbackUtils$SyncCreateCallback."<init>":(Ljava/util/concurrent/CompletableFuture;)V
+      18: astore        8
+      20: aload_0
+      21: iload_1
+      22: iload_2
+      23: iload_3
+      24: aload         4
+      26: aload         5
+      28: aload         8
+      30: aconst_null
+      31: aload         6
+      33: invokevirtual #184                // Method asyncCreateLedger:(IIILorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$CreateCallback;Ljava/lang/Object;Ljava/util/Map;)V
+      36: aload         7
+      38: invokestatic  #202                // Method org/apache/bookkeeper/client/SyncCallbackUtils.waitForResult:(Ljava/util/concurrent/CompletableFuture;)Ljava/lang/Object;
+      41: checkcast     #203                // class org/apache/bookkeeper/client/LedgerHandle
+      44: astore        9
+      46: aload         9
+      48: ifnonnull     68
+      51: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+      54: ldc           #204                // String Unexpected condition : no ledger handle returned for a success ledger creation
+      56: invokeinterface #24,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      61: sipush        -999
+      64: invokestatic  #205                // Method org/apache/bookkeeper/client/BKException.create:(I)Lorg/apache/bookkeeper/client/BKException;
+      67: athrow
+      68: aload         9
+      70: areturn
+
+  public org.apache.bookkeeper.client.LedgerHandle createLedgerAdv(int, int, int, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[]) throws java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iload_2
+       3: iload_3
+       4: aload         4
+       6: aload         5
+       8: invokestatic  #183                // Method java/util/Collections.emptyMap:()Ljava/util/Map;
+      11: invokevirtual #206                // Method createLedgerAdv:(IIILorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLjava/util/Map;)Lorg/apache/bookkeeper/client/LedgerHandle;
+      14: areturn
+
+  public org.apache.bookkeeper.client.LedgerHandle createLedgerAdv(int, int, int, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[], java.util.Map<java.lang.String, byte[]>) throws java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: new           #198                // class java/util/concurrent/CompletableFuture
+       3: dup
+       4: invokespecial #199                // Method java/util/concurrent/CompletableFuture."<init>":()V
+       7: astore        7
+       9: new           #207                // class org/apache/bookkeeper/client/SyncCallbackUtils$SyncCreateAdvCallback
+      12: dup
+      13: aload         7
+      15: invokespecial #208                // Method org/apache/bookkeeper/client/SyncCallbackUtils$SyncCreateAdvCallback."<init>":(Ljava/util/concurrent/CompletableFuture;)V
+      18: astore        8
+      20: aload_0
+      21: iload_1
+      22: iload_2
+      23: iload_3
+      24: aload         4
+      26: aload         5
+      28: aload         8
+      30: aconst_null
+      31: aload         6
+      33: invokevirtual #209                // Method asyncCreateLedgerAdv:(IIILorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$CreateCallback;Ljava/lang/Object;Ljava/util/Map;)V
+      36: aload         7
+      38: invokestatic  #202                // Method org/apache/bookkeeper/client/SyncCallbackUtils.waitForResult:(Ljava/util/concurrent/CompletableFuture;)Ljava/lang/Object;
+      41: checkcast     #203                // class org/apache/bookkeeper/client/LedgerHandle
+      44: astore        9
+      46: aload         9
+      48: ifnonnull     68
+      51: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+      54: ldc           #204                // String Unexpected condition : no ledger handle returned for a success ledger creation
+      56: invokeinterface #24,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      61: sipush        -999
+      64: invokestatic  #205                // Method org/apache/bookkeeper/client/BKException.create:(I)Lorg/apache/bookkeeper/client/BKException;
+      67: athrow
+      68: aload         9
+      70: areturn
+
+  public void asyncCreateLedgerAdv(int, int, int, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[], org.apache.bookkeeper.client.AsyncCallback$CreateCallback, java.lang.Object, java.util.Map<java.lang.String, byte[]>);
+    Code:
+       0: iload_2
+       1: iload_3
+       2: if_icmpge     15
+       5: new           #185                // class java/lang/IllegalArgumentException
+       8: dup
+       9: ldc           #186                // String Write quorum must be larger than ack quorum
+      11: invokespecial #187                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      14: athrow
+      15: aload_0
+      16: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      19: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      22: invokevirtual #189                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      25: aload_0
+      26: getfield      #34                 // Field closed:Z
+      29: ifeq          55
+      32: aload         6
+      34: bipush        -19
+      36: aconst_null
+      37: aload         7
+      39: invokeinterface #190,  4          // InterfaceMethod org/apache/bookkeeper/client/AsyncCallback$CreateCallback.createComplete:(ILorg/apache/bookkeeper/client/LedgerHandle;Ljava/lang/Object;)V
+      44: aload_0
+      45: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      48: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      51: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      54: return
+      55: new           #192                // class org/apache/bookkeeper/client/LedgerCreateOp
+      58: dup
+      59: aload_0
+      60: iload_1
+      61: iload_2
+      62: iload_3
+      63: aload         4
+      65: aload         5
+      67: aload         6
+      69: aload         7
+      71: aload         8
+      73: getstatic     #193                // Field org/apache/bookkeeper/client/api/WriteFlag.NONE:Ljava/util/EnumSet;
+      76: aload_0
+      77: getfield      #3                  // Field clientStats:Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+      80: invokespecial #194                // Method org/apache/bookkeeper/client/LedgerCreateOp."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;IIILorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$CreateCallback;Ljava/lang/Object;Ljava/util/Map;Ljava/util/EnumSet;Lorg/apache/bookkeeper/client/BookKeeperClientStats;)V
+      83: ldc2_w        #210                // long -1l
+      86: invokevirtual #212                // Method org/apache/bookkeeper/client/LedgerCreateOp.initiateAdv:(J)V
+      89: aload_0
+      90: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      93: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      96: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      99: goto          117
+     102: astore        9
+     104: aload_0
+     105: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     108: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     111: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     114: aload         9
+     116: athrow
+     117: return
+    Exception table:
+       from    to  target type
+          25    44   102   any
+          55    89   102   any
+         102   104   102   any
+
+  public org.apache.bookkeeper.client.LedgerHandle createLedgerAdv(long, int, int, int, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[], java.util.Map<java.lang.String, byte[]>) throws java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: new           #198                // class java/util/concurrent/CompletableFuture
+       3: dup
+       4: invokespecial #199                // Method java/util/concurrent/CompletableFuture."<init>":()V
+       7: astore        9
+       9: new           #207                // class org/apache/bookkeeper/client/SyncCallbackUtils$SyncCreateAdvCallback
+      12: dup
+      13: aload         9
+      15: invokespecial #208                // Method org/apache/bookkeeper/client/SyncCallbackUtils$SyncCreateAdvCallback."<init>":(Ljava/util/concurrent/CompletableFuture;)V
+      18: astore        10
+      20: aload_0
+      21: lload_1
+      22: iload_3
+      23: iload         4
+      25: iload         5
+      27: aload         6
+      29: aload         7
+      31: aload         10
+      33: aconst_null
+      34: aload         8
+      36: invokevirtual #213                // Method asyncCreateLedgerAdv:(JIIILorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$CreateCallback;Ljava/lang/Object;Ljava/util/Map;)V
+      39: aload         9
+      41: invokestatic  #202                // Method org/apache/bookkeeper/client/SyncCallbackUtils.waitForResult:(Ljava/util/concurrent/CompletableFuture;)Ljava/lang/Object;
+      44: checkcast     #203                // class org/apache/bookkeeper/client/LedgerHandle
+      47: astore        11
+      49: aload         11
+      51: ifnonnull     71
+      54: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+      57: ldc           #204                // String Unexpected condition : no ledger handle returned for a success ledger creation
+      59: invokeinterface #24,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      64: sipush        -999
+      67: invokestatic  #205                // Method org/apache/bookkeeper/client/BKException.create:(I)Lorg/apache/bookkeeper/client/BKException;
+      70: athrow
+      71: lload_1
+      72: aload         11
+      74: invokevirtual #214                // Method org/apache/bookkeeper/client/LedgerHandle.getId:()J
+      77: lcmp
+      78: ifeq          110
+      81: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+      84: ldc           #215                // String Unexpected condition : Expected ledgerId: {} but got: {}
+      86: lload_1
+      87: invokestatic  #216                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      90: aload         11
+      92: invokevirtual #214                // Method org/apache/bookkeeper/client/LedgerHandle.getId:()J
+      95: invokestatic  #216                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      98: invokeinterface #217,  4          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     103: sipush        -999
+     106: invokestatic  #205                // Method org/apache/bookkeeper/client/BKException.create:(I)Lorg/apache/bookkeeper/client/BKException;
+     109: athrow
+     110: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+     113: ldc           #218                // String Ensemble: {} for ledger: {}
+     115: aload         11
+     117: invokevirtual #219                // Method org/apache/bookkeeper/client/LedgerHandle.getLedgerMetadata:()Lorg/apache/bookkeeper/client/api/LedgerMetadata;
+     120: lconst_0
+     121: invokeinterface #220,  3          // InterfaceMethod org/apache/bookkeeper/client/api/LedgerMetadata.getEnsembleAt:(J)Ljava/util/List;
+     126: aload         11
+     128: invokevirtual #214                // Method org/apache/bookkeeper/client/LedgerHandle.getId:()J
+     131: invokestatic  #216                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     134: invokeinterface #221,  4          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     139: aload         11
+     141: areturn
+
+  public void asyncCreateLedgerAdv(long, int, int, int, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[], org.apache.bookkeeper.client.AsyncCallback$CreateCallback, java.lang.Object, java.util.Map<java.lang.String, byte[]>);
+    Code:
+       0: iload         4
+       2: iload         5
+       4: if_icmpge     17
+       7: new           #185                // class java/lang/IllegalArgumentException
+      10: dup
+      11: ldc           #186                // String Write quorum must be larger than ack quorum
+      13: invokespecial #187                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      16: athrow
+      17: aload_0
+      18: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      21: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      24: invokevirtual #189                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      27: aload_0
+      28: getfield      #34                 // Field closed:Z
+      31: ifeq          57
+      34: aload         8
+      36: bipush        -19
+      38: aconst_null
+      39: aload         9
+      41: invokeinterface #190,  4          // InterfaceMethod org/apache/bookkeeper/client/AsyncCallback$CreateCallback.createComplete:(ILorg/apache/bookkeeper/client/LedgerHandle;Ljava/lang/Object;)V
+      46: aload_0
+      47: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      50: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      53: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      56: return
+      57: new           #192                // class org/apache/bookkeeper/client/LedgerCreateOp
+      60: dup
+      61: aload_0
+      62: iload_3
+      63: iload         4
+      65: iload         5
+      67: aload         6
+      69: aload         7
+      71: aload         8
+      73: aload         9
+      75: aload         10
+      77: getstatic     #193                // Field org/apache/bookkeeper/client/api/WriteFlag.NONE:Ljava/util/EnumSet;
+      80: aload_0
+      81: getfield      #3                  // Field clientStats:Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+      84: invokespecial #194                // Method org/apache/bookkeeper/client/LedgerCreateOp."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;IIILorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$CreateCallback;Ljava/lang/Object;Ljava/util/Map;Ljava/util/EnumSet;Lorg/apache/bookkeeper/client/BookKeeperClientStats;)V
+      87: lload_1
+      88: invokevirtual #212                // Method org/apache/bookkeeper/client/LedgerCreateOp.initiateAdv:(J)V
+      91: aload_0
+      92: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      95: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      98: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     101: goto          119
+     104: astore        11
+     106: aload_0
+     107: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     110: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     113: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     116: aload         11
+     118: athrow
+     119: return
+    Exception table:
+       from    to  target type
+          27    46   104   any
+          57    91   104   any
+         104   106   104   any
+
+  public void asyncOpenLedger(long, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[], org.apache.bookkeeper.client.AsyncCallback$OpenCallback, java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+       4: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+       7: invokevirtual #189                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      10: aload_0
+      11: getfield      #34                 // Field closed:Z
+      14: ifeq          40
+      17: aload         5
+      19: bipush        -19
+      21: aconst_null
+      22: aload         6
+      24: invokeinterface #222,  4          // InterfaceMethod org/apache/bookkeeper/client/AsyncCallback$OpenCallback.openComplete:(ILorg/apache/bookkeeper/client/LedgerHandle;Ljava/lang/Object;)V
+      29: aload_0
+      30: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      33: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      36: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      39: return
+      40: new           #223                // class org/apache/bookkeeper/client/LedgerOpenOp
+      43: dup
+      44: aload_0
+      45: aload_0
+      46: getfield      #3                  // Field clientStats:Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+      49: lload_1
+      50: aload_3
+      51: aload         4
+      53: aload         5
+      55: aload         6
+      57: invokespecial #224                // Method org/apache/bookkeeper/client/LedgerOpenOp."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;Lorg/apache/bookkeeper/client/BookKeeperClientStats;JLorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$OpenCallback;Ljava/lang/Object;)V
+      60: invokevirtual #225                // Method org/apache/bookkeeper/client/LedgerOpenOp.initiate:()V
+      63: aload_0
+      64: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      67: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      70: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      73: goto          91
+      76: astore        7
+      78: aload_0
+      79: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      82: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      85: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      88: aload         7
+      90: athrow
+      91: return
+    Exception table:
+       from    to  target type
+          10    29    76   any
+          40    63    76   any
+          76    78    76   any
+
+  public void asyncOpenLedgerNoRecovery(long, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[], org.apache.bookkeeper.client.AsyncCallback$OpenCallback, java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+       4: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+       7: invokevirtual #189                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      10: aload_0
+      11: getfield      #34                 // Field closed:Z
+      14: ifeq          40
+      17: aload         5
+      19: bipush        -19
+      21: aconst_null
+      22: aload         6
+      24: invokeinterface #222,  4          // InterfaceMethod org/apache/bookkeeper/client/AsyncCallback$OpenCallback.openComplete:(ILorg/apache/bookkeeper/client/LedgerHandle;Ljava/lang/Object;)V
+      29: aload_0
+      30: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      33: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      36: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      39: return
+      40: new           #223                // class org/apache/bookkeeper/client/LedgerOpenOp
+      43: dup
+      44: aload_0
+      45: aload_0
+      46: getfield      #3                  // Field clientStats:Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+      49: lload_1
+      50: aload_3
+      51: aload         4
+      53: aload         5
+      55: aload         6
+      57: invokespecial #224                // Method org/apache/bookkeeper/client/LedgerOpenOp."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;Lorg/apache/bookkeeper/client/BookKeeperClientStats;JLorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$OpenCallback;Ljava/lang/Object;)V
+      60: invokevirtual #226                // Method org/apache/bookkeeper/client/LedgerOpenOp.initiateWithoutRecovery:()V
+      63: aload_0
+      64: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      67: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      70: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      73: goto          91
+      76: astore        7
+      78: aload_0
+      79: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      82: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      85: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      88: aload         7
+      90: athrow
+      91: return
+    Exception table:
+       from    to  target type
+          10    29    76   any
+          40    63    76   any
+          76    78    76   any
+
+  public org.apache.bookkeeper.client.LedgerHandle openLedger(long, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[]) throws org.apache.bookkeeper.client.BKException, java.lang.InterruptedException;
+    Code:
+       0: new           #198                // class java/util/concurrent/CompletableFuture
+       3: dup
+       4: invokespecial #199                // Method java/util/concurrent/CompletableFuture."<init>":()V
+       7: astore        5
+       9: new           #227                // class org/apache/bookkeeper/client/SyncCallbackUtils$SyncOpenCallback
+      12: dup
+      13: aload         5
+      15: invokespecial #228                // Method org/apache/bookkeeper/client/SyncCallbackUtils$SyncOpenCallback."<init>":(Ljava/util/concurrent/CompletableFuture;)V
+      18: astore        6
+      20: aload_0
+      21: lload_1
+      22: aload_3
+      23: aload         4
+      25: aload         6
+      27: aconst_null
+      28: invokevirtual #229                // Method asyncOpenLedger:(JLorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$OpenCallback;Ljava/lang/Object;)V
+      31: aload         5
+      33: invokestatic  #202                // Method org/apache/bookkeeper/client/SyncCallbackUtils.waitForResult:(Ljava/util/concurrent/CompletableFuture;)Ljava/lang/Object;
+      36: checkcast     #203                // class org/apache/bookkeeper/client/LedgerHandle
+      39: areturn
+
+  public org.apache.bookkeeper.client.LedgerHandle openLedgerNoRecovery(long, org.apache.bookkeeper.client.BookKeeper$DigestType, byte[]) throws org.apache.bookkeeper.client.BKException, java.lang.InterruptedException;
+    Code:
+       0: new           #198                // class java/util/concurrent/CompletableFuture
+       3: dup
+       4: invokespecial #199                // Method java/util/concurrent/CompletableFuture."<init>":()V
+       7: astore        5
+       9: new           #227                // class org/apache/bookkeeper/client/SyncCallbackUtils$SyncOpenCallback
+      12: dup
+      13: aload         5
+      15: invokespecial #228                // Method org/apache/bookkeeper/client/SyncCallbackUtils$SyncOpenCallback."<init>":(Ljava/util/concurrent/CompletableFuture;)V
+      18: astore        6
+      20: aload_0
+      21: lload_1
+      22: aload_3
+      23: aload         4
+      25: aload         6
+      27: aconst_null
+      28: invokevirtual #230                // Method asyncOpenLedgerNoRecovery:(JLorg/apache/bookkeeper/client/BookKeeper$DigestType;[BLorg/apache/bookkeeper/client/AsyncCallback$OpenCallback;Ljava/lang/Object;)V
+      31: aload         5
+      33: invokestatic  #202                // Method org/apache/bookkeeper/client/SyncCallbackUtils.waitForResult:(Ljava/util/concurrent/CompletableFuture;)Ljava/lang/Object;
+      36: checkcast     #203                // class org/apache/bookkeeper/client/LedgerHandle
+      39: areturn
+
+  public void asyncDeleteLedger(long, org.apache.bookkeeper.client.AsyncCallback$DeleteCallback, java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+       4: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+       7: invokevirtual #189                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      10: aload_0
+      11: getfield      #34                 // Field closed:Z
+      14: ifeq          38
+      17: aload_3
+      18: bipush        -19
+      20: aload         4
+      22: invokeinterface #231,  3          // InterfaceMethod org/apache/bookkeeper/client/AsyncCallback$DeleteCallback.deleteComplete:(ILjava/lang/Object;)V
+      27: aload_0
+      28: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      31: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      34: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      37: return
+      38: new           #232                // class org/apache/bookkeeper/client/LedgerDeleteOp
+      41: dup
+      42: aload_0
+      43: aload_0
+      44: getfield      #3                  // Field clientStats:Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+      47: lload_1
+      48: aload_3
+      49: aload         4
+      51: invokespecial #233                // Method org/apache/bookkeeper/client/LedgerDeleteOp."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;Lorg/apache/bookkeeper/client/BookKeeperClientStats;JLorg/apache/bookkeeper/client/AsyncCallback$DeleteCallback;Ljava/lang/Object;)V
+      54: invokevirtual #234                // Method org/apache/bookkeeper/client/LedgerDeleteOp.initiate:()V
+      57: aload_0
+      58: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      61: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      64: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      67: goto          85
+      70: astore        5
+      72: aload_0
+      73: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      76: invokevirtual #188                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      79: invokevirtual #191                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      82: aload         5
+      84: athrow
+      85: return
+    Exception table:
+       from    to  target type
+          10    27    70   any
+          38    57    70   any
+          70    72    70   any
+
+  public void deleteLedger(long) throws java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: new           #198                // class java/util/concurrent/CompletableFuture
+       3: dup
+       4: invokespecial #199                // Method java/util/concurrent/CompletableFuture."<init>":()V
+       7: astore_3
+       8: new           #235                // class org/apache/bookkeeper/client/SyncCallbackUtils$SyncDeleteCallback
+      11: dup
+      12: aload_3
+      13: invokespecial #236                // Method org/apache/bookkeeper/client/SyncCallbackUtils$SyncDeleteCallback."<init>":(Ljava/util/concurrent/CompletableFuture;)V
+      16: astore        4
+      18: aload_0
+      19: lload_1
+      20: aload         4
+      22: aconst_null
+      23: invokevirtual #237                // Method asyncDeleteLedger:(JLorg/apache/bookkeeper/client/AsyncCallback$DeleteCallback;Ljava/lang/Object;)V
+      26: aload_3
+      27: invokestatic  #202                // Method org/apache/bookkeeper/client/SyncCallbackUtils.waitForResult:(Ljava/util/concurrent/CompletableFuture;)Ljava/lang/Object;
+      30: pop
+      31: return
+
+  public void asyncIsClosed(long, org.apache.bookkeeper.client.AsyncCallback$IsClosedCallback, java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #148                // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+       4: lload_1
+       5: invokeinterface #238,  3          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager.readLedgerMetadata:(J)Ljava/util/concurrent/CompletableFuture;
+      10: aload_3
+      11: aload         4
+      13: invokedynamic #239,  0            // InvokeDynamic #0:accept:(Lorg/apache/bookkeeper/client/AsyncCallback$IsClosedCallback;Ljava/lang/Object;)Ljava/util/function/BiConsumer;
+      18: invokevirtual #240                // Method java/util/concurrent/CompletableFuture.whenComplete:(Ljava/util/function/BiConsumer;)Ljava/util/concurrent/CompletableFuture;
+      21: pop
+      22: return
+
+  public boolean isClosed(long) throws org.apache.bookkeeper.client.BKException, java.lang.InterruptedException;
+    Code:
+       0: new           #241                // class org/apache/bookkeeper/client/BookKeeper$1Result
+       3: dup
+       4: aload_0
+       5: invokespecial #242                // Method org/apache/bookkeeper/client/BookKeeper$1Result."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;)V
+       8: astore_3
+       9: new           #243                // class org/apache/bookkeeper/client/BookKeeper$2
+      12: dup
+      13: aload_0
+      14: aload_3
+      15: invokespecial #244                // Method org/apache/bookkeeper/client/BookKeeper$2."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;Lorg/apache/bookkeeper/client/BookKeeper$1Result;)V
+      18: astore        4
+      20: aload_0
+      21: lload_1
+      22: aload         4
+      24: aconst_null
+      25: invokevirtual #245                // Method asyncIsClosed:(JLorg/apache/bookkeeper/client/AsyncCallback$IsClosedCallback;Ljava/lang/Object;)V
+      28: aload_3
+      29: getfield      #246                // Field org/apache/bookkeeper/client/BookKeeper$1Result.notifier:Ljava/util/concurrent/CountDownLatch;
+      32: invokevirtual #247                // Method java/util/concurrent/CountDownLatch.await:()V
+      35: aload_3
+      36: getfield      #248                // Field org/apache/bookkeeper/client/BookKeeper$1Result.rc:I
+      39: ifeq          50
+      42: aload_3
+      43: getfield      #248                // Field org/apache/bookkeeper/client/BookKeeper$1Result.rc:I
+      46: invokestatic  #205                // Method org/apache/bookkeeper/client/BKException.create:(I)Lorg/apache/bookkeeper/client/BKException;
+      49: athrow
+      50: aload_3
+      51: getfield      #249                // Field org/apache/bookkeeper/client/BookKeeper$1Result.isClosed:Z
+      54: ireturn
+
+  public void close() throws org.apache.bookkeeper.client.BKException, java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+       4: invokevirtual #250                // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       7: invokevirtual #251                // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+      10: aload_0
+      11: getfield      #34                 // Field closed:Z
+      14: ifeq          28
+      17: aload_0
+      18: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      21: invokevirtual #250                // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      24: invokevirtual #252                // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      27: return
+      28: aload_0
+      29: iconst_1
+      30: putfield      #34                 // Field closed:Z
+      33: aload_0
+      34: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      37: invokevirtual #250                // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      40: invokevirtual #252                // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      43: goto          59
+      46: astore_1
+      47: aload_0
+      48: getfield      #37                 // Field closeLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      51: invokevirtual #250                // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      54: invokevirtual #252                // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      57: aload_1
+      58: athrow
+      59: aload_0
+      60: getfield      #129                // Field bookieClient:Lorg/apache/bookkeeper/proto/BookieClient;
+      63: invokeinterface #253,  1          // InterfaceMethod org/apache/bookkeeper/proto/BookieClient.close:()V
+      68: aload_0
+      69: getfield      #148                // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+      72: invokeinterface #254,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager.close:()V
+      77: aload_0
+      78: getfield      #150                // Field ledgerIdGenerator:Lorg/apache/bookkeeper/meta/LedgerIdGenerator;
+      81: invokeinterface #255,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerIdGenerator.close:()V
+      86: goto          102
+      89: astore_1
+      90: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+      93: ldc_w         #256                // String Failed to close ledger manager :
+      96: aload_1
+      97: invokeinterface #84,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     102: aload_0
+     103: getfield      #52                 // Field scheduler:Lorg/apache/bookkeeper/common/util/OrderedScheduler;
+     106: invokevirtual #257                // Method org/apache/bookkeeper/common/util/OrderedScheduler.shutdown:()V
+     109: aload_0
+     110: getfield      #52                 // Field scheduler:Lorg/apache/bookkeeper/common/util/OrderedScheduler;
+     113: ldc2_w        #258                // long 10l
+     116: getstatic     #168                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     119: invokevirtual #260                // Method org/apache/bookkeeper/common/util/OrderedScheduler.awaitTermination:(JLjava/util/concurrent/TimeUnit;)Z
+     122: ifne          136
+     125: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+     128: ldc_w         #261                // String The scheduler did not shutdown cleanly
+     131: invokeinterface #262,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     136: aload_0
+     137: getfield      #67                 // Field mainWorkerPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     140: invokevirtual #263                // Method org/apache/bookkeeper/common/util/OrderedExecutor.shutdown:()V
+     143: aload_0
+     144: getfield      #67                 // Field mainWorkerPool:Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+     147: ldc2_w        #258                // long 10l
+     150: getstatic     #168                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     153: invokevirtual #264                // Method org/apache/bookkeeper/common/util/OrderedExecutor.awaitTermination:(JLjava/util/concurrent/TimeUnit;)Z
+     156: ifne          170
+     159: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+     162: ldc_w         #265                // String The mainWorkerPool did not shutdown cleanly
+     165: invokeinterface #262,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     170: aload_0
+     171: getfield      #135                // Field bookieInfoScheduler:Ljava/util/concurrent/ScheduledExecutorService;
+     174: ifnull        215
+     177: aload_0
+     178: getfield      #135                // Field bookieInfoScheduler:Ljava/util/concurrent/ScheduledExecutorService;
+     181: invokeinterface #266,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.shutdown:()V
+     186: aload_0
+     187: getfield      #135                // Field bookieInfoScheduler:Ljava/util/concurrent/ScheduledExecutorService;
+     190: ldc2_w        #258                // long 10l
+     193: getstatic     #168                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     196: invokeinterface #267,  4          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.awaitTermination:(JLjava/util/concurrent/TimeUnit;)Z
+     201: ifne          215
+     204: getstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+     207: ldc_w         #268                // String The bookieInfoScheduler did not shutdown cleanly
+     210: invokeinterface #262,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     215: aload_0
+     216: getfield      #115                // Field ownTimer:Z
+     219: ifeq          230
+     222: aload_0
+     223: getfield      #114                // Field requestTimer:Lio/netty/util/HashedWheelTimer;
+     226: invokevirtual #269                // Method io/netty/util/HashedWheelTimer.stop:()Ljava/util/Set;
+     229: pop
+     230: aload_0
+     231: getfield      #33                 // Field ownEventLoopGroup:Z
+     234: ifeq          247
+     237: aload_0
+     238: getfield      #93                 // Field eventLoopGroup:Lio/netty/channel/EventLoopGroup;
+     241: invokeinterface #270,  1          // InterfaceMethod io/netty/channel/EventLoopGroup.shutdownGracefully:()Lio/netty/util/concurrent/Future;
+     246: pop
+     247: aload_0
+     248: getfield      #76                 // Field metadataDriver:Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+     251: invokeinterface #271,  1          // InterfaceMethod org/apache/bookkeeper/meta/MetadataClientDriver.close:()V
+     256: return
+    Exception table:
+       from    to  target type
+          10    17    46   any
+          28    33    46   any
+          68    86    89   Class java/io/IOException
+
+  public org.apache.bookkeeper.client.api.CreateBuilder newCreateLedgerOp();
+    Code:
+       0: new           #272                // class org/apache/bookkeeper/client/LedgerCreateOp$CreateBuilderImpl
+       3: dup
+       4: aload_0
+       5: invokespecial #273                // Method org/apache/bookkeeper/client/LedgerCreateOp$CreateBuilderImpl."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;)V
+       8: areturn
+
+  public org.apache.bookkeeper.client.api.OpenBuilder newOpenLedgerOp();
+    Code:
+       0: new           #274                // class org/apache/bookkeeper/client/LedgerOpenOp$OpenBuilderImpl
+       3: dup
+       4: aload_0
+       5: invokespecial #275                // Method org/apache/bookkeeper/client/LedgerOpenOp$OpenBuilderImpl."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;)V
+       8: areturn
+
+  public org.apache.bookkeeper.client.api.DeleteBuilder newDeleteLedgerOp();
+    Code:
+       0: new           #276                // class org/apache/bookkeeper/client/LedgerDeleteOp$DeleteBuilderImpl
+       3: dup
+       4: aload_0
+       5: invokespecial #277                // Method org/apache/bookkeeper/client/LedgerDeleteOp$DeleteBuilderImpl."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;)V
+       8: areturn
+
+  public org.apache.bookkeeper.client.api.ListLedgersResultBuilder newListLedgersOp();
+    Code:
+       0: aload_0
+       1: invokedynamic #278,  0            // InvokeDynamic #1:execute:(Lorg/apache/bookkeeper/client/BookKeeper;)Lorg/apache/bookkeeper/client/api/ListLedgersResultBuilder;
+       6: areturn
+
+  public java.util.concurrent.CompletableFuture<org.apache.bookkeeper.client.api.LedgerMetadata> getLedgerMetadata(long);
+    Code:
+       0: aload_0
+       1: invokevirtual #279                // Method getLedgerManager:()Lorg/apache/bookkeeper/meta/LedgerManager;
+       4: lload_1
+       5: invokeinterface #238,  3          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager.readLedgerMetadata:(J)Ljava/util/concurrent/CompletableFuture;
+      10: astore_3
+      11: aload_3
+      12: invokedynamic #280,  0            // InvokeDynamic #2:apply:()Ljava/util/function/Function;
+      17: invokevirtual #281                // Method java/util/concurrent/CompletableFuture.thenApply:(Ljava/util/function/Function;)Ljava/util/concurrent/CompletableFuture;
+      20: areturn
+
+  org.apache.bookkeeper.client.ClientContext getClientCtx();
+    Code:
+       0: aload_0
+       1: getfield      #40                 // Field clientCtx:Lorg/apache/bookkeeper/client/ClientContext;
+       4: areturn
+
+  private static org.apache.bookkeeper.client.api.LedgerMetadata lambda$getLedgerMetadata$2(org.apache.bookkeeper.versioning.Versioned);
+    Code:
+       0: aload_0
+       1: invokevirtual #282                // Method org/apache/bookkeeper/versioning/Versioned.getValue:()Ljava/lang/Object;
+       4: checkcast     #283                // class org/apache/bookkeeper/client/api/LedgerMetadata
+       7: areturn
+
+  private java.util.concurrent.CompletableFuture lambda$newListLedgersOp$1();
+    Code:
+       0: aload_0
+       1: invokevirtual #279                // Method getLedgerManager:()Lorg/apache/bookkeeper/meta/LedgerManager;
+       4: lconst_0
+       5: invokeinterface #284,  3          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager.getLedgerRanges:(J)Lorg/apache/bookkeeper/meta/LedgerManager$LedgerRangeIterator;
+      10: astore_1
+      11: new           #285                // class org/apache/bookkeeper/client/BookKeeper$ListLedgersResultImpl
+      14: dup
+      15: aload_1
+      16: invokespecial #286                // Method org/apache/bookkeeper/client/BookKeeper$ListLedgersResultImpl."<init>":(Lorg/apache/bookkeeper/meta/LedgerManager$LedgerRangeIterator;)V
+      19: invokestatic  #287                // Method java/util/concurrent/CompletableFuture.completedFuture:(Ljava/lang/Object;)Ljava/util/concurrent/CompletableFuture;
+      22: areturn
+
+  private static void lambda$asyncIsClosed$0(org.apache.bookkeeper.client.AsyncCallback$IsClosedCallback, java.lang.Object, org.apache.bookkeeper.versioning.Versioned, java.lang.Throwable);
+    Code:
+       0: aload_3
+       1: ifnonnull     27
+       4: aload_0
+       5: iconst_0
+       6: aload_2
+       7: invokevirtual #282                // Method org/apache/bookkeeper/versioning/Versioned.getValue:()Ljava/lang/Object;
+      10: checkcast     #283                // class org/apache/bookkeeper/client/api/LedgerMetadata
+      13: invokeinterface #288,  1          // InterfaceMethod org/apache/bookkeeper/client/api/LedgerMetadata.isClosed:()Z
+      18: aload_1
+      19: invokeinterface #289,  4          // InterfaceMethod org/apache/bookkeeper/client/AsyncCallback$IsClosedCallback.isClosedComplete:(IZLjava/lang/Object;)V
+      24: goto          39
+      27: aload_0
+      28: aload_3
+      29: invokestatic  #290                // Method org/apache/bookkeeper/client/BKException.getExceptionCode:(Ljava/lang/Throwable;)I
+      32: iconst_0
+      33: aload_1
+      34: invokeinterface #289,  4          // InterfaceMethod org/apache/bookkeeper/client/AsyncCallback$IsClosedCallback.isClosedComplete:(IZLjava/lang/Object;)V
+      39: return
+
+  static org.apache.bookkeeper.client.BookKeeperClientStats access$100(org.apache.bookkeeper.client.BookKeeper);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field clientStats:Lorg/apache/bookkeeper/client/BookKeeperClientStats;
+       4: areturn
+
+  static io.netty.buffer.ByteBufAllocator access$200(org.apache.bookkeeper.client.BookKeeper);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc_w         #291                // class org/apache/bookkeeper/client/BookKeeper
+       3: invokestatic  #292                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       6: putstatic     #22                 // Field LOG:Lorg/slf4j/Logger;
+       9: return
+}

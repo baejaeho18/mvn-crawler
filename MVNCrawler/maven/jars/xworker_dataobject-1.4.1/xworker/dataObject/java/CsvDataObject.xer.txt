@@ -1,0 +1,1416 @@
+^1429857231159
+@
+sname
+CsvDataObject
+slabel
+CsvDataObject
+sdescriptors
+xworker.lang.MetaDescriptor3
+sextends
+xworker.dataObject.java.ListDataObject
+smany
+true
+seditCols
+2
+sinitialization
+false
+smodifier
+public
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p><strong>功能：</strong>处理Csv格式的数据的数据对象。</p>
+
+<p><strong>注意事项：</strong>由于所有数据是保存到内存中的，所以：</p>
+
+<ul>
+	<li>适合处理小批量数据，处理大批量的数据时可能会速度慢。</li>
+	<li>如果数据不需要再使用了，调用doActin(&quot;clearCsvDatas&quot;, actionContext)方法清空临时数据。</li>
+	<li>调用saveCsvDatas可以保存临时数据到Csv源。</li>
+</ul>
+
+<p><strong>列到属性的映射</strong></p>
+
+<p>&nbsp;&nbsp;&nbsp;&nbsp;CSV的每一行的数据先会转化成Map&lt;String, String&gt;，其中c0、c1、c2....表示第几列数据，在属性的propertyPath设置c0、c1.......cn等。</p>
+
+<p><strong>可重载的方法：</strong></p>
+
+<ul>
+	<li><strong>getCsvSource</strong><br />
+	返回CSV文件路径、输入流和Reader等，如果返回的字符串那么首先会判断是否是文件，如果文件不存在那么会转化为ByteArrayInputStream，整个字符串当做是csv源。</li>
+</ul>
+
+<p>&nbsp;</p>
+#$@text#$@
+snotXmlAttribute
+false
+sid
+CsvDataObject
+@/@actions
+sname
+actions
+sid
+actions
+slabel
+actions
+sdescriptors
+xworker.lang.MetaDescriptor3/@actions
+@/@actions/@Constants
+sname
+Constants
+sisSynchronized
+false
+sthrowException
+false
+suseOtherAction
+false
+suseOuterJava
+false
+sclassName
+Constants
+smethodName
+run
+sdisableGlobalContext
+false
+sdescription
+<p>CsvDataObject的一些常量定义。</p>
+Scode
+#$@text#$@
+import org.xmeta.ActionContext;
+
+/**
+ * 用于保存临时变量的名称。
+ */
+public class Constants{
+    public static final String HEADERS = "_headerNames";
+    public static final String DATAS = "_datas";
+    public static final String COLUMNCOUNT = "_columnCount";
+    
+    public static Object run(ActionContext actionContext){
+        return null;
+    }
+}
+#$@text#$@
+sid
+Constants
+sdescriptors
+xworker.lang.actions.Actions/@JavaAction
+@/@actions/@loadTempDatas
+sname
+loadCsvDatas
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+
+import com.csvreader.CsvReader;
+
+import java.nio.charset.Charset;
+import java.io.ByteArrayInputStream;
+
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+def charset = Charset.forName(self.charset);
+
+//Csv数据源
+def csvSource = self.doAction("getCsvSource", actionContext);
+if(csvSource instanceof File){
+    csvSource = getCsvSource.getAbsolutePath();
+}else if(csvSource instanceof String && !new File(csvSource).exists()){
+    csvSource = new ByteArrayInputStream(csvSource.getBytes(charset));
+}
+
+def csvReader = null;
+try{
+    csvReader = new CsvReader(csvSource, self.delimiter.charAt(0), charset);
+}catch(Exception e){
+    log.error("CsvDataObject: create CsvReader from file error", e);
+}
+
+//读取Csv的数据
+if(csvReader == null){
+    self.setData(Constants.HEADERS, [:]);
+    self.setData(Constants.DATAS, []);
+    self.setData(Constants.COLUMNCOUNT, 0);
+}else{
+    //列最大数
+    def columnCount = 0;
+    //头-标题
+    def headMap = [:];    
+    if(self.getBoolean("haveHeaders")){
+        if(csvReader.readHeaders()){
+            def headers = csvReader.getHeaders();
+            columnCount = headers.length;
+            for(int i=0; i<headers.length; i++){
+                headMap.put("h" + i, headers[i]);
+            }
+        }
+    }
+    self.setData(Constants.HEADERS, headMap);
+    
+    //所有数据
+    def datas = [];
+    def index = 0;
+    while(csvReader.readRecord()){
+        def data = [:];        
+        for(int i=0; i<csvReader.getColumnCount(); i++){
+            data.put("c" + i, csvReader.get(i));
+        }
+        data.put("index", index);
+        index++;
+        datas.add(data);
+        
+        if(columnCount < csvReader.getColumnCount()){
+            columnCount = csvReader.getColumnCount();
+        }
+    }
+    self.setData(Constants.DATAS, datas);
+    self.setData(Constants.COLUMNCOUNT, columnCount);
+}
+#$@text#$@
+sdescription
+<p>装载Csv数据到临时变量里。</p>
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sid
+loadTempDatas
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@clearCsvDatas
+sname
+clearCsvDatas
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+self.setData(Constants.HEADERS, null);
+self.setData(Constants.DATAS, null);
+self.setData(Constants.COLUMNCOUNT, null);
+#$@text#$@
+sdescription
+<p>清除临时变量数据，清理后如要对CSV数据操作需要重新装载数据（loadCsvDatas）。</p>
+sid
+clearCsvDatas
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@saveCsvDatas
+sname
+saveCsvDatas
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+
+import com.csvreader.CsvWriter;
+
+import java.nio.charset.Charset;
+import java.io.ByteArrayOutputStream;
+
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+//Csv数据源
+def csvSource = self.doAction("getCsvSource", actionContext);
+if(csvSource instanceof File){
+    csvSource = getCsvSource.getAbsolutePath();
+}
+
+def isVar = false;
+def csvWriter = null;
+def charset = Charset.forName(self.charse);
+def output = null;
+def csvVarContext = null;
+if(filePath != null){
+    try{
+        csvWriter = new CsvWriter(csvSource, self.delimiter, charset);
+    }catch(Exception e){
+        log.error("CsvDataObject: create CsvWriter from file error", e);
+    }
+}else{
+    csvVarContext = actionContext;
+    if(self.csvVarContext != null && self.csvVarContext != ""){
+        csvVarContext = Ognl.getValue(self.csvVarContext, actionContext);
+    }
+    if(csvVarContext == null){
+        log.warn("CsvDataObject: csvVarContext is null, csvVarContext=" + self.csvVarContext);
+        return;
+    }
+    
+    def csvText = Ognl.getValue(self.csvVarName, actionContext);
+    if(csvText == null){
+        csvText = "";
+    }
+    output = new ByteArrayOutputStream();
+    csvWriter = new CsvWriter(output, self.delimiter, charset);
+    isVar = true;
+}
+
+//读取Csv的数据
+if(csvWriter == null){
+    return 0;
+}else{
+    try{
+        //数据
+        def headers = self.getData(Constants.HEADERS);
+        def datas = self.getData(Constants.DATAS);
+        def columnCount = self.getData(Constants.COLUMNCOUNT);
+        //检查最大行数，如果属性映射的列超过了最大列数，那么自动扩充
+        for(attribute in self.get("attribute@")){
+            try{
+                def column = Integer.parse(self.propertyPath.substring(1, self.propertyPath));
+                if(columnCount < column){
+                    columnCount = column;
+                }
+            }catch(Exception e){
+            }
+        }
+        
+        //保存头-标题
+        if(self.getBoolean("haveHeaders")){
+            for(int i=0; i<columnCount; i++){
+                def header = headers.get("h" + i);
+                if(header == null){
+                    header = "";
+                }
+                csvWriter.write(header, true);
+            }
+            csvWriter.endRecord();
+        }
+        
+        //博阿村所有数据
+        for(data in datas){
+            for(int i=0; i<columnCount; i++){
+                def value = data.get("c" + i);
+                if(value == null){
+                    value = "";
+                }else{
+                    value = value.toString();
+                }
+                csvWriter.write(value, true);
+            }
+            csvWriter.endRecord();
+        }
+        csvWriter.flush();
+
+        if(isVar){
+            //保存变量
+            def csvText = new String(output.toString(self.charset));
+            csvVarContext.put(self.csvVarName, csvText);
+        }        
+    }finally{
+        csvWriter.close();
+    }
+}
+#$@text#$@
+Sdescription
+#$@text#$@
+<p>将临时数据保存到CSV源中，会使用临时变量中的数据覆盖CSV源，如果选择自动创建那么会自动创建文件或变量。</p>
+<p>其中如果CSV源是变量而这个变量又不存在，那么创建后是保存到变量上下文的顶端的，此时通常在方法执行完后变量也消失了，故在变量源的情况下应先创建好变量。</p>
+#$@text#$@
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sdebugLog
+false
+sid
+saveCsvDatas
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@load
+sname
+doLoad
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+//临时数据
+def datas = self.getData(Constants.DATAS);
+if(datas == null){
+    self.doAction("loadCsvDatas", actionContext);
+    datas = self.getData(Constants.DATAS);
+}
+def listDataName = "__datas__";
+self.set("listData", listDataName);
+self.set("dataClassName", "java.util.HashMap");
+
+try{
+    def bindings = actionContext.push(null);
+    bindings.put(listDataName, datas);
+
+    //使用ListDataObject的load方法    
+    def action = world.getAction("xworker.dataObject.java.ListDataObject/@actions1/@load");
+    
+    return action.run(actionContext);
+}finally{
+    actionContext.pop();
+}
+#$@text#$@
+sinterpretationType
+Action
+ssaveReturn
+false
+sid
+load
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@load/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@/@actions/@load/@ins/@theData
+sname
+theData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@create
+sname
+doCreate
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+//临时数据
+def datas = self.getData(Constants.DATAS);
+if(datas == null){
+    self.doAction("loadCsvDatas", actionContext);
+    datas = self.getData(Constants.DATAS);
+}
+def listDataName = "__datas__";
+self.set("listData", listDataName);
+self.set("dataClassName", "java.util.HashMap");
+
+try{
+    def bindings = actionContext.push(null);
+    bindings.put(listDataName, datas);
+
+    //使用ListDataObject的load方法    
+    def action = world.getAction("xworker.dataObject.java.ListDataObject/@actions1/@create");
+    
+    def obj = action.run(actionContext);
+    if(obj != null && self.getBoolean("autoSave")){
+        self.doAction("saveCsvDatas", actionContext);
+    }
+    return obj;
+}finally{
+    actionContext.pop();
+}
+#$@text#$@
+sinterpretationType
+Action
+ssaveReturn
+false
+sid
+create
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@create/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@/@actions/@create/@ins/@theData
+sname
+theData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@update
+sname
+doUpdate
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+//临时数据
+def datas = self.getData(Constants.DATAS);
+if(datas == null){
+    self.doAction("loadCsvDatas", actionContext);
+    datas = self.getData(Constants.DATAS);
+}
+def listDataName = "__datas__";
+self.set("listData", listDataName);
+self.set("dataClassName", "java.util.HashMap");
+
+try{
+    def bindings = actionContext.push(null);
+    bindings.put(listDataName, datas);
+
+    //使用ListDataObject的load方法    
+    def action = world.getAction("xworker.dataObject.java.ListDataObject/@actions1/@update");
+    
+    def obj = action.run(actionContext);
+    if(obj == true && self.getBoolean("autoSave")){
+        self.doAction("saveCsvDatas", actionContext);
+    }
+    return obj;
+}finally{
+    actionContext.pop();
+}
+#$@text#$@
+sinterpretationType
+Action
+ssaveReturn
+false
+sid
+update
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@update/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@/@actions/@update/@ins/@theData
+sname
+theData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@updateBatch
+sname
+updateBatch
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+//临时数据
+def datas = self.getData(Constants.DATAS);
+if(datas == null){
+    self.doAction("loadCsvDatas", actionContext);
+    datas = self.getData(Constants.DATAS);
+}
+def listDataName = "__datas__";
+self.set("listData", listDataName);
+self.set("dataClassName", "java.util.HashMap");
+
+try{
+    def bindings = actionContext.push(null);
+    bindings.put(listDataName, datas);
+
+    //使用ListDataObject的load方法    
+    def action = world.getAction("xworker.dataObject.java.ListDataObject/@actions1/@updateBatch");
+    
+    def obj = action.run(actionContext);
+    if(obj > 0 && self.getBoolean("autoSave")){
+        self.doAction("saveCsvDatas", actionContext);
+    }
+    return obj;
+}finally{
+    actionContext.pop();
+}
+#$@text#$@
+sdescription
+<p>批量更新，根据查询条件查找并更新符合条件的记录。</p>
+sid
+updateBatch
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@updateBatch/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@/@actions/@updateBatch/@ins/@theData
+sname
+theData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@updateBatch/@ins/@conditionConfig
+sname
+conditionConfig
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionConfig
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@updateBatch/@ins/@conditionData
+sname
+conditionData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@delete
+sname
+doDelete
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+//临时数据
+def datas = self.getData(Constants.DATAS);
+if(datas == null){
+    self.doAction("loadCsvDatas", actionContext);
+    datas = self.getData(Constants.DATAS);
+}
+def listDataName = "__datas__";
+self.set("listData", listDataName);
+self.set("dataClassName", "java.util.HashMap");
+
+try{
+    def bindings = actionContext.push(null);
+    bindings.put(listDataName, datas);
+
+    //使用ListDataObject的load方法    
+    def action = world.getAction("xworker.dataObject.java.ListDataObject/@actions1/@delete");
+    
+    def obj = action.run(actionContext);
+    if(obj == true && self.getBoolean("autoSave")){
+        self.doAction("saveCsvDatas", actionContext);
+    }
+    return obj;
+}finally{
+    actionContext.pop();
+}
+#$@text#$@
+sinterpretationType
+Action
+ssaveReturn
+false
+sid
+delete
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@delete/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@/@actions/@delete/@ins/@theData
+sname
+theData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@deleteBatch
+sname
+deleteBatch
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+//临时数据
+def datas = self.getData(Constants.DATAS);
+if(datas == null){
+    self.doAction("loadCsvDatas", actionContext);
+    datas = self.getData(Constants.DATAS);
+}
+def listDataName = "__datas__";
+self.set("listData", listDataName);
+self.set("dataClassName", "java.util.HashMap");
+
+try{
+    def bindings = actionContext.push(null);
+    bindings.put(listDataName, datas);
+
+    //使用ListDataObject的load方法    
+    def action = world.getAction("xworker.dataObject.java.ListDataObject/@actions1/@deleteBatch");
+    
+    def obj = action.run(actionContext);
+    if(obj > 0 && self.getBoolean("autoSave")){
+        self.doAction("saveCsvDatas", actionContext);
+    }
+    return obj;
+}finally{
+    actionContext.pop();
+}
+#$@text#$@
+sdescription
+<p>批量删除，根据查询条件查找并删除符合条件的记录。</p>
+sid
+deleteBatch
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@deleteBatch/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@/@actions/@deleteBatch/@ins/@theData
+sname
+theData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@deleteBatch/@ins/@conditionConfig
+sname
+conditionConfig
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionConfig
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@deleteBatch/@ins/@conditionData
+sname
+conditionData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@query
+sname
+doQuery
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+//临时数据
+def datas = self.getData(Constants.DATAS);
+if(datas == null || datas.size() == 0){
+    self.doAction("loadCsvDatas", actionContext);
+    datas = self.getData(Constants.DATAS);
+}
+//log.info("datas=" + datas);
+def listDataName = "__datas__";
+self.set("listData", listDataName);
+self.set("dataClassName", "java.util.HashMap");
+
+try{
+    def bindings = actionContext.push(null);
+    bindings.put(listDataName, datas);
+
+    //使用ListDataObject的load方法    
+    def action = world.getAction("xworker.dataObject.java.ListDataObject/@actions1/@query");
+    
+    return action.run(actionContext);
+}finally{
+    actionContext.pop();
+}
+#$@text#$@
+Sdescription
+#$@text#$@
+<p>可能会包含一个分页信息。</p>
+<p>pageInfo.start&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 记录起始索引<br />
+pageInfo.limit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 返回记录最大条数<br />
+pageInfo.datas&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 查询的结果，应该是一个List或数组<br />
+pageInfo.success&nbsp;&nbsp;&nbsp;是否查询成功<br />
+pageInfo.msg&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 操作的结果提示信息<br />
+pageInfo.totalCount&nbsp;记录总数<br />
+pageInfo.sort&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 排序字段<br />
+pageInfo.dir&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 排序的方向，ASC或DESC</p>
+#$@text#$@
+sinterpretationType
+Action
+ssaveReturn
+false
+sid
+query
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@query/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@/@actions/@query/@ins/@theData
+sname
+conditionConfig
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@query/@ins/@conditionData
+sname
+conditionData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions/@isMappingAble
+sname
+isMappingAble
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+
+//临时数据
+def datas = thing.getData(Constants.DATAS);
+if(datas == null || datas.size() == 0){
+    thing.doAction("loadCsvDatas", actionContext);
+    datas = thing.getData(Constants.DATAS);
+}
+
+def headers = thing.getData(Constants.HEADERS);
+def attributes = [];
+//添加CSV的列
+if(headers == null && self.getData(Constants.COLUMNCOUNT) <= 0){
+    throw new Exception("找不到可以映射的CSV数据列，请查看CSV文件或数据是否存在。");
+}
+
+return true;
+#$@text#$@
+Sdescription
+#$@text#$@
+<p>返回属性是否可以映射，比如数据库数据对象、CSV数据对象和Excel等数据对象的属性适合表字段、CSV或Excel的列映射的。</p>
+<p>如果不能映射，直接抛出有说明文字的异常。</p>
+<p>映射用于快速编辑属性。</p>
+#$@text#$@
+sid
+isMappingAble
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@getMappingFields
+sname
+getMappingFields
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//常量类
+def Constants = world.getActionClass("xworker.dataObject.java.CsvDataObject/@actions/@Constants", actionContext);
+
+//临时数据
+thing.setData(Constants.DATAS, null);
+def datas = thing.getData(Constants.DATAS);
+if(datas == null || datas.size() == 0){
+    thing.doAction("loadCsvDatas", actionContext);
+    datas = thing.getData(Constants.DATAS);
+}
+
+def headers = thing.getData(Constants.HEADERS);
+def attributes = [];
+def index = ["colName":"index", "colTitle":"index"];
+attributes.add(index);
+
+//添加CSV的列
+if(headers != null){
+    for(int i=0; i<headers.size(); i++){
+        def attr = [:];
+        def colName = "c" + i;
+        def colTitle = headers.get("h" + i);
+        attr.colName = colName;
+        attr.colTitle = colTitle;
+        attributes.add(attr);
+    }
+}else if(self.getData(Constants.COLUMNCOUNT) > 0){
+    for(int i=0; i<self.getData(Constants.COLUMNCOUNT); i++){
+        def attr = [:];
+        def colName = "c" + i;
+        def colTitle = "h" + i;
+        attr.colName = colName;
+        attr.colTitle = colTitle;
+        attributes.add(attr);
+    }
+}
+return attributes;
+#$@text#$@
+sdescription
+<p>返回可以映射的字段列表，每一个字段列表是一个Map，有colName和colTitle两个属性。</p>
+sid
+getMappingFields
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@getMappingAttributeName
+sname
+getMappingAttributeName
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+scode
+return "propertyPath";
+sdescription
+<p>获取映射到本事物的属性上的对应的名称，比如数据库数据对象的属性的fieldName是数据库表的字段名。</p>
+sid
+getMappingAttributeName
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions/@getAttributeDescriptor
+sname
+getAttributeDescriptor
+stype
+string
+svalue
+xworker.dataObject.java.ListDataObject/@attribute
+sinterpretationType
+Self
+svarScope
+Local
+sid
+getAttributeDescriptor
+sdescriptors
+xworker.lang.actions.Actions/@ValueFactory
+@/@actions/@getFile
+sname
+getCsvSource
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+suseOuterJava
+true
+souterClassName
+xworker.dataObject.csv.CsvDataObjectActions
+smethodName
+getCsvSource
+sdisableGlobalContext
+false
+sattributeTemplate
+false
+sinterpretationType
+Action
+svarScope
+Global
+screateLocalVarScope
+false
+ssaveReturn
+false
+sdescriptors
+xworker.lang.actions.Actions/@JavaAction
+sth_createIndex
+false
+sth_registMyChilds
+false
+sth_mark
+false
+@/@name
+sname
+name
+sreadOnly
+false
+sinheritDescription
+false
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+name
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@label
+sname
+label
+sreadOnly
+false
+sinheritDescription
+false
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+label
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@filePath
+sname
+filePath
+ssize
+60
+scolspan
+2
+sreadOnly
+false
+sinheritDescription
+false
+sdescription
+<p>文件路径，首先作为Ognl表达式从actionContext获取，如果没有其次当作文件路径名。</p>
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+filePath
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@csvVarName
+sname
+csvVarName
+sreadOnly
+false
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p>使用Ognl从actionContext取csv的文本。</p>
+<p>如果filePath不为空，此字段自动失效。</p>
+#$@text#$@
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+csvVarName
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@autoSave
+sname
+autoSave
+sinputtype
+truefalse
+sreadOnly
+false
+sdefault
+true
+sinheritDescription
+false
+sdescription
+<p>如果自动保存，那么当数据对象创建、修改和删除时自动同步到文件或文本变量中。</p>
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+autoSave
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@delimiter
+sname
+delimiter
+sreadOnly
+false
+sdefault
+,
+sinheritDescription
+false
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+delimiter
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@charset
+sname
+charset
+sreadOnly
+false
+sdefault
+utf-8
+sinheritDescription
+false
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+charset
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@haveHeaders
+sname
+haveHeaders
+sinputtype
+truefalse
+sreadOnly
+false
+sdefault
+false
+sinheritDescription
+false
+sdescription
+<p>是否有顶部的标题行。</p>
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+haveHeaders
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@autoCreateCsv
+sname
+autoCreateCsv
+sinputtype
+truefalse
+sreadOnly
+false
+sdefault
+true
+sinheritDescription
+false
+sdescription
+<p>如果Csv文件不存在或者csv文本变量不存在，是否自动创建。</p>
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+autoCreateCsv
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@listData
+sname
+listData
+sinputtype
+text
+ssize
+60
+scolspan
+2
+sgroup
+ListDataObject
+sreadOnly
+false
+sdefault
+__datas__
+sinheritDescription
+false
+sdescription
+<p>不要修改默认值。</p>
+svalidateAllowBlank
+true
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+listData
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@dataClassName
+sname
+dataClassName
+ssize
+60
+scolspan
+2
+sgroup
+ListDataObject
+sreadOnly
+false
+sdefault
+java.util.HashMap
+sinheritDescription
+false
+sdescription
+<p>不要修改这里面的值。</p>
+svalidateAllowBlank
+true
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+dataClassName
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute

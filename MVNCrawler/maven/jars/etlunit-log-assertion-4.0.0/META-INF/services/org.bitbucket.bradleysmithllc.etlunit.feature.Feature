@@ -1,0 +1,1 @@
+org.bitbucket.bradleysmithllc.etlunit.feature.log_assertion.LogAssertionFeature

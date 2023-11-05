@@ -1,0 +1,875 @@
+Compiled from "AsyncSenderImpl.java"
+public class io.undertow.io.AsyncSenderImpl implements io.undertow.io.Sender {
+  private org.xnio.channels.StreamSinkChannel channel;
+
+  private final io.undertow.server.HttpServerExchange exchange;
+
+  private io.undertow.connector.PooledByteBuffer[] pooledBuffers;
+
+  private java.nio.channels.FileChannel fileChannel;
+
+  private io.undertow.io.IoCallback callback;
+
+  private java.nio.ByteBuffer[] buffer;
+
+  private volatile java.lang.Thread writeThread;
+
+  private volatile java.lang.Thread inCallback;
+
+  private org.xnio.ChannelListener<org.xnio.channels.StreamSinkChannel> writeListener;
+
+  private io.undertow.io.AsyncSenderImpl$TransferTask transferTask;
+
+  public io.undertow.io.AsyncSenderImpl(io.undertow.server.HttpServerExchange);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aconst_null
+       6: putfield      #2                  // Field pooledBuffers:[Lio/undertow/connector/PooledByteBuffer;
+       9: aload_0
+      10: aload_1
+      11: putfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      14: return
+
+  public void send(java.nio.ByteBuffer, io.undertow.io.IoCallback);
+    Code:
+       0: aload_0
+       1: invokestatic  #4                  // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+       4: putfield      #5                  // Field writeThread:Ljava/lang/Thread;
+       7: aload_2
+       8: ifnonnull     22
+      11: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      14: ldc           #7                  // String callback
+      16: invokeinterface #8,  2            // InterfaceMethod io/undertow/UndertowMessages.argumentCannotBeNull:(Ljava/lang/String;)Ljava/lang/IllegalArgumentException;
+      21: athrow
+      22: aload_0
+      23: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      26: invokevirtual #9                  // Method io/undertow/server/HttpServerExchange.getConnection:()Lio/undertow/server/ServerConnection;
+      29: invokevirtual #10                 // Method io/undertow/server/ServerConnection.isOpen:()Z
+      32: ifne          48
+      35: aload_0
+      36: aload_2
+      37: new           #11                 // class java/nio/channels/ClosedChannelException
+      40: dup
+      41: invokespecial #12                 // Method java/nio/channels/ClosedChannelException."<init>":()V
+      44: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+      47: return
+      48: aload_0
+      49: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      52: invokevirtual #14                 // Method io/undertow/server/HttpServerExchange.isResponseComplete:()Z
+      55: ifeq          78
+      58: aload_0
+      59: aload_2
+      60: new           #15                 // class java/io/IOException
+      63: dup
+      64: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      67: invokeinterface #16,  1           // InterfaceMethod io/undertow/UndertowMessages.responseComplete:()Ljava/lang/IllegalStateException;
+      72: invokespecial #17                 // Method java/io/IOException."<init>":(Ljava/lang/Throwable;)V
+      75: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+      78: aload_0
+      79: getfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+      82: ifnonnull     92
+      85: aload_0
+      86: getfield      #19                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+      89: ifnull        101
+      92: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      95: invokeinterface #20,  1           // InterfaceMethod io/undertow/UndertowMessages.dataAlreadyQueued:()Ljava/lang/IllegalStateException;
+     100: athrow
+     101: aload_0
+     102: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     105: invokevirtual #21                 // Method io/undertow/server/HttpServerExchange.getResponseContentLength:()J
+     108: lstore_3
+     109: lload_3
+     110: lconst_0
+     111: lcmp
+     112: ifle          145
+     115: aload_1
+     116: invokevirtual #22                 // Method java/nio/ByteBuffer.remaining:()I
+     119: i2l
+     120: lload_3
+     121: lcmp
+     122: ifle          145
+     125: aload_0
+     126: aload_2
+     127: getstatic     #23                 // Field io/undertow/UndertowLogger.ROOT_LOGGER:Lio/undertow/UndertowLogger;
+     130: aload_1
+     131: invokevirtual #22                 // Method java/nio/ByteBuffer.remaining:()I
+     134: i2l
+     135: lload_3
+     136: invokeinterface #24,  5           // InterfaceMethod io/undertow/UndertowLogger.dataLargerThanContentLength:(JJ)Ljava/io/IOException;
+     141: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+     144: return
+     145: aload_0
+     146: getfield      #25                 // Field channel:Lorg/xnio/channels/StreamSinkChannel;
+     149: astore        5
+     151: aload         5
+     153: ifnonnull     228
+     156: aload_2
+     157: getstatic     #26                 // Field io/undertow/io/IoCallback.END_EXCHANGE:Lio/undertow/io/IoCallback;
+     160: if_acmpne     200
+     163: lload_3
+     164: ldc2_w        #27                 // long -1l
+     167: lcmp
+     168: ifne          200
+     171: aload_0
+     172: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     175: invokevirtual #29                 // Method io/undertow/server/HttpServerExchange.getResponseHeaders:()Lio/undertow/util/HeaderMap;
+     178: getstatic     #30                 // Field io/undertow/util/Headers.TRANSFER_ENCODING:Lio/undertow/util/HttpString;
+     181: invokevirtual #31                 // Method io/undertow/util/HeaderMap.contains:(Lio/undertow/util/HttpString;)Z
+     184: ifne          200
+     187: aload_0
+     188: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     191: aload_1
+     192: invokevirtual #22                 // Method java/nio/ByteBuffer.remaining:()I
+     195: i2l
+     196: invokevirtual #32                 // Method io/undertow/server/HttpServerExchange.setResponseContentLength:(J)Lio/undertow/server/HttpServerExchange;
+     199: pop
+     200: aload_0
+     201: aload_0
+     202: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     205: invokevirtual #33                 // Method io/undertow/server/HttpServerExchange.getResponseChannel:()Lorg/xnio/channels/StreamSinkChannel;
+     208: dup
+     209: astore        5
+     211: putfield      #25                 // Field channel:Lorg/xnio/channels/StreamSinkChannel;
+     214: aload         5
+     216: ifnonnull     228
+     219: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+     222: invokeinterface #34,  1           // InterfaceMethod io/undertow/UndertowMessages.responseChannelAlreadyProvided:()Ljava/lang/IllegalStateException;
+     227: athrow
+     228: aload_0
+     229: aload_2
+     230: putfield      #35                 // Field callback:Lio/undertow/io/IoCallback;
+     233: aload_0
+     234: getfield      #36                 // Field inCallback:Ljava/lang/Thread;
+     237: invokestatic  #4                  // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     240: if_acmpne     256
+     243: aload_0
+     244: iconst_1
+     245: anewarray     #37                 // class java/nio/ByteBuffer
+     248: dup
+     249: iconst_0
+     250: aload_1
+     251: aastore
+     252: putfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+     255: return
+     256: aload_1
+     257: invokevirtual #22                 // Method java/nio/ByteBuffer.remaining:()I
+     260: ifne          275
+     263: aload_2
+     264: aload_0
+     265: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     268: aload_0
+     269: invokeinterface #38,  3           // InterfaceMethod io/undertow/io/IoCallback.onComplete:(Lio/undertow/server/HttpServerExchange;Lio/undertow/io/Sender;)V
+     274: return
+     275: aload         5
+     277: aload_1
+     278: invokeinterface #39,  2           // InterfaceMethod org/xnio/channels/StreamSinkChannel.write:(Ljava/nio/ByteBuffer;)I
+     283: istore        6
+     285: iload         6
+     287: ifne          342
+     290: aload_0
+     291: iconst_1
+     292: anewarray     #37                 // class java/nio/ByteBuffer
+     295: dup
+     296: iconst_0
+     297: aload_1
+     298: aastore
+     299: putfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+     302: aload_0
+     303: aload_2
+     304: putfield      #35                 // Field callback:Lio/undertow/io/IoCallback;
+     307: aload_0
+     308: getfield      #40                 // Field writeListener:Lorg/xnio/ChannelListener;
+     311: ifnonnull     318
+     314: aload_0
+     315: invokevirtual #41                 // Method initWriteListener:()V
+     318: aload         5
+     320: invokeinterface #42,  1           // InterfaceMethod org/xnio/channels/StreamSinkChannel.getWriteSetter:()Lorg/xnio/ChannelListener$Setter;
+     325: aload_0
+     326: getfield      #40                 // Field writeListener:Lorg/xnio/ChannelListener;
+     329: invokeinterface #43,  2           // InterfaceMethod org/xnio/ChannelListener$Setter.set:(Lorg/xnio/ChannelListener;)V
+     334: aload         5
+     336: invokeinterface #44,  1           // InterfaceMethod org/xnio/channels/StreamSinkChannel.resumeWrites:()V
+     341: return
+     342: aload_1
+     343: invokevirtual #45                 // Method java/nio/ByteBuffer.hasRemaining:()Z
+     346: ifne          256
+     349: aload_0
+     350: invokevirtual #46                 // Method invokeOnComplete:()V
+     353: goto          365
+     356: astore        6
+     358: aload_0
+     359: aload_2
+     360: aload         6
+     362: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+     365: return
+    Exception table:
+       from    to  target type
+         256   274   356   Class java/io/IOException
+         275   341   356   Class java/io/IOException
+         342   353   356   Class java/io/IOException
+
+  public void send(java.nio.ByteBuffer[], io.undertow.io.IoCallback);
+    Code:
+       0: aload_0
+       1: invokestatic  #4                  // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+       4: putfield      #5                  // Field writeThread:Ljava/lang/Thread;
+       7: aload_2
+       8: ifnonnull     22
+      11: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      14: ldc           #7                  // String callback
+      16: invokeinterface #8,  2            // InterfaceMethod io/undertow/UndertowMessages.argumentCannotBeNull:(Ljava/lang/String;)Ljava/lang/IllegalArgumentException;
+      21: athrow
+      22: aload_0
+      23: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      26: invokevirtual #9                  // Method io/undertow/server/HttpServerExchange.getConnection:()Lio/undertow/server/ServerConnection;
+      29: invokevirtual #10                 // Method io/undertow/server/ServerConnection.isOpen:()Z
+      32: ifne          48
+      35: aload_0
+      36: aload_2
+      37: new           #11                 // class java/nio/channels/ClosedChannelException
+      40: dup
+      41: invokespecial #12                 // Method java/nio/channels/ClosedChannelException."<init>":()V
+      44: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+      47: return
+      48: aload_0
+      49: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      52: invokevirtual #14                 // Method io/undertow/server/HttpServerExchange.isResponseComplete:()Z
+      55: ifeq          78
+      58: aload_0
+      59: aload_2
+      60: new           #15                 // class java/io/IOException
+      63: dup
+      64: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      67: invokeinterface #16,  1           // InterfaceMethod io/undertow/UndertowMessages.responseComplete:()Ljava/lang/IllegalStateException;
+      72: invokespecial #17                 // Method java/io/IOException."<init>":(Ljava/lang/Throwable;)V
+      75: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+      78: aload_0
+      79: getfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+      82: ifnull        94
+      85: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      88: invokeinterface #20,  1           // InterfaceMethod io/undertow/UndertowMessages.dataAlreadyQueued:()Ljava/lang/IllegalStateException;
+      93: athrow
+      94: aload_0
+      95: aload_2
+      96: putfield      #35                 // Field callback:Lio/undertow/io/IoCallback;
+      99: aload_0
+     100: getfield      #36                 // Field inCallback:Ljava/lang/Thread;
+     103: invokestatic  #4                  // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     106: if_acmpne     115
+     109: aload_0
+     110: aload_1
+     111: putfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+     114: return
+     115: aload_1
+     116: invokestatic  #47                 // Method org/xnio/Buffers.remaining:([Ljava/nio/Buffer;)J
+     119: lstore_3
+     120: aload_0
+     121: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     124: invokevirtual #21                 // Method io/undertow/server/HttpServerExchange.getResponseContentLength:()J
+     127: lstore        5
+     129: lload         5
+     131: lconst_0
+     132: lcmp
+     133: ifle          160
+     136: lload_3
+     137: lload         5
+     139: lcmp
+     140: ifle          160
+     143: aload_0
+     144: aload_2
+     145: getstatic     #23                 // Field io/undertow/UndertowLogger.ROOT_LOGGER:Lio/undertow/UndertowLogger;
+     148: lload_3
+     149: lload         5
+     151: invokeinterface #24,  5           // InterfaceMethod io/undertow/UndertowLogger.dataLargerThanContentLength:(JJ)Ljava/io/IOException;
+     156: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+     159: return
+     160: aload_0
+     161: getfield      #25                 // Field channel:Lorg/xnio/channels/StreamSinkChannel;
+     164: astore        7
+     166: aload         7
+     168: ifnonnull     240
+     171: aload_2
+     172: getstatic     #26                 // Field io/undertow/io/IoCallback.END_EXCHANGE:Lio/undertow/io/IoCallback;
+     175: if_acmpne     212
+     178: lload         5
+     180: ldc2_w        #27                 // long -1l
+     183: lcmp
+     184: ifne          212
+     187: aload_0
+     188: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     191: invokevirtual #29                 // Method io/undertow/server/HttpServerExchange.getResponseHeaders:()Lio/undertow/util/HeaderMap;
+     194: getstatic     #30                 // Field io/undertow/util/Headers.TRANSFER_ENCODING:Lio/undertow/util/HttpString;
+     197: invokevirtual #31                 // Method io/undertow/util/HeaderMap.contains:(Lio/undertow/util/HttpString;)Z
+     200: ifne          212
+     203: aload_0
+     204: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     207: lload_3
+     208: invokevirtual #32                 // Method io/undertow/server/HttpServerExchange.setResponseContentLength:(J)Lio/undertow/server/HttpServerExchange;
+     211: pop
+     212: aload_0
+     213: aload_0
+     214: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     217: invokevirtual #33                 // Method io/undertow/server/HttpServerExchange.getResponseChannel:()Lorg/xnio/channels/StreamSinkChannel;
+     220: dup
+     221: astore        7
+     223: putfield      #25                 // Field channel:Lorg/xnio/channels/StreamSinkChannel;
+     226: aload         7
+     228: ifnonnull     240
+     231: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+     234: invokeinterface #34,  1           // InterfaceMethod io/undertow/UndertowMessages.responseChannelAlreadyProvided:()Ljava/lang/IllegalStateException;
+     239: athrow
+     240: lload_3
+     241: lstore        8
+     243: lconst_0
+     244: lstore        10
+     246: aload         7
+     248: aload_1
+     249: invokeinterface #48,  2           // InterfaceMethod org/xnio/channels/StreamSinkChannel.write:([Ljava/nio/ByteBuffer;)J
+     254: lstore        12
+     256: lload         10
+     258: lload         12
+     260: ladd
+     261: lstore        10
+     263: lload         12
+     265: lconst_0
+     266: lcmp
+     267: ifne          315
+     270: aload_0
+     271: aload_1
+     272: putfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+     275: aload_0
+     276: aload_2
+     277: putfield      #35                 // Field callback:Lio/undertow/io/IoCallback;
+     280: aload_0
+     281: getfield      #40                 // Field writeListener:Lorg/xnio/ChannelListener;
+     284: ifnonnull     291
+     287: aload_0
+     288: invokevirtual #41                 // Method initWriteListener:()V
+     291: aload         7
+     293: invokeinterface #42,  1           // InterfaceMethod org/xnio/channels/StreamSinkChannel.getWriteSetter:()Lorg/xnio/ChannelListener$Setter;
+     298: aload_0
+     299: getfield      #40                 // Field writeListener:Lorg/xnio/ChannelListener;
+     302: invokeinterface #43,  2           // InterfaceMethod org/xnio/ChannelListener$Setter.set:(Lorg/xnio/ChannelListener;)V
+     307: aload         7
+     309: invokeinterface #44,  1           // InterfaceMethod org/xnio/channels/StreamSinkChannel.resumeWrites:()V
+     314: return
+     315: lload         10
+     317: lload         8
+     319: lcmp
+     320: iflt          246
+     323: aload_0
+     324: invokevirtual #46                 // Method invokeOnComplete:()V
+     327: goto          339
+     330: astore        12
+     332: aload_0
+     333: aload_2
+     334: aload         12
+     336: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+     339: return
+    Exception table:
+       from    to  target type
+         246   314   330   Class java/io/IOException
+         315   327   330   Class java/io/IOException
+
+  public void transferFrom(java.nio.channels.FileChannel, io.undertow.io.IoCallback);
+    Code:
+       0: aload_0
+       1: invokestatic  #4                  // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+       4: putfield      #5                  // Field writeThread:Ljava/lang/Thread;
+       7: aload_2
+       8: ifnonnull     22
+      11: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      14: ldc           #7                  // String callback
+      16: invokeinterface #8,  2            // InterfaceMethod io/undertow/UndertowMessages.argumentCannotBeNull:(Ljava/lang/String;)Ljava/lang/IllegalArgumentException;
+      21: athrow
+      22: aload_0
+      23: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      26: invokevirtual #9                  // Method io/undertow/server/HttpServerExchange.getConnection:()Lio/undertow/server/ServerConnection;
+      29: invokevirtual #10                 // Method io/undertow/server/ServerConnection.isOpen:()Z
+      32: ifne          48
+      35: aload_0
+      36: aload_2
+      37: new           #11                 // class java/nio/channels/ClosedChannelException
+      40: dup
+      41: invokespecial #12                 // Method java/nio/channels/ClosedChannelException."<init>":()V
+      44: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+      47: return
+      48: aload_0
+      49: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      52: invokevirtual #14                 // Method io/undertow/server/HttpServerExchange.isResponseComplete:()Z
+      55: ifeq          78
+      58: aload_0
+      59: aload_2
+      60: new           #15                 // class java/io/IOException
+      63: dup
+      64: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      67: invokeinterface #16,  1           // InterfaceMethod io/undertow/UndertowMessages.responseComplete:()Ljava/lang/IllegalStateException;
+      72: invokespecial #17                 // Method java/io/IOException."<init>":(Ljava/lang/Throwable;)V
+      75: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+      78: aload_0
+      79: getfield      #19                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+      82: ifnonnull     92
+      85: aload_0
+      86: getfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+      89: ifnull        101
+      92: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      95: invokeinterface #20,  1           // InterfaceMethod io/undertow/UndertowMessages.dataAlreadyQueued:()Ljava/lang/IllegalStateException;
+     100: athrow
+     101: aload_0
+     102: aload_2
+     103: putfield      #35                 // Field callback:Lio/undertow/io/IoCallback;
+     106: aload_0
+     107: aload_1
+     108: putfield      #19                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+     111: aload_0
+     112: getfield      #36                 // Field inCallback:Ljava/lang/Thread;
+     115: invokestatic  #4                  // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     118: if_acmpne     122
+     121: return
+     122: aload_0
+     123: getfield      #49                 // Field transferTask:Lio/undertow/io/AsyncSenderImpl$TransferTask;
+     126: ifnonnull     141
+     129: aload_0
+     130: new           #50                 // class io/undertow/io/AsyncSenderImpl$TransferTask
+     133: dup
+     134: aload_0
+     135: invokespecial #51                 // Method io/undertow/io/AsyncSenderImpl$TransferTask."<init>":(Lio/undertow/io/AsyncSenderImpl;)V
+     138: putfield      #49                 // Field transferTask:Lio/undertow/io/AsyncSenderImpl$TransferTask;
+     141: aload_0
+     142: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     145: invokevirtual #52                 // Method io/undertow/server/HttpServerExchange.isInIoThread:()Z
+     148: ifeq          164
+     151: aload_0
+     152: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     155: aload_0
+     156: getfield      #49                 // Field transferTask:Lio/undertow/io/AsyncSenderImpl$TransferTask;
+     159: invokevirtual #53                 // Method io/undertow/server/HttpServerExchange.dispatch:(Ljava/lang/Runnable;)Lio/undertow/server/HttpServerExchange;
+     162: pop
+     163: return
+     164: aload_0
+     165: getfield      #49                 // Field transferTask:Lio/undertow/io/AsyncSenderImpl$TransferTask;
+     168: invokevirtual #54                 // Method io/undertow/io/AsyncSenderImpl$TransferTask.run:()V
+     171: return
+
+  public void send(java.nio.ByteBuffer);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: getstatic     #26                 // Field io/undertow/io/IoCallback.END_EXCHANGE:Lio/undertow/io/IoCallback;
+       5: invokevirtual #55                 // Method send:(Ljava/nio/ByteBuffer;Lio/undertow/io/IoCallback;)V
+       8: return
+
+  public void send(java.nio.ByteBuffer[]);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: getstatic     #26                 // Field io/undertow/io/IoCallback.END_EXCHANGE:Lio/undertow/io/IoCallback;
+       5: invokevirtual #56                 // Method send:([Ljava/nio/ByteBuffer;Lio/undertow/io/IoCallback;)V
+       8: return
+
+  public void send(java.lang.String, io.undertow.io.IoCallback);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: getstatic     #57                 // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+       5: aload_2
+       6: invokevirtual #58                 // Method send:(Ljava/lang/String;Ljava/nio/charset/Charset;Lio/undertow/io/IoCallback;)V
+       9: return
+
+  public void send(java.lang.String, java.nio.charset.Charset, io.undertow.io.IoCallback);
+    Code:
+       0: aload_0
+       1: invokestatic  #4                  // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+       4: putfield      #5                  // Field writeThread:Ljava/lang/Thread;
+       7: aload_0
+       8: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      11: invokevirtual #9                  // Method io/undertow/server/HttpServerExchange.getConnection:()Lio/undertow/server/ServerConnection;
+      14: invokevirtual #10                 // Method io/undertow/server/ServerConnection.isOpen:()Z
+      17: ifne          33
+      20: aload_0
+      21: aload_3
+      22: new           #11                 // class java/nio/channels/ClosedChannelException
+      25: dup
+      26: invokespecial #12                 // Method java/nio/channels/ClosedChannelException."<init>":()V
+      29: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+      32: return
+      33: aload_0
+      34: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      37: invokevirtual #14                 // Method io/undertow/server/HttpServerExchange.isResponseComplete:()Z
+      40: ifeq          63
+      43: aload_0
+      44: aload_3
+      45: new           #15                 // class java/io/IOException
+      48: dup
+      49: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      52: invokeinterface #16,  1           // InterfaceMethod io/undertow/UndertowMessages.responseComplete:()Ljava/lang/IllegalStateException;
+      57: invokespecial #17                 // Method java/io/IOException."<init>":(Ljava/lang/Throwable;)V
+      60: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+      63: aload_1
+      64: aload_2
+      65: invokevirtual #59                 // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+      68: invokestatic  #60                 // Method java/nio/ByteBuffer.wrap:([B)Ljava/nio/ByteBuffer;
+      71: astore        4
+      73: aload         4
+      75: invokevirtual #22                 // Method java/nio/ByteBuffer.remaining:()I
+      78: ifne          95
+      81: aload_3
+      82: aload_0
+      83: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      86: aload_0
+      87: invokeinterface #38,  3           // InterfaceMethod io/undertow/io/IoCallback.onComplete:(Lio/undertow/server/HttpServerExchange;Lio/undertow/io/Sender;)V
+      92: goto          236
+      95: iconst_0
+      96: istore        5
+      98: aconst_null
+      99: astore        6
+     101: aload         4
+     103: invokevirtual #45                 // Method java/nio/ByteBuffer.hasRemaining:()Z
+     106: ifeq          229
+     109: aload_0
+     110: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     113: invokevirtual #9                  // Method io/undertow/server/HttpServerExchange.getConnection:()Lio/undertow/server/ServerConnection;
+     116: invokevirtual #61                 // Method io/undertow/server/ServerConnection.getByteBufferPool:()Lio/undertow/connector/ByteBufferPool;
+     119: invokeinterface #62,  1           // InterfaceMethod io/undertow/connector/ByteBufferPool.allocate:()Lio/undertow/connector/PooledByteBuffer;
+     124: astore        7
+     126: aload         6
+     128: ifnonnull     178
+     131: aload         4
+     133: invokevirtual #22                 // Method java/nio/ByteBuffer.remaining:()I
+     136: aload         7
+     138: invokeinterface #63,  1           // InterfaceMethod io/undertow/connector/PooledByteBuffer.getBuffer:()Ljava/nio/ByteBuffer;
+     143: invokevirtual #22                 // Method java/nio/ByteBuffer.remaining:()I
+     146: iadd
+     147: iconst_1
+     148: isub
+     149: aload         7
+     151: invokeinterface #63,  1           // InterfaceMethod io/undertow/connector/PooledByteBuffer.getBuffer:()Ljava/nio/ByteBuffer;
+     156: invokevirtual #22                 // Method java/nio/ByteBuffer.remaining:()I
+     159: idiv
+     160: istore        8
+     162: aload_0
+     163: iload         8
+     165: anewarray     #64                 // class io/undertow/connector/PooledByteBuffer
+     168: putfield      #2                  // Field pooledBuffers:[Lio/undertow/connector/PooledByteBuffer;
+     171: iload         8
+     173: anewarray     #37                 // class java/nio/ByteBuffer
+     176: astore        6
+     178: aload_0
+     179: getfield      #2                  // Field pooledBuffers:[Lio/undertow/connector/PooledByteBuffer;
+     182: iload         5
+     184: aload         7
+     186: aastore
+     187: aload         6
+     189: iload         5
+     191: aload         7
+     193: invokeinterface #63,  1           // InterfaceMethod io/undertow/connector/PooledByteBuffer.getBuffer:()Ljava/nio/ByteBuffer;
+     198: aastore
+     199: aload         7
+     201: invokeinterface #63,  1           // InterfaceMethod io/undertow/connector/PooledByteBuffer.getBuffer:()Ljava/nio/ByteBuffer;
+     206: aload         4
+     208: invokestatic  #65                 // Method org/xnio/Buffers.copy:(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)I
+     211: pop
+     212: aload         7
+     214: invokeinterface #63,  1           // InterfaceMethod io/undertow/connector/PooledByteBuffer.getBuffer:()Ljava/nio/ByteBuffer;
+     219: invokevirtual #66                 // Method java/nio/ByteBuffer.flip:()Ljava/nio/ByteBuffer;
+     222: pop
+     223: iinc          5, 1
+     226: goto          101
+     229: aload_0
+     230: aload         6
+     232: aload_3
+     233: invokevirtual #56                 // Method send:([Ljava/nio/ByteBuffer;Lio/undertow/io/IoCallback;)V
+     236: return
+
+  public void send(java.lang.String);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: getstatic     #26                 // Field io/undertow/io/IoCallback.END_EXCHANGE:Lio/undertow/io/IoCallback;
+       5: invokevirtual #67                 // Method send:(Ljava/lang/String;Lio/undertow/io/IoCallback;)V
+       8: return
+
+  public void send(java.lang.String, java.nio.charset.Charset);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: getstatic     #26                 // Field io/undertow/io/IoCallback.END_EXCHANGE:Lio/undertow/io/IoCallback;
+       6: invokevirtual #58                 // Method send:(Ljava/lang/String;Ljava/nio/charset/Charset;Lio/undertow/io/IoCallback;)V
+       9: return
+
+  public void close(io.undertow.io.IoCallback);
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field channel:Lorg/xnio/channels/StreamSinkChannel;
+       4: astore_2
+       5: aload_2
+       6: ifnonnull     74
+       9: aload_0
+      10: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      13: invokevirtual #21                 // Method io/undertow/server/HttpServerExchange.getResponseContentLength:()J
+      16: ldc2_w        #27                 // long -1l
+      19: lcmp
+      20: ifne          48
+      23: aload_0
+      24: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      27: invokevirtual #29                 // Method io/undertow/server/HttpServerExchange.getResponseHeaders:()Lio/undertow/util/HeaderMap;
+      30: getstatic     #30                 // Field io/undertow/util/Headers.TRANSFER_ENCODING:Lio/undertow/util/HttpString;
+      33: invokevirtual #31                 // Method io/undertow/util/HeaderMap.contains:(Lio/undertow/util/HttpString;)Z
+      36: ifne          48
+      39: aload_0
+      40: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      43: lconst_0
+      44: invokevirtual #32                 // Method io/undertow/server/HttpServerExchange.setResponseContentLength:(J)Lio/undertow/server/HttpServerExchange;
+      47: pop
+      48: aload_0
+      49: aload_0
+      50: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      53: invokevirtual #33                 // Method io/undertow/server/HttpServerExchange.getResponseChannel:()Lorg/xnio/channels/StreamSinkChannel;
+      56: dup
+      57: astore_2
+      58: putfield      #25                 // Field channel:Lorg/xnio/channels/StreamSinkChannel;
+      61: aload_2
+      62: ifnonnull     74
+      65: getstatic     #6                  // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      68: invokeinterface #34,  1           // InterfaceMethod io/undertow/UndertowMessages.responseChannelAlreadyProvided:()Ljava/lang/IllegalStateException;
+      73: athrow
+      74: aload_2
+      75: invokeinterface #68,  1           // InterfaceMethod org/xnio/channels/StreamSinkChannel.shutdownWrites:()V
+      80: aload_2
+      81: invokeinterface #69,  1           // InterfaceMethod org/xnio/channels/StreamSinkChannel.flush:()Z
+      86: ifne          130
+      89: aload_2
+      90: invokeinterface #42,  1           // InterfaceMethod org/xnio/channels/StreamSinkChannel.getWriteSetter:()Lorg/xnio/ChannelListener$Setter;
+      95: new           #70                 // class io/undertow/io/AsyncSenderImpl$1
+      98: dup
+      99: aload_0
+     100: aload_1
+     101: invokespecial #71                 // Method io/undertow/io/AsyncSenderImpl$1."<init>":(Lio/undertow/io/AsyncSenderImpl;Lio/undertow/io/IoCallback;)V
+     104: new           #72                 // class io/undertow/io/AsyncSenderImpl$2
+     107: dup
+     108: aload_0
+     109: aload_1
+     110: invokespecial #73                 // Method io/undertow/io/AsyncSenderImpl$2."<init>":(Lio/undertow/io/AsyncSenderImpl;Lio/undertow/io/IoCallback;)V
+     113: invokestatic  #74                 // Method org/xnio/ChannelListeners.flushingChannelListener:(Lorg/xnio/ChannelListener;Lorg/xnio/ChannelExceptionHandler;)Lorg/xnio/ChannelListener;
+     116: invokeinterface #43,  2           // InterfaceMethod org/xnio/ChannelListener$Setter.set:(Lorg/xnio/ChannelListener;)V
+     121: aload_2
+     122: invokeinterface #44,  1           // InterfaceMethod org/xnio/channels/StreamSinkChannel.resumeWrites:()V
+     127: goto          145
+     130: aload_1
+     131: ifnull        145
+     134: aload_1
+     135: aload_0
+     136: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+     139: aload_0
+     140: invokeinterface #38,  3           // InterfaceMethod io/undertow/io/IoCallback.onComplete:(Lio/undertow/server/HttpServerExchange;Lio/undertow/io/Sender;)V
+     145: goto          159
+     148: astore_2
+     149: aload_1
+     150: ifnull        159
+     153: aload_0
+     154: aload_1
+     155: aload_2
+     156: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+     159: return
+    Exception table:
+       from    to  target type
+           0   145   148   Class java/io/IOException
+
+  public void close();
+    Code:
+       0: aload_0
+       1: aconst_null
+       2: invokevirtual #75                 // Method close:(Lio/undertow/io/IoCallback;)V
+       5: return
+
+  private void invokeOnComplete();
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field pooledBuffers:[Lio/undertow/connector/PooledByteBuffer;
+       4: ifnull        45
+       7: aload_0
+       8: getfield      #2                  // Field pooledBuffers:[Lio/undertow/connector/PooledByteBuffer;
+      11: astore_1
+      12: aload_1
+      13: arraylength
+      14: istore_2
+      15: iconst_0
+      16: istore_3
+      17: iload_3
+      18: iload_2
+      19: if_icmpge     40
+      22: aload_1
+      23: iload_3
+      24: aaload
+      25: astore        4
+      27: aload         4
+      29: invokeinterface #76,  1           // InterfaceMethod io/undertow/connector/PooledByteBuffer.close:()V
+      34: iinc          3, 1
+      37: goto          17
+      40: aload_0
+      41: aconst_null
+      42: putfield      #2                  // Field pooledBuffers:[Lio/undertow/connector/PooledByteBuffer;
+      45: aload_0
+      46: getfield      #35                 // Field callback:Lio/undertow/io/IoCallback;
+      49: astore_1
+      50: aload_0
+      51: aconst_null
+      52: putfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+      55: aload_0
+      56: aconst_null
+      57: putfield      #19                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+      60: aload_0
+      61: aconst_null
+      62: putfield      #35                 // Field callback:Lio/undertow/io/IoCallback;
+      65: aload_0
+      66: aconst_null
+      67: putfield      #5                  // Field writeThread:Ljava/lang/Thread;
+      70: aload_0
+      71: invokestatic  #4                  // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      74: putfield      #36                 // Field inCallback:Ljava/lang/Thread;
+      77: aload_1
+      78: aload_0
+      79: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      82: aload_0
+      83: invokeinterface #38,  3           // InterfaceMethod io/undertow/io/IoCallback.onComplete:(Lio/undertow/server/HttpServerExchange;Lio/undertow/io/Sender;)V
+      88: aload_0
+      89: aconst_null
+      90: putfield      #36                 // Field inCallback:Ljava/lang/Thread;
+      93: goto          106
+      96: astore        5
+      98: aload_0
+      99: aconst_null
+     100: putfield      #36                 // Field inCallback:Ljava/lang/Thread;
+     103: aload         5
+     105: athrow
+     106: invokestatic  #4                  // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     109: aload_0
+     110: getfield      #5                  // Field writeThread:Ljava/lang/Thread;
+     113: if_acmpeq     117
+     116: return
+     117: aload_0
+     118: getfield      #25                 // Field channel:Lorg/xnio/channels/StreamSinkChannel;
+     121: astore_2
+     122: aload_0
+     123: getfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+     126: ifnull        225
+     129: aload_0
+     130: getfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+     133: invokestatic  #47                 // Method org/xnio/Buffers.remaining:([Ljava/nio/Buffer;)J
+     136: lstore_3
+     137: lload_3
+     138: lstore        5
+     140: lconst_0
+     141: lstore        7
+     143: aload_2
+     144: aload_0
+     145: getfield      #18                 // Field buffer:[Ljava/nio/ByteBuffer;
+     148: invokeinterface #48,  2           // InterfaceMethod org/xnio/channels/StreamSinkChannel.write:([Ljava/nio/ByteBuffer;)J
+     153: lstore        9
+     155: lload         7
+     157: lload         9
+     159: ladd
+     160: lstore        7
+     162: lload         9
+     164: lconst_0
+     165: lcmp
+     166: ifne          202
+     169: aload_0
+     170: getfield      #40                 // Field writeListener:Lorg/xnio/ChannelListener;
+     173: ifnonnull     180
+     176: aload_0
+     177: invokevirtual #41                 // Method initWriteListener:()V
+     180: aload_2
+     181: invokeinterface #42,  1           // InterfaceMethod org/xnio/channels/StreamSinkChannel.getWriteSetter:()Lorg/xnio/ChannelListener$Setter;
+     186: aload_0
+     187: getfield      #40                 // Field writeListener:Lorg/xnio/ChannelListener;
+     190: invokeinterface #43,  2           // InterfaceMethod org/xnio/ChannelListener$Setter.set:(Lorg/xnio/ChannelListener;)V
+     195: aload_2
+     196: invokeinterface #44,  1           // InterfaceMethod org/xnio/channels/StreamSinkChannel.resumeWrites:()V
+     201: return
+     202: lload         7
+     204: lload         5
+     206: lcmp
+     207: iflt          143
+     210: goto          222
+     213: astore        9
+     215: aload_0
+     216: aload_1
+     217: aload         9
+     219: invokevirtual #13                 // Method invokeOnException:(Lio/undertow/io/IoCallback;Ljava/io/IOException;)V
+     222: goto          264
+     225: aload_0
+     226: getfield      #19                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+     229: ifnull        263
+     232: aload_0
+     233: getfield      #49                 // Field transferTask:Lio/undertow/io/AsyncSenderImpl$TransferTask;
+     236: ifnonnull     251
+     239: aload_0
+     240: new           #50                 // class io/undertow/io/AsyncSenderImpl$TransferTask
+     243: dup
+     244: aload_0
+     245: invokespecial #51                 // Method io/undertow/io/AsyncSenderImpl$TransferTask."<init>":(Lio/undertow/io/AsyncSenderImpl;)V
+     248: putfield      #49                 // Field transferTask:Lio/undertow/io/AsyncSenderImpl$TransferTask;
+     251: aload_0
+     252: getfield      #49                 // Field transferTask:Lio/undertow/io/AsyncSenderImpl$TransferTask;
+     255: iconst_0
+     256: invokevirtual #77                 // Method io/undertow/io/AsyncSenderImpl$TransferTask.run:(Z)Z
+     259: ifne          264
+     262: return
+     263: return
+     264: goto          0
+    Exception table:
+       from    to  target type
+          77    88    96   any
+          96    98    96   any
+         143   201   213   Class java/io/IOException
+         202   210   213   Class java/io/IOException
+
+  private void invokeOnException(io.undertow.io.IoCallback, java.io.IOException);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field pooledBuffers:[Lio/undertow/connector/PooledByteBuffer;
+       4: ifnull        50
+       7: aload_0
+       8: getfield      #2                  // Field pooledBuffers:[Lio/undertow/connector/PooledByteBuffer;
+      11: astore_3
+      12: aload_3
+      13: arraylength
+      14: istore        4
+      16: iconst_0
+      17: istore        5
+      19: iload         5
+      21: iload         4
+      23: if_icmpge     45
+      26: aload_3
+      27: iload         5
+      29: aaload
+      30: astore        6
+      32: aload         6
+      34: invokeinterface #76,  1           // InterfaceMethod io/undertow/connector/PooledByteBuffer.close:()V
+      39: iinc          5, 1
+      42: goto          19
+      45: aload_0
+      46: aconst_null
+      47: putfield      #2                  // Field pooledBuffers:[Lio/undertow/connector/PooledByteBuffer;
+      50: aload_1
+      51: aload_0
+      52: getfield      #3                  // Field exchange:Lio/undertow/server/HttpServerExchange;
+      55: aload_0
+      56: aload_2
+      57: invokeinterface #78,  4           // InterfaceMethod io/undertow/io/IoCallback.onException:(Lio/undertow/server/HttpServerExchange;Lio/undertow/io/Sender;Ljava/io/IOException;)V
+      62: return
+
+  private void initWriteListener();
+    Code:
+       0: aload_0
+       1: new           #79                 // class io/undertow/io/AsyncSenderImpl$3
+       4: dup
+       5: aload_0
+       6: invokespecial #80                 // Method io/undertow/io/AsyncSenderImpl$3."<init>":(Lio/undertow/io/AsyncSenderImpl;)V
+       9: putfield      #40                 // Field writeListener:Lorg/xnio/ChannelListener;
+      12: return
+}

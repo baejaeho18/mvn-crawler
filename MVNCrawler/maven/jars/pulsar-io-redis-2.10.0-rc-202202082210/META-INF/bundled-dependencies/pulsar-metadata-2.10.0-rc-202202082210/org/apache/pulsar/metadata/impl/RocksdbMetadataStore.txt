@@ -1,0 +1,1595 @@
+Compiled from "RocksdbMetadataStore.java"
+public class org.apache.pulsar.metadata.impl.RocksdbMetadataStore extends org.apache.pulsar.metadata.impl.AbstractMetadataStore {
+  private static final org.slf4j.Logger log;
+
+  static final java.lang.String ROCKSDB_SCHEME_IDENTIFIER;
+
+  private static final byte[] SEQUENTIAL_ID_KEY;
+
+  private static final byte[] INSTANCE_ID_KEY;
+
+  private final long instanceId;
+
+  private final java.util.concurrent.atomic.AtomicLong sequentialIdGenerator;
+
+  private final org.rocksdb.TransactionDB db;
+
+  private final java.util.concurrent.locks.ReentrantReadWriteLock dbStateLock;
+
+  private volatile org.apache.pulsar.metadata.impl.RocksdbMetadataStore$State state;
+
+  private final org.rocksdb.WriteOptions optionSync;
+
+  private final org.rocksdb.WriteOptions optionDontSync;
+
+  private final org.rocksdb.ReadOptions optionCache;
+
+  private final org.rocksdb.ReadOptions optionDontCache;
+
+  private int referenceCount;
+
+  private static final java.util.Map<java.lang.String, org.apache.pulsar.metadata.impl.RocksdbMetadataStore> instancesCache;
+
+  private final java.lang.String metadataUrl;
+
+  public static org.apache.pulsar.metadata.impl.RocksdbMetadataStore get(java.lang.String, org.apache.pulsar.metadata.api.MetadataStoreConfig) throws org.apache.pulsar.metadata.api.MetadataStoreException;
+    Code:
+       0: getstatic     #1                  // Field instancesCache:Ljava/util/Map;
+       3: aload_0
+       4: invokeinterface #2,  2            // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+       9: checkcast     #3                  // class org/apache/pulsar/metadata/impl/RocksdbMetadataStore
+      12: astore_2
+      13: aload_2
+      14: ifnull        54
+      17: aload_2
+      18: dup
+      19: astore_3
+      20: monitorenter
+      21: aload_2
+      22: getfield      #4                  // Field referenceCount:I
+      25: ifle          42
+      28: aload_2
+      29: dup
+      30: getfield      #4                  // Field referenceCount:I
+      33: iconst_1
+      34: iadd
+      35: putfield      #4                  // Field referenceCount:I
+      38: aload_2
+      39: aload_3
+      40: monitorexit
+      41: areturn
+      42: aload_3
+      43: monitorexit
+      44: goto          54
+      47: astore        4
+      49: aload_3
+      50: monitorexit
+      51: aload         4
+      53: athrow
+      54: new           #3                  // class org/apache/pulsar/metadata/impl/RocksdbMetadataStore
+      57: dup
+      58: aload_0
+      59: aload_1
+      60: invokespecial #5                  // Method "<init>":(Ljava/lang/String;Lorg/apache/pulsar/metadata/api/MetadataStoreConfig;)V
+      63: astore_2
+      64: getstatic     #1                  // Field instancesCache:Ljava/util/Map;
+      67: aload_0
+      68: aload_2
+      69: invokeinterface #6,  3            // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      74: pop
+      75: aload_2
+      76: areturn
+    Exception table:
+       from    to  target type
+          21    41    47   any
+          42    44    47   any
+          47    51    47   any
+
+  static byte[] toBytes(java.lang.String);
+    Code:
+       0: aload_0
+       1: getstatic     #7                  // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+       4: invokevirtual #8                  // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+       7: areturn
+
+  static java.lang.String toString(byte[]);
+    Code:
+       0: new           #9                  // class java/lang/String
+       3: dup
+       4: aload_0
+       5: getstatic     #7                  // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+       8: invokespecial #10                 // Method java/lang/String."<init>":([BLjava/nio/charset/Charset;)V
+      11: areturn
+
+  static byte[] toBytes(long);
+    Code:
+       0: bipush        8
+       2: newarray       byte
+       4: invokestatic  #11                 // Method java/nio/ByteBuffer.wrap:([B)Ljava/nio/ByteBuffer;
+       7: lload_0
+       8: invokevirtual #12                 // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+      11: invokevirtual #13                 // Method java/nio/ByteBuffer.array:()[B
+      14: areturn
+
+  static long toLong(byte[]);
+    Code:
+       0: aload_0
+       1: invokestatic  #11                 // Method java/nio/ByteBuffer.wrap:([B)Ljava/nio/ByteBuffer;
+       4: invokevirtual #14                 // Method java/nio/ByteBuffer.getLong:()J
+       7: lreturn
+
+  private org.apache.pulsar.metadata.impl.RocksdbMetadataStore(java.lang.String, org.apache.pulsar.metadata.api.MetadataStoreConfig) throws org.apache.pulsar.metadata.api.MetadataStoreException;
+    Code:
+       0: aload_0
+       1: invokespecial #15                 // Method org/apache/pulsar/metadata/impl/AbstractMetadataStore."<init>":()V
+       4: aload_0
+       5: iconst_1
+       6: putfield      #4                  // Field referenceCount:I
+       9: aload_0
+      10: aload_1
+      11: putfield      #16                 // Field metadataUrl:Ljava/lang/String;
+      14: invokestatic  #17                 // Method org/rocksdb/RocksDB.loadLibrary:()V
+      17: goto          32
+      20: astore_3
+      21: new           #19                 // class org/apache/pulsar/metadata/api/MetadataStoreException
+      24: dup
+      25: ldc           #20                 // String Failed to load RocksDB JNI library
+      27: aload_3
+      28: invokespecial #21                 // Method org/apache/pulsar/metadata/api/MetadataStoreException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      31: athrow
+      32: aload_1
+      33: ldc           #22                 // String rocksdb:
+      35: invokevirtual #23                 // Method java/lang/String.length:()I
+      38: invokevirtual #24                 // Method java/lang/String.substring:(I)Ljava/lang/String;
+      41: astore_3
+      42: invokestatic  #25                 // Method java/nio/file/FileSystems.getDefault:()Ljava/nio/file/FileSystem;
+      45: aload_3
+      46: iconst_0
+      47: anewarray     #9                  // class java/lang/String
+      50: invokevirtual #26                 // Method java/nio/file/FileSystem.getPath:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+      53: astore        4
+      55: aload         4
+      57: iconst_0
+      58: anewarray     #27                 // class java/nio/file/attribute/FileAttribute
+      61: invokestatic  #28                 // Method java/nio/file/Files.createDirectories:(Ljava/nio/file/Path;[Ljava/nio/file/attribute/FileAttribute;)Ljava/nio/file/Path;
+      64: pop
+      65: goto          75
+      68: astore        5
+      70: aload         5
+      72: invokevirtual #30                 // Method java/io/IOException.printStackTrace:()V
+      75: aload_0
+      76: aload_0
+      77: aload         4
+      79: invokeinterface #31,  1           // InterfaceMethod java/nio/file/Path.toString:()Ljava/lang/String;
+      84: aload_2
+      85: invokevirtual #32                 // Method org/apache/pulsar/metadata/api/MetadataStoreConfig.getConfigFilePath:()Ljava/lang/String;
+      88: invokespecial #33                 // Method openDB:(Ljava/lang/String;Ljava/lang/String;)Lorg/rocksdb/TransactionDB;
+      91: putfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+      94: aload_0
+      95: new           #35                 // class org/rocksdb/WriteOptions
+      98: dup
+      99: invokespecial #36                 // Method org/rocksdb/WriteOptions."<init>":()V
+     102: iconst_1
+     103: invokevirtual #37                 // Method org/rocksdb/WriteOptions.setSync:(Z)Lorg/rocksdb/WriteOptions;
+     106: putfield      #38                 // Field optionSync:Lorg/rocksdb/WriteOptions;
+     109: aload_0
+     110: new           #35                 // class org/rocksdb/WriteOptions
+     113: dup
+     114: invokespecial #36                 // Method org/rocksdb/WriteOptions."<init>":()V
+     117: iconst_0
+     118: invokevirtual #37                 // Method org/rocksdb/WriteOptions.setSync:(Z)Lorg/rocksdb/WriteOptions;
+     121: putfield      #39                 // Field optionDontSync:Lorg/rocksdb/WriteOptions;
+     124: aload_0
+     125: new           #40                 // class org/rocksdb/ReadOptions
+     128: dup
+     129: invokespecial #41                 // Method org/rocksdb/ReadOptions."<init>":()V
+     132: iconst_1
+     133: invokevirtual #42                 // Method org/rocksdb/ReadOptions.setFillCache:(Z)Lorg/rocksdb/ReadOptions;
+     136: putfield      #43                 // Field optionCache:Lorg/rocksdb/ReadOptions;
+     139: aload_0
+     140: new           #40                 // class org/rocksdb/ReadOptions
+     143: dup
+     144: invokespecial #41                 // Method org/rocksdb/ReadOptions."<init>":()V
+     147: iconst_0
+     148: invokevirtual #42                 // Method org/rocksdb/ReadOptions.setFillCache:(Z)Lorg/rocksdb/ReadOptions;
+     151: putfield      #44                 // Field optionDontCache:Lorg/rocksdb/ReadOptions;
+     154: aload_0
+     155: aload_0
+     156: invokespecial #45                 // Method loadSequentialIdGenerator:()Ljava/util/concurrent/atomic/AtomicLong;
+     159: putfield      #46                 // Field sequentialIdGenerator:Ljava/util/concurrent/atomic/AtomicLong;
+     162: aload_0
+     163: aload_0
+     164: invokespecial #47                 // Method loadInstanceId:()J
+     167: putfield      #48                 // Field instanceId:J
+     170: goto          203
+     173: astore        5
+     175: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+     178: ldc           #51                 // String Error while init metastore state
+     180: aload         5
+     182: invokeinterface #52,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     187: aload_0
+     188: invokevirtual #53                 // Method close:()V
+     191: new           #19                 // class org/apache/pulsar/metadata/api/MetadataStoreException
+     194: dup
+     195: ldc           #54                 // String Error init metastore state
+     197: aload         5
+     199: invokespecial #21                 // Method org/apache/pulsar/metadata/api/MetadataStoreException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     202: athrow
+     203: aload_0
+     204: getstatic     #55                 // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$State.RUNNING:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+     207: putfield      #56                 // Field state:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+     210: aload_0
+     211: new           #57                 // class java/util/concurrent/locks/ReentrantReadWriteLock
+     214: dup
+     215: invokespecial #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock."<init>":()V
+     218: putfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     221: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+     224: ldc           #60                 // String new RocksdbMetadataStore,url={},instanceId={}
+     226: aload_2
+     227: aload_0
+     228: getfield      #48                 // Field instanceId:J
+     231: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     234: invokeinterface #62,  4           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     239: return
+    Exception table:
+       from    to  target type
+          14    17    20   Class java/lang/Throwable
+          55    65    68   Class java/io/IOException
+         154   170   173   Class org/rocksdb/RocksDBException
+
+  private long loadInstanceId() throws org.rocksdb.RocksDBException;
+    Code:
+       0: aload_0
+       1: getfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+       4: aload_0
+       5: getfield      #44                 // Field optionDontCache:Lorg/rocksdb/ReadOptions;
+       8: getstatic     #63                 // Field INSTANCE_ID_KEY:[B
+      11: invokevirtual #64                 // Method org/rocksdb/TransactionDB.get:(Lorg/rocksdb/ReadOptions;[B)[B
+      14: astore_3
+      15: aload_3
+      16: ifnull        29
+      19: aload_3
+      20: invokestatic  #65                 // Method toLong:([B)J
+      23: lconst_1
+      24: ladd
+      25: lstore_1
+      26: goto          31
+      29: lconst_0
+      30: lstore_1
+      31: aload_0
+      32: getfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+      35: aload_0
+      36: getfield      #38                 // Field optionSync:Lorg/rocksdb/WriteOptions;
+      39: getstatic     #63                 // Field INSTANCE_ID_KEY:[B
+      42: lload_1
+      43: invokestatic  #66                 // Method toBytes:(J)[B
+      46: invokevirtual #67                 // Method org/rocksdb/TransactionDB.put:(Lorg/rocksdb/WriteOptions;[B[B)V
+      49: lload_1
+      50: lreturn
+
+  private java.util.concurrent.atomic.AtomicLong loadSequentialIdGenerator() throws org.rocksdb.RocksDBException;
+    Code:
+       0: new           #68                 // class java/util/concurrent/atomic/AtomicLong
+       3: dup
+       4: lconst_0
+       5: invokespecial #69                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+       8: astore_1
+       9: aload_0
+      10: getfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+      13: aload_0
+      14: getfield      #44                 // Field optionDontCache:Lorg/rocksdb/ReadOptions;
+      17: getstatic     #70                 // Field SEQUENTIAL_ID_KEY:[B
+      20: invokevirtual #64                 // Method org/rocksdb/TransactionDB.get:(Lorg/rocksdb/ReadOptions;[B)[B
+      23: astore_2
+      24: aload_2
+      25: ifnull        39
+      28: aload_1
+      29: aload_2
+      30: invokestatic  #65                 // Method toLong:([B)J
+      33: invokevirtual #71                 // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+      36: goto          60
+      39: aload_0
+      40: getfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+      43: aload_0
+      44: getfield      #38                 // Field optionSync:Lorg/rocksdb/WriteOptions;
+      47: getstatic     #63                 // Field INSTANCE_ID_KEY:[B
+      50: aload_1
+      51: invokevirtual #72                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      54: invokestatic  #66                 // Method toBytes:(J)[B
+      57: invokevirtual #67                 // Method org/rocksdb/TransactionDB.put:(Lorg/rocksdb/WriteOptions;[B[B)V
+      60: aload_1
+      61: areturn
+
+  private org.rocksdb.TransactionDB openDB(java.lang.String, java.lang.String) throws org.apache.pulsar.metadata.api.MetadataStoreException;
+    Code:
+       0: new           #73                 // class org/rocksdb/TransactionDBOptions
+       3: dup
+       4: invokespecial #74                 // Method org/rocksdb/TransactionDBOptions."<init>":()V
+       7: astore_3
+       8: aconst_null
+       9: astore        4
+      11: aload_2
+      12: ifnull        238
+      15: new           #75                 // class org/rocksdb/DBOptions
+      18: dup
+      19: invokespecial #76                 // Method org/rocksdb/DBOptions."<init>":()V
+      22: astore        5
+      24: new           #77                 // class org/rocksdb/ConfigOptions
+      27: dup
+      28: invokespecial #78                 // Method org/rocksdb/ConfigOptions."<init>":()V
+      31: astore        6
+      33: new           #79                 // class java/util/ArrayList
+      36: dup
+      37: invokespecial #80                 // Method java/util/ArrayList."<init>":()V
+      40: astore        7
+      42: aload         6
+      44: aload_2
+      45: aload         5
+      47: aload         7
+      49: invokestatic  #81                 // Method org/rocksdb/OptionsUtil.loadOptionsFromFile:(Lorg/rocksdb/ConfigOptions;Ljava/lang/String;Lorg/rocksdb/DBOptions;Ljava/util/List;)V
+      52: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+      55: ldc           #82                 // String Load options from configFile({}), CF.size={},dbConfig={}
+      57: iconst_3
+      58: anewarray     #83                 // class java/lang/Object
+      61: dup
+      62: iconst_0
+      63: aload_2
+      64: aastore
+      65: dup
+      66: iconst_1
+      67: aload         7
+      69: invokeinterface #84,  1           // InterfaceMethod java/util/List.size:()I
+      74: invokestatic  #85                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      77: aastore
+      78: dup
+      79: iconst_2
+      80: aload         5
+      82: aastore
+      83: invokeinterface #86,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+      88: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+      91: invokeinterface #87,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      96: ifeq          156
+      99: aload         7
+     101: invokeinterface #88,  1           // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     106: astore        8
+     108: aload         8
+     110: invokeinterface #89,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+     115: ifeq          156
+     118: aload         8
+     120: invokeinterface #90,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     125: checkcast     #91                 // class org/rocksdb/ColumnFamilyDescriptor
+     128: astore        9
+     130: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+     133: ldc           #92                 // String CF={},Options={}
+     135: aload         9
+     137: invokevirtual #93                 // Method org/rocksdb/ColumnFamilyDescriptor.getName:()[B
+     140: aload         9
+     142: invokevirtual #94                 // Method org/rocksdb/ColumnFamilyDescriptor.getOptions:()Lorg/rocksdb/ColumnFamilyOptions;
+     145: invokevirtual #95                 // Method java/lang/Object.toString:()Ljava/lang/String;
+     148: invokeinterface #96,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     153: goto          108
+     156: new           #79                 // class java/util/ArrayList
+     159: dup
+     160: invokespecial #80                 // Method java/util/ArrayList."<init>":()V
+     163: astore        8
+     165: aload         5
+     167: aload_3
+     168: aload_1
+     169: aload         7
+     171: aload         8
+     173: invokestatic  #97                 // Method org/rocksdb/TransactionDB.open:(Lorg/rocksdb/DBOptions;Lorg/rocksdb/TransactionDBOptions;Ljava/lang/String;Ljava/util/List;Ljava/util/List;)Lorg/rocksdb/TransactionDB;
+     176: astore        9
+     178: aload         5
+     180: invokevirtual #98                 // Method org/rocksdb/DBOptions.close:()V
+     183: aload         6
+     185: invokevirtual #99                 // Method org/rocksdb/ConfigOptions.close:()V
+     188: aload_3
+     189: ifnull        220
+     192: aload         4
+     194: ifnull        216
+     197: aload_3
+     198: invokevirtual #100                // Method org/rocksdb/TransactionDBOptions.close:()V
+     201: goto          220
+     204: astore        10
+     206: aload         4
+     208: aload         10
+     210: invokevirtual #101                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     213: goto          220
+     216: aload_3
+     217: invokevirtual #100                // Method org/rocksdb/TransactionDBOptions.close:()V
+     220: aload         9
+     222: areturn
+     223: astore        11
+     225: aload         5
+     227: invokevirtual #98                 // Method org/rocksdb/DBOptions.close:()V
+     230: aload         6
+     232: invokevirtual #99                 // Method org/rocksdb/ConfigOptions.close:()V
+     235: aload         11
+     237: athrow
+     238: new           #102                // class org/rocksdb/Options
+     241: dup
+     242: invokespecial #103                // Method org/rocksdb/Options."<init>":()V
+     245: astore        5
+     247: aload         5
+     249: iconst_1
+     250: invokevirtual #104                // Method org/rocksdb/Options.setCreateIfMissing:(Z)Lorg/rocksdb/Options;
+     253: pop
+     254: aload_0
+     255: aload         5
+     257: invokespecial #105                // Method configLog:(Lorg/rocksdb/Options;)V
+     260: aload         5
+     262: aload_3
+     263: aload_1
+     264: invokestatic  #106                // Method org/rocksdb/TransactionDB.open:(Lorg/rocksdb/Options;Lorg/rocksdb/TransactionDBOptions;Ljava/lang/String;)Lorg/rocksdb/TransactionDB;
+     267: astore        6
+     269: aload         5
+     271: invokevirtual #107                // Method org/rocksdb/Options.close:()V
+     274: aload_3
+     275: ifnull        306
+     278: aload         4
+     280: ifnull        302
+     283: aload_3
+     284: invokevirtual #100                // Method org/rocksdb/TransactionDBOptions.close:()V
+     287: goto          306
+     290: astore        7
+     292: aload         4
+     294: aload         7
+     296: invokevirtual #101                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     299: goto          306
+     302: aload_3
+     303: invokevirtual #100                // Method org/rocksdb/TransactionDBOptions.close:()V
+     306: aload         6
+     308: areturn
+     309: astore        12
+     311: aload         5
+     313: invokevirtual #107                // Method org/rocksdb/Options.close:()V
+     316: aload         12
+     318: athrow
+     319: astore        5
+     321: aload         5
+     323: astore        4
+     325: aload         5
+     327: athrow
+     328: astore        13
+     330: aload_3
+     331: ifnull        362
+     334: aload         4
+     336: ifnull        358
+     339: aload_3
+     340: invokevirtual #100                // Method org/rocksdb/TransactionDBOptions.close:()V
+     343: goto          362
+     346: astore        14
+     348: aload         4
+     350: aload         14
+     352: invokevirtual #101                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     355: goto          362
+     358: aload_3
+     359: invokevirtual #100                // Method org/rocksdb/TransactionDBOptions.close:()V
+     362: aload         13
+     364: athrow
+     365: astore_3
+     366: new           #19                 // class org/apache/pulsar/metadata/api/MetadataStoreException
+     369: dup
+     370: ldc           #108                // String Error open RocksDB database
+     372: aload_3
+     373: invokespecial #21                 // Method org/apache/pulsar/metadata/api/MetadataStoreException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     376: athrow
+     377: astore_3
+     378: aload_3
+     379: invokestatic  #109                // Method org/apache/pulsar/metadata/api/MetadataStoreException.wrap:(Ljava/lang/Throwable;)Lorg/apache/pulsar/metadata/api/MetadataStoreException;
+     382: athrow
+    Exception table:
+       from    to  target type
+         197   201   204   Class java/lang/Throwable
+         165   178   223   any
+         223   225   223   any
+         283   287   290   Class java/lang/Throwable
+         260   269   309   any
+         309   311   309   any
+          11   188   319   Class java/lang/Throwable
+         223   274   319   Class java/lang/Throwable
+         309   319   319   Class java/lang/Throwable
+          11   188   328   any
+         223   274   328   any
+         339   343   346   Class java/lang/Throwable
+         309   330   328   any
+           0   220   365   Class org/rocksdb/RocksDBException
+         223   306   365   Class org/rocksdb/RocksDBException
+         309   365   365   Class org/rocksdb/RocksDBException
+           0   220   377   Class java/lang/Throwable
+         223   306   377   Class java/lang/Throwable
+         309   365   377   Class java/lang/Throwable
+
+  private void configLog(org.rocksdb.Options) throws java.io.IOException;
+    Code:
+       0: ldc           #110                // String pulsar.log.dir
+       2: ldc           #111                // String
+       4: invokestatic  #112                // Method java/lang/System.getProperty:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+       7: astore_2
+       8: aload_2
+       9: invokevirtual #113                // Method java/lang/String.isEmpty:()Z
+      12: ifne          65
+      15: invokestatic  #25                 // Method java/nio/file/FileSystems.getDefault:()Ljava/nio/file/FileSystem;
+      18: new           #114                // class java/lang/StringBuilder
+      21: dup
+      22: invokespecial #115                // Method java/lang/StringBuilder."<init>":()V
+      25: aload_2
+      26: invokevirtual #116                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: ldc           #117                // String /rocksdb-log
+      31: invokevirtual #116                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: invokevirtual #118                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      37: iconst_0
+      38: anewarray     #9                  // class java/lang/String
+      41: invokevirtual #26                 // Method java/nio/file/FileSystem.getPath:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+      44: astore_3
+      45: aload_3
+      46: iconst_0
+      47: anewarray     #27                 // class java/nio/file/attribute/FileAttribute
+      50: invokestatic  #28                 // Method java/nio/file/Files.createDirectories:(Ljava/nio/file/Path;[Ljava/nio/file/attribute/FileAttribute;)Ljava/nio/file/Path;
+      53: pop
+      54: aload_1
+      55: aload_3
+      56: invokeinterface #31,  1           // InterfaceMethod java/nio/file/Path.toString:()Ljava/lang/String;
+      61: invokevirtual #119                // Method org/rocksdb/Options.setDbLogDir:(Ljava/lang/String;)Lorg/rocksdb/Options;
+      64: pop
+      65: ldc           #120                // String pulsar.log.level
+      67: ldc           #121                // String info
+      69: invokestatic  #112                // Method java/lang/System.getProperty:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      72: astore        4
+      74: aload         4
+      76: astore        5
+      78: iconst_m1
+      79: istore        6
+      81: aload         5
+      83: invokevirtual #122                // Method java/lang/String.hashCode:()I
+      86: lookupswitch  { // 4
+               3237038: 144
+               3641990: 160
+              95458899: 128
+              96784904: 176
+               default: 189
+          }
+     128: aload         5
+     130: ldc           #123                // String debug
+     132: invokevirtual #124                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     135: ifeq          189
+     138: iconst_0
+     139: istore        6
+     141: goto          189
+     144: aload         5
+     146: ldc           #121                // String info
+     148: invokevirtual #124                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     151: ifeq          189
+     154: iconst_1
+     155: istore        6
+     157: goto          189
+     160: aload         5
+     162: ldc           #125                // String warn
+     164: invokevirtual #124                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     167: ifeq          189
+     170: iconst_2
+     171: istore        6
+     173: goto          189
+     176: aload         5
+     178: ldc           #126                // String error
+     180: invokevirtual #124                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     183: ifeq          189
+     186: iconst_3
+     187: istore        6
+     189: iload         6
+     191: tableswitch   { // 0 to 3
+                     0: 220
+                     1: 231
+                     2: 242
+                     3: 253
+               default: 264
+          }
+     220: aload_1
+     221: getstatic     #127                // Field org/rocksdb/InfoLogLevel.DEBUG_LEVEL:Lorg/rocksdb/InfoLogLevel;
+     224: invokevirtual #128                // Method org/rocksdb/Options.setInfoLogLevel:(Lorg/rocksdb/InfoLogLevel;)Lorg/rocksdb/Options;
+     227: pop
+     228: goto          276
+     231: aload_1
+     232: getstatic     #129                // Field org/rocksdb/InfoLogLevel.INFO_LEVEL:Lorg/rocksdb/InfoLogLevel;
+     235: invokevirtual #128                // Method org/rocksdb/Options.setInfoLogLevel:(Lorg/rocksdb/InfoLogLevel;)Lorg/rocksdb/Options;
+     238: pop
+     239: goto          276
+     242: aload_1
+     243: getstatic     #130                // Field org/rocksdb/InfoLogLevel.WARN_LEVEL:Lorg/rocksdb/InfoLogLevel;
+     246: invokevirtual #128                // Method org/rocksdb/Options.setInfoLogLevel:(Lorg/rocksdb/InfoLogLevel;)Lorg/rocksdb/Options;
+     249: pop
+     250: goto          276
+     253: aload_1
+     254: getstatic     #131                // Field org/rocksdb/InfoLogLevel.ERROR_LEVEL:Lorg/rocksdb/InfoLogLevel;
+     257: invokevirtual #128                // Method org/rocksdb/Options.setInfoLogLevel:(Lorg/rocksdb/InfoLogLevel;)Lorg/rocksdb/Options;
+     260: pop
+     261: goto          276
+     264: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+     267: ldc           #132                // String Unrecognized RockDB log level: {}
+     269: aload         4
+     271: invokeinterface #133,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;)V
+     276: aload_1
+     277: ldc2_w        #134                // long 30l
+     280: invokevirtual #136                // Method org/rocksdb/Options.setKeepLogFileNum:(J)Lorg/rocksdb/Options;
+     283: pop
+     284: aload_1
+     285: getstatic     #137                // Field java/util/concurrent/TimeUnit.DAYS:Ljava/util/concurrent/TimeUnit;
+     288: lconst_1
+     289: invokevirtual #138                // Method java/util/concurrent/TimeUnit.toSeconds:(J)J
+     292: invokevirtual #139                // Method org/rocksdb/Options.setLogFileTimeToRoll:(J)Lorg/rocksdb/Options;
+     295: pop
+     296: return
+
+  public synchronized void close() throws org.apache.pulsar.metadata.api.MetadataStoreException;
+    Code:
+       0: aload_0
+       1: dup
+       2: getfield      #4                  // Field referenceCount:I
+       5: iconst_1
+       6: isub
+       7: putfield      #4                  // Field referenceCount:I
+      10: aload_0
+      11: getfield      #4                  // Field referenceCount:I
+      14: ifle          18
+      17: return
+      18: getstatic     #1                  // Field instancesCache:Ljava/util/Map;
+      21: aload_0
+      22: getfield      #16                 // Field metadataUrl:Ljava/lang/String;
+      25: aload_0
+      26: invokeinterface #140,  3          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      31: pop
+      32: aload_0
+      33: getfield      #56                 // Field state:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      36: getstatic     #141                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$State.CLOSED:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      39: if_acmpne     43
+      42: return
+      43: aload_0
+      44: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      47: invokevirtual #142                // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      50: invokevirtual #143                // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+      53: aload_0
+      54: getstatic     #141                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$State.CLOSED:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      57: putfield      #56                 // Field state:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      60: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+      63: ldc           #144                // String close.instanceId={}
+      65: aload_0
+      66: getfield      #48                 // Field instanceId:J
+      69: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      72: invokeinterface #145,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      77: aload_0
+      78: getfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+      81: invokevirtual #146                // Method org/rocksdb/TransactionDB.close:()V
+      84: aload_0
+      85: getfield      #38                 // Field optionSync:Lorg/rocksdb/WriteOptions;
+      88: invokevirtual #147                // Method org/rocksdb/WriteOptions.close:()V
+      91: aload_0
+      92: getfield      #39                 // Field optionDontSync:Lorg/rocksdb/WriteOptions;
+      95: invokevirtual #147                // Method org/rocksdb/WriteOptions.close:()V
+      98: aload_0
+      99: getfield      #43                 // Field optionCache:Lorg/rocksdb/ReadOptions;
+     102: invokevirtual #148                // Method org/rocksdb/ReadOptions.close:()V
+     105: aload_0
+     106: getfield      #44                 // Field optionDontCache:Lorg/rocksdb/ReadOptions;
+     109: invokevirtual #148                // Method org/rocksdb/ReadOptions.close:()V
+     112: aload_0
+     113: invokespecial #149                // Method org/apache/pulsar/metadata/impl/AbstractMetadataStore.close:()V
+     116: aload_0
+     117: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     120: invokevirtual #142                // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     123: invokevirtual #150                // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     126: goto          148
+     129: astore_1
+     130: aload_1
+     131: invokestatic  #109                // Method org/apache/pulsar/metadata/api/MetadataStoreException.wrap:(Ljava/lang/Throwable;)Lorg/apache/pulsar/metadata/api/MetadataStoreException;
+     134: athrow
+     135: astore_2
+     136: aload_0
+     137: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     140: invokevirtual #142                // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     143: invokevirtual #150                // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     146: aload_2
+     147: athrow
+     148: return
+    Exception table:
+       from    to  target type
+          43   116   129   Class java/lang/Throwable
+          43   116   135   any
+         129   136   135   any
+
+  public java.util.concurrent.CompletableFuture<java.util.Optional<org.apache.pulsar.metadata.api.GetResult>> storeGet(java.lang.String);
+    Code:
+       0: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #87,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          29
+      11: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+      14: ldc           #151                // String getFromStore.path={},instanceId={}
+      16: aload_1
+      17: aload_0
+      18: getfield      #48                 // Field instanceId:J
+      21: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      24: invokeinterface #96,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      29: aload_0
+      30: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      33: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      36: invokevirtual #153                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      39: aload_0
+      40: getfield      #56                 // Field state:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      43: getstatic     #141                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$State.CLOSED:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      46: if_acmpne     59
+      49: new           #154                // class org/apache/pulsar/metadata/api/MetadataStoreException$AlreadyClosedException
+      52: dup
+      53: ldc           #111                // String
+      55: invokespecial #155                // Method org/apache/pulsar/metadata/api/MetadataStoreException$AlreadyClosedException."<init>":(Ljava/lang/String;)V
+      58: athrow
+      59: aload_0
+      60: getfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+      63: aload_0
+      64: getfield      #43                 // Field optionCache:Lorg/rocksdb/ReadOptions;
+      67: aload_1
+      68: invokestatic  #156                // Method toBytes:(Ljava/lang/String;)[B
+      71: invokevirtual #64                 // Method org/rocksdb/TransactionDB.get:(Lorg/rocksdb/ReadOptions;[B)[B
+      74: astore_2
+      75: aload_2
+      76: ifnonnull     98
+      79: invokestatic  #157                // Method java/util/Optional.empty:()Ljava/util/Optional;
+      82: invokestatic  #158                // Method java/util/concurrent/CompletableFuture.completedFuture:(Ljava/lang/Object;)Ljava/util/concurrent/CompletableFuture;
+      85: astore_3
+      86: aload_0
+      87: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      90: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      93: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      96: aload_3
+      97: areturn
+      98: aload_2
+      99: invokestatic  #160                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.parse:([B)Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue;
+     102: astore_3
+     103: aload_3
+     104: getfield      #161                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.ephemeral:Z
+     107: ifeq          152
+     110: aload_3
+     111: getfield      #162                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.owner:J
+     114: aload_0
+     115: getfield      #48                 // Field instanceId:J
+     118: lcmp
+     119: ifeq          152
+     122: aload_0
+     123: aload_1
+     124: invokestatic  #157                // Method java/util/Optional.empty:()Ljava/util/Optional;
+     127: invokevirtual #163                // Method delete:(Ljava/lang/String;Ljava/util/Optional;)Ljava/util/concurrent/CompletableFuture;
+     130: pop
+     131: invokestatic  #157                // Method java/util/Optional.empty:()Ljava/util/Optional;
+     134: invokestatic  #158                // Method java/util/concurrent/CompletableFuture.completedFuture:(Ljava/lang/Object;)Ljava/util/concurrent/CompletableFuture;
+     137: astore        4
+     139: aload_0
+     140: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     143: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     146: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     149: aload         4
+     151: areturn
+     152: new           #164                // class org/apache/pulsar/metadata/api/GetResult
+     155: dup
+     156: aload_3
+     157: invokevirtual #165                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.getData:()[B
+     160: new           #166                // class org/apache/pulsar/metadata/api/Stat
+     163: dup
+     164: aload_1
+     165: aload_3
+     166: invokevirtual #167                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.getVersion:()J
+     169: aload_3
+     170: invokevirtual #168                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.getCreatedTimestamp:()J
+     173: aload_3
+     174: invokevirtual #169                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.getModifiedTimestamp:()J
+     177: aload_3
+     178: getfield      #161                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.ephemeral:Z
+     181: aload_3
+     182: invokevirtual #170                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.getOwner:()J
+     185: aload_0
+     186: getfield      #48                 // Field instanceId:J
+     189: lcmp
+     190: ifne          197
+     193: iconst_1
+     194: goto          198
+     197: iconst_0
+     198: invokespecial #171                // Method org/apache/pulsar/metadata/api/Stat."<init>":(Ljava/lang/String;JJJZZ)V
+     201: invokespecial #172                // Method org/apache/pulsar/metadata/api/GetResult."<init>":([BLorg/apache/pulsar/metadata/api/Stat;)V
+     204: astore        4
+     206: aload         4
+     208: invokestatic  #173                // Method java/util/Optional.of:(Ljava/lang/Object;)Ljava/util/Optional;
+     211: invokestatic  #158                // Method java/util/concurrent/CompletableFuture.completedFuture:(Ljava/lang/Object;)Ljava/util/concurrent/CompletableFuture;
+     214: astore        5
+     216: aload_0
+     217: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     220: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     223: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     226: aload         5
+     228: areturn
+     229: astore_2
+     230: aload_2
+     231: invokestatic  #109                // Method org/apache/pulsar/metadata/api/MetadataStoreException.wrap:(Ljava/lang/Throwable;)Lorg/apache/pulsar/metadata/api/MetadataStoreException;
+     234: invokestatic  #174                // Method org/apache/pulsar/common/util/FutureUtil.failedFuture:(Ljava/lang/Throwable;)Ljava/util/concurrent/CompletableFuture;
+     237: astore_3
+     238: aload_0
+     239: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     242: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     245: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     248: aload_3
+     249: areturn
+     250: astore        6
+     252: aload_0
+     253: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     256: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     259: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     262: aload         6
+     264: athrow
+    Exception table:
+       from    to  target type
+          29    86   229   Class java/lang/Throwable
+          98   139   229   Class java/lang/Throwable
+         152   216   229   Class java/lang/Throwable
+          29    86   250   any
+          98   139   250   any
+         152   216   250   any
+         229   238   250   any
+         250   252   250   any
+
+  protected java.util.concurrent.CompletableFuture<java.util.List<java.lang.String>> getChildrenFromStore(java.lang.String);
+    Code:
+       0: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #87,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          29
+      11: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+      14: ldc           #175                // String getChildrenFromStore.path={},instanceId={}
+      16: aload_1
+      17: aload_0
+      18: getfield      #48                 // Field instanceId:J
+      21: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      24: invokeinterface #96,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      29: aload_0
+      30: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      33: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      36: invokevirtual #153                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      39: aload_0
+      40: getfield      #56                 // Field state:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      43: getstatic     #141                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$State.CLOSED:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      46: if_acmpne     59
+      49: new           #154                // class org/apache/pulsar/metadata/api/MetadataStoreException$AlreadyClosedException
+      52: dup
+      53: ldc           #111                // String
+      55: invokespecial #155                // Method org/apache/pulsar/metadata/api/MetadataStoreException$AlreadyClosedException."<init>":(Ljava/lang/String;)V
+      58: athrow
+      59: aload_0
+      60: getfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+      63: aload_0
+      64: getfield      #44                 // Field optionDontCache:Lorg/rocksdb/ReadOptions;
+      67: invokevirtual #176                // Method org/rocksdb/TransactionDB.newIterator:(Lorg/rocksdb/ReadOptions;)Lorg/rocksdb/RocksIterator;
+      70: astore_2
+      71: aconst_null
+      72: astore_3
+      73: new           #177                // class java/util/HashSet
+      76: dup
+      77: invokespecial #178                // Method java/util/HashSet."<init>":()V
+      80: astore        4
+      82: aload_1
+      83: ldc           #179                // String /
+      85: invokevirtual #124                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      88: ifeq          95
+      91: aload_1
+      92: goto          114
+      95: new           #114                // class java/lang/StringBuilder
+      98: dup
+      99: invokespecial #115                // Method java/lang/StringBuilder."<init>":()V
+     102: aload_1
+     103: invokevirtual #116                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     106: ldc           #179                // String /
+     108: invokevirtual #116                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     111: invokevirtual #118                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     114: astore        5
+     116: aload_1
+     117: ldc           #179                // String /
+     119: invokevirtual #124                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     122: ifeq          130
+     125: ldc           #180                // String 0
+     127: goto          149
+     130: new           #114                // class java/lang/StringBuilder
+     133: dup
+     134: invokespecial #115                // Method java/lang/StringBuilder."<init>":()V
+     137: aload_1
+     138: invokevirtual #116                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     141: ldc           #180                // String 0
+     143: invokevirtual #116                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     146: invokevirtual #118                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     149: astore        6
+     151: aload_2
+     152: aload         5
+     154: invokestatic  #156                // Method toBytes:(Ljava/lang/String;)[B
+     157: invokevirtual #181                // Method org/rocksdb/RocksIterator.seek:([B)V
+     160: aload_2
+     161: invokevirtual #182                // Method org/rocksdb/RocksIterator.isValid:()Z
+     164: ifeq          285
+     167: aload_2
+     168: invokevirtual #183                // Method org/rocksdb/RocksIterator.key:()[B
+     171: invokestatic  #184                // Method toString:([B)Ljava/lang/String;
+     174: astore        7
+     176: aload         6
+     178: aload         7
+     180: invokevirtual #185                // Method java/lang/String.compareTo:(Ljava/lang/String;)I
+     183: ifgt          189
+     186: goto          285
+     189: aload_2
+     190: invokevirtual #186                // Method org/rocksdb/RocksIterator.value:()[B
+     193: astore        8
+     195: aload         8
+     197: ifnonnull     203
+     200: goto          278
+     203: aload         8
+     205: invokestatic  #160                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.parse:([B)Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue;
+     208: astore        9
+     210: aload         9
+     212: getfield      #161                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.ephemeral:Z
+     215: ifeq          244
+     218: aload         9
+     220: getfield      #162                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.owner:J
+     223: aload_0
+     224: getfield      #48                 // Field instanceId:J
+     227: lcmp
+     228: ifeq          244
+     231: aload_0
+     232: aload         7
+     234: invokestatic  #157                // Method java/util/Optional.empty:()Ljava/util/Optional;
+     237: invokevirtual #163                // Method delete:(Ljava/lang/String;Ljava/util/Optional;)Ljava/util/concurrent/CompletableFuture;
+     240: pop
+     241: goto          278
+     244: aload         7
+     246: aload         5
+     248: invokevirtual #23                 // Method java/lang/String.length:()I
+     251: invokevirtual #24                 // Method java/lang/String.substring:(I)Ljava/lang/String;
+     254: astore        10
+     256: aload         10
+     258: ldc           #179                // String /
+     260: iconst_2
+     261: invokevirtual #187                // Method java/lang/String.split:(Ljava/lang/String;I)[Ljava/lang/String;
+     264: iconst_0
+     265: aaload
+     266: astore        11
+     268: aload         4
+     270: aload         11
+     272: invokeinterface #188,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     277: pop
+     278: aload_2
+     279: invokevirtual #189                // Method org/rocksdb/RocksIterator.next:()V
+     282: goto          160
+     285: new           #79                 // class java/util/ArrayList
+     288: dup
+     289: aload         4
+     291: invokespecial #190                // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+     294: astore        7
+     296: aload         7
+     298: invokestatic  #191                // InterfaceMethod java/util/Comparator.naturalOrder:()Ljava/util/Comparator;
+     301: invokeinterface #192,  2          // InterfaceMethod java/util/List.sort:(Ljava/util/Comparator;)V
+     306: aload         7
+     308: invokestatic  #158                // Method java/util/concurrent/CompletableFuture.completedFuture:(Ljava/lang/Object;)Ljava/util/concurrent/CompletableFuture;
+     311: astore        8
+     313: aload_2
+     314: ifnull        343
+     317: aload_3
+     318: ifnull        339
+     321: aload_2
+     322: invokevirtual #193                // Method org/rocksdb/RocksIterator.close:()V
+     325: goto          343
+     328: astore        9
+     330: aload_3
+     331: aload         9
+     333: invokevirtual #101                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     336: goto          343
+     339: aload_2
+     340: invokevirtual #193                // Method org/rocksdb/RocksIterator.close:()V
+     343: aload_0
+     344: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     347: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     350: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     353: aload         8
+     355: areturn
+     356: astore        4
+     358: aload         4
+     360: astore_3
+     361: aload         4
+     363: athrow
+     364: astore        12
+     366: aload_2
+     367: ifnull        396
+     370: aload_3
+     371: ifnull        392
+     374: aload_2
+     375: invokevirtual #193                // Method org/rocksdb/RocksIterator.close:()V
+     378: goto          396
+     381: astore        13
+     383: aload_3
+     384: aload         13
+     386: invokevirtual #101                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     389: goto          396
+     392: aload_2
+     393: invokevirtual #193                // Method org/rocksdb/RocksIterator.close:()V
+     396: aload         12
+     398: athrow
+     399: astore_2
+     400: aload_2
+     401: invokestatic  #109                // Method org/apache/pulsar/metadata/api/MetadataStoreException.wrap:(Ljava/lang/Throwable;)Lorg/apache/pulsar/metadata/api/MetadataStoreException;
+     404: invokestatic  #174                // Method org/apache/pulsar/common/util/FutureUtil.failedFuture:(Ljava/lang/Throwable;)Ljava/util/concurrent/CompletableFuture;
+     407: astore_3
+     408: aload_0
+     409: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     412: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     415: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     418: aload_3
+     419: areturn
+     420: astore        14
+     422: aload_0
+     423: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     426: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     429: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     432: aload         14
+     434: athrow
+    Exception table:
+       from    to  target type
+         321   325   328   Class java/lang/Throwable
+          73   313   356   Class java/lang/Throwable
+          73   313   364   any
+         374   378   381   Class java/lang/Throwable
+         356   366   364   any
+          29   343   399   Class java/lang/Throwable
+         356   399   399   Class java/lang/Throwable
+          29   343   420   any
+         356   408   420   any
+         420   422   420   any
+
+  protected java.util.concurrent.CompletableFuture<java.lang.Boolean> existsFromStore(java.lang.String);
+    Code:
+       0: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #87,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          29
+      11: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+      14: ldc           #194                // String existsFromStore.path={},instanceId={}
+      16: aload_1
+      17: aload_0
+      18: getfield      #48                 // Field instanceId:J
+      21: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      24: invokeinterface #96,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      29: aload_0
+      30: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      33: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      36: invokevirtual #153                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      39: aload_0
+      40: getfield      #56                 // Field state:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      43: getstatic     #141                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$State.CLOSED:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      46: if_acmpne     59
+      49: new           #154                // class org/apache/pulsar/metadata/api/MetadataStoreException$AlreadyClosedException
+      52: dup
+      53: ldc           #111                // String
+      55: invokespecial #155                // Method org/apache/pulsar/metadata/api/MetadataStoreException$AlreadyClosedException."<init>":(Ljava/lang/String;)V
+      58: athrow
+      59: aload_0
+      60: getfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+      63: aload_0
+      64: getfield      #44                 // Field optionDontCache:Lorg/rocksdb/ReadOptions;
+      67: aload_1
+      68: invokestatic  #156                // Method toBytes:(Ljava/lang/String;)[B
+      71: invokevirtual #64                 // Method org/rocksdb/TransactionDB.get:(Lorg/rocksdb/ReadOptions;[B)[B
+      74: astore_2
+      75: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+      78: invokeinterface #87,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      83: ifeq          106
+      86: aload_2
+      87: ifnull        106
+      90: aload_2
+      91: invokestatic  #160                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.parse:([B)Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue;
+      94: astore_3
+      95: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+      98: ldc           #195                // String Get data from db:{}.
+     100: aload_3
+     101: invokeinterface #196,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     106: aload_2
+     107: ifnull        114
+     110: iconst_1
+     111: goto          115
+     114: iconst_0
+     115: invokestatic  #197                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     118: invokestatic  #158                // Method java/util/concurrent/CompletableFuture.completedFuture:(Ljava/lang/Object;)Ljava/util/concurrent/CompletableFuture;
+     121: astore_3
+     122: aload_0
+     123: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     126: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     129: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     132: aload_3
+     133: areturn
+     134: astore_2
+     135: aload_2
+     136: invokestatic  #109                // Method org/apache/pulsar/metadata/api/MetadataStoreException.wrap:(Ljava/lang/Throwable;)Lorg/apache/pulsar/metadata/api/MetadataStoreException;
+     139: invokestatic  #174                // Method org/apache/pulsar/common/util/FutureUtil.failedFuture:(Ljava/lang/Throwable;)Ljava/util/concurrent/CompletableFuture;
+     142: astore_3
+     143: aload_0
+     144: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     147: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     150: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     153: aload_3
+     154: areturn
+     155: astore        4
+     157: aload_0
+     158: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     161: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     164: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     167: aload         4
+     169: athrow
+    Exception table:
+       from    to  target type
+          29   122   134   Class java/lang/Throwable
+          29   122   155   any
+         134   143   155   any
+         155   157   155   any
+
+  protected java.util.concurrent.CompletableFuture<java.lang.Void> storeDelete(java.lang.String, java.util.Optional<java.lang.Long>);
+    Code:
+       0: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #87,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          29
+      11: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+      14: ldc           #198                // String storeDelete.path={},instanceId={}
+      16: aload_1
+      17: aload_0
+      18: getfield      #48                 // Field instanceId:J
+      21: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      24: invokeinterface #96,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      29: aload_0
+      30: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      33: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      36: invokevirtual #153                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      39: aload_0
+      40: getfield      #56                 // Field state:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      43: getstatic     #141                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$State.CLOSED:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      46: if_acmpne     59
+      49: new           #154                // class org/apache/pulsar/metadata/api/MetadataStoreException$AlreadyClosedException
+      52: dup
+      53: ldc           #111                // String
+      55: invokespecial #155                // Method org/apache/pulsar/metadata/api/MetadataStoreException$AlreadyClosedException."<init>":(Ljava/lang/String;)V
+      58: athrow
+      59: aload_0
+      60: getfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+      63: aload_0
+      64: getfield      #38                 // Field optionSync:Lorg/rocksdb/WriteOptions;
+      67: invokevirtual #199                // Method org/rocksdb/TransactionDB.beginTransaction:(Lorg/rocksdb/WriteOptions;)Lorg/rocksdb/Transaction;
+      70: astore_3
+      71: aconst_null
+      72: astore        4
+      74: aload_1
+      75: invokestatic  #156                // Method toBytes:(Ljava/lang/String;)[B
+      78: astore        5
+      80: aload_3
+      81: aload_0
+      82: getfield      #44                 // Field optionDontCache:Lorg/rocksdb/ReadOptions;
+      85: aload         5
+      87: iconst_0
+      88: invokevirtual #200                // Method org/rocksdb/Transaction.getForUpdate:(Lorg/rocksdb/ReadOptions;[BZ)[B
+      91: astore        6
+      93: aload         6
+      95: invokestatic  #160                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.parse:([B)Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue;
+      98: astore        7
+     100: aload         7
+     102: ifnonnull     126
+     105: new           #201                // class org/apache/pulsar/metadata/api/MetadataStoreException$NotFoundException
+     108: dup
+     109: ldc           #202                // String path %s not found.
+     111: iconst_1
+     112: anewarray     #83                 // class java/lang/Object
+     115: dup
+     116: iconst_0
+     117: aload_1
+     118: aastore
+     119: invokestatic  #203                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     122: invokespecial #204                // Method org/apache/pulsar/metadata/api/MetadataStoreException$NotFoundException."<init>":(Ljava/lang/String;)V
+     125: athrow
+     126: aload_2
+     127: invokevirtual #205                // Method java/util/Optional.isPresent:()Z
+     130: ifeq          189
+     133: aload_2
+     134: invokevirtual #206                // Method java/util/Optional.get:()Ljava/lang/Object;
+     137: checkcast     #207                // class java/lang/Long
+     140: aload         7
+     142: invokevirtual #167                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.getVersion:()J
+     145: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     148: invokevirtual #208                // Method java/lang/Long.equals:(Ljava/lang/Object;)Z
+     151: ifne          189
+     154: new           #209                // class org/apache/pulsar/metadata/api/MetadataStoreException$BadVersionException
+     157: dup
+     158: ldc           #210                // String Version mismatch, actual=%s, expect=%s
+     160: iconst_2
+     161: anewarray     #83                 // class java/lang/Object
+     164: dup
+     165: iconst_0
+     166: aload         7
+     168: invokevirtual #167                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.getVersion:()J
+     171: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     174: aastore
+     175: dup
+     176: iconst_1
+     177: aload_2
+     178: invokevirtual #206                // Method java/util/Optional.get:()Ljava/lang/Object;
+     181: aastore
+     182: invokestatic  #203                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     185: invokespecial #211                // Method org/apache/pulsar/metadata/api/MetadataStoreException$BadVersionException."<init>":(Ljava/lang/String;)V
+     188: athrow
+     189: aload_3
+     190: aload         5
+     192: invokevirtual #212                // Method org/rocksdb/Transaction.delete:([B)V
+     195: aload_3
+     196: invokevirtual #213                // Method org/rocksdb/Transaction.commit:()V
+     199: aload_0
+     200: new           #214                // class org/apache/pulsar/metadata/api/Notification
+     203: dup
+     204: getstatic     #215                // Field org/apache/pulsar/metadata/api/NotificationType.Deleted:Lorg/apache/pulsar/metadata/api/NotificationType;
+     207: aload_1
+     208: invokespecial #216                // Method org/apache/pulsar/metadata/api/Notification."<init>":(Lorg/apache/pulsar/metadata/api/NotificationType;Ljava/lang/String;)V
+     211: invokevirtual #217                // Method receivedNotification:(Lorg/apache/pulsar/metadata/api/Notification;)Ljava/util/concurrent/CompletableFuture;
+     214: pop
+     215: aload_0
+     216: aload_1
+     217: invokevirtual #218                // Method notifyParentChildrenChanged:(Ljava/lang/String;)V
+     220: aconst_null
+     221: invokestatic  #158                // Method java/util/concurrent/CompletableFuture.completedFuture:(Ljava/lang/Object;)Ljava/util/concurrent/CompletableFuture;
+     224: astore        8
+     226: aload_3
+     227: ifnull        258
+     230: aload         4
+     232: ifnull        254
+     235: aload_3
+     236: invokevirtual #219                // Method org/rocksdb/Transaction.close:()V
+     239: goto          258
+     242: astore        9
+     244: aload         4
+     246: aload         9
+     248: invokevirtual #101                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     251: goto          258
+     254: aload_3
+     255: invokevirtual #219                // Method org/rocksdb/Transaction.close:()V
+     258: aload_0
+     259: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     262: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     265: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     268: aload         8
+     270: areturn
+     271: astore        5
+     273: aload         5
+     275: astore        4
+     277: aload         5
+     279: athrow
+     280: astore        10
+     282: aload_3
+     283: ifnull        314
+     286: aload         4
+     288: ifnull        310
+     291: aload_3
+     292: invokevirtual #219                // Method org/rocksdb/Transaction.close:()V
+     295: goto          314
+     298: astore        11
+     300: aload         4
+     302: aload         11
+     304: invokevirtual #101                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     307: goto          314
+     310: aload_3
+     311: invokevirtual #219                // Method org/rocksdb/Transaction.close:()V
+     314: aload         10
+     316: athrow
+     317: astore_3
+     318: aload_3
+     319: invokestatic  #109                // Method org/apache/pulsar/metadata/api/MetadataStoreException.wrap:(Ljava/lang/Throwable;)Lorg/apache/pulsar/metadata/api/MetadataStoreException;
+     322: invokestatic  #174                // Method org/apache/pulsar/common/util/FutureUtil.failedFuture:(Ljava/lang/Throwable;)Ljava/util/concurrent/CompletableFuture;
+     325: astore        4
+     327: aload_0
+     328: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     331: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     334: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     337: aload         4
+     339: areturn
+     340: astore        12
+     342: aload_0
+     343: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     346: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     349: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     352: aload         12
+     354: athrow
+    Exception table:
+       from    to  target type
+         235   239   242   Class java/lang/Throwable
+          74   226   271   Class java/lang/Throwable
+          74   226   280   any
+         291   295   298   Class java/lang/Throwable
+         271   282   280   any
+          29   258   317   Class java/lang/Throwable
+         271   317   317   Class java/lang/Throwable
+          29   258   340   any
+         271   327   340   any
+         340   342   340   any
+
+  protected java.util.concurrent.CompletableFuture<org.apache.pulsar.metadata.api.Stat> storePut(java.lang.String, byte[], java.util.Optional<java.lang.Long>, java.util.EnumSet<org.apache.pulsar.metadata.api.extended.CreateOption>);
+    Code:
+       0: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #87,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          29
+      11: getstatic     #50                 // Field log:Lorg/slf4j/Logger;
+      14: ldc           #220                // String storePut.path={},instanceId={}
+      16: aload_1
+      17: aload_0
+      18: getfield      #48                 // Field instanceId:J
+      21: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      24: invokeinterface #96,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      29: aload_0
+      30: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      33: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      36: invokevirtual #153                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      39: aload_0
+      40: getfield      #56                 // Field state:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      43: getstatic     #141                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$State.CLOSED:Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$State;
+      46: if_acmpne     59
+      49: new           #154                // class org/apache/pulsar/metadata/api/MetadataStoreException$AlreadyClosedException
+      52: dup
+      53: ldc           #111                // String
+      55: invokespecial #155                // Method org/apache/pulsar/metadata/api/MetadataStoreException$AlreadyClosedException."<init>":(Ljava/lang/String;)V
+      58: athrow
+      59: aload_0
+      60: getfield      #34                 // Field db:Lorg/rocksdb/TransactionDB;
+      63: aload_0
+      64: getfield      #38                 // Field optionSync:Lorg/rocksdb/WriteOptions;
+      67: invokevirtual #199                // Method org/rocksdb/TransactionDB.beginTransaction:(Lorg/rocksdb/WriteOptions;)Lorg/rocksdb/Transaction;
+      70: astore        5
+      72: aconst_null
+      73: astore        6
+      75: aload_1
+      76: invokestatic  #156                // Method toBytes:(Ljava/lang/String;)[B
+      79: astore        7
+      81: aload         5
+      83: aload_0
+      84: getfield      #44                 // Field optionDontCache:Lorg/rocksdb/ReadOptions;
+      87: aload         7
+      89: iconst_0
+      90: invokevirtual #200                // Method org/rocksdb/Transaction.getForUpdate:(Lorg/rocksdb/ReadOptions;[BZ)[B
+      93: astore        8
+      95: aload         8
+      97: invokestatic  #160                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.parse:([B)Lorg/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue;
+     100: astore        9
+     102: aload_3
+     103: invokevirtual #205                // Method java/util/Optional.isPresent:()Z
+     106: ifeq          201
+     109: aload         9
+     111: ifnonnull     131
+     114: aload_3
+     115: invokevirtual #206                // Method java/util/Optional.get:()Ljava/lang/Object;
+     118: checkcast     #207                // class java/lang/Long
+     121: invokevirtual #221                // Method java/lang/Long.longValue:()J
+     124: ldc2_w        #222                // long -1l
+     127: lcmp
+     128: ifne          157
+     131: aload         9
+     133: ifnull        201
+     136: aload_3
+     137: invokevirtual #206                // Method java/util/Optional.get:()Ljava/lang/Object;
+     140: checkcast     #207                // class java/lang/Long
+     143: aload         9
+     145: invokevirtual #167                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.getVersion:()J
+     148: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     151: invokevirtual #208                // Method java/lang/Long.equals:(Ljava/lang/Object;)Z
+     154: ifne          201
+     157: new           #209                // class org/apache/pulsar/metadata/api/MetadataStoreException$BadVersionException
+     160: dup
+     161: ldc           #210                // String Version mismatch, actual=%s, expect=%s
+     163: iconst_2
+     164: anewarray     #83                 // class java/lang/Object
+     167: dup
+     168: iconst_0
+     169: aload         9
+     171: ifnonnull     178
+     174: aconst_null
+     175: goto          186
+     178: aload         9
+     180: invokevirtual #167                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.getVersion:()J
+     183: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     186: aastore
+     187: dup
+     188: iconst_1
+     189: aload_3
+     190: invokevirtual #206                // Method java/util/Optional.get:()Ljava/lang/Object;
+     193: aastore
+     194: invokestatic  #203                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     197: invokespecial #211                // Method org/apache/pulsar/metadata/api/MetadataStoreException$BadVersionException."<init>":(Ljava/lang/String;)V
+     200: athrow
+     201: iconst_0
+     202: istore        10
+     204: invokestatic  #224                // Method java/lang/System.currentTimeMillis:()J
+     207: lstore        11
+     209: aload         9
+     211: ifnonnull     315
+     214: new           #225                // class org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue
+     217: dup
+     218: invokespecial #226                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue."<init>":()V
+     221: astore        9
+     223: aload         9
+     225: lconst_0
+     226: putfield      #227                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.version:J
+     229: aload         9
+     231: lload         11
+     233: putfield      #228                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.createdTimestamp:J
+     236: aload         9
+     238: aload         4
+     240: getstatic     #229                // Field org/apache/pulsar/metadata/api/extended/CreateOption.Ephemeral:Lorg/apache/pulsar/metadata/api/extended/CreateOption;
+     243: invokevirtual #230                // Method java/util/EnumSet.contains:(Ljava/lang/Object;)Z
+     246: putfield      #161                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.ephemeral:Z
+     249: aload         4
+     251: getstatic     #231                // Field org/apache/pulsar/metadata/api/extended/CreateOption.Sequential:Lorg/apache/pulsar/metadata/api/extended/CreateOption;
+     254: invokevirtual #230                // Method java/util/EnumSet.contains:(Ljava/lang/Object;)Z
+     257: ifeq          309
+     260: new           #114                // class java/lang/StringBuilder
+     263: dup
+     264: invokespecial #115                // Method java/lang/StringBuilder."<init>":()V
+     267: aload_1
+     268: invokevirtual #116                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     271: aload_0
+     272: getfield      #46                 // Field sequentialIdGenerator:Ljava/util/concurrent/atomic/AtomicLong;
+     275: invokevirtual #232                // Method java/util/concurrent/atomic/AtomicLong.getAndIncrement:()J
+     278: invokevirtual #233                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     281: invokevirtual #118                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     284: astore_1
+     285: aload_1
+     286: invokestatic  #156                // Method toBytes:(Ljava/lang/String;)[B
+     289: astore        7
+     291: aload         5
+     293: getstatic     #70                 // Field SEQUENTIAL_ID_KEY:[B
+     296: aload_0
+     297: getfield      #46                 // Field sequentialIdGenerator:Ljava/util/concurrent/atomic/AtomicLong;
+     300: invokevirtual #72                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     303: invokestatic  #66                 // Method toBytes:(J)[B
+     306: invokevirtual #234                // Method org/rocksdb/Transaction.put:([B[B)V
+     309: iconst_1
+     310: istore        10
+     312: goto          326
+     315: aload         9
+     317: dup
+     318: getfield      #227                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.version:J
+     321: lconst_1
+     322: ladd
+     323: putfield      #227                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.version:J
+     326: aload         9
+     328: lload         11
+     330: putfield      #235                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.modifiedTimestamp:J
+     333: aload         9
+     335: aload_0
+     336: getfield      #48                 // Field instanceId:J
+     339: putfield      #162                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.owner:J
+     342: aload         9
+     344: aload_2
+     345: putfield      #236                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.data:[B
+     348: aload         5
+     350: aload         7
+     352: aload         9
+     354: invokevirtual #237                // Method org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.serialize:()[B
+     357: invokevirtual #234                // Method org/rocksdb/Transaction.put:([B[B)V
+     360: aload         5
+     362: invokevirtual #213                // Method org/rocksdb/Transaction.commit:()V
+     365: aload_0
+     366: new           #214                // class org/apache/pulsar/metadata/api/Notification
+     369: dup
+     370: iload         10
+     372: ifeq          381
+     375: getstatic     #238                // Field org/apache/pulsar/metadata/api/NotificationType.Created:Lorg/apache/pulsar/metadata/api/NotificationType;
+     378: goto          384
+     381: getstatic     #239                // Field org/apache/pulsar/metadata/api/NotificationType.Modified:Lorg/apache/pulsar/metadata/api/NotificationType;
+     384: aload_1
+     385: invokespecial #216                // Method org/apache/pulsar/metadata/api/Notification."<init>":(Lorg/apache/pulsar/metadata/api/NotificationType;Ljava/lang/String;)V
+     388: invokevirtual #217                // Method receivedNotification:(Lorg/apache/pulsar/metadata/api/Notification;)Ljava/util/concurrent/CompletableFuture;
+     391: pop
+     392: iload         10
+     394: ifeq          402
+     397: aload_0
+     398: aload_1
+     399: invokevirtual #218                // Method notifyParentChildrenChanged:(Ljava/lang/String;)V
+     402: new           #166                // class org/apache/pulsar/metadata/api/Stat
+     405: dup
+     406: aload_1
+     407: aload         9
+     409: getfield      #227                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.version:J
+     412: aload         9
+     414: getfield      #228                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.createdTimestamp:J
+     417: aload         9
+     419: getfield      #235                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.modifiedTimestamp:J
+     422: aload         9
+     424: getfield      #161                // Field org/apache/pulsar/metadata/impl/RocksdbMetadataStore$MetaValue.ephemeral:Z
+     427: iconst_1
+     428: invokespecial #171                // Method org/apache/pulsar/metadata/api/Stat."<init>":(Ljava/lang/String;JJJZZ)V
+     431: invokestatic  #158                // Method java/util/concurrent/CompletableFuture.completedFuture:(Ljava/lang/Object;)Ljava/util/concurrent/CompletableFuture;
+     434: astore        13
+     436: aload         5
+     438: ifnull        471
+     441: aload         6
+     443: ifnull        466
+     446: aload         5
+     448: invokevirtual #219                // Method org/rocksdb/Transaction.close:()V
+     451: goto          471
+     454: astore        14
+     456: aload         6
+     458: aload         14
+     460: invokevirtual #101                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     463: goto          471
+     466: aload         5
+     468: invokevirtual #219                // Method org/rocksdb/Transaction.close:()V
+     471: aload_0
+     472: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     475: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     478: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     481: aload         13
+     483: areturn
+     484: astore        7
+     486: aload         7
+     488: astore        6
+     490: aload         7
+     492: athrow
+     493: astore        15
+     495: aload         5
+     497: ifnull        530
+     500: aload         6
+     502: ifnull        525
+     505: aload         5
+     507: invokevirtual #219                // Method org/rocksdb/Transaction.close:()V
+     510: goto          530
+     513: astore        16
+     515: aload         6
+     517: aload         16
+     519: invokevirtual #101                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     522: goto          530
+     525: aload         5
+     527: invokevirtual #219                // Method org/rocksdb/Transaction.close:()V
+     530: aload         15
+     532: athrow
+     533: astore        5
+     535: aload         5
+     537: invokestatic  #109                // Method org/apache/pulsar/metadata/api/MetadataStoreException.wrap:(Ljava/lang/Throwable;)Lorg/apache/pulsar/metadata/api/MetadataStoreException;
+     540: invokestatic  #174                // Method org/apache/pulsar/common/util/FutureUtil.failedFuture:(Ljava/lang/Throwable;)Ljava/util/concurrent/CompletableFuture;
+     543: astore        6
+     545: aload_0
+     546: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     549: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     552: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     555: aload         6
+     557: areturn
+     558: astore        17
+     560: aload_0
+     561: getfield      #59                 // Field dbStateLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     564: invokevirtual #152                // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     567: invokevirtual #159                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     570: aload         17
+     572: athrow
+    Exception table:
+       from    to  target type
+         446   451   454   Class java/lang/Throwable
+          75   436   484   Class java/lang/Throwable
+          75   436   493   any
+         505   510   513   Class java/lang/Throwable
+         484   495   493   any
+          29   471   533   Class java/lang/Throwable
+         484   533   533   Class java/lang/Throwable
+          29   471   558   any
+         484   545   558   any
+         558   560   558   any
+
+  static {};
+    Code:
+       0: ldc           #3                  // class org/apache/pulsar/metadata/impl/RocksdbMetadataStore
+       2: invokestatic  #240                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #50                 // Field log:Lorg/slf4j/Logger;
+       8: ldc           #241                // String __metadata_sequentialId_key
+      10: invokestatic  #156                // Method toBytes:(Ljava/lang/String;)[B
+      13: putstatic     #70                 // Field SEQUENTIAL_ID_KEY:[B
+      16: ldc           #242                // String __metadata_instanceId_key
+      18: invokestatic  #156                // Method toBytes:(Ljava/lang/String;)[B
+      21: putstatic     #63                 // Field INSTANCE_ID_KEY:[B
+      24: new           #243                // class java/util/concurrent/ConcurrentHashMap
+      27: dup
+      28: invokespecial #244                // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      31: putstatic     #1                  // Field instancesCache:Ljava/util/Map;
+      34: return
+}

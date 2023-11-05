@@ -1,0 +1,1254 @@
+Compiled from "BulkProcessor.java"
+public class org.elasticsearch.hadoop.rest.bulk.BulkProcessor implements java.io.Closeable,org.elasticsearch.hadoop.rest.stats.StatsAware {
+  private static org.apache.commons.logging.Log LOG;
+
+  private final org.elasticsearch.hadoop.rest.RestClient restClient;
+
+  private final org.elasticsearch.hadoop.rest.Resource resource;
+
+  private final org.elasticsearch.hadoop.cfg.Settings settings;
+
+  private final org.elasticsearch.hadoop.rest.stats.Stats stats;
+
+  private final org.elasticsearch.hadoop.rest.ErrorExtractor errorExtractor;
+
+  private org.elasticsearch.hadoop.util.BytesArray ba;
+
+  private org.elasticsearch.hadoop.util.TrackingBytesArray data;
+
+  private int dataEntries;
+
+  private int bufferEntriesThreshold;
+
+  private boolean autoFlush;
+
+  private int retryLimit;
+
+  private boolean executedBulkWrite;
+
+  private boolean hadWriteErrors;
+
+  private boolean requiresRefreshAfterBulk;
+
+  private java.util.List<org.elasticsearch.hadoop.rest.bulk.handler.IBulkWriteErrorHandler> documentBulkErrorHandlers;
+
+  public org.elasticsearch.hadoop.rest.bulk.BulkProcessor(org.elasticsearch.hadoop.rest.RestClient, org.elasticsearch.hadoop.rest.Resource, org.elasticsearch.hadoop.cfg.Settings);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #7                  // class org/elasticsearch/hadoop/rest/stats/Stats
+       8: dup
+       9: invokespecial #9                  // Method org/elasticsearch/hadoop/rest/stats/Stats."<init>":()V
+      12: putfield      #10                 // Field stats:Lorg/elasticsearch/hadoop/rest/stats/Stats;
+      15: aload_0
+      16: iconst_0
+      17: putfield      #16                 // Field dataEntries:I
+      20: aload_0
+      21: iconst_1
+      22: putfield      #20                 // Field autoFlush:Z
+      25: aload_0
+      26: iconst_0
+      27: putfield      #24                 // Field executedBulkWrite:Z
+      30: aload_0
+      31: iconst_0
+      32: putfield      #27                 // Field hadWriteErrors:Z
+      35: aload_0
+      36: iconst_0
+      37: putfield      #30                 // Field requiresRefreshAfterBulk:Z
+      40: aload_0
+      41: aload_1
+      42: putfield      #33                 // Field restClient:Lorg/elasticsearch/hadoop/rest/RestClient;
+      45: aload_0
+      46: aload_2
+      47: putfield      #37                 // Field resource:Lorg/elasticsearch/hadoop/rest/Resource;
+      50: aload_0
+      51: aload_3
+      52: putfield      #41                 // Field settings:Lorg/elasticsearch/hadoop/cfg/Settings;
+      55: aload_0
+      56: aload_3
+      57: invokevirtual #45                 // Method org/elasticsearch/hadoop/cfg/Settings.getBatchFlushManual:()Z
+      60: ifne          67
+      63: iconst_1
+      64: goto          68
+      67: iconst_0
+      68: putfield      #20                 // Field autoFlush:Z
+      71: aload_0
+      72: aload_3
+      73: invokevirtual #51                 // Method org/elasticsearch/hadoop/cfg/Settings.getBatchSizeInEntries:()I
+      76: putfield      #55                 // Field bufferEntriesThreshold:I
+      79: aload_0
+      80: aload_3
+      81: invokevirtual #58                 // Method org/elasticsearch/hadoop/cfg/Settings.getBatchRefreshAfterWrite:()Z
+      84: putfield      #30                 // Field requiresRefreshAfterBulk:Z
+      87: aload_3
+      88: invokevirtual #61                 // Method org/elasticsearch/hadoop/cfg/Settings.getBatchWriteRetryCount:()I
+      91: istore        4
+      93: aload_3
+      94: invokevirtual #64                 // Method org/elasticsearch/hadoop/cfg/Settings.getBatchWriteRetryLimit:()I
+      97: istore        5
+      99: aload_0
+     100: iload         5
+     102: iload         4
+     104: if_icmplt     112
+     107: iload         4
+     109: ifge          117
+     112: iload         4
+     114: goto          119
+     117: iload         5
+     119: putfield      #67                 // Field retryLimit:I
+     122: aload_0
+     123: new           #70                 // class org/elasticsearch/hadoop/util/BytesArray
+     126: dup
+     127: aload_3
+     128: invokevirtual #72                 // Method org/elasticsearch/hadoop/cfg/Settings.getBatchSizeInBytes:()I
+     131: newarray       byte
+     133: iconst_0
+     134: invokespecial #75                 // Method org/elasticsearch/hadoop/util/BytesArray."<init>":([BI)V
+     137: putfield      #78                 // Field ba:Lorg/elasticsearch/hadoop/util/BytesArray;
+     140: aload_0
+     141: new           #82                 // class org/elasticsearch/hadoop/util/TrackingBytesArray
+     144: dup
+     145: aload_0
+     146: getfield      #78                 // Field ba:Lorg/elasticsearch/hadoop/util/BytesArray;
+     149: invokespecial #84                 // Method org/elasticsearch/hadoop/util/TrackingBytesArray."<init>":(Lorg/elasticsearch/hadoop/util/BytesArray;)V
+     152: putfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     155: new           #91                 // class org/elasticsearch/hadoop/rest/bulk/handler/impl/HttpRetryHandler
+     158: dup
+     159: aload_3
+     160: invokespecial #93                 // Method org/elasticsearch/hadoop/rest/bulk/handler/impl/HttpRetryHandler."<init>":(Lorg/elasticsearch/hadoop/cfg/Settings;)V
+     163: astore        6
+     165: new           #96                 // class org/elasticsearch/hadoop/rest/bulk/handler/impl/BulkWriteHandlerLoader
+     168: dup
+     169: invokespecial #98                 // Method org/elasticsearch/hadoop/rest/bulk/handler/impl/BulkWriteHandlerLoader."<init>":()V
+     172: astore        7
+     174: aload         7
+     176: aload_3
+     177: invokevirtual #99                 // Method org/elasticsearch/hadoop/rest/bulk/handler/impl/BulkWriteHandlerLoader.setSettings:(Lorg/elasticsearch/hadoop/cfg/Settings;)V
+     180: aload_0
+     181: new           #102                // class java/util/ArrayList
+     184: dup
+     185: invokespecial #104                // Method java/util/ArrayList."<init>":()V
+     188: putfield      #105                // Field documentBulkErrorHandlers:Ljava/util/List;
+     191: aload_0
+     192: getfield      #105                // Field documentBulkErrorHandlers:Ljava/util/List;
+     195: aload         6
+     197: invokeinterface #109,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     202: pop
+     203: aload_0
+     204: getfield      #105                // Field documentBulkErrorHandlers:Ljava/util/List;
+     207: aload         7
+     209: invokevirtual #115                // Method org/elasticsearch/hadoop/rest/bulk/handler/impl/BulkWriteHandlerLoader.loadHandlers:()Ljava/util/List;
+     212: invokeinterface #119,  2          // InterfaceMethod java/util/List.addAll:(Ljava/util/Collection;)Z
+     217: pop
+     218: aload_0
+     219: new           #123                // class org/elasticsearch/hadoop/rest/ErrorExtractor
+     222: dup
+     223: aload_3
+     224: invokevirtual #125                // Method org/elasticsearch/hadoop/cfg/Settings.getInternalVersionOrThrow:()Lorg/elasticsearch/hadoop/util/EsMajorVersion;
+     227: invokespecial #129                // Method org/elasticsearch/hadoop/rest/ErrorExtractor."<init>":(Lorg/elasticsearch/hadoop/util/EsMajorVersion;)V
+     230: putfield      #132                // Field errorExtractor:Lorg/elasticsearch/hadoop/rest/ErrorExtractor;
+     233: return
+
+  public void add(org.elasticsearch.hadoop.util.BytesRef);
+    Code:
+       0: aload_1
+       1: invokevirtual #136                // Method org/elasticsearch/hadoop/util/BytesRef.length:()I
+       4: aload_0
+       5: getfield      #78                 // Field ba:Lorg/elasticsearch/hadoop/util/BytesArray;
+       8: invokevirtual #141                // Method org/elasticsearch/hadoop/util/BytesArray.available:()I
+      11: if_icmple     58
+      14: aload_0
+      15: getfield      #20                 // Field autoFlush:Z
+      18: ifeq          28
+      21: aload_0
+      22: invokevirtual #144                // Method flush:()V
+      25: goto          58
+      28: new           #147                // class org/elasticsearch/hadoop/EsHadoopIllegalStateException
+      31: dup
+      32: ldc           #149                // String Auto-flush disabled and bulk buffer full; disable manual flush or increase capacity [current size %s]; bailing out
+      34: iconst_1
+      35: anewarray     #2                  // class java/lang/Object
+      38: dup
+      39: iconst_0
+      40: aload_0
+      41: getfield      #78                 // Field ba:Lorg/elasticsearch/hadoop/util/BytesArray;
+      44: invokevirtual #151                // Method org/elasticsearch/hadoop/util/BytesArray.capacity:()I
+      47: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      50: aastore
+      51: invokestatic  #160                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      54: invokespecial #166                // Method org/elasticsearch/hadoop/EsHadoopIllegalStateException."<init>":(Ljava/lang/String;)V
+      57: athrow
+      58: aload_0
+      59: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+      62: aload_1
+      63: invokevirtual #169                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.copyFrom:(Lorg/elasticsearch/hadoop/util/BytesRef;)V
+      66: aload_0
+      67: dup
+      68: getfield      #16                 // Field dataEntries:I
+      71: iconst_1
+      72: iadd
+      73: putfield      #16                 // Field dataEntries:I
+      76: aload_0
+      77: getfield      #55                 // Field bufferEntriesThreshold:I
+      80: ifle          146
+      83: aload_0
+      84: getfield      #16                 // Field dataEntries:I
+      87: aload_0
+      88: getfield      #55                 // Field bufferEntriesThreshold:I
+      91: if_icmplt     146
+      94: aload_0
+      95: getfield      #20                 // Field autoFlush:Z
+      98: ifeq          108
+     101: aload_0
+     102: invokevirtual #144                // Method flush:()V
+     105: goto          146
+     108: aload_0
+     109: getfield      #16                 // Field dataEntries:I
+     112: aload_0
+     113: getfield      #55                 // Field bufferEntriesThreshold:I
+     116: if_icmple     146
+     119: new           #147                // class org/elasticsearch/hadoop/EsHadoopIllegalStateException
+     122: dup
+     123: ldc           #173                // String Auto-flush disabled and maximum number of entries surpassed; disable manual flush or increase capacity [current size %s]; bailing out
+     125: iconst_1
+     126: anewarray     #2                  // class java/lang/Object
+     129: dup
+     130: iconst_0
+     131: aload_0
+     132: getfield      #55                 // Field bufferEntriesThreshold:I
+     135: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     138: aastore
+     139: invokestatic  #160                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     142: invokespecial #166                // Method org/elasticsearch/hadoop/EsHadoopIllegalStateException."<init>":(Ljava/lang/String;)V
+     145: athrow
+     146: return
+
+  public org.elasticsearch.hadoop.rest.bulk.BulkResponse tryFlush();
+    Code:
+       0: aconst_null
+       1: astore_1
+       2: iconst_0
+       3: istore_2
+       4: aload_0
+       5: invokespecial #175                // Method createDebugTxnID:()Ljava/lang/String;
+       8: astore_3
+       9: aload_0
+      10: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+      13: invokevirtual #179                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.length:()I
+      16: ifle          1199
+      19: aload_0
+      20: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+      23: invokevirtual #180                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.entries:()I
+      26: istore        4
+      28: iconst_0
+      29: istore        5
+      31: iconst_0
+      32: istore        6
+      34: iconst_0
+      35: istore        7
+      37: lconst_0
+      38: lstore        8
+      40: iconst_0
+      41: istore        10
+      43: iconst_0
+      44: istore        11
+      46: lconst_0
+      47: lstore        12
+      49: new           #102                // class java/util/ArrayList
+      52: dup
+      53: invokespecial #104                // Method java/util/ArrayList."<init>":()V
+      56: astore        14
+      58: new           #102                // class java/util/ArrayList
+      61: dup
+      62: invokespecial #104                // Method java/util/ArrayList."<init>":()V
+      65: astore        15
+      67: aload_0
+      68: getfield      #67                 // Field retryLimit:I
+      71: iflt          126
+      74: iload         11
+      76: aload_0
+      77: getfield      #67                 // Field retryLimit:I
+      80: if_icmple     126
+      83: new           #183                // class org/elasticsearch/hadoop/EsHadoopException
+      86: dup
+      87: new           #185                // class java/lang/StringBuilder
+      90: dup
+      91: invokespecial #187                // Method java/lang/StringBuilder."<init>":()V
+      94: ldc           #188                // String Executed too many bulk requests without success. Attempted [
+      96: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      99: iload         11
+     101: invokevirtual #194                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     104: ldc           #197                // String ] write operations, which exceeds the bulk request retry limit specifiedby [
+     106: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     109: ldc           #201                // String es.batch.write.retry.limit
+     111: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     114: ldc           #203                // String ], and found data still not accepted. Perhaps there is an error handler that is not terminating? Bailing out...
+     116: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     119: invokevirtual #205                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     122: invokespecial #208                // Method org/elasticsearch/hadoop/EsHadoopException."<init>":(Ljava/lang/String;)V
+     125: athrow
+     126: aload_0
+     127: aload_3
+     128: iload         10
+     130: aload         14
+     132: invokeinterface #209,  1          // InterfaceMethod java/util/List.size:()I
+     137: i2l
+     138: lload         12
+     140: invokespecial #212                // Method initFlushOperation:(Ljava/lang/String;ZJJ)V
+     143: aload_0
+     144: aload_3
+     145: ldc           #216                // String Submitting request
+     147: iconst_0
+     148: anewarray     #2                  // class java/lang/Object
+     151: invokespecial #218                // Method debugLog:(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V
+     154: aload_0
+     155: getfield      #33                 // Field restClient:Lorg/elasticsearch/hadoop/rest/RestClient;
+     158: aload_0
+     159: getfield      #37                 // Field resource:Lorg/elasticsearch/hadoop/rest/Resource;
+     162: aload_0
+     163: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     166: invokevirtual #222                // Method org/elasticsearch/hadoop/rest/RestClient.bulk:(Lorg/elasticsearch/hadoop/rest/Resource;Lorg/elasticsearch/hadoop/util/TrackingBytesArray;)Lorg/elasticsearch/hadoop/rest/RestClient$BulkActionResponse;
+     169: astore        16
+     171: aload_0
+     172: aload_3
+     173: ldc           #228                // String Response received
+     175: iconst_0
+     176: anewarray     #2                  // class java/lang/Object
+     179: invokespecial #218                // Method debugLog:(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V
+     182: iinc          11, 1
+     185: lload         8
+     187: aload         16
+     189: invokevirtual #230                // Method org/elasticsearch/hadoop/rest/RestClient$BulkActionResponse.getTimeSpent:()J
+     192: ladd
+     193: lstore        8
+     195: iload         10
+     197: ifeq          270
+     200: aload_0
+     201: getfield      #10                 // Field stats:Lorg/elasticsearch/hadoop/rest/stats/Stats;
+     204: dup
+     205: getfield      #236                // Field org/elasticsearch/hadoop/rest/stats/Stats.docsRetried:J
+     208: aload_0
+     209: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     212: invokevirtual #180                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.entries:()I
+     215: i2l
+     216: ladd
+     217: putfield      #236                // Field org/elasticsearch/hadoop/rest/stats/Stats.docsRetried:J
+     220: aload_0
+     221: getfield      #10                 // Field stats:Lorg/elasticsearch/hadoop/rest/stats/Stats;
+     224: dup
+     225: getfield      #240                // Field org/elasticsearch/hadoop/rest/stats/Stats.bytesRetried:J
+     228: aload_0
+     229: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     232: invokevirtual #179                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.length:()I
+     235: i2l
+     236: ladd
+     237: putfield      #240                // Field org/elasticsearch/hadoop/rest/stats/Stats.bytesRetried:J
+     240: aload_0
+     241: getfield      #10                 // Field stats:Lorg/elasticsearch/hadoop/rest/stats/Stats;
+     244: dup
+     245: getfield      #243                // Field org/elasticsearch/hadoop/rest/stats/Stats.bulkRetries:J
+     248: lconst_1
+     249: ladd
+     250: putfield      #243                // Field org/elasticsearch/hadoop/rest/stats/Stats.bulkRetries:J
+     253: aload_0
+     254: getfield      #10                 // Field stats:Lorg/elasticsearch/hadoop/rest/stats/Stats;
+     257: dup
+     258: getfield      #246                // Field org/elasticsearch/hadoop/rest/stats/Stats.bulkRetriesTotalTime:J
+     261: aload         16
+     263: invokevirtual #230                // Method org/elasticsearch/hadoop/rest/RestClient$BulkActionResponse.getTimeSpent:()J
+     266: ladd
+     267: putfield      #246                // Field org/elasticsearch/hadoop/rest/stats/Stats.bulkRetriesTotalTime:J
+     270: aload_0
+     271: iconst_1
+     272: putfield      #24                 // Field executedBulkWrite:Z
+     275: aload         16
+     277: invokevirtual #249                // Method org/elasticsearch/hadoop/rest/RestClient$BulkActionResponse.getEntries:()Ljava/util/Iterator;
+     280: invokeinterface #253,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     285: ifne          350
+     288: aload_0
+     289: getfield      #10                 // Field stats:Lorg/elasticsearch/hadoop/rest/stats/Stats;
+     292: dup
+     293: getfield      #258                // Field org/elasticsearch/hadoop/rest/stats/Stats.bytesAccepted:J
+     296: aload_0
+     297: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     300: invokevirtual #179                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.length:()I
+     303: i2l
+     304: ladd
+     305: putfield      #258                // Field org/elasticsearch/hadoop/rest/stats/Stats.bytesAccepted:J
+     308: aload_0
+     309: getfield      #10                 // Field stats:Lorg/elasticsearch/hadoop/rest/stats/Stats;
+     312: dup
+     313: getfield      #261                // Field org/elasticsearch/hadoop/rest/stats/Stats.docsAccepted:J
+     316: aload_0
+     317: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     320: invokevirtual #180                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.entries:()I
+     323: i2l
+     324: ladd
+     325: putfield      #261                // Field org/elasticsearch/hadoop/rest/stats/Stats.docsAccepted:J
+     328: iconst_0
+     329: istore        10
+     331: aload         16
+     333: invokevirtual #264                // Method org/elasticsearch/hadoop/rest/RestClient$BulkActionResponse.getResponseCode:()I
+     336: lload         8
+     338: iload         4
+     340: iload         4
+     342: iconst_0
+     343: invokestatic  #267                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse.complete:(IJIII)Lorg/elasticsearch/hadoop/rest/bulk/BulkResponse;
+     346: astore_1
+     347: goto          1112
+     350: iconst_0
+     351: istore        17
+     353: iconst_0
+     354: istore        18
+     356: aload         14
+     358: astore        19
+     360: new           #102                // class java/util/ArrayList
+     363: dup
+     364: invokespecial #104                // Method java/util/ArrayList."<init>":()V
+     367: astore        14
+     369: new           #102                // class java/util/ArrayList
+     372: dup
+     373: invokespecial #104                // Method java/util/ArrayList."<init>":()V
+     376: astore        20
+     378: new           #273                // class org/elasticsearch/hadoop/rest/bulk/handler/BulkWriteErrorCollector
+     381: dup
+     382: invokespecial #275                // Method org/elasticsearch/hadoop/rest/bulk/handler/BulkWriteErrorCollector."<init>":()V
+     385: astore        21
+     387: aload         16
+     389: invokevirtual #249                // Method org/elasticsearch/hadoop/rest/RestClient$BulkActionResponse.getEntries:()Ljava/util/Iterator;
+     392: astore        22
+     394: aload         22
+     396: invokeinterface #253,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     401: ifeq          1030
+     404: aload         22
+     406: invokeinterface #276,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     411: checkcast     #280                // class java/util/Map
+     414: astore        23
+     416: aload         23
+     418: invokeinterface #282,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+     423: invokeinterface #286,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+     428: invokeinterface #276,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     433: checkcast     #280                // class java/util/Map
+     436: astore        24
+     438: aload         24
+     440: ldc_w         #291                // String status
+     443: invokeinterface #293,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     448: checkcast     #155                // class java/lang/Integer
+     451: astore        25
+     453: aload_0
+     454: getfield      #132                // Field errorExtractor:Lorg/elasticsearch/hadoop/rest/ErrorExtractor;
+     457: aload         24
+     459: invokevirtual #297                // Method org/elasticsearch/hadoop/rest/ErrorExtractor.extractError:(Ljava/util/Map;)Lorg/elasticsearch/hadoop/EsHadoopException;
+     462: astore        26
+     464: aload         26
+     466: ifnonnull     519
+     469: aload_0
+     470: getfield      #10                 // Field stats:Lorg/elasticsearch/hadoop/rest/stats/Stats;
+     473: dup
+     474: getfield      #258                // Field org/elasticsearch/hadoop/rest/stats/Stats.bytesAccepted:J
+     477: aload_0
+     478: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     481: iload         18
+     483: invokevirtual #301                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.length:(I)I
+     486: i2l
+     487: ladd
+     488: putfield      #258                // Field org/elasticsearch/hadoop/rest/stats/Stats.bytesAccepted:J
+     491: aload_0
+     492: getfield      #10                 // Field stats:Lorg/elasticsearch/hadoop/rest/stats/Stats;
+     495: dup
+     496: getfield      #261                // Field org/elasticsearch/hadoop/rest/stats/Stats.docsAccepted:J
+     499: lconst_1
+     500: ladd
+     501: putfield      #261                // Field org/elasticsearch/hadoop/rest/stats/Stats.docsAccepted:J
+     504: iinc          5, 1
+     507: aload_0
+     508: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     511: iload         18
+     513: invokevirtual #304                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.remove:(I)V
+     516: goto          1024
+     519: aload_0
+     520: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     523: iload         18
+     525: invokevirtual #308                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.entry:(I)Lorg/elasticsearch/hadoop/util/BytesArray;
+     528: astore        27
+     530: aload         25
+     532: ifnonnull     539
+     535: iconst_m1
+     536: goto          544
+     539: aload         25
+     541: invokevirtual #312                // Method java/lang/Integer.intValue:()I
+     544: istore        28
+     546: aload         19
+     548: invokeinterface #315,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+     553: ifeq          572
+     556: new           #318                // class org/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt
+     559: dup
+     560: aload_0
+     561: iconst_1
+     562: iload         17
+     564: invokespecial #320                // Method org/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt."<init>":(Lorg/elasticsearch/hadoop/rest/bulk/BulkProcessor;II)V
+     567: astore        29
+     569: goto          592
+     572: aload         19
+     574: iload         17
+     576: invokeinterface #323,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     581: checkcast     #318                // class org/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt
+     584: astore        29
+     586: aload         29
+     588: invokestatic  #326                // Method org/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt.access$008:(Lorg/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt;)I
+     591: pop
+     592: new           #102                // class java/util/ArrayList
+     595: dup
+     596: invokespecial #104                // Method java/util/ArrayList."<init>":()V
+     599: astore        30
+     601: new           #330                // class org/elasticsearch/hadoop/rest/bulk/handler/BulkWriteFailure
+     604: dup
+     605: iload         28
+     607: aload         26
+     609: aload         27
+     611: aload         29
+     613: invokestatic  #332                // Method org/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt.access$000:(Lorg/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt;)I
+     616: aload         30
+     618: invokespecial #335                // Method org/elasticsearch/hadoop/rest/bulk/handler/BulkWriteFailure."<init>":(ILjava/lang/Exception;Lorg/elasticsearch/hadoop/util/BytesArray;ILjava/util/List;)V
+     621: astore        31
+     623: aload_0
+     624: getfield      #105                // Field documentBulkErrorHandlers:Ljava/util/List;
+     627: invokeinterface #338,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     632: astore        32
+     634: aload         32
+     636: invokeinterface #253,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     641: ifeq          1024
+     644: aload         32
+     646: invokeinterface #276,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     651: checkcast     #339                // class org/elasticsearch/hadoop/rest/bulk/handler/IBulkWriteErrorHandler
+     654: astore        33
+     656: aload         33
+     658: aload         31
+     660: aload         21
+     662: invokeinterface #341,  3          // InterfaceMethod org/elasticsearch/hadoop/rest/bulk/handler/IBulkWriteErrorHandler.onError:(Lorg/elasticsearch/hadoop/handler/Exceptional;Lorg/elasticsearch/hadoop/handler/ErrorCollector;)Lorg/elasticsearch/hadoop/handler/HandlerResult;
+     667: astore        34
+     669: goto          726
+     672: astore        35
+     674: aload         35
+     676: invokevirtual #347                // Method org/elasticsearch/hadoop/handler/EsHadoopAbortHandlerException.getCause:()Ljava/lang/Throwable;
+     679: astore        36
+     681: aload         36
+     683: ifnull        699
+     686: getstatic     #351                // Field LOG:Lorg/apache/commons/logging/Log;
+     689: ldc_w         #355                // String Bulk write error handler abort exception caught with underlying cause:
+     692: aload         36
+     694: invokeinterface #357,  3          // InterfaceMethod org/apache/commons/logging/Log.error:(Ljava/lang/Object;Ljava/lang/Throwable;)V
+     699: getstatic     #363                // Field org/elasticsearch/hadoop/handler/HandlerResult.ABORT:Lorg/elasticsearch/hadoop/handler/HandlerResult;
+     702: astore        34
+     704: aload         35
+     706: astore        26
+     708: goto          726
+     711: astore        35
+     713: new           #183                // class org/elasticsearch/hadoop/EsHadoopException
+     716: dup
+     717: ldc_w         #371                // String Encountered exception during error handler.
+     720: aload         35
+     722: invokespecial #373                // Method org/elasticsearch/hadoop/EsHadoopException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     725: athrow
+     726: getstatic     #376                // Field org/elasticsearch/hadoop/rest/bulk/BulkProcessor$1.$SwitchMap$org$elasticsearch$hadoop$handler$HandlerResult:[I
+     729: aload         34
+     731: invokevirtual #382                // Method org/elasticsearch/hadoop/handler/HandlerResult.ordinal:()I
+     734: iaload
+     735: tableswitch   { // 1 to 3
+                     1: 760
+                     2: 949
+                     3: 974
+               default: 1021
+          }
+     760: aload         21
+     762: invokevirtual #385                // Method org/elasticsearch/hadoop/rest/bulk/handler/BulkWriteErrorCollector.getAndClearMessage:()Ljava/lang/String;
+     765: ifnonnull     772
+     768: iconst_1
+     769: goto          773
+     772: iconst_0
+     773: invokestatic  #388                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     776: ldc_w         #393                // String Found pass message with Handled response. Be sure to return the value returned from pass(String) call.
+     779: invokestatic  #395                // Method org/elasticsearch/hadoop/util/Assert.isTrue:(Ljava/lang/Boolean;Ljava/lang/String;)V
+     782: aload         21
+     784: invokevirtual #401                // Method org/elasticsearch/hadoop/rest/bulk/handler/BulkWriteErrorCollector.receivedRetries:()Z
+     787: ifeq          934
+     790: aload         21
+     792: invokevirtual #404                // Method org/elasticsearch/hadoop/rest/bulk/handler/BulkWriteErrorCollector.getAndClearRetryValue:()[B
+     795: astore        35
+     797: aload         35
+     799: ifnull        812
+     802: aload         27
+     804: invokevirtual #408                // Method org/elasticsearch/hadoop/util/BytesArray.bytes:()[B
+     807: aload         35
+     809: if_acmpne     828
+     812: aload         14
+     814: aload         29
+     816: invokeinterface #109,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     821: pop
+     822: iinc          18, 1
+     825: goto          931
+     828: aload         27
+     830: invokevirtual #408                // Method org/elasticsearch/hadoop/util/BytesArray.bytes:()[B
+     833: aload         27
+     835: invokevirtual #411                // Method org/elasticsearch/hadoop/util/BytesArray.offset:()I
+     838: aload         27
+     840: invokevirtual #414                // Method org/elasticsearch/hadoop/util/BytesArray.length:()I
+     843: aload         35
+     845: iconst_0
+     846: aload         35
+     848: arraylength
+     849: invokestatic  #415                // Method org/elasticsearch/hadoop/util/ArrayUtils.sliceEquals:([BII[BII)Z
+     852: ifeq          871
+     855: aload         14
+     857: aload         29
+     859: invokeinterface #109,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     864: pop
+     865: iinc          18, 1
+     868: goto          931
+     871: aload_0
+     872: aload         35
+     874: invokespecial #421                // Method validateEditedEntry:([B)Lorg/elasticsearch/hadoop/util/BytesRef;
+     877: astore        36
+     879: aload_0
+     880: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     883: iload         18
+     885: invokevirtual #304                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.remove:(I)V
+     888: aload_0
+     889: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     892: aload         36
+     894: invokevirtual #169                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.copyFrom:(Lorg/elasticsearch/hadoop/util/BytesRef;)V
+     897: aload_0
+     898: getfield      #78                 // Field ba:Lorg/elasticsearch/hadoop/util/BytesArray;
+     901: invokevirtual #141                // Method org/elasticsearch/hadoop/util/BytesArray.available:()I
+     904: aload         36
+     906: invokevirtual #136                // Method org/elasticsearch/hadoop/util/BytesRef.length:()I
+     909: if_icmpge     914
+     912: iconst_1
+     913: istore_2
+     914: aload         29
+     916: iconst_0
+     917: invokestatic  #425                // Method org/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt.access$002:(Lorg/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt;I)I
+     920: pop
+     921: aload         20
+     923: aload         29
+     925: invokeinterface #109,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     930: pop
+     931: goto          1024
+     934: aload_0
+     935: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     938: iload         18
+     940: invokevirtual #304                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.remove:(I)V
+     943: iinc          6, 1
+     946: goto          1024
+     949: aload         21
+     951: invokevirtual #385                // Method org/elasticsearch/hadoop/rest/bulk/handler/BulkWriteErrorCollector.getAndClearMessage:()Ljava/lang/String;
+     954: astore        35
+     956: aload         35
+     958: ifnull        634
+     961: aload         30
+     963: aload         35
+     965: invokeinterface #109,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     970: pop
+     971: goto          634
+     974: aload         21
+     976: invokevirtual #385                // Method org/elasticsearch/hadoop/rest/bulk/handler/BulkWriteErrorCollector.getAndClearMessage:()Ljava/lang/String;
+     979: pop
+     980: aload_0
+     981: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     984: iload         18
+     986: invokevirtual #304                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.remove:(I)V
+     989: iinc          7, 1
+     992: aload         15
+     994: new           #429                // class org/elasticsearch/hadoop/rest/bulk/BulkResponse$BulkError
+     997: dup
+     998: aload         29
+    1000: invokestatic  #431                // Method org/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt.access$100:(Lorg/elasticsearch/hadoop/rest/bulk/BulkProcessor$BulkAttempt;)I
+    1003: aload         27
+    1005: iload         28
+    1007: aload         26
+    1009: invokespecial #434                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse$BulkError."<init>":(ILorg/elasticsearch/hadoop/util/BytesArray;ILorg/elasticsearch/hadoop/EsHadoopException;)V
+    1012: invokeinterface #109,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+    1017: pop
+    1018: goto          1024
+    1021: goto          634
+    1024: iinc          17, 1
+    1027: goto          394
+    1030: aload         14
+    1032: aload         20
+    1034: invokeinterface #119,  2          // InterfaceMethod java/util/List.addAll:(Ljava/util/Collection;)Z
+    1039: pop
+    1040: aload         14
+    1042: invokeinterface #315,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+    1047: ifne          1063
+    1050: iconst_1
+    1051: istore        10
+    1053: aload         21
+    1055: invokevirtual #437                // Method org/elasticsearch/hadoop/rest/bulk/handler/BulkWriteErrorCollector.getDelayTimeBetweenRetries:()J
+    1058: lstore        12
+    1060: goto          1112
+    1063: iconst_0
+    1064: istore        10
+    1066: iload         7
+    1068: ifle          1095
+    1071: aload         16
+    1073: invokevirtual #264                // Method org/elasticsearch/hadoop/rest/RestClient$BulkActionResponse.getResponseCode:()I
+    1076: lload         8
+    1078: iload         4
+    1080: iload         5
+    1082: iload         6
+    1084: iload         7
+    1086: aload         15
+    1088: invokestatic  #440                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse.partial:(IJIIIILjava/util/List;)Lorg/elasticsearch/hadoop/rest/bulk/BulkResponse;
+    1091: astore_1
+    1092: goto          1112
+    1095: aload         16
+    1097: invokevirtual #264                // Method org/elasticsearch/hadoop/rest/RestClient$BulkActionResponse.getResponseCode:()I
+    1100: lload         8
+    1102: iload         4
+    1104: iload         5
+    1106: iload         6
+    1108: invokestatic  #267                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse.complete:(IJIII)Lorg/elasticsearch/hadoop/rest/bulk/BulkResponse;
+    1111: astore_1
+    1112: iload         10
+    1114: ifne          67
+    1117: aload_0
+    1118: aload_3
+    1119: ldc_w         #444                // String Completed. [%d] Original Entries. [%d] Attempts. [%d/%d] Docs Sent. [%d/%d] Docs Skipped. [%d/%d] Docs Aborted.
+    1122: bipush        8
+    1124: anewarray     #2                  // class java/lang/Object
+    1127: dup
+    1128: iconst_0
+    1129: iload         4
+    1131: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+    1134: aastore
+    1135: dup
+    1136: iconst_1
+    1137: iload         11
+    1139: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+    1142: aastore
+    1143: dup
+    1144: iconst_2
+    1145: iload         5
+    1147: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+    1150: aastore
+    1151: dup
+    1152: iconst_3
+    1153: iload         4
+    1155: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+    1158: aastore
+    1159: dup
+    1160: iconst_4
+    1161: iload         6
+    1163: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+    1166: aastore
+    1167: dup
+    1168: iconst_5
+    1169: iload         4
+    1171: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+    1174: aastore
+    1175: dup
+    1176: bipush        6
+    1178: iload         7
+    1180: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+    1183: aastore
+    1184: dup
+    1185: bipush        7
+    1187: iload         4
+    1189: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+    1192: aastore
+    1193: invokespecial #218                // Method debugLog:(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V
+    1196: goto          1203
+    1199: invokestatic  #446                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse.complete:()Lorg/elasticsearch/hadoop/rest/bulk/BulkResponse;
+    1202: astore_1
+    1203: goto          1236
+    1206: astore        4
+    1208: aload_0
+    1209: aload_3
+    1210: ldc_w         #449                // String Failed. %s
+    1213: iconst_1
+    1214: anewarray     #2                  // class java/lang/Object
+    1217: dup
+    1218: iconst_0
+    1219: aload         4
+    1221: invokevirtual #451                // Method org/elasticsearch/hadoop/EsHadoopException.getMessage:()Ljava/lang/String;
+    1224: aastore
+    1225: invokespecial #218                // Method debugLog:(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V
+    1228: aload_0
+    1229: iconst_1
+    1230: putfield      #27                 // Field hadWriteErrors:Z
+    1233: aload         4
+    1235: athrow
+    1236: iload_2
+    1237: ifeq          1279
+    1240: aload_0
+    1241: new           #70                 // class org/elasticsearch/hadoop/util/BytesArray
+    1244: dup
+    1245: aload_0
+    1246: getfield      #41                 // Field settings:Lorg/elasticsearch/hadoop/cfg/Settings;
+    1249: invokevirtual #72                 // Method org/elasticsearch/hadoop/cfg/Settings.getBatchSizeInBytes:()I
+    1252: newarray       byte
+    1254: iconst_0
+    1255: invokespecial #75                 // Method org/elasticsearch/hadoop/util/BytesArray."<init>":([BI)V
+    1258: putfield      #78                 // Field ba:Lorg/elasticsearch/hadoop/util/BytesArray;
+    1261: aload_0
+    1262: new           #82                 // class org/elasticsearch/hadoop/util/TrackingBytesArray
+    1265: dup
+    1266: aload_0
+    1267: getfield      #78                 // Field ba:Lorg/elasticsearch/hadoop/util/BytesArray;
+    1270: invokespecial #84                 // Method org/elasticsearch/hadoop/util/TrackingBytesArray."<init>":(Lorg/elasticsearch/hadoop/util/BytesArray;)V
+    1273: putfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+    1276: goto          1291
+    1279: aload_0
+    1280: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+    1283: invokevirtual #454                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.reset:()V
+    1286: aload_0
+    1287: iconst_0
+    1288: putfield      #16                 // Field dataEntries:I
+    1291: aload_1
+    1292: areturn
+    Exception table:
+       from    to  target type
+         656   669   672   Class org/elasticsearch/hadoop/handler/EsHadoopAbortHandlerException
+         656   669   711   Class java/lang/Exception
+           9  1203  1206   Class org/elasticsearch/hadoop/EsHadoopException
+
+  private org.elasticsearch.hadoop.util.BytesRef validateEditedEntry(byte[]);
+    Code:
+       0: new           #137                // class org/elasticsearch/hadoop/util/BytesRef
+       3: dup
+       4: invokespecial #457                // Method org/elasticsearch/hadoop/util/BytesRef."<init>":()V
+       7: astore_2
+       8: bipush        125
+      10: istore_3
+      11: bipush        10
+      13: istore        4
+      15: iconst_0
+      16: istore        5
+      18: aload_1
+      19: astore        6
+      21: aload         6
+      23: arraylength
+      24: istore        7
+      26: iconst_0
+      27: istore        8
+      29: iload         8
+      31: iload         7
+      33: if_icmpge     59
+      36: aload         6
+      38: iload         8
+      40: baload
+      41: istore        9
+      43: iload         9
+      45: iload         4
+      47: if_icmpne     53
+      50: iinc          5, 1
+      53: iinc          8, 1
+      56: goto          29
+      59: aload_2
+      60: aload_1
+      61: invokevirtual #458                // Method org/elasticsearch/hadoop/util/BytesRef.add:([B)V
+      64: aload_1
+      65: aload_1
+      66: arraylength
+      67: iconst_1
+      68: isub
+      69: baload
+      70: istore        6
+      72: iload         6
+      74: iload         4
+      76: if_icmpne     120
+      79: iload         5
+      81: iconst_2
+      82: if_icmpeq     183
+      85: new           #461                // class org/elasticsearch/hadoop/EsHadoopIllegalArgumentException
+      88: dup
+      89: new           #185                // class java/lang/StringBuilder
+      92: dup
+      93: invokespecial #187                // Method java/lang/StringBuilder."<init>":()V
+      96: ldc_w         #463                // String Encountered malformed data entry for bulk write retry. Data contains [
+      99: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     102: iload         5
+     104: invokevirtual #194                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     107: ldc_w         #465                // String ] newline characters (\\n) but expected to have [2].
+     110: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     113: invokevirtual #205                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     116: invokespecial #467                // Method org/elasticsearch/hadoop/EsHadoopIllegalArgumentException."<init>":(Ljava/lang/String;)V
+     119: athrow
+     120: iload         6
+     122: iload_3
+     123: if_icmpne     183
+     126: iload         5
+     128: iconst_1
+     129: if_icmpeq     167
+     132: new           #461                // class org/elasticsearch/hadoop/EsHadoopIllegalArgumentException
+     135: dup
+     136: new           #185                // class java/lang/StringBuilder
+     139: dup
+     140: invokespecial #187                // Method java/lang/StringBuilder."<init>":()V
+     143: ldc_w         #463                // String Encountered malformed data entry for bulk write retry. Data contains [
+     146: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     149: iload         5
+     151: invokevirtual #194                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     154: ldc_w         #468                // String ] newline characters (\\n) but expected to have [1].
+     157: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     160: invokevirtual #205                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     163: invokespecial #467                // Method org/elasticsearch/hadoop/EsHadoopIllegalArgumentException."<init>":(Ljava/lang/String;)V
+     166: athrow
+     167: iconst_1
+     168: newarray       byte
+     170: dup
+     171: iconst_0
+     172: iload         4
+     174: bastore
+     175: astore        7
+     177: aload_2
+     178: aload         7
+     180: invokevirtual #458                // Method org/elasticsearch/hadoop/util/BytesRef.add:([B)V
+     183: aload_2
+     184: areturn
+
+  private void initFlushOperation(java.lang.String, boolean, long, long);
+    Code:
+       0: iload_2
+       1: ifeq          95
+       4: lload         5
+       6: lconst_0
+       7: lcmp
+       8: ifle          73
+      11: aload_0
+      12: aload_1
+      13: ldc_w         #470                // String Retrying [%d] entries after backing off for [%s] ms
+      16: iconst_2
+      17: anewarray     #2                  // class java/lang/Object
+      20: dup
+      21: iconst_0
+      22: lload_3
+      23: invokestatic  #472                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      26: aastore
+      27: dup
+      28: iconst_1
+      29: lload         5
+      31: invokestatic  #477                // Method org/elasticsearch/hadoop/util/unit/TimeValue.timeValueMillis:(J)Lorg/elasticsearch/hadoop/util/unit/TimeValue;
+      34: aastore
+      35: invokespecial #218                // Method debugLog:(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V
+      38: lload         5
+      40: invokestatic  #483                // Method java/lang/Thread.sleep:(J)V
+      43: goto          130
+      46: astore        7
+      48: aload_0
+      49: aload_1
+      50: ldc_w         #491                // String Thread interrupted - giving up on retrying...
+      53: iconst_0
+      54: anewarray     #2                  // class java/lang/Object
+      57: invokespecial #218                // Method debugLog:(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V
+      60: new           #183                // class org/elasticsearch/hadoop/EsHadoopException
+      63: dup
+      64: ldc_w         #491                // String Thread interrupted - giving up on retrying...
+      67: aload         7
+      69: invokespecial #373                // Method org/elasticsearch/hadoop/EsHadoopException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      72: athrow
+      73: aload_0
+      74: aload_1
+      75: ldc_w         #493                // String Retrying [%d] entries immediately (without backoff)
+      78: iconst_1
+      79: anewarray     #2                  // class java/lang/Object
+      82: dup
+      83: iconst_0
+      84: lload_3
+      85: invokestatic  #472                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      88: aastore
+      89: invokespecial #218                // Method debugLog:(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V
+      92: goto          130
+      95: aload_0
+      96: aload_1
+      97: ldc_w         #495                // String Sending batch of [%d] bytes/[%s] entries
+     100: iconst_2
+     101: anewarray     #2                  // class java/lang/Object
+     104: dup
+     105: iconst_0
+     106: aload_0
+     107: getfield      #87                 // Field data:Lorg/elasticsearch/hadoop/util/TrackingBytesArray;
+     110: invokevirtual #179                // Method org/elasticsearch/hadoop/util/TrackingBytesArray.length:()I
+     113: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     116: aastore
+     117: dup
+     118: iconst_1
+     119: aload_0
+     120: getfield      #16                 // Field dataEntries:I
+     123: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     126: aastore
+     127: invokespecial #218                // Method debugLog:(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V
+     130: return
+    Exception table:
+       from    to  target type
+          38    43    46   Class java/lang/InterruptedException
+
+  private java.lang.String createDebugTxnID();
+    Code:
+       0: getstatic     #351                // Field LOG:Lorg/apache/commons/logging/Log;
+       3: invokeinterface #497,  1          // InterfaceMethod org/apache/commons/logging/Log.isDebugEnabled:()Z
+       8: ifeq          41
+      11: new           #185                // class java/lang/StringBuilder
+      14: dup
+      15: invokespecial #187                // Method java/lang/StringBuilder."<init>":()V
+      18: aload_0
+      19: invokevirtual #500                // Method java/lang/Object.hashCode:()I
+      22: invokestatic  #503                // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+      25: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      28: invokestatic  #506                // Method java/lang/System.currentTimeMillis:()J
+      31: invokestatic  #511                // Method java/lang/Long.toString:(J)Ljava/lang/String;
+      34: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      37: invokevirtual #205                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      40: areturn
+      41: aconst_null
+      42: areturn
+
+  private void debugLog(java.lang.String, java.lang.String, java.lang.Object...);
+    Code:
+       0: getstatic     #351                // Field LOG:Lorg/apache/commons/logging/Log;
+       3: invokeinterface #497,  1          // InterfaceMethod org/apache/commons/logging/Log.isDebugEnabled:()Z
+       8: ifeq          99
+      11: aload_3
+      12: arraylength
+      13: ifle          61
+      16: getstatic     #351                // Field LOG:Lorg/apache/commons/logging/Log;
+      19: new           #185                // class java/lang/StringBuilder
+      22: dup
+      23: invokespecial #187                // Method java/lang/StringBuilder."<init>":()V
+      26: ldc_w         #514                // String Bulk Flush #[
+      29: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      32: aload_1
+      33: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      36: ldc_w         #516                // String ]:
+      39: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      42: aload_2
+      43: aload_3
+      44: invokestatic  #160                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      47: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      50: invokevirtual #205                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      53: invokeinterface #518,  2          // InterfaceMethod org/apache/commons/logging/Log.info:(Ljava/lang/Object;)V
+      58: goto          99
+      61: getstatic     #351                // Field LOG:Lorg/apache/commons/logging/Log;
+      64: new           #185                // class java/lang/StringBuilder
+      67: dup
+      68: invokespecial #187                // Method java/lang/StringBuilder."<init>":()V
+      71: ldc_w         #514                // String Bulk Flush #[
+      74: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      77: aload_1
+      78: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      81: ldc_w         #516                // String ]:
+      84: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      87: aload_2
+      88: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      91: invokevirtual #205                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      94: invokeinterface #518,  2          // InterfaceMethod org/apache/commons/logging/Log.info:(Ljava/lang/Object;)V
+      99: return
+
+  public void flush();
+    Code:
+       0: aload_0
+       1: invokevirtual #522                // Method tryFlush:()Lorg/elasticsearch/hadoop/rest/bulk/BulkResponse;
+       4: astore_1
+       5: aload_1
+       6: invokevirtual #525                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse.getDocumentErrors:()Ljava/util/List;
+       9: invokeinterface #315,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+      14: ifne          200
+      17: iconst_5
+      18: istore_2
+      19: ldc_w         #528                // String Could not write all entries for bulk operation [%s/%s]. Error sample (first [%s] error messages):\n
+      22: iconst_3
+      23: anewarray     #2                  // class java/lang/Object
+      26: dup
+      27: iconst_0
+      28: aload_1
+      29: invokevirtual #525                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse.getDocumentErrors:()Ljava/util/List;
+      32: invokeinterface #209,  1          // InterfaceMethod java/util/List.size:()I
+      37: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      40: aastore
+      41: dup
+      42: iconst_1
+      43: aload_1
+      44: invokevirtual #530                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse.getTotalDocs:()I
+      47: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      50: aastore
+      51: dup
+      52: iconst_2
+      53: iload_2
+      54: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      57: aastore
+      58: invokestatic  #160                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      61: astore_3
+      62: new           #185                // class java/lang/StringBuilder
+      65: dup
+      66: aload_3
+      67: invokespecial #533                // Method java/lang/StringBuilder."<init>":(Ljava/lang/String;)V
+      70: astore        4
+      72: iconst_0
+      73: istore        5
+      75: aload_1
+      76: invokevirtual #525                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse.getDocumentErrors:()Ljava/util/List;
+      79: invokeinterface #338,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      84: astore        6
+      86: aload         6
+      88: invokeinterface #253,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      93: ifeq          178
+      96: aload         6
+      98: invokeinterface #276,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     103: checkcast     #429                // class org/elasticsearch/hadoop/rest/bulk/BulkResponse$BulkError
+     106: astore        7
+     108: iload         5
+     110: iload_2
+     111: if_icmplt     117
+     114: goto          178
+     117: aload         4
+     119: ldc_w         #534                // String \t
+     122: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     125: pop
+     126: aload_0
+     127: aload         4
+     129: aload         7
+     131: invokevirtual #536                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse$BulkError.getError:()Lorg/elasticsearch/hadoop/EsHadoopException;
+     134: invokespecial #540                // Method appendError:(Ljava/lang/StringBuilder;Ljava/lang/Throwable;)V
+     137: aload         4
+     139: ldc_w         #544                // String \n
+     142: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     145: pop
+     146: aload         4
+     148: ldc_w         #534                // String \t
+     151: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     154: aload         7
+     156: invokevirtual #546                // Method org/elasticsearch/hadoop/rest/bulk/BulkResponse$BulkError.getDocument:()Lorg/elasticsearch/hadoop/util/BytesArray;
+     159: invokevirtual #550                // Method org/elasticsearch/hadoop/util/BytesArray.toString:()Ljava/lang/String;
+     162: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     165: ldc_w         #544                // String \n
+     168: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     171: pop
+     172: iinc          5, 1
+     175: goto          86
+     178: aload         4
+     180: ldc_w         #551                // String Bailing out...
+     183: invokevirtual #190                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     186: pop
+     187: new           #183                // class org/elasticsearch/hadoop/EsHadoopException
+     190: dup
+     191: aload         4
+     193: invokevirtual #205                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     196: invokespecial #208                // Method org/elasticsearch/hadoop/EsHadoopException."<init>":(Ljava/lang/String;)V
+     199: athrow
+     200: return
+
+  private void appendError(java.lang.StringBuilder, java.lang.Throwable);
+    Code:
+       0: aload_2
+       1: ifnull        33
+       4: aload_1
+       5: aload_2
+       6: invokevirtual #553                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+       9: pop
+      10: aload_2
+      11: invokevirtual #556                // Method java/lang/Throwable.getCause:()Ljava/lang/Throwable;
+      14: ifnull        33
+      17: aload_1
+      18: bipush        59
+      20: invokevirtual #559                // Method java/lang/StringBuilder.append:(C)Ljava/lang/StringBuilder;
+      23: pop
+      24: aload_0
+      25: aload_1
+      26: aload_2
+      27: invokevirtual #556                // Method java/lang/Throwable.getCause:()Ljava/lang/Throwable;
+      30: invokespecial #540                // Method appendError:(Ljava/lang/StringBuilder;Ljava/lang/Throwable;)V
+      33: return
+
+  public void close();
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field hadWriteErrors:Z
+       4: ifne          14
+       7: aload_0
+       8: invokevirtual #144                // Method flush:()V
+      11: goto          36
+      14: getstatic     #351                // Field LOG:Lorg/apache/commons/logging/Log;
+      17: invokeinterface #497,  1          // InterfaceMethod org/apache/commons/logging/Log.isDebugEnabled:()Z
+      22: ifeq          36
+      25: getstatic     #351                // Field LOG:Lorg/apache/commons/logging/Log;
+      28: ldc_w         #562                // String Dirty close; ignoring last existing write batch...
+      31: invokeinterface #564,  2          // InterfaceMethod org/apache/commons/logging/Log.debug:(Ljava/lang/Object;)V
+      36: aload_0
+      37: getfield      #30                 // Field requiresRefreshAfterBulk:Z
+      40: ifeq          97
+      43: aload_0
+      44: getfield      #24                 // Field executedBulkWrite:Z
+      47: ifeq          97
+      50: aload_0
+      51: getfield      #33                 // Field restClient:Lorg/elasticsearch/hadoop/rest/RestClient;
+      54: aload_0
+      55: getfield      #37                 // Field resource:Lorg/elasticsearch/hadoop/rest/Resource;
+      58: invokevirtual #567                // Method org/elasticsearch/hadoop/rest/RestClient.refresh:(Lorg/elasticsearch/hadoop/rest/Resource;)V
+      61: getstatic     #351                // Field LOG:Lorg/apache/commons/logging/Log;
+      64: invokeinterface #497,  1          // InterfaceMethod org/apache/commons/logging/Log.isDebugEnabled:()Z
+      69: ifeq          97
+      72: getstatic     #351                // Field LOG:Lorg/apache/commons/logging/Log;
+      75: ldc_w         #571                // String Refreshing index [%s]
+      78: iconst_1
+      79: anewarray     #2                  // class java/lang/Object
+      82: dup
+      83: iconst_0
+      84: aload_0
+      85: getfield      #37                 // Field resource:Lorg/elasticsearch/hadoop/rest/Resource;
+      88: aastore
+      89: invokestatic  #160                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      92: invokeinterface #564,  2          // InterfaceMethod org/apache/commons/logging/Log.debug:(Ljava/lang/Object;)V
+      97: aload_0
+      98: getfield      #105                // Field documentBulkErrorHandlers:Ljava/util/List;
+     101: invokeinterface #338,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     106: astore_1
+     107: aload_1
+     108: invokeinterface #253,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     113: ifeq          135
+     116: aload_1
+     117: invokeinterface #276,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     122: checkcast     #339                // class org/elasticsearch/hadoop/rest/bulk/handler/IBulkWriteErrorHandler
+     125: astore_2
+     126: aload_2
+     127: invokeinterface #573,  1          // InterfaceMethod org/elasticsearch/hadoop/rest/bulk/handler/IBulkWriteErrorHandler.close:()V
+     132: goto          107
+     135: goto          184
+     138: astore_3
+     139: aload_0
+     140: getfield      #105                // Field documentBulkErrorHandlers:Ljava/util/List;
+     143: invokeinterface #338,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     148: astore        4
+     150: aload         4
+     152: invokeinterface #253,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     157: ifeq          182
+     160: aload         4
+     162: invokeinterface #276,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     167: checkcast     #339                // class org/elasticsearch/hadoop/rest/bulk/handler/IBulkWriteErrorHandler
+     170: astore        5
+     172: aload         5
+     174: invokeinterface #573,  1          // InterfaceMethod org/elasticsearch/hadoop/rest/bulk/handler/IBulkWriteErrorHandler.close:()V
+     179: goto          150
+     182: aload_3
+     183: athrow
+     184: return
+    Exception table:
+       from    to  target type
+           0    97   138   any
+
+  public org.elasticsearch.hadoop.rest.stats.Stats stats();
+    Code:
+       0: new           #7                  // class org/elasticsearch/hadoop/rest/stats/Stats
+       3: dup
+       4: aload_0
+       5: getfield      #10                 // Field stats:Lorg/elasticsearch/hadoop/rest/stats/Stats;
+       8: invokespecial #576                // Method org/elasticsearch/hadoop/rest/stats/Stats."<init>":(Lorg/elasticsearch/hadoop/rest/stats/Stats;)V
+      11: areturn
+
+  static {};
+    Code:
+       0: ldc           #11                 // class org/elasticsearch/hadoop/rest/bulk/BulkProcessor
+       2: invokestatic  #579                // Method org/apache/commons/logging/LogFactory.getLog:(Ljava/lang/Class;)Lorg/apache/commons/logging/Log;
+       5: putstatic     #351                // Field LOG:Lorg/apache/commons/logging/Log;
+       8: return
+}

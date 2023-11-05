@@ -1,0 +1,148 @@
+<?xml version="1.0"?>
+
+<!--
+ | macker
+ |
+ | @todo Set default goal.
+ |-->
+<project xmlns:j="jelly:core"
+    xmlns:util="jelly:util"
+    xmlns:maven="jelly:maven"
+    xmlns:doc="doc">
+
+
+    <path id="macker.classpath">
+    	<pathelement path="${plugin.getDependencyPath('bcel')}"/>
+    	<pathelement path="${plugin.getDependencyPath('commons-lang')}"/>    	
+        <pathelement path="${plugin.getDependencyPath('innig+util')}"/>
+        <pathelement path="${plugin.getDependencyPath('innig:macker')}"/>
+        <pathelement path="${plugin.getDependencyPath('regexp')}"/>
+        <pathelement path="${plugin.getDependencyPath('jdom')}"/>
+        <pathelement path="${plugin.getDependencyPath('xalan')}"/>
+        <pathelement path="${plugin.getDependencyPath('xerces:xercesImpl')}"/>
+        <pathelement path="${plugin.getDependencyPath('xerces:xmlParserAPIs')}"/>
+    </path>
+
+	<!--
+	 | Defines the macker ant task.
+	 |-->
+    <taskdef name="macker"
+            classname="net.innig.macker.ant.MackerAntTask"
+            classpathref="macker.classpath"/>
+            
+	<taskdef name="macker-report"
+    	classname="net.innig.macker.ant.MackerReportAntTask"
+    	classpathref="macker.classpath"/>
+
+
+	    
+	<goal name="maven-macker-plugin:register">    		
+      	<doc:registerReport 
+        	name="Macker" 
+        	pluginName="maven-macker-plugin" 
+        	link="macker-report"
+        	description="Checks Java dependencies rules."/>    	
+	  </goal>
+  
+  	<goal name="maven-macker-plugin:deregister">
+      <doc:deregisterReport name="Macker"/>
+  	</goal>
+  
+  	<goal name="maven-macker-plugin:report">
+    	<attainGoal name="macker:report"/>
+  	</goal>
+
+	<goal name="macker:info" description="Display information on the plugin">
+    	<echo>maven-macker-plugin</echo>
+    	<echo>${pom.description}</echo>
+	</goal>
+
+	<goal name="macker"
+    	prereqs="macker:macker"
+    	description="Check Macker rules"/>
+
+	<!--
+	 | macker:macker
+	 |
+	 | Run Macker on the project.
+	 |
+	 | rule file : the file 'macker.xml' under ${basedir}.
+	 | If this file is missing, the execution is stopped
+	 |
+	 | scope : any java classes
+	 |-->
+	<goal name="macker:macker" description="Check Macker rules" prereqs="java:compile">
+
+        <macker verbose="${maven.macker.verbose}"
+        	failonerror="${maven.macker.failonerror}"
+			fork="${maven.macker.fork}">
+
+            <!-- This classpath tells Macker where to look for classes. -->
+            <classpath>
+		    	<pathelement location="${maven.build.dest}"/>
+		    	<path refid="maven.dependency.classpath"/>
+		    	<path refid="macker.classpath"/>
+			</classpath>
+
+
+            <!-- Rules come from this file: -->
+            <rules dir="${maven.macker.ruleset.dir}"
+                includes="${maven.macker.ruleset.includes}"
+                excludes="${maven.macker.ruleset.excludes}"/>
+
+            <!-- Macker will apply those rules to these classes: -->
+            <classes dir="${maven.build.dest}">
+                <include name="**/*.class" />
+            </classes>
+        </macker>       
+
+    </goal>
+  	
+  	
+	<goal name="macker:report" description="Generate Macker report" prereqs="java:compile">
+
+		<mkdir dir="${macker.report.dir}"/>
+		
+        
+		${systemScope.setProperty('javax.xml.transform.TransformerFactory','org.apache.xalan.processor.TransformerFactoryImpl')}
+		
+        <macker xmlReportFile="${macker.report.xml}" verbose="${maven.macker.verbose}"
+        	failonerror="false"
+			fork="${maven.macker.fork}">
+
+            <!-- This classpath tells Macker where to look for classes. -->
+            <classpath>
+		    	<path refid="maven.dependency.classpath"/>
+				<pathelement location="${maven.build.dest}"/>
+				<path refid="macker.classpath"/>
+			</classpath>
+
+
+            <!-- Rules come from this file: -->
+            <rules dir="${maven.macker.ruleset.dir}"
+                includes="${maven.macker.ruleset.includes}"
+                excludes="${maven.macker.ruleset.excludes}"/>
+
+            <!-- Macker will apply those rules to these classes: -->
+            <classes dir="${maven.build.dest}">
+                <include name="**/*.class" />
+            </classes>
+        </macker>       
+
+        <!--
+		<macker-report
+    		xmlReportfile="${macker.report.xml}"
+    		outputFile="${macker.report.html}" />
+        -->    		
+
+        <xslt in="${macker.report.xml}"
+            out="${maven.build.dir}/generated-xdocs/macker-report.xml"
+            style="${plugin.resources}/macker-report.xsl"/>
+
+    </goal>
+
+  	
+  	
+
+
+</project>

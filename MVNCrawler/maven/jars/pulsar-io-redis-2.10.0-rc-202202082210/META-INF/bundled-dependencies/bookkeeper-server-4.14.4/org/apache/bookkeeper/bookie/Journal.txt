@@ -1,0 +1,1620 @@
+Compiled from "Journal.java"
+public class org.apache.bookkeeper.bookie.Journal extends org.apache.bookkeeper.bookie.BookieCriticalThread implements org.apache.bookkeeper.bookie.CheckpointSource {
+  private static final org.slf4j.Logger LOG;
+
+  private static final org.apache.bookkeeper.common.collections.RecyclableArrayList$Recycler<org.apache.bookkeeper.bookie.Journal$QueueEntry> entryListRecycler;
+
+  private static final org.apache.bookkeeper.common.collections.RecyclableArrayList<org.apache.bookkeeper.bookie.Journal$QueueEntry> EMPTY_ARRAY_LIST;
+
+  private final io.netty.util.Recycler<org.apache.bookkeeper.bookie.Journal$ForceWriteRequest> forceWriteRequestsRecycler;
+
+  static final int PADDING_MASK;
+
+  static final long MB;
+
+  static final int KB;
+
+  final long maxJournalSize;
+
+  final long journalPreAllocSize;
+
+  final int journalWriteBufferSize;
+
+  final int maxBackupJournals;
+
+  final java.io.File journalDirectory;
+
+  final org.apache.bookkeeper.conf.ServerConfiguration conf;
+
+  final org.apache.bookkeeper.bookie.Journal$ForceWriteThread forceWriteThread;
+
+  private final long maxGroupWaitInNanos;
+
+  private final long bufferedEntriesThreshold;
+
+  private final long bufferedWritesThreshold;
+
+  private final boolean flushWhenQueueEmpty;
+
+  private final boolean removePagesFromCache;
+
+  private final int journalFormatVersionToWrite;
+
+  private final int journalAlignmentSize;
+
+  private final long journalPageCacheFlushIntervalMSec;
+
+  private final boolean syncData;
+
+  private final org.apache.bookkeeper.bookie.Journal$LastLogMark lastLogMark;
+
+  private static final java.lang.String LAST_MARK_DEFAULT_NAME;
+
+  private final java.lang.String lastMarkFileName;
+
+  private final java.util.concurrent.ExecutorService cbThreadPool;
+
+  final java.util.concurrent.BlockingQueue<org.apache.bookkeeper.bookie.Journal$QueueEntry> queue;
+
+  final java.util.concurrent.BlockingQueue<org.apache.bookkeeper.bookie.Journal$ForceWriteRequest> forceWriteRequests;
+
+  volatile boolean running;
+
+  private final org.apache.bookkeeper.bookie.LedgerDirsManager ledgerDirsManager;
+
+  private final io.netty.buffer.ByteBufAllocator allocator;
+
+  private final org.apache.bookkeeper.common.util.MemoryLimitController memoryLimitController;
+
+  private final org.apache.bookkeeper.bookie.stats.JournalStats journalStats;
+
+  static java.util.List<java.lang.Long> listJournalIds(java.io.File, org.apache.bookkeeper.bookie.Journal$JournalIdFilter);
+    Code:
+       0: aload_0
+       1: invokevirtual #8                  // Method java/io/File.listFiles:()[Ljava/io/File;
+       4: astore_2
+       5: aload_2
+       6: ifnull        14
+       9: aload_2
+      10: arraylength
+      11: ifne          18
+      14: invokestatic  #9                  // Method java/util/Collections.emptyList:()Ljava/util/List;
+      17: areturn
+      18: new           #10                 // class java/util/ArrayList
+      21: dup
+      22: invokespecial #11                 // Method java/util/ArrayList."<init>":()V
+      25: astore_3
+      26: aload_2
+      27: astore        4
+      29: aload         4
+      31: arraylength
+      32: istore        5
+      34: iconst_0
+      35: istore        6
+      37: iload         6
+      39: iload         5
+      41: if_icmpge     139
+      44: aload         4
+      46: iload         6
+      48: aaload
+      49: astore        7
+      51: aload         7
+      53: invokevirtual #12                 // Method java/io/File.getName:()Ljava/lang/String;
+      56: astore        8
+      58: aload         8
+      60: ldc           #13                 // String .txn
+      62: invokevirtual #14                 // Method java/lang/String.endsWith:(Ljava/lang/String;)Z
+      65: ifne          71
+      68: goto          133
+      71: aload         8
+      73: ldc           #15                 // String \\.
+      75: invokevirtual #16                 // Method java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+      78: iconst_0
+      79: aaload
+      80: astore        9
+      82: aload         9
+      84: bipush        16
+      86: invokestatic  #17                 // Method java/lang/Long.parseLong:(Ljava/lang/String;I)J
+      89: lstore        10
+      91: aload_1
+      92: ifnull        121
+      95: aload_1
+      96: lload         10
+      98: invokeinterface #18,  3           // InterfaceMethod org/apache/bookkeeper/bookie/Journal$JournalIdFilter.accept:(J)Z
+     103: ifeq          133
+     106: aload_3
+     107: lload         10
+     109: invokestatic  #19                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     112: invokeinterface #20,  2           // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     117: pop
+     118: goto          133
+     121: aload_3
+     122: lload         10
+     124: invokestatic  #19                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     127: invokeinterface #20,  2           // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     132: pop
+     133: iinc          6, 1
+     136: goto          37
+     139: aload_3
+     140: invokestatic  #21                 // Method java/util/Collections.sort:(Ljava/util/List;)V
+     143: aload_3
+     144: areturn
+
+  private org.apache.bookkeeper.bookie.Journal$ForceWriteRequest createForceWriteRequest(org.apache.bookkeeper.bookie.JournalChannel, long, long, org.apache.bookkeeper.common.collections.RecyclableArrayList<org.apache.bookkeeper.bookie.Journal$QueueEntry>, boolean, boolean);
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field forceWriteRequestsRecycler:Lio/netty/util/Recycler;
+       4: invokevirtual #23                 // Method io/netty/util/Recycler.get:()Ljava/lang/Object;
+       7: checkcast     #24                 // class org/apache/bookkeeper/bookie/Journal$ForceWriteRequest
+      10: astore        9
+      12: aload         9
+      14: aload         6
+      16: invokestatic  #25                 // Method org/apache/bookkeeper/bookie/Journal$ForceWriteRequest.access$702:(Lorg/apache/bookkeeper/bookie/Journal$ForceWriteRequest;Lorg/apache/bookkeeper/common/collections/RecyclableArrayList;)Lorg/apache/bookkeeper/common/collections/RecyclableArrayList;
+      19: pop
+      20: aload         9
+      22: aload_1
+      23: invokestatic  #26                 // Method org/apache/bookkeeper/bookie/Journal$ForceWriteRequest.access$802:(Lorg/apache/bookkeeper/bookie/Journal$ForceWriteRequest;Lorg/apache/bookkeeper/bookie/JournalChannel;)Lorg/apache/bookkeeper/bookie/JournalChannel;
+      26: pop
+      27: aload         9
+      29: lload_2
+      30: invokestatic  #27                 // Method org/apache/bookkeeper/bookie/Journal$ForceWriteRequest.access$902:(Lorg/apache/bookkeeper/bookie/Journal$ForceWriteRequest;J)J
+      33: pop2
+      34: aload         9
+      36: lload         4
+      38: invokestatic  #28                 // Method org/apache/bookkeeper/bookie/Journal$ForceWriteRequest.access$1002:(Lorg/apache/bookkeeper/bookie/Journal$ForceWriteRequest;J)J
+      41: pop2
+      42: aload         9
+      44: iload         7
+      46: invokestatic  #29                 // Method org/apache/bookkeeper/bookie/Journal$ForceWriteRequest.access$1102:(Lorg/apache/bookkeeper/bookie/Journal$ForceWriteRequest;Z)Z
+      49: pop
+      50: aload         9
+      52: iload         8
+      54: invokestatic  #30                 // Method org/apache/bookkeeper/bookie/Journal$ForceWriteRequest.access$1202:(Lorg/apache/bookkeeper/bookie/Journal$ForceWriteRequest;Z)Z
+      57: pop
+      58: aload         9
+      60: invokestatic  #31                 // Method org/apache/bookkeeper/util/MathUtils.nowInNano:()J
+      63: invokestatic  #32                 // Method org/apache/bookkeeper/bookie/Journal$ForceWriteRequest.access$1302:(Lorg/apache/bookkeeper/bookie/Journal$ForceWriteRequest;J)J
+      66: pop2
+      67: aload_0
+      68: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+      71: invokevirtual #33                 // Method org/apache/bookkeeper/bookie/stats/JournalStats.getForceWriteQueueSize:()Lorg/apache/bookkeeper/stats/Counter;
+      74: invokeinterface #34,  1           // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+      79: aload         9
+      81: areturn
+
+  static void writePaddingBytes(org.apache.bookkeeper.bookie.JournalChannel, io.netty.buffer.ByteBuf, int) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #35                 // Field org/apache/bookkeeper/bookie/JournalChannel.bc:Lorg/apache/bookkeeper/bookie/BufferedChannel;
+       4: invokevirtual #36                 // Method org/apache/bookkeeper/bookie/BufferedChannel.position:()J
+       7: iload_2
+       8: i2l
+       9: lrem
+      10: l2i
+      11: istore_3
+      12: iconst_0
+      13: iload_3
+      14: if_icmpeq     93
+      17: iload_2
+      18: iload_3
+      19: isub
+      20: istore        4
+      22: iload         4
+      24: bipush        8
+      26: if_icmpge     41
+      29: iload_2
+      30: bipush        8
+      32: iload         4
+      34: isub
+      35: isub
+      36: istore        4
+      38: goto          44
+      41: iinc          4, -8
+      44: aload_1
+      45: invokevirtual #37                 // Method io/netty/buffer/ByteBuf.clear:()Lio/netty/buffer/ByteBuf;
+      48: pop
+      49: aload_1
+      50: sipush        -256
+      53: invokevirtual #39                 // Method io/netty/buffer/ByteBuf.writeInt:(I)Lio/netty/buffer/ByteBuf;
+      56: pop
+      57: aload_1
+      58: iload         4
+      60: invokevirtual #39                 // Method io/netty/buffer/ByteBuf.writeInt:(I)Lio/netty/buffer/ByteBuf;
+      63: pop
+      64: aload_1
+      65: aload_1
+      66: invokevirtual #40                 // Method io/netty/buffer/ByteBuf.writerIndex:()I
+      69: iload         4
+      71: iadd
+      72: invokevirtual #41                 // Method io/netty/buffer/ByteBuf.writerIndex:(I)Lio/netty/buffer/ByteBuf;
+      75: pop
+      76: aload_0
+      77: aload_1
+      78: invokevirtual #42                 // Method io/netty/buffer/ByteBuf.readableBytes:()I
+      81: i2l
+      82: invokevirtual #43                 // Method org/apache/bookkeeper/bookie/JournalChannel.preAllocIfNeeded:(J)V
+      85: aload_0
+      86: getfield      #35                 // Field org/apache/bookkeeper/bookie/JournalChannel.bc:Lorg/apache/bookkeeper/bookie/BufferedChannel;
+      89: aload_1
+      90: invokevirtual #44                 // Method org/apache/bookkeeper/bookie/BufferedChannel.write:(Lio/netty/buffer/ByteBuf;)V
+      93: return
+
+  public org.apache.bookkeeper.bookie.Journal(int, java.io.File, org.apache.bookkeeper.conf.ServerConfiguration, org.apache.bookkeeper.bookie.LedgerDirsManager);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: aload_2
+       3: aload_3
+       4: aload         4
+       6: getstatic     #45                 // Field org/apache/bookkeeper/stats/NullStatsLogger.INSTANCE:Lorg/apache/bookkeeper/stats/NullStatsLogger;
+       9: getstatic     #46                 // Field io/netty/buffer/UnpooledByteBufAllocator.DEFAULT:Lio/netty/buffer/UnpooledByteBufAllocator;
+      12: invokespecial #47                 // Method "<init>":(ILjava/io/File;Lorg/apache/bookkeeper/conf/ServerConfiguration;Lorg/apache/bookkeeper/bookie/LedgerDirsManager;Lorg/apache/bookkeeper/stats/StatsLogger;Lio/netty/buffer/ByteBufAllocator;)V
+      15: return
+
+  public org.apache.bookkeeper.bookie.Journal(int, java.io.File, org.apache.bookkeeper.conf.ServerConfiguration, org.apache.bookkeeper.bookie.LedgerDirsManager, org.apache.bookkeeper.stats.StatsLogger, io.netty.buffer.ByteBufAllocator);
+    Code:
+       0: aload_0
+       1: new           #48                 // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+       8: ldc           #50                 // String BookieJournal-
+      10: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      13: aload_3
+      14: invokevirtual #52                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getBookiePort:()I
+      17: invokevirtual #53                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      20: invokevirtual #54                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      23: invokespecial #55                 // Method org/apache/bookkeeper/bookie/BookieCriticalThread."<init>":(Ljava/lang/String;)V
+      26: aload_0
+      27: new           #56                 // class org/apache/bookkeeper/bookie/Journal$1
+      30: dup
+      31: aload_0
+      32: invokespecial #57                 // Method org/apache/bookkeeper/bookie/Journal$1."<init>":(Lorg/apache/bookkeeper/bookie/Journal;)V
+      35: putfield      #22                 // Field forceWriteRequestsRecycler:Lio/netty/util/Recycler;
+      38: aload_0
+      39: new           #58                 // class org/apache/bookkeeper/bookie/Journal$LastLogMark
+      42: dup
+      43: aload_0
+      44: lconst_0
+      45: lconst_0
+      46: invokespecial #59                 // Method org/apache/bookkeeper/bookie/Journal$LastLogMark."<init>":(Lorg/apache/bookkeeper/bookie/Journal;JJ)V
+      49: putfield      #3                  // Field lastLogMark:Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;
+      52: aload_0
+      53: iconst_1
+      54: putfield      #60                 // Field running:Z
+      57: aload_0
+      58: aload         6
+      60: putfield      #61                 // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+      63: aload_3
+      64: invokevirtual #62                 // Method org/apache/bookkeeper/conf/ServerConfiguration.isBusyWaitEnabled:()Z
+      67: ifeq          103
+      70: aload_0
+      71: new           #63                 // class org/apache/bookkeeper/common/collections/BlockingMpscQueue
+      74: dup
+      75: aload_3
+      76: invokevirtual #64                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalQueueSize:()I
+      79: invokespecial #65                 // Method org/apache/bookkeeper/common/collections/BlockingMpscQueue."<init>":(I)V
+      82: putfield      #66                 // Field queue:Ljava/util/concurrent/BlockingQueue;
+      85: aload_0
+      86: new           #63                 // class org/apache/bookkeeper/common/collections/BlockingMpscQueue
+      89: dup
+      90: aload_3
+      91: invokevirtual #64                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalQueueSize:()I
+      94: invokespecial #65                 // Method org/apache/bookkeeper/common/collections/BlockingMpscQueue."<init>":(I)V
+      97: putfield      #67                 // Field forceWriteRequests:Ljava/util/concurrent/BlockingQueue;
+     100: goto          133
+     103: aload_0
+     104: new           #68                 // class java/util/concurrent/ArrayBlockingQueue
+     107: dup
+     108: aload_3
+     109: invokevirtual #64                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalQueueSize:()I
+     112: invokespecial #69                 // Method java/util/concurrent/ArrayBlockingQueue."<init>":(I)V
+     115: putfield      #66                 // Field queue:Ljava/util/concurrent/BlockingQueue;
+     118: aload_0
+     119: new           #68                 // class java/util/concurrent/ArrayBlockingQueue
+     122: dup
+     123: aload_3
+     124: invokevirtual #64                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalQueueSize:()I
+     127: invokespecial #69                 // Method java/util/concurrent/ArrayBlockingQueue."<init>":(I)V
+     130: putfield      #67                 // Field forceWriteRequests:Ljava/util/concurrent/BlockingQueue;
+     133: aload_3
+     134: invokevirtual #70                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalMaxMemorySizeMb:()J
+     137: aload_3
+     138: invokevirtual #71                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalDirNames:()[Ljava/lang/String;
+     141: arraylength
+     142: i2l
+     143: ldiv
+     144: ldc2_w        #72                 // long 1024l
+     147: lmul
+     148: ldc2_w        #72                 // long 1024l
+     151: lmul
+     152: lstore        7
+     154: aload_0
+     155: new           #74                 // class org/apache/bookkeeper/common/util/MemoryLimitController
+     158: dup
+     159: lload         7
+     161: invokespecial #75                 // Method org/apache/bookkeeper/common/util/MemoryLimitController."<init>":(J)V
+     164: putfield      #76                 // Field memoryLimitController:Lorg/apache/bookkeeper/common/util/MemoryLimitController;
+     167: aload_0
+     168: aload         4
+     170: putfield      #6                  // Field ledgerDirsManager:Lorg/apache/bookkeeper/bookie/LedgerDirsManager;
+     173: aload_0
+     174: aload_3
+     175: putfield      #77                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+     178: aload_0
+     179: aload_2
+     180: putfield      #78                 // Field journalDirectory:Ljava/io/File;
+     183: aload_0
+     184: aload_3
+     185: invokevirtual #79                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMaxJournalSizeMB:()J
+     188: ldc2_w        #80                 // long 1048576l
+     191: lmul
+     192: putfield      #82                 // Field maxJournalSize:J
+     195: aload_0
+     196: aload_3
+     197: invokevirtual #83                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalPreAllocSizeMB:()I
+     200: i2l
+     201: ldc2_w        #80                 // long 1048576l
+     204: lmul
+     205: putfield      #84                 // Field journalPreAllocSize:J
+     208: aload_0
+     209: aload_3
+     210: invokevirtual #85                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalWriteBufferSizeKB:()I
+     213: sipush        1024
+     216: imul
+     217: putfield      #86                 // Field journalWriteBufferSize:I
+     220: aload_0
+     221: aload_3
+     222: invokevirtual #87                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalSyncData:()Z
+     225: putfield      #88                 // Field syncData:Z
+     228: aload_0
+     229: aload_3
+     230: invokevirtual #89                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMaxBackupJournals:()I
+     233: putfield      #90                 // Field maxBackupJournals:I
+     236: aload_0
+     237: new           #91                 // class org/apache/bookkeeper/bookie/Journal$ForceWriteThread
+     240: dup
+     241: aload_0
+     242: aload_0
+     243: aload_3
+     244: invokevirtual #92                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalAdaptiveGroupWrites:()Z
+     247: invokespecial #93                 // Method org/apache/bookkeeper/bookie/Journal$ForceWriteThread."<init>":(Lorg/apache/bookkeeper/bookie/Journal;Ljava/lang/Thread;Z)V
+     250: putfield      #94                 // Field forceWriteThread:Lorg/apache/bookkeeper/bookie/Journal$ForceWriteThread;
+     253: aload_0
+     254: getstatic     #95                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     257: aload_3
+     258: invokevirtual #96                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalMaxGroupWaitMSec:()J
+     261: invokevirtual #97                 // Method java/util/concurrent/TimeUnit.toNanos:(J)J
+     264: putfield      #98                 // Field maxGroupWaitInNanos:J
+     267: aload_0
+     268: aload_3
+     269: invokevirtual #99                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalBufferedWritesThreshold:()J
+     272: putfield      #100                // Field bufferedWritesThreshold:J
+     275: aload_0
+     276: aload_3
+     277: invokevirtual #101                // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalBufferedEntriesThreshold:()J
+     280: putfield      #102                // Field bufferedEntriesThreshold:J
+     283: aload_0
+     284: aload_3
+     285: invokevirtual #103                // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalFormatVersionToWrite:()I
+     288: putfield      #104                // Field journalFormatVersionToWrite:I
+     291: aload_0
+     292: aload_3
+     293: invokevirtual #105                // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalAlignmentSize:()I
+     296: putfield      #106                // Field journalAlignmentSize:I
+     299: aload_0
+     300: aload_3
+     301: invokevirtual #107                // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalPageCacheFlushIntervalMSec:()J
+     304: putfield      #108                // Field journalPageCacheFlushIntervalMSec:J
+     307: aload_3
+     308: invokevirtual #109                // Method org/apache/bookkeeper/conf/ServerConfiguration.getNumJournalCallbackThreads:()I
+     311: ifle          337
+     314: aload_0
+     315: aload_3
+     316: invokevirtual #109                // Method org/apache/bookkeeper/conf/ServerConfiguration.getNumJournalCallbackThreads:()I
+     319: new           #110                // class io/netty/util/concurrent/DefaultThreadFactory
+     322: dup
+     323: ldc           #111                // String bookie-journal-callback
+     325: invokespecial #112                // Method io/netty/util/concurrent/DefaultThreadFactory."<init>":(Ljava/lang/String;)V
+     328: invokestatic  #113                // Method java/util/concurrent/Executors.newFixedThreadPool:(ILjava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+     331: putfield      #2                  // Field cbThreadPool:Ljava/util/concurrent/ExecutorService;
+     334: goto          344
+     337: aload_0
+     338: invokestatic  #114                // Method com/google/common/util/concurrent/MoreExecutors.newDirectExecutorService:()Lcom/google/common/util/concurrent/ListeningExecutorService;
+     341: putfield      #2                  // Field cbThreadPool:Ljava/util/concurrent/ExecutorService;
+     344: aload_0
+     345: aload_0
+     346: getfield      #98                 // Field maxGroupWaitInNanos:J
+     349: lconst_0
+     350: lcmp
+     351: ifle          361
+     354: aload_3
+     355: invokevirtual #115                // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalFlushWhenQueueEmpty:()Z
+     358: ifeq          365
+     361: iconst_1
+     362: goto          366
+     365: iconst_0
+     366: putfield      #116                // Field flushWhenQueueEmpty:Z
+     369: aload_0
+     370: aload_3
+     371: invokevirtual #117                // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalRemovePagesFromCache:()Z
+     374: putfield      #118                // Field removePagesFromCache:Z
+     377: aload_3
+     378: invokevirtual #119                // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalDirs:()[Ljava/io/File;
+     381: arraylength
+     382: iconst_1
+     383: if_icmpne     395
+     386: aload_0
+     387: ldc           #120                // String lastMark
+     389: putfield      #5                  // Field lastMarkFileName:Ljava/lang/String;
+     392: goto          418
+     395: aload_0
+     396: new           #48                 // class java/lang/StringBuilder
+     399: dup
+     400: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     403: ldc           #121                // String lastMark.
+     405: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     408: iload_1
+     409: invokevirtual #53                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     412: invokevirtual #54                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     415: putfield      #5                  // Field lastMarkFileName:Ljava/lang/String;
+     418: aload_0
+     419: getfield      #3                  // Field lastLogMark:Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;
+     422: invokevirtual #122                // Method org/apache/bookkeeper/bookie/Journal$LastLogMark.readLog:()V
+     425: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     428: invokeinterface #123,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     433: ifeq          453
+     436: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     439: ldc           #124                // String Last Log Mark : {}
+     441: aload_0
+     442: getfield      #3                  // Field lastLogMark:Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;
+     445: invokevirtual #125                // Method org/apache/bookkeeper/bookie/Journal$LastLogMark.getCurMark:()Lorg/apache/bookkeeper/bookie/LogMark;
+     448: invokeinterface #126,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     453: aload_0
+     454: new           #127                // class org/apache/bookkeeper/bookie/stats/JournalStats
+     457: dup
+     458: aload         5
+     460: invokespecial #128                // Method org/apache/bookkeeper/bookie/stats/JournalStats."<init>":(Lorg/apache/bookkeeper/stats/StatsLogger;)V
+     463: putfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     466: return
+
+  org.apache.bookkeeper.bookie.stats.JournalStats getJournalStats();
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+       4: areturn
+
+  public java.io.File getJournalDirectory();
+    Code:
+       0: aload_0
+       1: getfield      #78                 // Field journalDirectory:Ljava/io/File;
+       4: areturn
+
+  public org.apache.bookkeeper.bookie.Journal$LastLogMark getLastLogMark();
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field lastLogMark:Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;
+       4: areturn
+
+  void setLastLogMark(java.lang.Long, long);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field lastLogMark:Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;
+       4: aload_1
+       5: invokevirtual #129                // Method java/lang/Long.longValue:()J
+       8: lload_2
+       9: invokevirtual #130                // Method org/apache/bookkeeper/bookie/Journal$LastLogMark.setCurLogMark:(JJ)V
+      12: return
+
+  public org.apache.bookkeeper.bookie.CheckpointSource$Checkpoint newCheckpoint();
+    Code:
+       0: new           #131                // class org/apache/bookkeeper/bookie/Journal$LogMarkCheckpoint
+       3: dup
+       4: aload_0
+       5: getfield      #3                  // Field lastLogMark:Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;
+       8: invokevirtual #132                // Method org/apache/bookkeeper/bookie/Journal$LastLogMark.markLog:()Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;
+      11: invokespecial #133                // Method org/apache/bookkeeper/bookie/Journal$LogMarkCheckpoint."<init>":(Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;)V
+      14: areturn
+
+  public void checkpointComplete(org.apache.bookkeeper.bookie.CheckpointSource$Checkpoint, boolean) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: instanceof    #131                // class org/apache/bookkeeper/bookie/Journal$LogMarkCheckpoint
+       4: ifne          8
+       7: return
+       8: aload_1
+       9: checkcast     #131                // class org/apache/bookkeeper/bookie/Journal$LogMarkCheckpoint
+      12: astore_3
+      13: aload_3
+      14: getfield      #134                // Field org/apache/bookkeeper/bookie/Journal$LogMarkCheckpoint.mark:Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;
+      17: astore        4
+      19: aload         4
+      21: aload         4
+      23: invokevirtual #135                // Method org/apache/bookkeeper/bookie/Journal$LastLogMark.rollLog:(Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;)V
+      26: iload_2
+      27: ifeq          210
+      30: aload_0
+      31: getfield      #78                 // Field journalDirectory:Ljava/io/File;
+      34: new           #136                // class org/apache/bookkeeper/bookie/Journal$JournalRollingFilter
+      37: dup
+      38: aload         4
+      40: invokespecial #137                // Method org/apache/bookkeeper/bookie/Journal$JournalRollingFilter."<init>":(Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;)V
+      43: invokestatic  #138                // Method listJournalIds:(Ljava/io/File;Lorg/apache/bookkeeper/bookie/Journal$JournalIdFilter;)Ljava/util/List;
+      46: astore        5
+      48: aload         5
+      50: invokeinterface #139,  1          // InterfaceMethod java/util/List.size:()I
+      55: aload_0
+      56: getfield      #90                 // Field maxBackupJournals:I
+      59: if_icmplt     210
+      62: aload         5
+      64: invokeinterface #139,  1          // InterfaceMethod java/util/List.size:()I
+      69: aload_0
+      70: getfield      #90                 // Field maxBackupJournals:I
+      73: isub
+      74: istore        6
+      76: iconst_0
+      77: istore        7
+      79: iload         7
+      81: iload         6
+      83: if_icmpge     210
+      86: aload         5
+      88: iload         7
+      90: invokeinterface #140,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      95: checkcast     #141                // class java/lang/Long
+      98: invokevirtual #129                // Method java/lang/Long.longValue:()J
+     101: lstore        8
+     103: lload         8
+     105: aload         4
+     107: invokevirtual #125                // Method org/apache/bookkeeper/bookie/Journal$LastLogMark.getCurMark:()Lorg/apache/bookkeeper/bookie/LogMark;
+     110: invokevirtual #142                // Method org/apache/bookkeeper/bookie/LogMark.getLogFileId:()J
+     113: lcmp
+     114: ifge          204
+     117: new           #143                // class java/io/File
+     120: dup
+     121: aload_0
+     122: getfield      #78                 // Field journalDirectory:Ljava/io/File;
+     125: new           #48                 // class java/lang/StringBuilder
+     128: dup
+     129: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     132: lload         8
+     134: invokestatic  #144                // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     137: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     140: ldc           #13                 // String .txn
+     142: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     145: invokevirtual #54                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     148: invokespecial #145                // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+     151: astore        10
+     153: aload         10
+     155: invokevirtual #146                // Method java/io/File.delete:()Z
+     158: ifne          173
+     161: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     164: ldc           #147                // String Could not delete old journal file {}
+     166: aload         10
+     168: invokeinterface #148,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;)V
+     173: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     176: new           #48                 // class java/lang/StringBuilder
+     179: dup
+     180: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     183: ldc           #149                // String garbage collected journal
+     185: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     188: aload         10
+     190: invokevirtual #12                 // Method java/io/File.getName:()Ljava/lang/String;
+     193: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     196: invokevirtual #54                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     199: invokeinterface #150,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     204: iinc          7, 1
+     207: goto          79
+     210: return
+
+  public long scanJournal(long, long, org.apache.bookkeeper.bookie.Journal$JournalScanner) throws java.io.IOException;
+    Code:
+       0: lload_3
+       1: lconst_0
+       2: lcmp
+       3: ifgt          31
+       6: new           #151                // class org/apache/bookkeeper/bookie/JournalChannel
+       9: dup
+      10: aload_0
+      11: getfield      #78                 // Field journalDirectory:Ljava/io/File;
+      14: lload_1
+      15: aload_0
+      16: getfield      #84                 // Field journalPreAllocSize:J
+      19: aload_0
+      20: getfield      #86                 // Field journalWriteBufferSize:I
+      23: invokespecial #152                // Method org/apache/bookkeeper/bookie/JournalChannel."<init>":(Ljava/io/File;JJI)V
+      26: astore        6
+      28: goto          54
+      31: new           #151                // class org/apache/bookkeeper/bookie/JournalChannel
+      34: dup
+      35: aload_0
+      36: getfield      #78                 // Field journalDirectory:Ljava/io/File;
+      39: lload_1
+      40: aload_0
+      41: getfield      #84                 // Field journalPreAllocSize:J
+      44: aload_0
+      45: getfield      #86                 // Field journalWriteBufferSize:I
+      48: lload_3
+      49: invokespecial #153                // Method org/apache/bookkeeper/bookie/JournalChannel."<init>":(Ljava/io/File;JJIJ)V
+      52: astore        6
+      54: aload         6
+      56: invokevirtual #154                // Method org/apache/bookkeeper/bookie/JournalChannel.getFormatVersion:()I
+      59: istore        7
+      61: iconst_4
+      62: invokestatic  #155                // Method java/nio/ByteBuffer.allocate:(I)Ljava/nio/ByteBuffer;
+      65: astore        8
+      67: ldc           #156                // int 65536
+      69: invokestatic  #155                // Method java/nio/ByteBuffer.allocate:(I)Ljava/nio/ByteBuffer;
+      72: astore        9
+      74: aload         6
+      76: getfield      #157                // Field org/apache/bookkeeper/bookie/JournalChannel.fc:Ljava/nio/channels/FileChannel;
+      79: invokevirtual #158                // Method java/nio/channels/FileChannel.position:()J
+      82: lstore        10
+      84: aload         8
+      86: invokevirtual #159                // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+      89: pop
+      90: aload         6
+      92: aload         8
+      94: invokestatic  #160                // Method fullRead:(Lorg/apache/bookkeeper/bookie/JournalChannel;Ljava/nio/ByteBuffer;)I
+      97: pop
+      98: aload         8
+     100: invokevirtual #161                // Method java/nio/ByteBuffer.remaining:()I
+     103: ifeq          109
+     106: goto          320
+     109: aload         8
+     111: invokevirtual #162                // Method java/nio/ByteBuffer.flip:()Ljava/nio/Buffer;
+     114: pop
+     115: aload         8
+     117: invokevirtual #163                // Method java/nio/ByteBuffer.getInt:()I
+     120: istore        12
+     122: iload         12
+     124: ifne          130
+     127: goto          320
+     130: iconst_0
+     131: istore        13
+     133: iload         12
+     135: ifge          247
+     138: iload         12
+     140: sipush        -256
+     143: if_icmpne     204
+     146: iload         7
+     148: iconst_5
+     149: if_icmplt     204
+     152: aload         8
+     154: invokevirtual #159                // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+     157: pop
+     158: aload         6
+     160: aload         8
+     162: invokestatic  #160                // Method fullRead:(Lorg/apache/bookkeeper/bookie/JournalChannel;Ljava/nio/ByteBuffer;)I
+     165: pop
+     166: aload         8
+     168: invokevirtual #161                // Method java/nio/ByteBuffer.remaining:()I
+     171: ifeq          177
+     174: goto          320
+     177: aload         8
+     179: invokevirtual #162                // Method java/nio/ByteBuffer.flip:()Ljava/nio/Buffer;
+     182: pop
+     183: aload         8
+     185: invokevirtual #163                // Method java/nio/ByteBuffer.getInt:()I
+     188: istore        12
+     190: iload         12
+     192: ifne          198
+     195: goto          74
+     198: iconst_1
+     199: istore        13
+     201: goto          247
+     204: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     207: ldc           #164                // String Invalid record found with negative length: {}
+     209: iload         12
+     211: invokestatic  #165                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     214: invokeinterface #166,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;)V
+     219: new           #167                // class java/io/IOException
+     222: dup
+     223: new           #48                 // class java/lang/StringBuilder
+     226: dup
+     227: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     230: ldc           #168                // String Invalid record found with negative length
+     232: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     235: iload         12
+     237: invokevirtual #53                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     240: invokevirtual #54                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     243: invokespecial #169                // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     246: athrow
+     247: aload         9
+     249: invokevirtual #159                // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+     252: pop
+     253: aload         9
+     255: invokevirtual #161                // Method java/nio/ByteBuffer.remaining:()I
+     258: iload         12
+     260: if_icmpge     270
+     263: iload         12
+     265: invokestatic  #155                // Method java/nio/ByteBuffer.allocate:(I)Ljava/nio/ByteBuffer;
+     268: astore        9
+     270: aload         9
+     272: iload         12
+     274: invokevirtual #170                // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+     277: pop
+     278: aload         6
+     280: aload         9
+     282: invokestatic  #160                // Method fullRead:(Lorg/apache/bookkeeper/bookie/JournalChannel;Ljava/nio/ByteBuffer;)I
+     285: iload         12
+     287: if_icmpeq     293
+     290: goto          320
+     293: aload         9
+     295: invokevirtual #162                // Method java/nio/ByteBuffer.flip:()Ljava/nio/Buffer;
+     298: pop
+     299: iload         13
+     301: ifne          317
+     304: aload         5
+     306: iload         7
+     308: lload         10
+     310: aload         9
+     312: invokeinterface #171,  5          // InterfaceMethod org/apache/bookkeeper/bookie/Journal$JournalScanner.process:(IJLjava/nio/ByteBuffer;)V
+     317: goto          74
+     320: aload         6
+     322: getfield      #157                // Field org/apache/bookkeeper/bookie/JournalChannel.fc:Ljava/nio/channels/FileChannel;
+     325: invokevirtual #158                // Method java/nio/channels/FileChannel.position:()J
+     328: lstore        10
+     330: aload         6
+     332: invokevirtual #172                // Method org/apache/bookkeeper/bookie/JournalChannel.close:()V
+     335: lload         10
+     337: lreturn
+     338: astore        14
+     340: aload         6
+     342: invokevirtual #172                // Method org/apache/bookkeeper/bookie/JournalChannel.close:()V
+     345: aload         14
+     347: athrow
+    Exception table:
+       from    to  target type
+          61   330   338   any
+         338   340   338   any
+
+  public void logAddEntry(java.nio.ByteBuffer, boolean, org.apache.bookkeeper.proto.BookkeeperInternalCallbacks$WriteCallback, java.lang.Object) throws java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokestatic  #173                // Method io/netty/buffer/Unpooled.wrappedBuffer:(Ljava/nio/ByteBuffer;)Lio/netty/buffer/ByteBuf;
+       5: iload_2
+       6: aload_3
+       7: aload         4
+       9: invokevirtual #174                // Method logAddEntry:(Lio/netty/buffer/ByteBuf;ZLorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$WriteCallback;Ljava/lang/Object;)V
+      12: return
+
+  public void logAddEntry(io.netty.buffer.ByteBuf, boolean, org.apache.bookkeeper.proto.BookkeeperInternalCallbacks$WriteCallback, java.lang.Object) throws java.lang.InterruptedException;
+    Code:
+       0: aload_1
+       1: aload_1
+       2: invokevirtual #175                // Method io/netty/buffer/ByteBuf.readerIndex:()I
+       5: iconst_0
+       6: iadd
+       7: invokevirtual #176                // Method io/netty/buffer/ByteBuf.getLong:(I)J
+      10: lstore        5
+      12: aload_1
+      13: aload_1
+      14: invokevirtual #175                // Method io/netty/buffer/ByteBuf.readerIndex:()I
+      17: bipush        8
+      19: iadd
+      20: invokevirtual #176                // Method io/netty/buffer/ByteBuf.getLong:(I)J
+      23: lstore        7
+      25: aload_0
+      26: lload         5
+      28: lload         7
+      30: aload_1
+      31: iload_2
+      32: aload_3
+      33: aload         4
+      35: invokevirtual #177                // Method logAddEntry:(JJLio/netty/buffer/ByteBuf;ZLorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$WriteCallback;Ljava/lang/Object;)V
+      38: return
+
+  public void logAddEntry(long, long, io.netty.buffer.ByteBuf, boolean, org.apache.bookkeeper.proto.BookkeeperInternalCallbacks$WriteCallback, java.lang.Object) throws java.lang.InterruptedException;
+    Code:
+       0: aload         5
+       2: invokevirtual #178                // Method io/netty/buffer/ByteBuf.retain:()Lio/netty/buffer/ByteBuf;
+       5: pop
+       6: aload_0
+       7: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+      10: invokevirtual #179                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalQueueSize:()Lorg/apache/bookkeeper/stats/Counter;
+      13: invokeinterface #34,  1           // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+      18: aload_0
+      19: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+      22: invokevirtual #180                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalCbQueueSize:()Lorg/apache/bookkeeper/stats/Counter;
+      25: invokeinterface #34,  1           // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+      30: aload_0
+      31: getfield      #76                 // Field memoryLimitController:Lorg/apache/bookkeeper/common/util/MemoryLimitController;
+      34: aload         5
+      36: invokevirtual #42                 // Method io/netty/buffer/ByteBuf.readableBytes:()I
+      39: i2l
+      40: invokevirtual #181                // Method org/apache/bookkeeper/common/util/MemoryLimitController.reserveMemory:(J)V
+      43: aload_0
+      44: getfield      #66                 // Field queue:Ljava/util/concurrent/BlockingQueue;
+      47: aload         5
+      49: iload         6
+      51: lload_1
+      52: lload_3
+      53: aload         7
+      55: aload         8
+      57: invokestatic  #31                 // Method org/apache/bookkeeper/util/MathUtils.nowInNano:()J
+      60: aload_0
+      61: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+      64: invokevirtual #182                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalAddEntryStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+      67: aload_0
+      68: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+      71: invokevirtual #180                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalCbQueueSize:()Lorg/apache/bookkeeper/stats/Counter;
+      74: invokestatic  #183                // Method org/apache/bookkeeper/bookie/Journal$QueueEntry.create:(Lio/netty/buffer/ByteBuf;ZJJLorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$WriteCallback;Ljava/lang/Object;JLorg/apache/bookkeeper/stats/OpStatsLogger;Lorg/apache/bookkeeper/stats/Counter;)Lorg/apache/bookkeeper/bookie/Journal$QueueEntry;
+      77: invokeinterface #184,  2          // InterfaceMethod java/util/concurrent/BlockingQueue.put:(Ljava/lang/Object;)V
+      82: return
+
+  void forceLedger(long, org.apache.bookkeeper.proto.BookkeeperInternalCallbacks$WriteCallback, java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #66                 // Field queue:Ljava/util/concurrent/BlockingQueue;
+       4: aconst_null
+       5: iconst_0
+       6: lload_1
+       7: ldc2_w        #186                // long -16384l
+      10: aload_3
+      11: aload         4
+      13: invokestatic  #31                 // Method org/apache/bookkeeper/util/MathUtils.nowInNano:()J
+      16: aload_0
+      17: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+      20: invokevirtual #188                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalForceLedgerStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+      23: aload_0
+      24: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+      27: invokevirtual #180                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalCbQueueSize:()Lorg/apache/bookkeeper/stats/Counter;
+      30: invokestatic  #183                // Method org/apache/bookkeeper/bookie/Journal$QueueEntry.create:(Lio/netty/buffer/ByteBuf;ZJJLorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$WriteCallback;Ljava/lang/Object;JLorg/apache/bookkeeper/stats/OpStatsLogger;Lorg/apache/bookkeeper/stats/Counter;)Lorg/apache/bookkeeper/bookie/Journal$QueueEntry;
+      33: invokeinterface #189,  2          // InterfaceMethod java/util/concurrent/BlockingQueue.add:(Ljava/lang/Object;)Z
+      38: pop
+      39: aload_0
+      40: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+      43: invokevirtual #179                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalQueueSize:()Lorg/apache/bookkeeper/stats/Counter;
+      46: invokeinterface #34,  1           // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+      51: aload_0
+      52: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+      55: invokevirtual #180                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalCbQueueSize:()Lorg/apache/bookkeeper/stats/Counter;
+      58: invokeinterface #34,  1           // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+      63: return
+
+  public int getJournalQueueLength();
+    Code:
+       0: aload_0
+       1: getfield      #66                 // Field queue:Ljava/util/concurrent/BlockingQueue;
+       4: invokeinterface #190,  1          // InterfaceMethod java/util/concurrent/BlockingQueue.size:()I
+       9: ireturn
+
+  public void run();
+    Code:
+       0: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #191                // String Starting journal on {}
+       5: aload_0
+       6: getfield      #78                 // Field journalDirectory:Ljava/io/File;
+       9: invokeinterface #192,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      14: aload_0
+      15: getfield      #77                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+      18: invokevirtual #62                 // Method org/apache/bookkeeper/conf/ServerConfiguration.isBusyWaitEnabled:()Z
+      21: ifeq          46
+      24: invokestatic  #193                // Method org/apache/bookkeeper/common/util/affinity/CpuAffinity.acquireCore:()V
+      27: goto          46
+      30: astore_1
+      31: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      34: ldc           #195                // String Unable to acquire CPU core for Journal thread: {}
+      36: aload_1
+      37: invokevirtual #196                // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+      40: aload_1
+      41: invokeinterface #197,  4          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      46: getstatic     #198                // Field entryListRecycler:Lorg/apache/bookkeeper/common/collections/RecyclableArrayList$Recycler;
+      49: invokevirtual #199                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList$Recycler.newInstance:()Lorg/apache/bookkeeper/common/collections/RecyclableArrayList;
+      52: astore_1
+      53: iconst_0
+      54: istore_2
+      55: iconst_4
+      56: invokestatic  #200                // Method io/netty/buffer/Unpooled.buffer:(I)Lio/netty/buffer/ByteBuf;
+      59: astore_3
+      60: iconst_2
+      61: aload_0
+      62: getfield      #77                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+      65: invokevirtual #105                // Method org/apache/bookkeeper/conf/ServerConfiguration.getJournalAlignmentSize:()I
+      68: imul
+      69: invokestatic  #200                // Method io/netty/buffer/Unpooled.buffer:(I)Lio/netty/buffer/ByteBuf;
+      72: astore        4
+      74: aload         4
+      76: aload         4
+      78: invokevirtual #201                // Method io/netty/buffer/ByteBuf.capacity:()I
+      81: invokevirtual #202                // Method io/netty/buffer/ByteBuf.writeZero:(I)Lio/netty/buffer/ByteBuf;
+      84: pop
+      85: aconst_null
+      86: astore        5
+      88: aconst_null
+      89: astore        6
+      91: aload_0
+      92: getfield      #94                 // Field forceWriteThread:Lorg/apache/bookkeeper/bookie/Journal$ForceWriteThread;
+      95: invokevirtual #203                // Method org/apache/bookkeeper/bookie/Journal$ForceWriteThread.start:()V
+      98: invokestatic  #204                // Method com/google/common/base/Stopwatch.createUnstarted:()Lcom/google/common/base/Stopwatch;
+     101: astore        7
+     103: invokestatic  #204                // Method com/google/common/base/Stopwatch.createUnstarted:()Lcom/google/common/base/Stopwatch;
+     106: astore        8
+     108: lconst_0
+     109: lstore        9
+     111: aload_0
+     112: getfield      #78                 // Field journalDirectory:Ljava/io/File;
+     115: aconst_null
+     116: invokestatic  #138                // Method listJournalIds:(Ljava/io/File;Lorg/apache/bookkeeper/bookie/Journal$JournalIdFilter;)Ljava/util/List;
+     119: astore        11
+     121: aload         11
+     123: invokeinterface #205,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+     128: ifeq          137
+     131: invokestatic  #206                // Method java/lang/System.currentTimeMillis:()J
+     134: goto          159
+     137: aload         11
+     139: aload         11
+     141: invokeinterface #139,  1          // InterfaceMethod java/util/List.size:()I
+     146: iconst_1
+     147: isub
+     148: invokeinterface #140,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     153: checkcast     #141                // class java/lang/Long
+     156: invokevirtual #129                // Method java/lang/Long.longValue:()J
+     159: lstore        12
+     161: lconst_0
+     162: lstore        14
+     164: iconst_0
+     165: istore        16
+     167: lconst_0
+     168: lstore        17
+     170: invokestatic  #206                // Method java/lang/System.currentTimeMillis:()J
+     173: lstore        19
+     175: aconst_null
+     176: astore        21
+     178: aconst_null
+     179: aload         6
+     181: if_acmpne     278
+     184: lload         12
+     186: lconst_1
+     187: ladd
+     188: lstore        12
+     190: aload         7
+     192: invokevirtual #207                // Method com/google/common/base/Stopwatch.reset:()Lcom/google/common/base/Stopwatch;
+     195: invokevirtual #208                // Method com/google/common/base/Stopwatch.start:()Lcom/google/common/base/Stopwatch;
+     198: pop
+     199: new           #151                // class org/apache/bookkeeper/bookie/JournalChannel
+     202: dup
+     203: aload_0
+     204: getfield      #78                 // Field journalDirectory:Ljava/io/File;
+     207: lload         12
+     209: aload_0
+     210: getfield      #84                 // Field journalPreAllocSize:J
+     213: aload_0
+     214: getfield      #86                 // Field journalWriteBufferSize:I
+     217: aload_0
+     218: getfield      #106                // Field journalAlignmentSize:I
+     221: aload_0
+     222: getfield      #118                // Field removePagesFromCache:Z
+     225: aload_0
+     226: getfield      #104                // Field journalFormatVersionToWrite:I
+     229: aload_0
+     230: invokevirtual #209                // Method getBufferedChannelBuilder:()Lorg/apache/bookkeeper/bookie/Journal$BufferedChannelBuilder;
+     233: invokespecial #210                // Method org/apache/bookkeeper/bookie/JournalChannel."<init>":(Ljava/io/File;JJIIZILorg/apache/bookkeeper/bookie/Journal$BufferedChannelBuilder;)V
+     236: astore        6
+     238: aload_0
+     239: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     242: invokevirtual #211                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalCreationStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     245: aload         7
+     247: invokevirtual #212                // Method com/google/common/base/Stopwatch.stop:()Lcom/google/common/base/Stopwatch;
+     250: getstatic     #213                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+     253: invokevirtual #214                // Method com/google/common/base/Stopwatch.elapsed:(Ljava/util/concurrent/TimeUnit;)J
+     256: getstatic     #213                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+     259: invokeinterface #215,  4          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulEvent:(JLjava/util/concurrent/TimeUnit;)V
+     264: aload         6
+     266: invokevirtual #216                // Method org/apache/bookkeeper/bookie/JournalChannel.getBufferedChannel:()Lorg/apache/bookkeeper/bookie/BufferedChannel;
+     269: astore        5
+     271: aload         5
+     273: invokevirtual #36                 // Method org/apache/bookkeeper/bookie/BufferedChannel.position:()J
+     276: lstore        14
+     278: aload         21
+     280: ifnonnull     1005
+     283: lload         17
+     285: lconst_0
+     286: lcmp
+     287: ifeq          310
+     290: aload_0
+     291: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     294: invokevirtual #217                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalProcessTimeStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     297: lload         17
+     299: invokestatic  #218                // Method org/apache/bookkeeper/util/MathUtils.elapsedNanos:(J)J
+     302: getstatic     #213                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+     305: invokeinterface #215,  4          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulEvent:(JLjava/util/concurrent/TimeUnit;)V
+     310: iload_2
+     311: ifne          371
+     314: aload_0
+     315: getfield      #66                 // Field queue:Ljava/util/concurrent/BlockingQueue;
+     318: invokeinterface #219,  1          // InterfaceMethod java/util/concurrent/BlockingQueue.take:()Ljava/lang/Object;
+     323: checkcast     #220                // class org/apache/bookkeeper/bookie/Journal$QueueEntry
+     326: astore        21
+     328: invokestatic  #31                 // Method org/apache/bookkeeper/util/MathUtils.nowInNano:()J
+     331: lstore        17
+     333: aload_0
+     334: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     337: invokevirtual #179                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalQueueSize:()Lorg/apache/bookkeeper/stats/Counter;
+     340: invokeinterface #221,  1          // InterfaceMethod org/apache/bookkeeper/stats/Counter.dec:()V
+     345: aload_0
+     346: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     349: invokevirtual #222                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalQueueStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     352: aload         21
+     354: getfield      #223                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.enqueueTime:J
+     357: invokestatic  #218                // Method org/apache/bookkeeper/util/MathUtils.elapsedNanos:(J)J
+     360: getstatic     #213                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+     363: invokeinterface #215,  4          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulEvent:(JLjava/util/concurrent/TimeUnit;)V
+     368: goto          1005
+     371: aload_0
+     372: getfield      #98                 // Field maxGroupWaitInNanos:J
+     375: aload_1
+     376: iconst_0
+     377: invokevirtual #224                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList.get:(I)Ljava/lang/Object;
+     380: checkcast     #220                // class org/apache/bookkeeper/bookie/Journal$QueueEntry
+     383: getfield      #223                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.enqueueTime:J
+     386: invokestatic  #218                // Method org/apache/bookkeeper/util/MathUtils.elapsedNanos:(J)J
+     389: lsub
+     390: lstore        22
+     392: aload_0
+     393: getfield      #116                // Field flushWhenQueueEmpty:Z
+     396: ifne          406
+     399: lload         22
+     401: lconst_0
+     402: lcmp
+     403: ifge          409
+     406: lconst_0
+     407: lstore        22
+     409: aload_0
+     410: getfield      #66                 // Field queue:Ljava/util/concurrent/BlockingQueue;
+     413: lload         22
+     415: getstatic     #213                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+     418: invokeinterface #225,  4          // InterfaceMethod java/util/concurrent/BlockingQueue.poll:(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;
+     423: checkcast     #220                // class org/apache/bookkeeper/bookie/Journal$QueueEntry
+     426: astore        21
+     428: invokestatic  #31                 // Method org/apache/bookkeeper/util/MathUtils.nowInNano:()J
+     431: lstore        17
+     433: aload         21
+     435: ifnull        473
+     438: aload_0
+     439: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     442: invokevirtual #179                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalQueueSize:()Lorg/apache/bookkeeper/stats/Counter;
+     445: invokeinterface #221,  1          // InterfaceMethod org/apache/bookkeeper/stats/Counter.dec:()V
+     450: aload_0
+     451: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     454: invokevirtual #222                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalQueueStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     457: aload         21
+     459: getfield      #223                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.enqueueTime:J
+     462: invokestatic  #218                // Method org/apache/bookkeeper/util/MathUtils.elapsedNanos:(J)J
+     465: getstatic     #213                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+     468: invokeinterface #215,  4          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulEvent:(JLjava/util/concurrent/TimeUnit;)V
+     473: iconst_0
+     474: istore        24
+     476: aload_0
+     477: getfield      #98                 // Field maxGroupWaitInNanos:J
+     480: lconst_0
+     481: lcmp
+     482: ifle          518
+     485: iload         16
+     487: ifne          518
+     490: aload_1
+     491: iconst_0
+     492: invokevirtual #224                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList.get:(I)Ljava/lang/Object;
+     495: checkcast     #220                // class org/apache/bookkeeper/bookie/Journal$QueueEntry
+     498: getfield      #223                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.enqueueTime:J
+     501: invokestatic  #218                // Method org/apache/bookkeeper/util/MathUtils.elapsedNanos:(J)J
+     504: aload_0
+     505: getfield      #98                 // Field maxGroupWaitInNanos:J
+     508: lcmp
+     509: ifle          518
+     512: iconst_1
+     513: istore        16
+     515: goto          668
+     518: aload_0
+     519: getfield      #98                 // Field maxGroupWaitInNanos:J
+     522: lconst_0
+     523: lcmp
+     524: ifle          574
+     527: iload         16
+     529: ifeq          574
+     532: aload         21
+     534: ifnull        553
+     537: aload         21
+     539: getfield      #223                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.enqueueTime:J
+     542: invokestatic  #218                // Method org/apache/bookkeeper/util/MathUtils.elapsedNanos:(J)J
+     545: aload_0
+     546: getfield      #98                 // Field maxGroupWaitInNanos:J
+     549: lcmp
+     550: ifge          574
+     553: iconst_0
+     554: istore        16
+     556: iconst_1
+     557: istore        24
+     559: aload_0
+     560: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     563: invokevirtual #226                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getFlushMaxWaitCounter:()Lorg/apache/bookkeeper/stats/Counter;
+     566: invokeinterface #34,  1           // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+     571: goto          668
+     574: aload         21
+     576: ifnull        638
+     579: aload_0
+     580: getfield      #102                // Field bufferedEntriesThreshold:J
+     583: lconst_0
+     584: lcmp
+     585: ifle          601
+     588: aload_1
+     589: invokevirtual #227                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList.size:()I
+     592: i2l
+     593: aload_0
+     594: getfield      #102                // Field bufferedEntriesThreshold:J
+     597: lcmp
+     598: ifgt          617
+     601: aload         5
+     603: invokevirtual #36                 // Method org/apache/bookkeeper/bookie/BufferedChannel.position:()J
+     606: lload         14
+     608: aload_0
+     609: getfield      #100                // Field bufferedWritesThreshold:J
+     612: ladd
+     613: lcmp
+     614: ifle          638
+     617: iconst_0
+     618: istore        16
+     620: iconst_1
+     621: istore        24
+     623: aload_0
+     624: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     627: invokevirtual #228                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getFlushMaxOutstandingBytesCounter:()Lorg/apache/bookkeeper/stats/Counter;
+     630: invokeinterface #34,  1           // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+     635: goto          668
+     638: aload         21
+     640: ifnonnull     668
+     643: aload_0
+     644: getfield      #116                // Field flushWhenQueueEmpty:Z
+     647: ifeq          668
+     650: iconst_0
+     651: istore        16
+     653: iconst_1
+     654: istore        24
+     656: aload_0
+     657: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     660: invokevirtual #229                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getFlushEmptyQueueCounter:()Lorg/apache/bookkeeper/stats/Counter;
+     663: invokeinterface #34,  1           // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+     668: iload         24
+     670: ifeq          1005
+     673: aload_0
+     674: getfield      #104                // Field journalFormatVersionToWrite:I
+     677: iconst_5
+     678: if_icmplt     692
+     681: aload         6
+     683: aload         4
+     685: aload_0
+     686: getfield      #106                // Field journalAlignmentSize:I
+     689: invokestatic  #230                // Method writePaddingBytes:(Lorg/apache/bookkeeper/bookie/JournalChannel;Lio/netty/buffer/ByteBuf;I)V
+     692: aload         8
+     694: invokevirtual #207                // Method com/google/common/base/Stopwatch.reset:()Lcom/google/common/base/Stopwatch;
+     697: invokevirtual #208                // Method com/google/common/base/Stopwatch.start:()Lcom/google/common/base/Stopwatch;
+     700: pop
+     701: aload         5
+     703: invokevirtual #231                // Method org/apache/bookkeeper/bookie/BufferedChannel.flush:()V
+     706: iconst_0
+     707: istore        25
+     709: iload         25
+     711: aload_1
+     712: invokevirtual #227                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList.size:()I
+     715: if_icmpge     777
+     718: aload_1
+     719: iload         25
+     721: invokevirtual #224                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList.get:(I)Ljava/lang/Object;
+     724: checkcast     #220                // class org/apache/bookkeeper/bookie/Journal$QueueEntry
+     727: astore        26
+     729: aload         26
+     731: ifnull        771
+     734: aload_0
+     735: getfield      #88                 // Field syncData:Z
+     738: ifeq          749
+     741: aload         26
+     743: getfield      #232                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.ackBeforeSync:Z
+     746: ifeq          771
+     749: aload_1
+     750: iload         25
+     752: aconst_null
+     753: invokevirtual #233                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList.set:(ILjava/lang/Object;)Ljava/lang/Object;
+     756: pop
+     757: iinc          2, -1
+     760: aload_0
+     761: getfield      #2                  // Field cbThreadPool:Ljava/util/concurrent/ExecutorService;
+     764: aload         26
+     766: invokeinterface #234,  2          // InterfaceMethod java/util/concurrent/ExecutorService.execute:(Ljava/lang/Runnable;)V
+     771: iinc          25, 1
+     774: goto          709
+     777: aload         5
+     779: invokevirtual #36                 // Method org/apache/bookkeeper/bookie/BufferedChannel.position:()J
+     782: lstore        14
+     784: aload_0
+     785: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     788: invokevirtual #235                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalFlushStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     791: aload         8
+     793: invokevirtual #212                // Method com/google/common/base/Stopwatch.stop:()Lcom/google/common/base/Stopwatch;
+     796: getstatic     #213                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+     799: invokevirtual #214                // Method com/google/common/base/Stopwatch.elapsed:(Ljava/util/concurrent/TimeUnit;)J
+     802: getstatic     #213                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+     805: invokeinterface #215,  4          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulEvent:(JLjava/util/concurrent/TimeUnit;)V
+     810: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     813: invokeinterface #123,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     818: ifeq          883
+     821: aload_1
+     822: invokevirtual #236                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList.iterator:()Ljava/util/Iterator;
+     825: astore        25
+     827: aload         25
+     829: invokeinterface #237,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     834: ifeq          883
+     837: aload         25
+     839: invokeinterface #238,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     844: checkcast     #220                // class org/apache/bookkeeper/bookie/Journal$QueueEntry
+     847: astore        26
+     849: aload         26
+     851: ifnull        880
+     854: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     857: ldc           #239                // String Written and queuing for flush Ledger: {}  Entry: {}
+     859: aload         26
+     861: getfield      #240                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.ledgerId:J
+     864: invokestatic  #19                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     867: aload         26
+     869: getfield      #241                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.entryId:J
+     872: invokestatic  #19                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     875: invokeinterface #242,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     880: goto          827
+     883: aload_0
+     884: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     887: invokevirtual #243                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getForceWriteBatchEntriesStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     890: iload_2
+     891: i2l
+     892: invokeinterface #244,  3          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulValue:(J)V
+     897: aload_0
+     898: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+     901: invokevirtual #245                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getForceWriteBatchBytesStats:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     904: lload         9
+     906: invokeinterface #244,  3          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulValue:(J)V
+     911: lload         14
+     913: aload_0
+     914: getfield      #82                 // Field maxJournalSize:J
+     917: lcmp
+     918: ifle          925
+     921: iconst_1
+     922: goto          926
+     925: iconst_0
+     926: istore        25
+     928: aload_0
+     929: getfield      #88                 // Field syncData:Z
+     932: ifne          954
+     935: iload         25
+     937: ifne          954
+     940: invokestatic  #206                // Method java/lang/System.currentTimeMillis:()J
+     943: lload         19
+     945: lsub
+     946: aload_0
+     947: getfield      #108                // Field journalPageCacheFlushIntervalMSec:J
+     950: lcmp
+     951: iflt          982
+     954: aload_0
+     955: getfield      #67                 // Field forceWriteRequests:Ljava/util/concurrent/BlockingQueue;
+     958: aload_0
+     959: aload         6
+     961: lload         12
+     963: lload         14
+     965: aload_1
+     966: iload         25
+     968: iconst_0
+     969: invokespecial #1                  // Method createForceWriteRequest:(Lorg/apache/bookkeeper/bookie/JournalChannel;JJLorg/apache/bookkeeper/common/collections/RecyclableArrayList;ZZ)Lorg/apache/bookkeeper/bookie/Journal$ForceWriteRequest;
+     972: invokeinterface #184,  2          // InterfaceMethod java/util/concurrent/BlockingQueue.put:(Ljava/lang/Object;)V
+     977: invokestatic  #206                // Method java/lang/System.currentTimeMillis:()J
+     980: lstore        19
+     982: getstatic     #198                // Field entryListRecycler:Lorg/apache/bookkeeper/common/collections/RecyclableArrayList$Recycler;
+     985: invokevirtual #199                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList$Recycler.newInstance:()Lorg/apache/bookkeeper/common/collections/RecyclableArrayList;
+     988: astore_1
+     989: iconst_0
+     990: istore_2
+     991: lconst_0
+     992: lstore        9
+     994: iload         25
+     996: ifeq          1005
+     999: aconst_null
+    1000: astore        6
+    1002: goto          178
+    1005: aload_0
+    1006: getfield      #60                 // Field running:Z
+    1009: ifne          1025
+    1012: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+    1015: ldc           #246                // String Journal Manager is asked to shut down, quit.
+    1017: invokeinterface #150,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+    1022: goto          1208
+    1025: aload         21
+    1027: ifnonnull     1033
+    1030: goto          178
+    1033: aload         21
+    1035: getfield      #241                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.entryId:J
+    1038: ldc2_w        #247                // long -32768l
+    1041: lcmp
+    1042: ifne          1082
+    1045: aload_0
+    1046: getfield      #104                // Field journalFormatVersionToWrite:I
+    1049: bipush        6
+    1051: if_icmpge     1082
+    1054: aload_0
+    1055: getfield      #76                 // Field memoryLimitController:Lorg/apache/bookkeeper/common/util/MemoryLimitController;
+    1058: aload         21
+    1060: getfield      #249                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.entry:Lio/netty/buffer/ByteBuf;
+    1063: invokevirtual #42                 // Method io/netty/buffer/ByteBuf.readableBytes:()I
+    1066: i2l
+    1067: invokevirtual #250                // Method org/apache/bookkeeper/common/util/MemoryLimitController.releaseMemory:(J)V
+    1070: aload         21
+    1072: getfield      #249                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.entry:Lio/netty/buffer/ByteBuf;
+    1075: invokevirtual #251                // Method io/netty/buffer/ByteBuf.release:()Z
+    1078: pop
+    1079: goto          1192
+    1082: aload         21
+    1084: getfield      #241                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.entryId:J
+    1087: ldc2_w        #186                // long -16384l
+    1090: lcmp
+    1091: ifeq          1192
+    1094: aload         21
+    1096: getfield      #249                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.entry:Lio/netty/buffer/ByteBuf;
+    1099: invokevirtual #42                 // Method io/netty/buffer/ByteBuf.readableBytes:()I
+    1102: istore        22
+    1104: aload_0
+    1105: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+    1108: invokevirtual #252                // Method org/apache/bookkeeper/bookie/stats/JournalStats.getJournalWriteBytes:()Lorg/apache/bookkeeper/stats/Counter;
+    1111: iload         22
+    1113: i2l
+    1114: invokeinterface #253,  3          // InterfaceMethod org/apache/bookkeeper/stats/Counter.add:(J)V
+    1119: lload         9
+    1121: iconst_4
+    1122: iload         22
+    1124: iadd
+    1125: i2l
+    1126: ladd
+    1127: lstore        9
+    1129: aload_3
+    1130: invokevirtual #37                 // Method io/netty/buffer/ByteBuf.clear:()Lio/netty/buffer/ByteBuf;
+    1133: pop
+    1134: aload_3
+    1135: iload         22
+    1137: invokevirtual #39                 // Method io/netty/buffer/ByteBuf.writeInt:(I)Lio/netty/buffer/ByteBuf;
+    1140: pop
+    1141: aload         6
+    1143: iconst_4
+    1144: iload         22
+    1146: iadd
+    1147: i2l
+    1148: invokevirtual #43                 // Method org/apache/bookkeeper/bookie/JournalChannel.preAllocIfNeeded:(J)V
+    1151: aload         5
+    1153: aload_3
+    1154: invokevirtual #44                 // Method org/apache/bookkeeper/bookie/BufferedChannel.write:(Lio/netty/buffer/ByteBuf;)V
+    1157: aload         5
+    1159: aload         21
+    1161: getfield      #249                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.entry:Lio/netty/buffer/ByteBuf;
+    1164: invokevirtual #44                 // Method org/apache/bookkeeper/bookie/BufferedChannel.write:(Lio/netty/buffer/ByteBuf;)V
+    1167: aload_0
+    1168: getfield      #76                 // Field memoryLimitController:Lorg/apache/bookkeeper/common/util/MemoryLimitController;
+    1171: aload         21
+    1173: getfield      #249                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.entry:Lio/netty/buffer/ByteBuf;
+    1176: invokevirtual #42                 // Method io/netty/buffer/ByteBuf.readableBytes:()I
+    1179: i2l
+    1180: invokevirtual #250                // Method org/apache/bookkeeper/common/util/MemoryLimitController.releaseMemory:(J)V
+    1183: aload         21
+    1185: getfield      #249                // Field org/apache/bookkeeper/bookie/Journal$QueueEntry.entry:Lio/netty/buffer/ByteBuf;
+    1188: invokevirtual #251                // Method io/netty/buffer/ByteBuf.release:()Z
+    1191: pop
+    1192: aload_1
+    1193: aload         21
+    1195: invokevirtual #254                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList.add:(Ljava/lang/Object;)Z
+    1198: pop
+    1199: iinc          2, 1
+    1202: aconst_null
+    1203: astore        21
+    1205: goto          178
+    1208: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+    1211: aload         5
+    1213: invokestatic  #255                // Method org/apache/bookkeeper/util/IOUtils.close:(Lorg/slf4j/Logger;Ljava/io/Closeable;)V
+    1216: goto          1288
+    1219: astore        11
+    1221: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+    1224: ldc_w         #256                // String I/O exception in Journal thread!
+    1227: aload         11
+    1229: invokeinterface #257,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+    1234: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+    1237: aload         5
+    1239: invokestatic  #255                // Method org/apache/bookkeeper/util/IOUtils.close:(Lorg/slf4j/Logger;Ljava/io/Closeable;)V
+    1242: goto          1288
+    1245: astore        11
+    1247: invokestatic  #259                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+    1250: invokevirtual #260                // Method java/lang/Thread.interrupt:()V
+    1253: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+    1256: ldc_w         #261                // String Journal exits when shutting down
+    1259: invokeinterface #150,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+    1264: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+    1267: aload         5
+    1269: invokestatic  #255                // Method org/apache/bookkeeper/util/IOUtils.close:(Lorg/slf4j/Logger;Ljava/io/Closeable;)V
+    1272: goto          1288
+    1275: astore        27
+    1277: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+    1280: aload         5
+    1282: invokestatic  #255                // Method org/apache/bookkeeper/util/IOUtils.close:(Lorg/slf4j/Logger;Ljava/io/Closeable;)V
+    1285: aload         27
+    1287: athrow
+    1288: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+    1291: ldc_w         #262                // String Journal exited loop!
+    1294: invokeinterface #150,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+    1299: return
+    Exception table:
+       from    to  target type
+          24    27    30   Class java/lang/Exception
+         111  1208  1219   Class java/io/IOException
+         111  1208  1245   Class java/lang/InterruptedException
+         111  1208  1275   any
+        1219  1234  1275   any
+        1245  1264  1275   any
+        1275  1277  1275   any
+
+  public org.apache.bookkeeper.bookie.Journal$BufferedChannelBuilder getBufferedChannelBuilder();
+    Code:
+       0: aload_0
+       1: invokedynamic #263,  0            // InvokeDynamic #0:create:(Lorg/apache/bookkeeper/bookie/Journal;)Lorg/apache/bookkeeper/bookie/Journal$BufferedChannelBuilder;
+       6: areturn
+
+  public synchronized void shutdown();
+    Code:
+       0: aload_0
+       1: getfield      #60                 // Field running:Z
+       4: ifne          8
+       7: return
+       8: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      11: ldc_w         #264                // String Shutting down Journal
+      14: invokeinterface #150,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      19: aload_0
+      20: getfield      #94                 // Field forceWriteThread:Lorg/apache/bookkeeper/bookie/Journal$ForceWriteThread;
+      23: invokevirtual #265                // Method org/apache/bookkeeper/bookie/Journal$ForceWriteThread.shutdown:()V
+      26: aload_0
+      27: getfield      #2                  // Field cbThreadPool:Ljava/util/concurrent/ExecutorService;
+      30: invokeinterface #266,  1          // InterfaceMethod java/util/concurrent/ExecutorService.shutdown:()V
+      35: aload_0
+      36: getfield      #2                  // Field cbThreadPool:Ljava/util/concurrent/ExecutorService;
+      39: ldc2_w        #267                // long 5l
+      42: getstatic     #269                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      45: invokeinterface #270,  4          // InterfaceMethod java/util/concurrent/ExecutorService.awaitTermination:(JLjava/util/concurrent/TimeUnit;)Z
+      50: ifne          64
+      53: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      56: ldc_w         #271                // String Couldn\'t shutdown journal callback thread gracefully. Forcing
+      59: invokeinterface #272,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      64: aload_0
+      65: getfield      #2                  // Field cbThreadPool:Ljava/util/concurrent/ExecutorService;
+      68: invokeinterface #273,  1          // InterfaceMethod java/util/concurrent/ExecutorService.shutdownNow:()Ljava/util/List;
+      73: pop
+      74: aload_0
+      75: iconst_0
+      76: putfield      #60                 // Field running:Z
+      79: aload_0
+      80: invokevirtual #274                // Method interrupt:()V
+      83: aload_0
+      84: invokevirtual #275                // Method join:()V
+      87: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      90: ldc_w         #276                // String Finished Shutting down Journal thread
+      93: invokeinterface #150,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      98: goto          120
+     101: astore_1
+     102: invokestatic  #259                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     105: invokevirtual #260                // Method java/lang/Thread.interrupt:()V
+     108: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     111: ldc_w         #277                // String Interrupted during shutting down journal :
+     114: aload_1
+     115: invokeinterface #278,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     120: return
+    Exception table:
+       from    to  target type
+           0     7   101   Class java/lang/InterruptedException
+           8    98   101   Class java/lang/InterruptedException
+
+  private static int fullRead(org.apache.bookkeeper.bookie.JournalChannel, java.nio.ByteBuffer) throws java.io.IOException;
+    Code:
+       0: iconst_0
+       1: istore_2
+       2: aload_1
+       3: invokevirtual #161                // Method java/nio/ByteBuffer.remaining:()I
+       6: ifle          28
+       9: aload_0
+      10: aload_1
+      11: invokevirtual #279                // Method org/apache/bookkeeper/bookie/JournalChannel.read:(Ljava/nio/ByteBuffer;)I
+      14: istore_3
+      15: iload_3
+      16: ifgt          21
+      19: iload_2
+      20: ireturn
+      21: iload_2
+      22: iload_3
+      23: iadd
+      24: istore_2
+      25: goto          2
+      28: iload_2
+      29: ireturn
+
+  public void joinThread() throws java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: invokevirtual #275                // Method join:()V
+       4: return
+
+  long getMemoryUsage();
+    Code:
+       0: aload_0
+       1: getfield      #76                 // Field memoryLimitController:Lorg/apache/bookkeeper/common/util/MemoryLimitController;
+       4: invokevirtual #280                // Method org/apache/bookkeeper/common/util/MemoryLimitController.currentUsage:()J
+       7: lreturn
+
+  private org.apache.bookkeeper.bookie.BufferedChannel lambda$getBufferedChannelBuilder$0(java.nio.channels.FileChannel, int) throws java.io.IOException;
+    Code:
+       0: new           #281                // class org/apache/bookkeeper/bookie/BufferedChannel
+       3: dup
+       4: aload_0
+       5: getfield      #61                 // Field allocator:Lio/netty/buffer/ByteBufAllocator;
+       8: aload_1
+       9: iload_2
+      10: invokespecial #282                // Method org/apache/bookkeeper/bookie/BufferedChannel."<init>":(Lio/netty/buffer/ByteBufAllocator;Ljava/nio/channels/FileChannel;I)V
+      13: areturn
+
+  static org.slf4j.Logger access$000();
+    Code:
+       0: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static org.apache.bookkeeper.bookie.LedgerDirsManager access$100(org.apache.bookkeeper.bookie.Journal);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field ledgerDirsManager:Lorg/apache/bookkeeper/bookie/LedgerDirsManager;
+       4: areturn
+
+  static java.lang.String access$200(org.apache.bookkeeper.bookie.Journal);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field lastMarkFileName:Ljava/lang/String;
+       4: areturn
+
+  static org.apache.bookkeeper.bookie.stats.JournalStats access$400(org.apache.bookkeeper.bookie.Journal);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field journalStats:Lorg/apache/bookkeeper/bookie/stats/JournalStats;
+       4: areturn
+
+  static org.apache.bookkeeper.bookie.Journal$LastLogMark access$500(org.apache.bookkeeper.bookie.Journal);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field lastLogMark:Lorg/apache/bookkeeper/bookie/Journal$LastLogMark;
+       4: areturn
+
+  static java.util.concurrent.ExecutorService access$600(org.apache.bookkeeper.bookie.Journal);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field cbThreadPool:Ljava/util/concurrent/ExecutorService;
+       4: areturn
+
+  static org.apache.bookkeeper.bookie.Journal$ForceWriteRequest access$1500(org.apache.bookkeeper.bookie.Journal, org.apache.bookkeeper.bookie.JournalChannel, long, long, org.apache.bookkeeper.common.collections.RecyclableArrayList, boolean, boolean);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_2
+       3: lload         4
+       5: aload         6
+       7: iload         7
+       9: iload         8
+      11: invokespecial #1                  // Method createForceWriteRequest:(Lorg/apache/bookkeeper/bookie/JournalChannel;JJLorg/apache/bookkeeper/common/collections/RecyclableArrayList;ZZ)Lorg/apache/bookkeeper/bookie/Journal$ForceWriteRequest;
+      14: areturn
+
+  static {};
+    Code:
+       0: ldc           #38                 // class org/apache/bookkeeper/bookie/Journal
+       2: invokestatic  #283                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       8: new           #284                // class org/apache/bookkeeper/common/collections/RecyclableArrayList$Recycler
+      11: dup
+      12: invokespecial #285                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList$Recycler."<init>":()V
+      15: putstatic     #198                // Field entryListRecycler:Lorg/apache/bookkeeper/common/collections/RecyclableArrayList$Recycler;
+      18: new           #286                // class org/apache/bookkeeper/common/collections/RecyclableArrayList
+      21: dup
+      22: invokespecial #287                // Method org/apache/bookkeeper/common/collections/RecyclableArrayList."<init>":()V
+      25: putstatic     #288                // Field EMPTY_ARRAY_LIST:Lorg/apache/bookkeeper/common/collections/RecyclableArrayList;
+      28: return
+}

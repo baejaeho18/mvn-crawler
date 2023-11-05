@@ -1,0 +1,999 @@
+Compiled from "TcpServer.java"
+public class org.h2.server.TcpServer implements org.h2.server.Service {
+  private static final int SHUTDOWN_NORMAL;
+
+  private static final int SHUTDOWN_FORCE;
+
+  private static final java.lang.String MANAGEMENT_DB_PREFIX;
+
+  private static final java.util.Map<java.lang.Integer, org.h2.server.TcpServer> SERVERS;
+
+  private int port;
+
+  private boolean portIsSet;
+
+  private boolean trace;
+
+  private boolean ssl;
+
+  private boolean stop;
+
+  private org.h2.server.ShutdownHandler shutdownHandler;
+
+  private java.net.ServerSocket serverSocket;
+
+  private final java.util.Set<org.h2.server.TcpServerThread> running;
+
+  private java.lang.String baseDir;
+
+  private boolean allowOthers;
+
+  private boolean isDaemon;
+
+  private boolean ifExists;
+
+  private java.sql.Connection managementDb;
+
+  private java.sql.PreparedStatement managementDbAdd;
+
+  private java.sql.PreparedStatement managementDbRemove;
+
+  private java.lang.String managementPassword;
+
+  private java.lang.Thread listenerThread;
+
+  private int nextThreadId;
+
+  private java.lang.String key;
+
+  private java.lang.String keyDatabase;
+
+  public org.h2.server.TcpServer();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #2                  // class java/util/HashSet
+       8: dup
+       9: invokespecial #3                  // Method java/util/HashSet."<init>":()V
+      12: invokestatic  #4                  // Method java/util/Collections.synchronizedSet:(Ljava/util/Set;)Ljava/util/Set;
+      15: putfield      #5                  // Field running:Ljava/util/Set;
+      18: aload_0
+      19: ldc           #6                  // String
+      21: putfield      #7                  // Field managementPassword:Ljava/lang/String;
+      24: return
+
+  public static java.lang.String getManagementDbName(int);
+    Code:
+       0: new           #8                  // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #9                  // Method java/lang/StringBuilder."<init>":()V
+       7: ldc           #10                 // String mem:management_db_
+       9: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: iload_0
+      13: invokevirtual #12                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      16: invokevirtual #13                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      19: areturn
+
+  private void initManagementDb() throws java.sql.SQLException;
+    Code:
+       0: new           #14                 // class java/util/Properties
+       3: dup
+       4: invokespecial #15                 // Method java/util/Properties."<init>":()V
+       7: astore_1
+       8: aload_1
+       9: ldc           #16                 // String user
+      11: ldc           #6                  // String
+      13: invokevirtual #17                 // Method java/util/Properties.setProperty:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;
+      16: pop
+      17: aload_1
+      18: ldc           #18                 // String password
+      20: aload_0
+      21: getfield      #7                  // Field managementPassword:Ljava/lang/String;
+      24: invokevirtual #17                 // Method java/util/Properties.setProperty:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;
+      27: pop
+      28: invokestatic  #19                 // Method org/h2/Driver.load:()Lorg/h2/Driver;
+      31: new           #8                  // class java/lang/StringBuilder
+      34: dup
+      35: invokespecial #9                  // Method java/lang/StringBuilder."<init>":()V
+      38: ldc           #20                 // String jdbc:h2:
+      40: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      43: aload_0
+      44: getfield      #21                 // Field port:I
+      47: invokestatic  #22                 // Method getManagementDbName:(I)Ljava/lang/String;
+      50: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      53: invokevirtual #13                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      56: aload_1
+      57: invokevirtual #23                 // Method org/h2/Driver.connect:(Ljava/lang/String;Ljava/util/Properties;)Ljava/sql/Connection;
+      60: astore_2
+      61: aload_0
+      62: aload_2
+      63: putfield      #24                 // Field managementDb:Ljava/sql/Connection;
+      66: aload_2
+      67: invokeinterface #25,  1           // InterfaceMethod java/sql/Connection.createStatement:()Ljava/sql/Statement;
+      72: astore_3
+      73: aconst_null
+      74: astore        4
+      76: aload_3
+      77: new           #8                  // class java/lang/StringBuilder
+      80: dup
+      81: invokespecial #9                  // Method java/lang/StringBuilder."<init>":()V
+      84: ldc           #26                 // String CREATE ALIAS IF NOT EXISTS STOP_SERVER FOR \"
+      86: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      89: ldc_w         #27                 // class org/h2/server/TcpServer
+      92: invokevirtual #28                 // Method java/lang/Class.getName:()Ljava/lang/String;
+      95: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      98: ldc           #29                 // String .stopServer\"
+     100: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     103: invokevirtual #13                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     106: invokeinterface #30,  2           // InterfaceMethod java/sql/Statement.execute:(Ljava/lang/String;)Z
+     111: pop
+     112: aload_3
+     113: ldc           #31                 // String CREATE TABLE IF NOT EXISTS SESSIONS(ID INT PRIMARY KEY, URL VARCHAR, USER VARCHAR, CONNECTED TIMESTAMP)
+     115: invokeinterface #30,  2           // InterfaceMethod java/sql/Statement.execute:(Ljava/lang/String;)Z
+     120: pop
+     121: aload_0
+     122: aload_2
+     123: ldc           #32                 // String INSERT INTO SESSIONS VALUES(?, ?, ?, NOW())
+     125: invokeinterface #33,  2           // InterfaceMethod java/sql/Connection.prepareStatement:(Ljava/lang/String;)Ljava/sql/PreparedStatement;
+     130: putfield      #34                 // Field managementDbAdd:Ljava/sql/PreparedStatement;
+     133: aload_0
+     134: aload_2
+     135: ldc           #35                 // String DELETE FROM SESSIONS WHERE ID=?
+     137: invokeinterface #33,  2           // InterfaceMethod java/sql/Connection.prepareStatement:(Ljava/lang/String;)Ljava/sql/PreparedStatement;
+     142: putfield      #36                 // Field managementDbRemove:Ljava/sql/PreparedStatement;
+     145: aload_3
+     146: ifnull        234
+     149: aload         4
+     151: ifnull        175
+     154: aload_3
+     155: invokeinterface #37,  1           // InterfaceMethod java/sql/Statement.close:()V
+     160: goto          234
+     163: astore        5
+     165: aload         4
+     167: aload         5
+     169: invokevirtual #39                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     172: goto          234
+     175: aload_3
+     176: invokeinterface #37,  1           // InterfaceMethod java/sql/Statement.close:()V
+     181: goto          234
+     184: astore        5
+     186: aload         5
+     188: astore        4
+     190: aload         5
+     192: athrow
+     193: astore        6
+     195: aload_3
+     196: ifnull        231
+     199: aload         4
+     201: ifnull        225
+     204: aload_3
+     205: invokeinterface #37,  1           // InterfaceMethod java/sql/Statement.close:()V
+     210: goto          231
+     213: astore        7
+     215: aload         4
+     217: aload         7
+     219: invokevirtual #39                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     222: goto          231
+     225: aload_3
+     226: invokeinterface #37,  1           // InterfaceMethod java/sql/Statement.close:()V
+     231: aload         6
+     233: athrow
+     234: getstatic     #40                 // Field SERVERS:Ljava/util/Map;
+     237: aload_0
+     238: getfield      #21                 // Field port:I
+     241: invokestatic  #41                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     244: aload_0
+     245: invokeinterface #42,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     250: pop
+     251: return
+    Exception table:
+       from    to  target type
+         154   160   163   Class java/lang/Throwable
+          76   145   184   Class java/lang/Throwable
+          76   145   193   any
+         204   210   213   Class java/lang/Throwable
+         184   195   193   any
+
+  void shutdown();
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field shutdownHandler:Lorg/h2/server/ShutdownHandler;
+       4: ifnull        16
+       7: aload_0
+       8: getfield      #43                 // Field shutdownHandler:Lorg/h2/server/ShutdownHandler;
+      11: invokeinterface #44,  1           // InterfaceMethod org/h2/server/ShutdownHandler.shutdown:()V
+      16: return
+
+  public void setShutdownHandler(org.h2.server.ShutdownHandler);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #43                 // Field shutdownHandler:Lorg/h2/server/ShutdownHandler;
+       5: return
+
+  synchronized void addConnection(int, java.lang.String, java.lang.String);
+    Code:
+       0: aload_0
+       1: getfield      #34                 // Field managementDbAdd:Ljava/sql/PreparedStatement;
+       4: iconst_1
+       5: iload_1
+       6: invokeinterface #45,  3           // InterfaceMethod java/sql/PreparedStatement.setInt:(II)V
+      11: aload_0
+      12: getfield      #34                 // Field managementDbAdd:Ljava/sql/PreparedStatement;
+      15: iconst_2
+      16: aload_2
+      17: invokeinterface #46,  3           // InterfaceMethod java/sql/PreparedStatement.setString:(ILjava/lang/String;)V
+      22: aload_0
+      23: getfield      #34                 // Field managementDbAdd:Ljava/sql/PreparedStatement;
+      26: iconst_3
+      27: aload_3
+      28: invokeinterface #46,  3           // InterfaceMethod java/sql/PreparedStatement.setString:(ILjava/lang/String;)V
+      33: aload_0
+      34: getfield      #34                 // Field managementDbAdd:Ljava/sql/PreparedStatement;
+      37: invokeinterface #47,  1           // InterfaceMethod java/sql/PreparedStatement.execute:()Z
+      42: pop
+      43: goto          53
+      46: astore        4
+      48: aload         4
+      50: invokestatic  #49                 // Method org/h2/message/DbException.traceThrowable:(Ljava/lang/Throwable;)V
+      53: return
+    Exception table:
+       from    to  target type
+           0    43    46   Class java/sql/SQLException
+
+  synchronized void removeConnection(int);
+    Code:
+       0: aload_0
+       1: getfield      #36                 // Field managementDbRemove:Ljava/sql/PreparedStatement;
+       4: iconst_1
+       5: iload_1
+       6: invokeinterface #45,  3           // InterfaceMethod java/sql/PreparedStatement.setInt:(II)V
+      11: aload_0
+      12: getfield      #36                 // Field managementDbRemove:Ljava/sql/PreparedStatement;
+      15: invokeinterface #47,  1           // InterfaceMethod java/sql/PreparedStatement.execute:()Z
+      20: pop
+      21: goto          29
+      24: astore_2
+      25: aload_2
+      26: invokestatic  #49                 // Method org/h2/message/DbException.traceThrowable:(Ljava/lang/Throwable;)V
+      29: return
+    Exception table:
+       from    to  target type
+           0    21    24   Class java/sql/SQLException
+
+  private synchronized void stopManagementDb();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field managementDb:Ljava/sql/Connection;
+       4: ifnull        29
+       7: aload_0
+       8: getfield      #24                 // Field managementDb:Ljava/sql/Connection;
+      11: invokeinterface #50,  1           // InterfaceMethod java/sql/Connection.close:()V
+      16: goto          24
+      19: astore_1
+      20: aload_1
+      21: invokestatic  #49                 // Method org/h2/message/DbException.traceThrowable:(Ljava/lang/Throwable;)V
+      24: aload_0
+      25: aconst_null
+      26: putfield      #24                 // Field managementDb:Ljava/sql/Connection;
+      29: return
+    Exception table:
+       from    to  target type
+           7    16    19   Class java/sql/SQLException
+
+  public void init(java.lang.String...);
+    Code:
+       0: aload_0
+       1: sipush        9092
+       4: putfield      #21                 // Field port:I
+       7: iconst_0
+       8: istore_2
+       9: aload_1
+      10: ifnull        220
+      13: iload_2
+      14: aload_1
+      15: arraylength
+      16: if_icmpge     220
+      19: aload_1
+      20: iload_2
+      21: aaload
+      22: astore_3
+      23: aload_3
+      24: ldc           #51                 // String -trace
+      26: invokestatic  #52                 // Method org/h2/util/Tool.isOption:(Ljava/lang/String;Ljava/lang/String;)Z
+      29: ifeq          40
+      32: aload_0
+      33: iconst_1
+      34: putfield      #53                 // Field trace:Z
+      37: goto          214
+      40: aload_3
+      41: ldc           #54                 // String -tcpSSL
+      43: invokestatic  #52                 // Method org/h2/util/Tool.isOption:(Ljava/lang/String;Ljava/lang/String;)Z
+      46: ifeq          57
+      49: aload_0
+      50: iconst_1
+      51: putfield      #55                 // Field ssl:Z
+      54: goto          214
+      57: aload_3
+      58: ldc           #56                 // String -tcpPort
+      60: invokestatic  #52                 // Method org/h2/util/Tool.isOption:(Ljava/lang/String;Ljava/lang/String;)Z
+      63: ifeq          90
+      66: aload_0
+      67: aload_1
+      68: iinc          2, 1
+      71: iload_2
+      72: aaload
+      73: invokestatic  #57                 // Method java/lang/Integer.decode:(Ljava/lang/String;)Ljava/lang/Integer;
+      76: invokevirtual #58                 // Method java/lang/Integer.intValue:()I
+      79: putfield      #21                 // Field port:I
+      82: aload_0
+      83: iconst_1
+      84: putfield      #59                 // Field portIsSet:Z
+      87: goto          214
+      90: aload_3
+      91: ldc           #60                 // String -tcpPassword
+      93: invokestatic  #52                 // Method org/h2/util/Tool.isOption:(Ljava/lang/String;Ljava/lang/String;)Z
+      96: ifeq          112
+      99: aload_0
+     100: aload_1
+     101: iinc          2, 1
+     104: iload_2
+     105: aaload
+     106: putfield      #7                  // Field managementPassword:Ljava/lang/String;
+     109: goto          214
+     112: aload_3
+     113: ldc           #61                 // String -baseDir
+     115: invokestatic  #52                 // Method org/h2/util/Tool.isOption:(Ljava/lang/String;Ljava/lang/String;)Z
+     118: ifeq          134
+     121: aload_0
+     122: aload_1
+     123: iinc          2, 1
+     126: iload_2
+     127: aaload
+     128: putfield      #62                 // Field baseDir:Ljava/lang/String;
+     131: goto          214
+     134: aload_3
+     135: ldc           #63                 // String -key
+     137: invokestatic  #52                 // Method org/h2/util/Tool.isOption:(Ljava/lang/String;Ljava/lang/String;)Z
+     140: ifeq          166
+     143: aload_0
+     144: aload_1
+     145: iinc          2, 1
+     148: iload_2
+     149: aaload
+     150: putfield      #64                 // Field key:Ljava/lang/String;
+     153: aload_0
+     154: aload_1
+     155: iinc          2, 1
+     158: iload_2
+     159: aaload
+     160: putfield      #65                 // Field keyDatabase:Ljava/lang/String;
+     163: goto          214
+     166: aload_3
+     167: ldc           #66                 // String -tcpAllowOthers
+     169: invokestatic  #52                 // Method org/h2/util/Tool.isOption:(Ljava/lang/String;Ljava/lang/String;)Z
+     172: ifeq          183
+     175: aload_0
+     176: iconst_1
+     177: putfield      #67                 // Field allowOthers:Z
+     180: goto          214
+     183: aload_3
+     184: ldc           #68                 // String -tcpDaemon
+     186: invokestatic  #52                 // Method org/h2/util/Tool.isOption:(Ljava/lang/String;Ljava/lang/String;)Z
+     189: ifeq          200
+     192: aload_0
+     193: iconst_1
+     194: putfield      #69                 // Field isDaemon:Z
+     197: goto          214
+     200: aload_3
+     201: ldc           #70                 // String -ifExists
+     203: invokestatic  #52                 // Method org/h2/util/Tool.isOption:(Ljava/lang/String;Ljava/lang/String;)Z
+     206: ifeq          214
+     209: aload_0
+     210: iconst_1
+     211: putfield      #71                 // Field ifExists:Z
+     214: iinc          2, 1
+     217: goto          9
+     220: invokestatic  #19                 // Method org/h2/Driver.load:()Lorg/h2/Driver;
+     223: pop
+     224: return
+
+  public java.lang.String getURL();
+    Code:
+       0: new           #8                  // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #9                  // Method java/lang/StringBuilder."<init>":()V
+       7: aload_0
+       8: getfield      #55                 // Field ssl:Z
+      11: ifeq          19
+      14: ldc           #72                 // String ssl
+      16: goto          21
+      19: ldc           #73                 // String tcp
+      21: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      24: ldc           #74                 // String ://
+      26: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: invokestatic  #75                 // Method org/h2/util/NetUtils.getLocalAddress:()Ljava/lang/String;
+      32: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      35: ldc           #76                 // String :
+      37: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      40: aload_0
+      41: getfield      #21                 // Field port:I
+      44: invokevirtual #12                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      47: invokevirtual #13                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      50: areturn
+
+  public int getPort();
+    Code:
+       0: aload_0
+       1: getfield      #21                 // Field port:I
+       4: ireturn
+
+  boolean allow(java.net.Socket);
+    Code:
+       0: aload_0
+       1: getfield      #67                 // Field allowOthers:Z
+       4: ifeq          9
+       7: iconst_1
+       8: ireturn
+       9: aload_1
+      10: invokestatic  #77                 // Method org/h2/util/NetUtils.isLocalAddress:(Ljava/net/Socket;)Z
+      13: ireturn
+      14: astore_2
+      15: aload_0
+      16: aload_2
+      17: invokevirtual #79                 // Method traceError:(Ljava/lang/Throwable;)V
+      20: iconst_0
+      21: ireturn
+    Exception table:
+       from    to  target type
+           9    13    14   Class java/net/UnknownHostException
+
+  public synchronized void start() throws java.sql.SQLException;
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: putfield      #80                 // Field stop:Z
+       5: aload_0
+       6: aload_0
+       7: getfield      #21                 // Field port:I
+      10: aload_0
+      11: getfield      #55                 // Field ssl:Z
+      14: invokestatic  #81                 // Method org/h2/util/NetUtils.createServerSocket:(IZ)Ljava/net/ServerSocket;
+      17: putfield      #82                 // Field serverSocket:Ljava/net/ServerSocket;
+      20: goto          48
+      23: astore_1
+      24: aload_0
+      25: getfield      #59                 // Field portIsSet:Z
+      28: ifne          46
+      31: aload_0
+      32: iconst_0
+      33: aload_0
+      34: getfield      #55                 // Field ssl:Z
+      37: invokestatic  #81                 // Method org/h2/util/NetUtils.createServerSocket:(IZ)Ljava/net/ServerSocket;
+      40: putfield      #82                 // Field serverSocket:Ljava/net/ServerSocket;
+      43: goto          48
+      46: aload_1
+      47: athrow
+      48: aload_0
+      49: aload_0
+      50: getfield      #82                 // Field serverSocket:Ljava/net/ServerSocket;
+      53: invokevirtual #84                 // Method java/net/ServerSocket.getLocalPort:()I
+      56: putfield      #21                 // Field port:I
+      59: aload_0
+      60: invokespecial #85                 // Method initManagementDb:()V
+      63: return
+    Exception table:
+       from    to  target type
+           5    20    23   Class org/h2/message/DbException
+
+  public void listen();
+    Code:
+       0: aload_0
+       1: invokestatic  #86                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+       4: putfield      #87                 // Field listenerThread:Ljava/lang/Thread;
+       7: aload_0
+       8: getfield      #87                 // Field listenerThread:Ljava/lang/Thread;
+      11: invokevirtual #88                 // Method java/lang/Thread.getName:()Ljava/lang/String;
+      14: astore_1
+      15: aload_0
+      16: getfield      #80                 // Field stop:Z
+      19: ifne          114
+      22: aload_0
+      23: getfield      #82                 // Field serverSocket:Ljava/net/ServerSocket;
+      26: invokevirtual #89                 // Method java/net/ServerSocket.accept:()Ljava/net/Socket;
+      29: astore_2
+      30: new           #90                 // class org/h2/server/TcpServerThread
+      33: dup
+      34: aload_2
+      35: aload_0
+      36: aload_0
+      37: dup
+      38: getfield      #91                 // Field nextThreadId:I
+      41: dup_x1
+      42: iconst_1
+      43: iadd
+      44: putfield      #91                 // Field nextThreadId:I
+      47: invokespecial #92                 // Method org/h2/server/TcpServerThread."<init>":(Ljava/net/Socket;Lorg/h2/server/TcpServer;I)V
+      50: astore_3
+      51: aload_0
+      52: getfield      #5                  // Field running:Ljava/util/Set;
+      55: aload_3
+      56: invokeinterface #93,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      61: pop
+      62: new           #94                 // class java/lang/Thread
+      65: dup
+      66: aload_3
+      67: new           #8                  // class java/lang/StringBuilder
+      70: dup
+      71: invokespecial #9                  // Method java/lang/StringBuilder."<init>":()V
+      74: aload_1
+      75: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      78: ldc           #95                 // String  thread
+      80: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      83: invokevirtual #13                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      86: invokespecial #96                 // Method java/lang/Thread."<init>":(Ljava/lang/Runnable;Ljava/lang/String;)V
+      89: astore        4
+      91: aload         4
+      93: aload_0
+      94: getfield      #69                 // Field isDaemon:Z
+      97: invokevirtual #97                 // Method java/lang/Thread.setDaemon:(Z)V
+     100: aload_3
+     101: aload         4
+     103: invokevirtual #98                 // Method org/h2/server/TcpServerThread.setThread:(Ljava/lang/Thread;)V
+     106: aload         4
+     108: invokevirtual #99                 // Method java/lang/Thread.start:()V
+     111: goto          15
+     114: aload_0
+     115: aload_0
+     116: getfield      #82                 // Field serverSocket:Ljava/net/ServerSocket;
+     119: invokestatic  #100                // Method org/h2/util/NetUtils.closeSilently:(Ljava/net/ServerSocket;)Ljava/net/ServerSocket;
+     122: putfield      #82                 // Field serverSocket:Ljava/net/ServerSocket;
+     125: goto          140
+     128: astore_2
+     129: aload_0
+     130: getfield      #80                 // Field stop:Z
+     133: ifne          140
+     136: aload_2
+     137: invokestatic  #49                 // Method org/h2/message/DbException.traceThrowable:(Ljava/lang/Throwable;)V
+     140: aload_0
+     141: invokespecial #102                // Method stopManagementDb:()V
+     144: return
+    Exception table:
+       from    to  target type
+          15   125   128   Class java/lang/Exception
+
+  public synchronized boolean isRunning(boolean);
+    Code:
+       0: aload_0
+       1: getfield      #82                 // Field serverSocket:Ljava/net/ServerSocket;
+       4: ifnonnull     9
+       7: iconst_0
+       8: ireturn
+       9: aload_0
+      10: getfield      #21                 // Field port:I
+      13: aload_0
+      14: getfield      #55                 // Field ssl:Z
+      17: invokestatic  #103                // Method org/h2/util/NetUtils.createLoopbackSocket:(IZ)Ljava/net/Socket;
+      20: astore_2
+      21: aload_2
+      22: invokevirtual #104                // Method java/net/Socket.close:()V
+      25: iconst_1
+      26: ireturn
+      27: astore_2
+      28: iload_1
+      29: ifeq          37
+      32: aload_0
+      33: aload_2
+      34: invokevirtual #79                 // Method traceError:(Ljava/lang/Throwable;)V
+      37: iconst_0
+      38: ireturn
+    Exception table:
+       from    to  target type
+           9    26    27   Class java/lang/Exception
+
+  public void stop();
+    Code:
+       0: getstatic     #40                 // Field SERVERS:Ljava/util/Map;
+       3: aload_0
+       4: getfield      #21                 // Field port:I
+       7: invokestatic  #41                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      10: invokeinterface #105,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      15: pop
+      16: aload_0
+      17: getfield      #80                 // Field stop:Z
+      20: ifne          88
+      23: aload_0
+      24: invokespecial #102                // Method stopManagementDb:()V
+      27: aload_0
+      28: iconst_1
+      29: putfield      #80                 // Field stop:Z
+      32: aload_0
+      33: getfield      #82                 // Field serverSocket:Ljava/net/ServerSocket;
+      36: ifnull        63
+      39: aload_0
+      40: getfield      #82                 // Field serverSocket:Ljava/net/ServerSocket;
+      43: invokevirtual #106                // Method java/net/ServerSocket.close:()V
+      46: goto          58
+      49: astore_1
+      50: aload_1
+      51: invokestatic  #49                 // Method org/h2/message/DbException.traceThrowable:(Ljava/lang/Throwable;)V
+      54: goto          58
+      57: astore_1
+      58: aload_0
+      59: aconst_null
+      60: putfield      #82                 // Field serverSocket:Ljava/net/ServerSocket;
+      63: aload_0
+      64: getfield      #87                 // Field listenerThread:Ljava/lang/Thread;
+      67: ifnull        88
+      70: aload_0
+      71: getfield      #87                 // Field listenerThread:Ljava/lang/Thread;
+      74: ldc2_w        #109                // long 1000l
+      77: invokevirtual #111                // Method java/lang/Thread.join:(J)V
+      80: goto          88
+      83: astore_1
+      84: aload_1
+      85: invokestatic  #49                 // Method org/h2/message/DbException.traceThrowable:(Ljava/lang/Throwable;)V
+      88: new           #113                // class java/util/ArrayList
+      91: dup
+      92: aload_0
+      93: getfield      #5                  // Field running:Ljava/util/Set;
+      96: invokespecial #114                // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+      99: invokevirtual #115                // Method java/util/ArrayList.iterator:()Ljava/util/Iterator;
+     102: astore_1
+     103: aload_1
+     104: invokeinterface #116,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     109: ifeq          151
+     112: aload_1
+     113: invokeinterface #117,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     118: checkcast     #90                 // class org/h2/server/TcpServerThread
+     121: astore_2
+     122: aload_2
+     123: ifnull        148
+     126: aload_2
+     127: invokevirtual #118                // Method org/h2/server/TcpServerThread.close:()V
+     130: aload_2
+     131: invokevirtual #119                // Method org/h2/server/TcpServerThread.getThread:()Ljava/lang/Thread;
+     134: ldc2_w        #120                // long 100l
+     137: invokevirtual #111                // Method java/lang/Thread.join:(J)V
+     140: goto          148
+     143: astore_3
+     144: aload_3
+     145: invokestatic  #49                 // Method org/h2/message/DbException.traceThrowable:(Ljava/lang/Throwable;)V
+     148: goto          103
+     151: return
+    Exception table:
+       from    to  target type
+          39    46    49   Class java/io/IOException
+          39    46    57   Class java/lang/NullPointerException
+          70    80    83   Class java/lang/InterruptedException
+         130   140   143   Class java/lang/Exception
+
+  public static void stopServer(int, java.lang.String, int);
+    Code:
+       0: iload_0
+       1: ifne          67
+       4: getstatic     #40                 // Field SERVERS:Ljava/util/Map;
+       7: invokeinterface #122,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+      12: iconst_0
+      13: anewarray     #123                // class java/lang/Integer
+      16: invokeinterface #124,  2          // InterfaceMethod java/util/Set.toArray:([Ljava/lang/Object;)[Ljava/lang/Object;
+      21: checkcast     #125                // class "[Ljava/lang/Integer;"
+      24: astore_3
+      25: aload_3
+      26: arraylength
+      27: istore        4
+      29: iconst_0
+      30: istore        5
+      32: iload         5
+      34: iload         4
+      36: if_icmpge     66
+      39: aload_3
+      40: iload         5
+      42: aaload
+      43: invokevirtual #58                 // Method java/lang/Integer.intValue:()I
+      46: istore        6
+      48: iload         6
+      50: ifeq          60
+      53: iload         6
+      55: aload_1
+      56: iload_2
+      57: invokestatic  #126                // Method stopServer:(ILjava/lang/String;I)V
+      60: iinc          5, 1
+      63: goto          32
+      66: return
+      67: getstatic     #40                 // Field SERVERS:Ljava/util/Map;
+      70: iload_0
+      71: invokestatic  #41                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      74: invokeinterface #127,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      79: checkcast     #27                 // class org/h2/server/TcpServer
+      82: astore_3
+      83: aload_3
+      84: ifnonnull     88
+      87: return
+      88: aload_3
+      89: getfield      #7                  // Field managementPassword:Ljava/lang/String;
+      92: aload_1
+      93: invokevirtual #128                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      96: ifne          100
+      99: return
+     100: iload_2
+     101: ifne          133
+     104: aload_3
+     105: invokespecial #102                // Method stopManagementDb:()V
+     108: aload_3
+     109: iconst_1
+     110: putfield      #80                 // Field stop:Z
+     113: iload_0
+     114: iconst_0
+     115: invokestatic  #103                // Method org/h2/util/NetUtils.createLoopbackSocket:(IZ)Ljava/net/Socket;
+     118: astore        4
+     120: aload         4
+     122: invokevirtual #104                // Method java/net/Socket.close:()V
+     125: goto          142
+     128: astore        4
+     130: goto          142
+     133: iload_2
+     134: iconst_1
+     135: if_icmpne     142
+     138: aload_3
+     139: invokevirtual #129                // Method stop:()V
+     142: aload_3
+     143: invokevirtual #130                // Method shutdown:()V
+     146: return
+    Exception table:
+       from    to  target type
+         113   125   128   Class java/lang/Exception
+
+  void remove(org.h2.server.TcpServerThread);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field running:Ljava/util/Set;
+       4: aload_1
+       5: invokeinterface #131,  2          // InterfaceMethod java/util/Set.remove:(Ljava/lang/Object;)Z
+      10: pop
+      11: return
+
+  java.lang.String getBaseDir();
+    Code:
+       0: aload_0
+       1: getfield      #62                 // Field baseDir:Ljava/lang/String;
+       4: areturn
+
+  void trace(java.lang.String);
+    Code:
+       0: aload_0
+       1: getfield      #53                 // Field trace:Z
+       4: ifeq          14
+       7: getstatic     #132                // Field java/lang/System.out:Ljava/io/PrintStream;
+      10: aload_1
+      11: invokevirtual #133                // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+      14: return
+
+  void traceError(java.lang.Throwable);
+    Code:
+       0: aload_0
+       1: getfield      #53                 // Field trace:Z
+       4: ifeq          11
+       7: aload_1
+       8: invokevirtual #134                // Method java/lang/Throwable.printStackTrace:()V
+      11: return
+
+  public boolean getAllowOthers();
+    Code:
+       0: aload_0
+       1: getfield      #67                 // Field allowOthers:Z
+       4: ireturn
+
+  public java.lang.String getType();
+    Code:
+       0: ldc           #135                // String TCP
+       2: areturn
+
+  public java.lang.String getName();
+    Code:
+       0: ldc           #136                // String H2 TCP Server
+       2: areturn
+
+  boolean getIfExists();
+    Code:
+       0: aload_0
+       1: getfield      #71                 // Field ifExists:Z
+       4: ireturn
+
+  public static synchronized void shutdown(java.lang.String, java.lang.String, boolean, boolean) throws java.sql.SQLException;
+    Code:
+       0: sipush        9092
+       3: istore        4
+       5: aload_0
+       6: bipush        58
+       8: invokevirtual #137                // Method java/lang/String.lastIndexOf:(I)I
+      11: istore        5
+      13: iload         5
+      15: iflt          46
+      18: aload_0
+      19: iload         5
+      21: iconst_1
+      22: iadd
+      23: invokevirtual #138                // Method java/lang/String.substring:(I)Ljava/lang/String;
+      26: astore        6
+      28: aload         6
+      30: invokestatic  #139                // Method org/h2/util/StringUtils.isNumber:(Ljava/lang/String;)Z
+      33: ifeq          46
+      36: aload         6
+      38: invokestatic  #57                 // Method java/lang/Integer.decode:(Ljava/lang/String;)Ljava/lang/Integer;
+      41: invokevirtual #58                 // Method java/lang/Integer.intValue:()I
+      44: istore        4
+      46: iload         4
+      48: invokestatic  #22                 // Method getManagementDbName:(I)Ljava/lang/String;
+      51: astore        6
+      53: invokestatic  #19                 // Method org/h2/Driver.load:()Lorg/h2/Driver;
+      56: pop
+      57: goto          68
+      60: astore        7
+      62: aload         7
+      64: invokestatic  #140                // Method org/h2/message/DbException.convert:(Ljava/lang/Throwable;)Lorg/h2/message/DbException;
+      67: athrow
+      68: iconst_0
+      69: istore        7
+      71: iload         7
+      73: iconst_2
+      74: if_icmpge     266
+      77: aconst_null
+      78: astore        8
+      80: aconst_null
+      81: astore        9
+      83: new           #8                  // class java/lang/StringBuilder
+      86: dup
+      87: invokespecial #9                  // Method java/lang/StringBuilder."<init>":()V
+      90: ldc           #20                 // String jdbc:h2:
+      92: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      95: aload_0
+      96: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      99: ldc           #141                // String /
+     101: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     104: aload         6
+     106: invokevirtual #11                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     109: invokevirtual #13                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     112: ldc           #6                  // String
+     114: aload_1
+     115: invokestatic  #142                // Method java/sql/DriverManager.getConnection:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/sql/Connection;
+     118: astore        8
+     120: aload         8
+     122: ldc           #143                // String CALL STOP_SERVER(?, ?, ?)
+     124: invokeinterface #33,  2           // InterfaceMethod java/sql/Connection.prepareStatement:(Ljava/lang/String;)Ljava/sql/PreparedStatement;
+     129: astore        9
+     131: aload         9
+     133: iconst_1
+     134: iload_3
+     135: ifeq          142
+     138: iconst_0
+     139: goto          144
+     142: iload         4
+     144: invokeinterface #45,  3           // InterfaceMethod java/sql/PreparedStatement.setInt:(II)V
+     149: aload         9
+     151: iconst_2
+     152: aload_1
+     153: invokeinterface #46,  3           // InterfaceMethod java/sql/PreparedStatement.setString:(ILjava/lang/String;)V
+     158: aload         9
+     160: iconst_3
+     161: iload_2
+     162: ifeq          169
+     165: iconst_1
+     166: goto          170
+     169: iconst_0
+     170: invokeinterface #45,  3           // InterfaceMethod java/sql/PreparedStatement.setInt:(II)V
+     175: aload         9
+     177: invokeinterface #47,  1           // InterfaceMethod java/sql/PreparedStatement.execute:()Z
+     182: pop
+     183: goto          208
+     186: astore        10
+     188: iload_2
+     189: ifeq          195
+     192: goto          208
+     195: aload         10
+     197: invokevirtual #144                // Method java/sql/SQLException.getErrorCode:()I
+     200: ldc           #145                // int 90067
+     202: if_icmpeq     208
+     205: aload         10
+     207: athrow
+     208: aload         9
+     210: invokestatic  #146                // Method org/h2/util/JdbcUtils.closeSilently:(Ljava/sql/Statement;)V
+     213: aload         8
+     215: invokestatic  #147                // Method org/h2/util/JdbcUtils.closeSilently:(Ljava/sql/Connection;)V
+     218: goto          266
+     221: astore        10
+     223: iload         7
+     225: iconst_1
+     226: if_icmpne     232
+     229: aload         10
+     231: athrow
+     232: aload         9
+     234: invokestatic  #146                // Method org/h2/util/JdbcUtils.closeSilently:(Ljava/sql/Statement;)V
+     237: aload         8
+     239: invokestatic  #147                // Method org/h2/util/JdbcUtils.closeSilently:(Ljava/sql/Connection;)V
+     242: goto          260
+     245: astore        11
+     247: aload         9
+     249: invokestatic  #146                // Method org/h2/util/JdbcUtils.closeSilently:(Ljava/sql/Statement;)V
+     252: aload         8
+     254: invokestatic  #147                // Method org/h2/util/JdbcUtils.closeSilently:(Ljava/sql/Connection;)V
+     257: aload         11
+     259: athrow
+     260: iinc          7, 1
+     263: goto          71
+     266: goto          277
+     269: astore        4
+     271: aload         4
+     273: invokestatic  #148                // Method org/h2/message/DbException.toSQLException:(Ljava/lang/Throwable;)Ljava/sql/SQLException;
+     276: athrow
+     277: return
+    Exception table:
+       from    to  target type
+          53    57    60   Class java/lang/Throwable
+         175   183   186   Class java/sql/SQLException
+          83   208   221   Class java/sql/SQLException
+          83   208   245   any
+         221   232   245   any
+         245   247   245   any
+           0   266   269   Class java/lang/Exception
+
+  void cancelStatement(java.lang.String, int);
+    Code:
+       0: new           #113                // class java/util/ArrayList
+       3: dup
+       4: aload_0
+       5: getfield      #5                  // Field running:Ljava/util/Set;
+       8: invokespecial #114                // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+      11: invokevirtual #115                // Method java/util/ArrayList.iterator:()Ljava/util/Iterator;
+      14: astore_3
+      15: aload_3
+      16: invokeinterface #116,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      21: ifeq          50
+      24: aload_3
+      25: invokeinterface #117,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      30: checkcast     #90                 // class org/h2/server/TcpServerThread
+      33: astore        4
+      35: aload         4
+      37: ifnull        47
+      40: aload         4
+      42: aload_1
+      43: iload_2
+      44: invokevirtual #149                // Method org/h2/server/TcpServerThread.cancelStatement:(Ljava/lang/String;I)V
+      47: goto          15
+      50: return
+
+  public java.lang.String checkKeyAndGetDatabaseName(java.lang.String);
+    Code:
+       0: aload_0
+       1: getfield      #64                 // Field key:Ljava/lang/String;
+       4: ifnonnull     9
+       7: aload_1
+       8: areturn
+       9: aload_0
+      10: getfield      #64                 // Field key:Ljava/lang/String;
+      13: aload_1
+      14: invokevirtual #128                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      17: ifeq          25
+      20: aload_0
+      21: getfield      #65                 // Field keyDatabase:Ljava/lang/String;
+      24: areturn
+      25: sipush        28000
+      28: invokestatic  #150                // Method org/h2/message/DbException.get:(I)Lorg/h2/message/DbException;
+      31: athrow
+
+  public boolean isDaemon();
+    Code:
+       0: aload_0
+       1: getfield      #69                 // Field isDaemon:Z
+       4: ireturn
+
+  static {};
+    Code:
+       0: new           #151                // class java/util/HashMap
+       3: dup
+       4: invokespecial #152                // Method java/util/HashMap."<init>":()V
+       7: invokestatic  #153                // Method java/util/Collections.synchronizedMap:(Ljava/util/Map;)Ljava/util/Map;
+      10: putstatic     #40                 // Field SERVERS:Ljava/util/Map;
+      13: return
+}

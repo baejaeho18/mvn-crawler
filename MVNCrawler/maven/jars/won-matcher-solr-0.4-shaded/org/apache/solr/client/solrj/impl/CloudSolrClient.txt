@@ -1,0 +1,3391 @@
+Compiled from "CloudSolrClient.java"
+public class org.apache.solr.client.solrj.impl.CloudSolrClient extends org.apache.solr.client.solrj.SolrClient {
+  private static final org.slf4j.Logger log;
+
+  private final org.apache.solr.client.solrj.impl.CloudSolrClient$ClusterStateProvider stateProvider;
+
+  private volatile java.lang.String defaultCollection;
+
+  private final org.apache.solr.client.solrj.impl.LBHttpSolrClient lbClient;
+
+  private final boolean shutdownLBHttpSolrServer;
+
+  private org.apache.http.client.HttpClient myClient;
+
+  private final boolean clientIsInternal;
+
+  private static final int MAX_STALE_RETRIES;
+
+  java.util.Random rand;
+
+  private final boolean updatesToLeaders;
+
+  private final boolean directUpdatesToLeadersOnly;
+
+  private boolean parallelUpdates;
+
+  private java.util.concurrent.ExecutorService threadPool;
+
+  private java.lang.String idField;
+
+  public static final java.lang.String STATE_VERSION;
+
+  private long retryExpiryTime;
+
+  private final java.util.Set<java.lang.String> NON_ROUTABLE_PARAMS;
+
+  private volatile java.util.List<java.lang.Object> locks;
+
+  protected final org.apache.solr.client.solrj.impl.CloudSolrClient$StateCache collectionStateCache;
+
+  private static final java.util.Set<java.lang.String> ADMIN_PATHS;
+
+  static final boolean $assertionsDisabled;
+
+  public void setRetryExpiryTime(int);
+    Code:
+       0: aload_0
+       1: getstatic     #4                  // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+       4: iload_1
+       5: i2l
+       6: getstatic     #5                  // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+       9: invokevirtual #6                  // Method java/util/concurrent/TimeUnit.convert:(JLjava/util/concurrent/TimeUnit;)J
+      12: putfield      #3                  // Field retryExpiryTime:J
+      15: return
+
+  public void setSoTimeout(int);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+       4: iload_1
+       5: invokevirtual #8                  // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.setSoTimeout:(I)V
+       8: return
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient(java.lang.String);
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method org/apache/solr/client/solrj/SolrClient."<init>":()V
+       4: aload_0
+       5: new           #10                 // class java/util/Random
+       8: dup
+       9: invokespecial #11                 // Method java/util/Random."<init>":()V
+      12: putfield      #12                 // Field rand:Ljava/util/Random;
+      15: aload_0
+      16: iconst_1
+      17: putfield      #13                 // Field parallelUpdates:Z
+      20: aload_0
+      21: new           #14                 // class org/apache/solr/common/util/SolrjNamedThreadFactory
+      24: dup
+      25: ldc           #15                 // String CloudSolrClient ThreadPool
+      27: invokespecial #16                 // Method org/apache/solr/common/util/SolrjNamedThreadFactory."<init>":(Ljava/lang/String;)V
+      30: invokestatic  #17                 // Method org/apache/solr/common/util/ExecutorUtil.newMDCAwareCachedThreadPool:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+      33: putfield      #18                 // Field threadPool:Ljava/util/concurrent/ExecutorService;
+      36: aload_0
+      37: ldc           #19                 // String id
+      39: putfield      #20                 // Field idField:Ljava/lang/String;
+      42: aload_0
+      43: getstatic     #4                  // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+      46: ldc2_w        #21                 // long 3l
+      49: getstatic     #5                  // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      52: invokevirtual #6                  // Method java/util/concurrent/TimeUnit.convert:(JLjava/util/concurrent/TimeUnit;)J
+      55: putfield      #3                  // Field retryExpiryTime:J
+      58: aload_0
+      59: new           #23                 // class java/util/HashSet
+      62: dup
+      63: invokespecial #24                 // Method java/util/HashSet."<init>":()V
+      66: putfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      69: aload_0
+      70: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      73: ldc           #27                 // String expungeDeletes
+      75: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      80: pop
+      81: aload_0
+      82: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      85: ldc           #29                 // String maxSegments
+      87: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      92: pop
+      93: aload_0
+      94: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      97: ldc           #30                 // String commit
+      99: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     104: pop
+     105: aload_0
+     106: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     109: ldc           #31                 // String waitSearcher
+     111: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     116: pop
+     117: aload_0
+     118: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     121: ldc           #32                 // String openSearcher
+     123: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     128: pop
+     129: aload_0
+     130: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     133: ldc           #33                 // String softCommit
+     135: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     140: pop
+     141: aload_0
+     142: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     145: ldc           #34                 // String prepareCommit
+     147: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     152: pop
+     153: aload_0
+     154: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     157: ldc           #35                 // String optimize
+     159: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     164: pop
+     165: aload_0
+     166: iconst_3
+     167: invokestatic  #36                 // Method objectList:(I)Ljava/util/ArrayList;
+     170: putfield      #37                 // Field locks:Ljava/util/List;
+     173: aload_0
+     174: new           #38                 // class org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache
+     177: dup
+     178: invokespecial #39                 // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache."<init>":()V
+     181: putfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     184: aload_0
+     185: new           #41                 // class org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider
+     188: dup
+     189: aload_1
+     190: invokespecial #42                 // Method org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider."<init>":(Ljava/lang/String;)V
+     193: putfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     196: aload_0
+     197: iconst_1
+     198: putfield      #44                 // Field clientIsInternal:Z
+     201: aload_0
+     202: aconst_null
+     203: invokestatic  #45                 // Method org/apache/solr/client/solrj/impl/HttpClientUtil.createClient:(Lorg/apache/solr/common/params/SolrParams;)Lorg/apache/http/impl/client/CloseableHttpClient;
+     206: putfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+     209: aload_0
+     210: new           #47                 // class org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder
+     213: dup
+     214: invokespecial #48                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder."<init>":()V
+     217: aload_0
+     218: getfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+     221: invokevirtual #49                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder.withHttpClient:(Lorg/apache/http/client/HttpClient;)Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder;
+     224: invokevirtual #50                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder.build:()Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     227: putfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     230: aload_0
+     231: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     234: new           #51                 // class org/apache/solr/client/solrj/impl/BinaryRequestWriter
+     237: dup
+     238: invokespecial #52                 // Method org/apache/solr/client/solrj/impl/BinaryRequestWriter."<init>":()V
+     241: invokevirtual #53                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.setRequestWriter:(Lorg/apache/solr/client/solrj/request/RequestWriter;)V
+     244: aload_0
+     245: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     248: new           #54                 // class org/apache/solr/client/solrj/impl/BinaryResponseParser
+     251: dup
+     252: invokespecial #55                 // Method org/apache/solr/client/solrj/impl/BinaryResponseParser."<init>":()V
+     255: invokevirtual #56                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.setParser:(Lorg/apache/solr/client/solrj/ResponseParser;)V
+     258: aload_0
+     259: iconst_1
+     260: putfield      #57                 // Field updatesToLeaders:Z
+     263: aload_0
+     264: iconst_0
+     265: putfield      #58                 // Field directUpdatesToLeadersOnly:Z
+     268: aload_0
+     269: iconst_1
+     270: putfield      #59                 // Field shutdownLBHttpSolrServer:Z
+     273: aload_0
+     274: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     277: ldc           #61                 // String _stateVer_
+     279: invokevirtual #62                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.addQueryParams:(Ljava/lang/String;)V
+     282: return
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient(java.lang.String, org.apache.http.client.HttpClient);
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method org/apache/solr/client/solrj/SolrClient."<init>":()V
+       4: aload_0
+       5: new           #10                 // class java/util/Random
+       8: dup
+       9: invokespecial #11                 // Method java/util/Random."<init>":()V
+      12: putfield      #12                 // Field rand:Ljava/util/Random;
+      15: aload_0
+      16: iconst_1
+      17: putfield      #13                 // Field parallelUpdates:Z
+      20: aload_0
+      21: new           #14                 // class org/apache/solr/common/util/SolrjNamedThreadFactory
+      24: dup
+      25: ldc           #15                 // String CloudSolrClient ThreadPool
+      27: invokespecial #16                 // Method org/apache/solr/common/util/SolrjNamedThreadFactory."<init>":(Ljava/lang/String;)V
+      30: invokestatic  #17                 // Method org/apache/solr/common/util/ExecutorUtil.newMDCAwareCachedThreadPool:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+      33: putfield      #18                 // Field threadPool:Ljava/util/concurrent/ExecutorService;
+      36: aload_0
+      37: ldc           #19                 // String id
+      39: putfield      #20                 // Field idField:Ljava/lang/String;
+      42: aload_0
+      43: getstatic     #4                  // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+      46: ldc2_w        #21                 // long 3l
+      49: getstatic     #5                  // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      52: invokevirtual #6                  // Method java/util/concurrent/TimeUnit.convert:(JLjava/util/concurrent/TimeUnit;)J
+      55: putfield      #3                  // Field retryExpiryTime:J
+      58: aload_0
+      59: new           #23                 // class java/util/HashSet
+      62: dup
+      63: invokespecial #24                 // Method java/util/HashSet."<init>":()V
+      66: putfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      69: aload_0
+      70: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      73: ldc           #27                 // String expungeDeletes
+      75: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      80: pop
+      81: aload_0
+      82: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      85: ldc           #29                 // String maxSegments
+      87: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      92: pop
+      93: aload_0
+      94: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      97: ldc           #30                 // String commit
+      99: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     104: pop
+     105: aload_0
+     106: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     109: ldc           #31                 // String waitSearcher
+     111: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     116: pop
+     117: aload_0
+     118: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     121: ldc           #32                 // String openSearcher
+     123: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     128: pop
+     129: aload_0
+     130: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     133: ldc           #33                 // String softCommit
+     135: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     140: pop
+     141: aload_0
+     142: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     145: ldc           #34                 // String prepareCommit
+     147: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     152: pop
+     153: aload_0
+     154: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     157: ldc           #35                 // String optimize
+     159: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     164: pop
+     165: aload_0
+     166: iconst_3
+     167: invokestatic  #36                 // Method objectList:(I)Ljava/util/ArrayList;
+     170: putfield      #37                 // Field locks:Ljava/util/List;
+     173: aload_0
+     174: new           #38                 // class org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache
+     177: dup
+     178: invokespecial #39                 // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache."<init>":()V
+     181: putfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     184: aload_0
+     185: new           #41                 // class org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider
+     188: dup
+     189: aload_1
+     190: invokespecial #42                 // Method org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider."<init>":(Ljava/lang/String;)V
+     193: putfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     196: aload_0
+     197: aload_2
+     198: ifnonnull     205
+     201: iconst_1
+     202: goto          206
+     205: iconst_0
+     206: putfield      #44                 // Field clientIsInternal:Z
+     209: aload_0
+     210: aload_2
+     211: ifnonnull     221
+     214: aconst_null
+     215: invokestatic  #45                 // Method org/apache/solr/client/solrj/impl/HttpClientUtil.createClient:(Lorg/apache/solr/common/params/SolrParams;)Lorg/apache/http/impl/client/CloseableHttpClient;
+     218: goto          222
+     221: aload_2
+     222: putfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+     225: aload_0
+     226: aload_0
+     227: getfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+     230: invokestatic  #63                 // Method createLBHttpSolrClient:(Lorg/apache/http/client/HttpClient;)Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     233: putfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     236: aload_0
+     237: iconst_1
+     238: putfield      #57                 // Field updatesToLeaders:Z
+     241: aload_0
+     242: iconst_0
+     243: putfield      #58                 // Field directUpdatesToLeadersOnly:Z
+     246: aload_0
+     247: iconst_1
+     248: putfield      #59                 // Field shutdownLBHttpSolrServer:Z
+     251: aload_0
+     252: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     255: ldc           #61                 // String _stateVer_
+     257: invokevirtual #62                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.addQueryParams:(Ljava/lang/String;)V
+     260: return
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient(java.util.Collection<java.lang.String>, java.lang.String);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aconst_null
+       4: invokespecial #64                 // Method "<init>":(Ljava/util/Collection;Ljava/lang/String;Lorg/apache/http/client/HttpClient;)V
+       7: return
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient(java.util.Collection<java.lang.String>, java.lang.String, org.apache.http.client.HttpClient);
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method org/apache/solr/client/solrj/SolrClient."<init>":()V
+       4: aload_0
+       5: new           #10                 // class java/util/Random
+       8: dup
+       9: invokespecial #11                 // Method java/util/Random."<init>":()V
+      12: putfield      #12                 // Field rand:Ljava/util/Random;
+      15: aload_0
+      16: iconst_1
+      17: putfield      #13                 // Field parallelUpdates:Z
+      20: aload_0
+      21: new           #14                 // class org/apache/solr/common/util/SolrjNamedThreadFactory
+      24: dup
+      25: ldc           #15                 // String CloudSolrClient ThreadPool
+      27: invokespecial #16                 // Method org/apache/solr/common/util/SolrjNamedThreadFactory."<init>":(Ljava/lang/String;)V
+      30: invokestatic  #17                 // Method org/apache/solr/common/util/ExecutorUtil.newMDCAwareCachedThreadPool:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+      33: putfield      #18                 // Field threadPool:Ljava/util/concurrent/ExecutorService;
+      36: aload_0
+      37: ldc           #19                 // String id
+      39: putfield      #20                 // Field idField:Ljava/lang/String;
+      42: aload_0
+      43: getstatic     #4                  // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+      46: ldc2_w        #21                 // long 3l
+      49: getstatic     #5                  // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      52: invokevirtual #6                  // Method java/util/concurrent/TimeUnit.convert:(JLjava/util/concurrent/TimeUnit;)J
+      55: putfield      #3                  // Field retryExpiryTime:J
+      58: aload_0
+      59: new           #23                 // class java/util/HashSet
+      62: dup
+      63: invokespecial #24                 // Method java/util/HashSet."<init>":()V
+      66: putfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      69: aload_0
+      70: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      73: ldc           #27                 // String expungeDeletes
+      75: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      80: pop
+      81: aload_0
+      82: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      85: ldc           #29                 // String maxSegments
+      87: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      92: pop
+      93: aload_0
+      94: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      97: ldc           #30                 // String commit
+      99: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     104: pop
+     105: aload_0
+     106: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     109: ldc           #31                 // String waitSearcher
+     111: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     116: pop
+     117: aload_0
+     118: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     121: ldc           #32                 // String openSearcher
+     123: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     128: pop
+     129: aload_0
+     130: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     133: ldc           #33                 // String softCommit
+     135: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     140: pop
+     141: aload_0
+     142: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     145: ldc           #34                 // String prepareCommit
+     147: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     152: pop
+     153: aload_0
+     154: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     157: ldc           #35                 // String optimize
+     159: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     164: pop
+     165: aload_0
+     166: iconst_3
+     167: invokestatic  #36                 // Method objectList:(I)Ljava/util/ArrayList;
+     170: putfield      #37                 // Field locks:Ljava/util/List;
+     173: aload_0
+     174: new           #38                 // class org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache
+     177: dup
+     178: invokespecial #39                 // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache."<init>":()V
+     181: putfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     184: aload_0
+     185: new           #41                 // class org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider
+     188: dup
+     189: aload_1
+     190: aload_2
+     191: invokespecial #65                 // Method org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider."<init>":(Ljava/util/Collection;Ljava/lang/String;)V
+     194: putfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     197: aload_0
+     198: aload_3
+     199: ifnonnull     206
+     202: iconst_1
+     203: goto          207
+     206: iconst_0
+     207: putfield      #44                 // Field clientIsInternal:Z
+     210: aload_0
+     211: aload_3
+     212: ifnonnull     222
+     215: aconst_null
+     216: invokestatic  #45                 // Method org/apache/solr/client/solrj/impl/HttpClientUtil.createClient:(Lorg/apache/solr/common/params/SolrParams;)Lorg/apache/http/impl/client/CloseableHttpClient;
+     219: goto          223
+     222: aload_3
+     223: putfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+     226: aload_0
+     227: aload_0
+     228: getfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+     231: invokestatic  #63                 // Method createLBHttpSolrClient:(Lorg/apache/http/client/HttpClient;)Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     234: putfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     237: aload_0
+     238: iconst_1
+     239: putfield      #57                 // Field updatesToLeaders:Z
+     242: aload_0
+     243: iconst_0
+     244: putfield      #58                 // Field directUpdatesToLeadersOnly:Z
+     247: aload_0
+     248: iconst_1
+     249: putfield      #59                 // Field shutdownLBHttpSolrServer:Z
+     252: return
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient(java.util.Collection<java.lang.String>, java.lang.String, org.apache.http.client.HttpClient, org.apache.solr.client.solrj.impl.LBHttpSolrClient, boolean);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: aload         4
+       6: aconst_null
+       7: iload         5
+       9: iconst_0
+      10: aconst_null
+      11: invokespecial #2                  // Method "<init>":(Ljava/util/Collection;Ljava/lang/String;Lorg/apache/http/client/HttpClient;Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder;ZZLorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;)V
+      14: return
+
+  private org.apache.solr.client.solrj.impl.CloudSolrClient(java.util.Collection<java.lang.String>, java.lang.String, org.apache.http.client.HttpClient, org.apache.solr.client.solrj.impl.LBHttpSolrClient, org.apache.solr.client.solrj.impl.LBHttpSolrClient$Builder, boolean, boolean, org.apache.solr.client.solrj.impl.CloudSolrClient$ClusterStateProvider);
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method org/apache/solr/client/solrj/SolrClient."<init>":()V
+       4: aload_0
+       5: new           #10                 // class java/util/Random
+       8: dup
+       9: invokespecial #11                 // Method java/util/Random."<init>":()V
+      12: putfield      #12                 // Field rand:Ljava/util/Random;
+      15: aload_0
+      16: iconst_1
+      17: putfield      #13                 // Field parallelUpdates:Z
+      20: aload_0
+      21: new           #14                 // class org/apache/solr/common/util/SolrjNamedThreadFactory
+      24: dup
+      25: ldc           #15                 // String CloudSolrClient ThreadPool
+      27: invokespecial #16                 // Method org/apache/solr/common/util/SolrjNamedThreadFactory."<init>":(Ljava/lang/String;)V
+      30: invokestatic  #17                 // Method org/apache/solr/common/util/ExecutorUtil.newMDCAwareCachedThreadPool:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+      33: putfield      #18                 // Field threadPool:Ljava/util/concurrent/ExecutorService;
+      36: aload_0
+      37: ldc           #19                 // String id
+      39: putfield      #20                 // Field idField:Ljava/lang/String;
+      42: aload_0
+      43: getstatic     #4                  // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+      46: ldc2_w        #21                 // long 3l
+      49: getstatic     #5                  // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      52: invokevirtual #6                  // Method java/util/concurrent/TimeUnit.convert:(JLjava/util/concurrent/TimeUnit;)J
+      55: putfield      #3                  // Field retryExpiryTime:J
+      58: aload_0
+      59: new           #23                 // class java/util/HashSet
+      62: dup
+      63: invokespecial #24                 // Method java/util/HashSet."<init>":()V
+      66: putfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      69: aload_0
+      70: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      73: ldc           #27                 // String expungeDeletes
+      75: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      80: pop
+      81: aload_0
+      82: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      85: ldc           #29                 // String maxSegments
+      87: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      92: pop
+      93: aload_0
+      94: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      97: ldc           #30                 // String commit
+      99: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     104: pop
+     105: aload_0
+     106: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     109: ldc           #31                 // String waitSearcher
+     111: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     116: pop
+     117: aload_0
+     118: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     121: ldc           #32                 // String openSearcher
+     123: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     128: pop
+     129: aload_0
+     130: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     133: ldc           #33                 // String softCommit
+     135: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     140: pop
+     141: aload_0
+     142: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     145: ldc           #34                 // String prepareCommit
+     147: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     152: pop
+     153: aload_0
+     154: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     157: ldc           #35                 // String optimize
+     159: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     164: pop
+     165: aload_0
+     166: iconst_3
+     167: invokestatic  #36                 // Method objectList:(I)Ljava/util/ArrayList;
+     170: putfield      #37                 // Field locks:Ljava/util/List;
+     173: aload_0
+     174: new           #38                 // class org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache
+     177: dup
+     178: invokespecial #39                 // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache."<init>":()V
+     181: putfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     184: aload         8
+     186: ifnonnull     205
+     189: aload_0
+     190: new           #41                 // class org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider
+     193: dup
+     194: aload_1
+     195: aload_2
+     196: invokespecial #65                 // Method org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider."<init>":(Ljava/util/Collection;Ljava/lang/String;)V
+     199: putfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     202: goto          211
+     205: aload_0
+     206: aload         8
+     208: putfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     211: aload_0
+     212: aload_3
+     213: ifnonnull     220
+     216: iconst_1
+     217: goto          221
+     220: iconst_0
+     221: putfield      #44                 // Field clientIsInternal:Z
+     224: aload_0
+     225: aload         4
+     227: ifnonnull     234
+     230: iconst_1
+     231: goto          235
+     234: iconst_0
+     235: putfield      #59                 // Field shutdownLBHttpSolrServer:Z
+     238: aload         5
+     240: ifnull        250
+     243: aload         5
+     245: invokevirtual #50                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder.build:()Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     248: astore        4
+     250: aload         4
+     252: ifnull        261
+     255: aload         4
+     257: invokevirtual #66                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.getHttpClient:()Lorg/apache/http/client/HttpClient;
+     260: astore_3
+     261: aload_0
+     262: aload_3
+     263: ifnonnull     273
+     266: aconst_null
+     267: invokestatic  #45                 // Method org/apache/solr/client/solrj/impl/HttpClientUtil.createClient:(Lorg/apache/solr/common/params/SolrParams;)Lorg/apache/http/impl/client/CloseableHttpClient;
+     270: goto          274
+     273: aload_3
+     274: putfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+     277: aload         4
+     279: ifnonnull     291
+     282: aload_0
+     283: getfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+     286: invokestatic  #63                 // Method createLBHttpSolrClient:(Lorg/apache/http/client/HttpClient;)Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     289: astore        4
+     291: aload_0
+     292: aload         4
+     294: putfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     297: aload_0
+     298: iload         6
+     300: putfield      #57                 // Field updatesToLeaders:Z
+     303: aload_0
+     304: iload         7
+     306: putfield      #58                 // Field directUpdatesToLeadersOnly:Z
+     309: return
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient(java.lang.String, boolean);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: aconst_null
+       4: invokespecial #67                 // Method "<init>":(Ljava/lang/String;ZLorg/apache/http/client/HttpClient;)V
+       7: return
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient(java.lang.String, boolean, org.apache.http.client.HttpClient);
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method org/apache/solr/client/solrj/SolrClient."<init>":()V
+       4: aload_0
+       5: new           #10                 // class java/util/Random
+       8: dup
+       9: invokespecial #11                 // Method java/util/Random."<init>":()V
+      12: putfield      #12                 // Field rand:Ljava/util/Random;
+      15: aload_0
+      16: iconst_1
+      17: putfield      #13                 // Field parallelUpdates:Z
+      20: aload_0
+      21: new           #14                 // class org/apache/solr/common/util/SolrjNamedThreadFactory
+      24: dup
+      25: ldc           #15                 // String CloudSolrClient ThreadPool
+      27: invokespecial #16                 // Method org/apache/solr/common/util/SolrjNamedThreadFactory."<init>":(Ljava/lang/String;)V
+      30: invokestatic  #17                 // Method org/apache/solr/common/util/ExecutorUtil.newMDCAwareCachedThreadPool:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+      33: putfield      #18                 // Field threadPool:Ljava/util/concurrent/ExecutorService;
+      36: aload_0
+      37: ldc           #19                 // String id
+      39: putfield      #20                 // Field idField:Ljava/lang/String;
+      42: aload_0
+      43: getstatic     #4                  // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+      46: ldc2_w        #21                 // long 3l
+      49: getstatic     #5                  // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      52: invokevirtual #6                  // Method java/util/concurrent/TimeUnit.convert:(JLjava/util/concurrent/TimeUnit;)J
+      55: putfield      #3                  // Field retryExpiryTime:J
+      58: aload_0
+      59: new           #23                 // class java/util/HashSet
+      62: dup
+      63: invokespecial #24                 // Method java/util/HashSet."<init>":()V
+      66: putfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      69: aload_0
+      70: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      73: ldc           #27                 // String expungeDeletes
+      75: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      80: pop
+      81: aload_0
+      82: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      85: ldc           #29                 // String maxSegments
+      87: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      92: pop
+      93: aload_0
+      94: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      97: ldc           #30                 // String commit
+      99: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     104: pop
+     105: aload_0
+     106: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     109: ldc           #31                 // String waitSearcher
+     111: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     116: pop
+     117: aload_0
+     118: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     121: ldc           #32                 // String openSearcher
+     123: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     128: pop
+     129: aload_0
+     130: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     133: ldc           #33                 // String softCommit
+     135: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     140: pop
+     141: aload_0
+     142: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     145: ldc           #34                 // String prepareCommit
+     147: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     152: pop
+     153: aload_0
+     154: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     157: ldc           #35                 // String optimize
+     159: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     164: pop
+     165: aload_0
+     166: iconst_3
+     167: invokestatic  #36                 // Method objectList:(I)Ljava/util/ArrayList;
+     170: putfield      #37                 // Field locks:Ljava/util/List;
+     173: aload_0
+     174: new           #38                 // class org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache
+     177: dup
+     178: invokespecial #39                 // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache."<init>":()V
+     181: putfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     184: aload_0
+     185: new           #41                 // class org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider
+     188: dup
+     189: aload_1
+     190: invokespecial #42                 // Method org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider."<init>":(Ljava/lang/String;)V
+     193: putfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     196: aload_0
+     197: aload_3
+     198: ifnonnull     205
+     201: iconst_1
+     202: goto          206
+     205: iconst_0
+     206: putfield      #44                 // Field clientIsInternal:Z
+     209: aload_0
+     210: aload_3
+     211: ifnonnull     221
+     214: aconst_null
+     215: invokestatic  #45                 // Method org/apache/solr/client/solrj/impl/HttpClientUtil.createClient:(Lorg/apache/solr/common/params/SolrParams;)Lorg/apache/http/impl/client/CloseableHttpClient;
+     218: goto          222
+     221: aload_3
+     222: putfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+     225: aload_0
+     226: new           #47                 // class org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder
+     229: dup
+     230: invokespecial #48                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder."<init>":()V
+     233: aload_0
+     234: getfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+     237: invokevirtual #49                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder.withHttpClient:(Lorg/apache/http/client/HttpClient;)Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder;
+     240: invokevirtual #50                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder.build:()Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     243: putfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     246: aload_0
+     247: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     250: new           #51                 // class org/apache/solr/client/solrj/impl/BinaryRequestWriter
+     253: dup
+     254: invokespecial #52                 // Method org/apache/solr/client/solrj/impl/BinaryRequestWriter."<init>":()V
+     257: invokevirtual #53                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.setRequestWriter:(Lorg/apache/solr/client/solrj/request/RequestWriter;)V
+     260: aload_0
+     261: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     264: new           #54                 // class org/apache/solr/client/solrj/impl/BinaryResponseParser
+     267: dup
+     268: invokespecial #55                 // Method org/apache/solr/client/solrj/impl/BinaryResponseParser."<init>":()V
+     271: invokevirtual #56                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.setParser:(Lorg/apache/solr/client/solrj/ResponseParser;)V
+     274: aload_0
+     275: iload_2
+     276: putfield      #57                 // Field updatesToLeaders:Z
+     279: aload_0
+     280: iconst_0
+     281: putfield      #58                 // Field directUpdatesToLeadersOnly:Z
+     284: aload_0
+     285: iconst_1
+     286: putfield      #59                 // Field shutdownLBHttpSolrServer:Z
+     289: aload_0
+     290: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     293: ldc           #61                 // String _stateVer_
+     295: invokevirtual #62                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.addQueryParams:(Ljava/lang/String;)V
+     298: return
+
+  public void setCollectionCacheTTl(int);
+    Code:
+       0: getstatic     #68                 // Field $assertionsDisabled:Z
+       3: ifne          18
+       6: iload_1
+       7: ifgt          18
+      10: new           #69                 // class java/lang/AssertionError
+      13: dup
+      14: invokespecial #70                 // Method java/lang/AssertionError."<init>":()V
+      17: athrow
+      18: aload_0
+      19: getfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+      22: iload_1
+      23: i2l
+      24: ldc2_w        #71                 // long 1000l
+      27: lmul
+      28: invokestatic  #73                 // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache.access$102:(Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;J)J
+      31: pop2
+      32: return
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient(java.lang.String, org.apache.solr.client.solrj.impl.LBHttpSolrClient);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: iconst_1
+       4: invokespecial #74                 // Method "<init>":(Ljava/lang/String;Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;Z)V
+       7: return
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient(java.lang.String, org.apache.solr.client.solrj.impl.LBHttpSolrClient, boolean);
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method org/apache/solr/client/solrj/SolrClient."<init>":()V
+       4: aload_0
+       5: new           #10                 // class java/util/Random
+       8: dup
+       9: invokespecial #11                 // Method java/util/Random."<init>":()V
+      12: putfield      #12                 // Field rand:Ljava/util/Random;
+      15: aload_0
+      16: iconst_1
+      17: putfield      #13                 // Field parallelUpdates:Z
+      20: aload_0
+      21: new           #14                 // class org/apache/solr/common/util/SolrjNamedThreadFactory
+      24: dup
+      25: ldc           #15                 // String CloudSolrClient ThreadPool
+      27: invokespecial #16                 // Method org/apache/solr/common/util/SolrjNamedThreadFactory."<init>":(Ljava/lang/String;)V
+      30: invokestatic  #17                 // Method org/apache/solr/common/util/ExecutorUtil.newMDCAwareCachedThreadPool:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+      33: putfield      #18                 // Field threadPool:Ljava/util/concurrent/ExecutorService;
+      36: aload_0
+      37: ldc           #19                 // String id
+      39: putfield      #20                 // Field idField:Ljava/lang/String;
+      42: aload_0
+      43: getstatic     #4                  // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+      46: ldc2_w        #21                 // long 3l
+      49: getstatic     #5                  // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      52: invokevirtual #6                  // Method java/util/concurrent/TimeUnit.convert:(JLjava/util/concurrent/TimeUnit;)J
+      55: putfield      #3                  // Field retryExpiryTime:J
+      58: aload_0
+      59: new           #23                 // class java/util/HashSet
+      62: dup
+      63: invokespecial #24                 // Method java/util/HashSet."<init>":()V
+      66: putfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      69: aload_0
+      70: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      73: ldc           #27                 // String expungeDeletes
+      75: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      80: pop
+      81: aload_0
+      82: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      85: ldc           #29                 // String maxSegments
+      87: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      92: pop
+      93: aload_0
+      94: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      97: ldc           #30                 // String commit
+      99: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     104: pop
+     105: aload_0
+     106: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     109: ldc           #31                 // String waitSearcher
+     111: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     116: pop
+     117: aload_0
+     118: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     121: ldc           #32                 // String openSearcher
+     123: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     128: pop
+     129: aload_0
+     130: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     133: ldc           #33                 // String softCommit
+     135: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     140: pop
+     141: aload_0
+     142: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     145: ldc           #34                 // String prepareCommit
+     147: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     152: pop
+     153: aload_0
+     154: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     157: ldc           #35                 // String optimize
+     159: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     164: pop
+     165: aload_0
+     166: iconst_3
+     167: invokestatic  #36                 // Method objectList:(I)Ljava/util/ArrayList;
+     170: putfield      #37                 // Field locks:Ljava/util/List;
+     173: aload_0
+     174: new           #38                 // class org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache
+     177: dup
+     178: invokespecial #39                 // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache."<init>":()V
+     181: putfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     184: aload_0
+     185: aload_2
+     186: putfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     189: aload_0
+     190: new           #41                 // class org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider
+     193: dup
+     194: aload_1
+     195: invokespecial #42                 // Method org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider."<init>":(Ljava/lang/String;)V
+     198: putfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     201: aload_0
+     202: iload_3
+     203: putfield      #57                 // Field updatesToLeaders:Z
+     206: aload_0
+     207: iconst_0
+     208: putfield      #58                 // Field directUpdatesToLeadersOnly:Z
+     211: aload_0
+     212: iconst_0
+     213: putfield      #59                 // Field shutdownLBHttpSolrServer:Z
+     216: aload_0
+     217: iconst_0
+     218: putfield      #44                 // Field clientIsInternal:Z
+     221: aload_2
+     222: ldc           #61                 // String _stateVer_
+     224: invokevirtual #62                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.addQueryParams:(Ljava/lang/String;)V
+     227: return
+
+  public org.apache.solr.client.solrj.ResponseParser getParser();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+       4: invokevirtual #75                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.getParser:()Lorg/apache/solr/client/solrj/ResponseParser;
+       7: areturn
+
+  public void setParser(org.apache.solr.client.solrj.ResponseParser);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+       4: aload_1
+       5: invokevirtual #56                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.setParser:(Lorg/apache/solr/client/solrj/ResponseParser;)V
+       8: return
+
+  public org.apache.solr.client.solrj.request.RequestWriter getRequestWriter();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+       4: invokevirtual #76                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.getRequestWriter:()Lorg/apache/solr/client/solrj/request/RequestWriter;
+       7: areturn
+
+  public void setRequestWriter(org.apache.solr.client.solrj.request.RequestWriter);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+       4: aload_1
+       5: invokevirtual #53                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.setRequestWriter:(Lorg/apache/solr/client/solrj/request/RequestWriter;)V
+       8: return
+
+  public java.lang.String getZkHost();
+    Code:
+       0: aload_0
+       1: invokespecial #77                 // Method assertZKStateProvider:()Lorg/apache/solr/client/solrj/impl/ZkClientClusterStateProvider;
+       4: getfield      #78                 // Field org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider.zkHost:Ljava/lang/String;
+       7: areturn
+
+  public org.apache.solr.common.cloud.ZkStateReader getZkStateReader();
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+       4: instanceof    #41                 // class org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider
+       7: ifeq          23
+      10: aload_0
+      11: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+      14: checkcast     #41                 // class org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider
+      17: astore_1
+      18: aload_1
+      19: getfield      #79                 // Field org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider.zkStateReader:Lorg/apache/solr/common/cloud/ZkStateReader;
+      22: areturn
+      23: new           #80                 // class java/lang/IllegalStateException
+      26: dup
+      27: ldc           #81                 // String This has no Zk stateReader
+      29: invokespecial #82                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      32: athrow
+
+  public void setIdField(java.lang.String);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #20                 // Field idField:Ljava/lang/String;
+       5: return
+
+  public java.lang.String getIdField();
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field idField:Ljava/lang/String;
+       4: areturn
+
+  public void setDefaultCollection(java.lang.String);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #83                 // Field defaultCollection:Ljava/lang/String;
+       5: return
+
+  public java.lang.String getDefaultCollection();
+    Code:
+       0: aload_0
+       1: getfield      #83                 // Field defaultCollection:Ljava/lang/String;
+       4: areturn
+
+  public void setZkConnectTimeout(int);
+    Code:
+       0: aload_0
+       1: invokespecial #77                 // Method assertZKStateProvider:()Lorg/apache/solr/client/solrj/impl/ZkClientClusterStateProvider;
+       4: iload_1
+       5: putfield      #84                 // Field org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider.zkConnectTimeout:I
+       8: return
+
+  public void setZkClientTimeout(int);
+    Code:
+       0: aload_0
+       1: invokespecial #77                 // Method assertZKStateProvider:()Lorg/apache/solr/client/solrj/impl/ZkClientClusterStateProvider;
+       4: iload_1
+       5: putfield      #85                 // Field org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider.zkClientTimeout:I
+       8: return
+
+  public void connect();
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+       4: invokeinterface #86,  1           // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.connect:()V
+       9: return
+
+  public void connect(long, java.util.concurrent.TimeUnit) throws java.util.concurrent.TimeoutException, java.lang.InterruptedException;
+    Code:
+       0: getstatic     #87                 // Field log:Lorg/slf4j/Logger;
+       3: ldc           #88                 // String Waiting for {} {} for cluster at {} to be ready
+       5: iconst_3
+       6: anewarray     #89                 // class java/lang/Object
+       9: dup
+      10: iconst_0
+      11: lload_1
+      12: invokestatic  #90                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      15: aastore
+      16: dup
+      17: iconst_1
+      18: aload_3
+      19: aastore
+      20: dup
+      21: iconst_2
+      22: aload_0
+      23: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+      26: aastore
+      27: invokeinterface #91,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+      32: invokestatic  #92                 // Method java/lang/System.nanoTime:()J
+      35: aload_3
+      36: lload_1
+      37: invokevirtual #93                 // Method java/util/concurrent/TimeUnit.toNanos:(J)J
+      40: ladd
+      41: lstore        4
+      43: invokestatic  #92                 // Method java/lang/System.nanoTime:()J
+      46: lload         4
+      48: lcmp
+      49: ifge          85
+      52: aload_0
+      53: invokevirtual #94                 // Method connect:()V
+      56: getstatic     #87                 // Field log:Lorg/slf4j/Logger;
+      59: ldc           #95                 // String Cluster at {} ready
+      61: aload_0
+      62: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+      65: invokeinterface #96,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      70: return
+      71: astore        6
+      73: getstatic     #98                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      76: ldc2_w        #99                 // long 250l
+      79: invokevirtual #101                // Method java/util/concurrent/TimeUnit.sleep:(J)V
+      82: goto          43
+      85: new           #102                // class java/util/concurrent/TimeoutException
+      88: dup
+      89: ldc           #103                // String Timed out waiting for cluster
+      91: invokespecial #104                // Method java/util/concurrent/TimeoutException."<init>":(Ljava/lang/String;)V
+      94: athrow
+    Exception table:
+       from    to  target type
+          52    70    71   Class java/lang/RuntimeException
+
+  public void setParallelUpdates(boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #13                 // Field parallelUpdates:Z
+       5: return
+
+  public void uploadConfig(java.nio.file.Path, java.lang.String) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+       4: invokeinterface #86,  1           // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.connect:()V
+       9: aload_0
+      10: invokespecial #77                 // Method assertZKStateProvider:()Lorg/apache/solr/client/solrj/impl/ZkClientClusterStateProvider;
+      13: aload_1
+      14: aload_2
+      15: invokevirtual #105                // Method org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider.uploadConfig:(Ljava/nio/file/Path;Ljava/lang/String;)V
+      18: return
+
+  private org.apache.solr.client.solrj.impl.ZkClientClusterStateProvider assertZKStateProvider();
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+       4: instanceof    #41                 // class org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider
+       7: ifeq          18
+      10: aload_0
+      11: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+      14: checkcast     #41                 // class org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider
+      17: areturn
+      18: new           #106                // class java/lang/IllegalArgumentException
+      21: dup
+      22: ldc           #107                // String This client does not use ZK
+      24: invokespecial #108                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      27: athrow
+
+  public void downloadConfig(java.lang.String, java.nio.file.Path) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #77                 // Method assertZKStateProvider:()Lorg/apache/solr/client/solrj/impl/ZkClientClusterStateProvider;
+       4: aload_1
+       5: aload_2
+       6: invokevirtual #109                // Method org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider.downloadConfig:(Ljava/lang/String;Ljava/nio/file/Path;)V
+       9: return
+
+  public void waitForState(java.lang.String, long, java.util.concurrent.TimeUnit, org.apache.solr.common.cloud.CollectionStatePredicate) throws java.lang.InterruptedException, java.util.concurrent.TimeoutException;
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+       4: invokeinterface #86,  1           // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.connect:()V
+       9: aload_0
+      10: invokespecial #77                 // Method assertZKStateProvider:()Lorg/apache/solr/client/solrj/impl/ZkClientClusterStateProvider;
+      13: getfield      #79                 // Field org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider.zkStateReader:Lorg/apache/solr/common/cloud/ZkStateReader;
+      16: aload_1
+      17: lload_2
+      18: aload         4
+      20: aload         5
+      22: invokevirtual #110                // Method org/apache/solr/common/cloud/ZkStateReader.waitForState:(Ljava/lang/String;JLjava/util/concurrent/TimeUnit;Lorg/apache/solr/common/cloud/CollectionStatePredicate;)V
+      25: return
+
+  public void registerCollectionStateWatcher(java.lang.String, org.apache.solr.common.cloud.CollectionStateWatcher);
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+       4: invokeinterface #86,  1           // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.connect:()V
+       9: aload_0
+      10: invokespecial #77                 // Method assertZKStateProvider:()Lorg/apache/solr/client/solrj/impl/ZkClientClusterStateProvider;
+      13: getfield      #79                 // Field org/apache/solr/client/solrj/impl/ZkClientClusterStateProvider.zkStateReader:Lorg/apache/solr/common/cloud/ZkStateReader;
+      16: aload_1
+      17: aload_2
+      18: invokevirtual #111                // Method org/apache/solr/common/cloud/ZkStateReader.registerCollectionStateWatcher:(Ljava/lang/String;Lorg/apache/solr/common/cloud/CollectionStateWatcher;)V
+      21: return
+
+  private org.apache.solr.common.util.NamedList<java.lang.Object> directUpdate(org.apache.solr.client.solrj.request.AbstractUpdateRequest, java.lang.String) throws org.apache.solr.client.solrj.SolrServerException;
+    Code:
+       0: aload_1
+       1: checkcast     #112                // class org/apache/solr/client/solrj/request/UpdateRequest
+       4: astore_3
+       5: aload_1
+       6: invokevirtual #113                // Method org/apache/solr/client/solrj/request/AbstractUpdateRequest.getParams:()Lorg/apache/solr/common/params/ModifiableSolrParams;
+       9: astore        4
+      11: new           #114                // class org/apache/solr/common/params/ModifiableSolrParams
+      14: dup
+      15: invokespecial #115                // Method org/apache/solr/common/params/ModifiableSolrParams."<init>":()V
+      18: astore        5
+      20: new           #114                // class org/apache/solr/common/params/ModifiableSolrParams
+      23: dup
+      24: invokespecial #115                // Method org/apache/solr/common/params/ModifiableSolrParams."<init>":()V
+      27: astore        6
+      29: aload         4
+      31: ifnull        92
+      34: aload         6
+      36: aload         4
+      38: invokevirtual #116                // Method org/apache/solr/common/params/ModifiableSolrParams.add:(Lorg/apache/solr/common/params/SolrParams;)V
+      41: aload         5
+      43: aload         4
+      45: invokevirtual #116                // Method org/apache/solr/common/params/ModifiableSolrParams.add:(Lorg/apache/solr/common/params/SolrParams;)V
+      48: aload_0
+      49: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+      52: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      57: astore        7
+      59: aload         7
+      61: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      66: ifeq          92
+      69: aload         7
+      71: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      76: checkcast     #120                // class java/lang/String
+      79: astore        8
+      81: aload         5
+      83: aload         8
+      85: invokevirtual #121                // Method org/apache/solr/common/params/ModifiableSolrParams.remove:(Ljava/lang/String;)[Ljava/lang/String;
+      88: pop
+      89: goto          59
+      92: aload_2
+      93: ifnonnull     106
+      96: new           #122                // class org/apache/solr/client/solrj/SolrServerException
+      99: dup
+     100: ldc           #123                // String No collection param specified on request and no default collection has been set.
+     102: invokespecial #124                // Method org/apache/solr/client/solrj/SolrServerException."<init>":(Ljava/lang/String;)V
+     105: athrow
+     106: aload_0
+     107: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     110: aload_2
+     111: invokeinterface #125,  2          // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.getCollectionName:(Ljava/lang/String;)Ljava/lang/String;
+     116: astore_2
+     117: aload_0
+     118: aload_2
+     119: aconst_null
+     120: invokevirtual #126                // Method getDocCollection:(Ljava/lang/String;Ljava/lang/Integer;)Lorg/apache/solr/common/cloud/DocCollection;
+     123: astore        7
+     125: aload         7
+     127: invokevirtual #127                // Method org/apache/solr/common/cloud/DocCollection.getRouter:()Lorg/apache/solr/common/cloud/DocRouter;
+     130: astore        8
+     132: aload         8
+     134: instanceof    #128                // class org/apache/solr/common/cloud/ImplicitDocRouter
+     137: ifeq          142
+     140: aconst_null
+     141: areturn
+     142: aload_0
+     143: aload         7
+     145: invokespecial #129                // Method buildUrlMap:(Lorg/apache/solr/common/cloud/DocCollection;)Ljava/util/Map;
+     148: astore        9
+     150: aload         9
+     152: ifnonnull     159
+     155: aconst_null
+     156: goto          175
+     159: aload_3
+     160: aload         8
+     162: aload         7
+     164: aload         9
+     166: aload         5
+     168: aload_0
+     169: getfield      #20                 // Field idField:Ljava/lang/String;
+     172: invokevirtual #130                // Method org/apache/solr/client/solrj/request/UpdateRequest.getRoutes:(Lorg/apache/solr/common/cloud/DocRouter;Lorg/apache/solr/common/cloud/DocCollection;Ljava/util/Map;Lorg/apache/solr/common/params/ModifiableSolrParams;Ljava/lang/String;)Ljava/util/Map;
+     175: astore        10
+     177: aload         10
+     179: ifnonnull     215
+     182: aload_0
+     183: getfield      #58                 // Field directUpdatesToLeadersOnly:Z
+     186: ifeq          213
+     189: aload_3
+     190: aload_0
+     191: getfield      #20                 // Field idField:Ljava/lang/String;
+     194: invokestatic  #131                // Method hasInfoToFindLeaders:(Lorg/apache/solr/client/solrj/request/UpdateRequest;Ljava/lang/String;)Z
+     197: ifeq          213
+     200: new           #132                // class org/apache/solr/common/SolrException
+     203: dup
+     204: getstatic     #133                // Field org/apache/solr/common/SolrException$ErrorCode.SERVICE_UNAVAILABLE:Lorg/apache/solr/common/SolrException$ErrorCode;
+     207: ldc           #134                // String directUpdatesToLeadersOnly==true but could not find leader(s)
+     209: invokespecial #135                // Method org/apache/solr/common/SolrException."<init>":(Lorg/apache/solr/common/SolrException$ErrorCode;Ljava/lang/String;)V
+     212: athrow
+     213: aconst_null
+     214: areturn
+     215: new           #136                // class org/apache/solr/common/util/NamedList
+     218: dup
+     219: invokespecial #137                // Method org/apache/solr/common/util/NamedList."<init>":()V
+     222: astore        11
+     224: new           #136                // class org/apache/solr/common/util/NamedList
+     227: dup
+     228: aload         10
+     230: invokeinterface #138,  1          // InterfaceMethod java/util/Map.size:()I
+     235: iconst_1
+     236: iadd
+     237: invokespecial #139                // Method org/apache/solr/common/util/NamedList."<init>":(I)V
+     240: astore        12
+     242: invokestatic  #92                 // Method java/lang/System.nanoTime:()J
+     245: lstore        13
+     247: aload_0
+     248: getfield      #13                 // Field parallelUpdates:Z
+     251: ifeq          569
+     254: new           #140                // class java/util/HashMap
+     257: dup
+     258: aload         10
+     260: invokeinterface #138,  1          // InterfaceMethod java/util/Map.size:()I
+     265: invokespecial #141                // Method java/util/HashMap."<init>":(I)V
+     268: astore        15
+     270: aload         10
+     272: invokeinterface #142,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+     277: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     282: astore        16
+     284: aload         16
+     286: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     291: ifeq          385
+     294: aload         16
+     296: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     301: checkcast     #143                // class java/util/Map$Entry
+     304: astore        17
+     306: aload         17
+     308: invokeinterface #144,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     313: checkcast     #120                // class java/lang/String
+     316: astore        18
+     318: aload         17
+     320: invokeinterface #145,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     325: checkcast     #146                // class org/apache/solr/client/solrj/impl/LBHttpSolrClient$Req
+     328: astore        19
+     330: ldc           #147                // String CloudSolrClient.url
+     332: aload         18
+     334: invokestatic  #148                // Method org/slf4j/MDC.put:(Ljava/lang/String;Ljava/lang/String;)V
+     337: aload         15
+     339: aload         18
+     341: aload_0
+     342: getfield      #18                 // Field threadPool:Ljava/util/concurrent/ExecutorService;
+     345: aload_0
+     346: aload         19
+     348: invokedynamic #149,  0            // InvokeDynamic #0:call:(Lorg/apache/solr/client/solrj/impl/CloudSolrClient;Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Req;)Ljava/util/concurrent/Callable;
+     353: invokeinterface #150,  2          // InterfaceMethod java/util/concurrent/ExecutorService.submit:(Ljava/util/concurrent/Callable;)Ljava/util/concurrent/Future;
+     358: invokeinterface #151,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     363: pop
+     364: ldc           #147                // String CloudSolrClient.url
+     366: invokestatic  #152                // Method org/slf4j/MDC.remove:(Ljava/lang/String;)V
+     369: goto          382
+     372: astore        20
+     374: ldc           #147                // String CloudSolrClient.url
+     376: invokestatic  #152                // Method org/slf4j/MDC.remove:(Ljava/lang/String;)V
+     379: aload         20
+     381: athrow
+     382: goto          284
+     385: aload         15
+     387: invokeinterface #142,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+     392: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     397: astore        16
+     399: aload         16
+     401: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     406: ifeq          497
+     409: aload         16
+     411: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     416: checkcast     #143                // class java/util/Map$Entry
+     419: astore        17
+     421: aload         17
+     423: invokeinterface #144,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     428: checkcast     #120                // class java/lang/String
+     431: astore        18
+     433: aload         17
+     435: invokeinterface #145,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     440: checkcast     #153                // class java/util/concurrent/Future
+     443: astore        19
+     445: aload         12
+     447: aload         18
+     449: aload         19
+     451: invokeinterface #154,  1          // InterfaceMethod java/util/concurrent/Future.get:()Ljava/lang/Object;
+     456: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     459: goto          494
+     462: astore        20
+     464: invokestatic  #157                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     467: invokevirtual #158                // Method java/lang/Thread.interrupt:()V
+     470: new           #97                 // class java/lang/RuntimeException
+     473: dup
+     474: aload         20
+     476: invokespecial #159                // Method java/lang/RuntimeException."<init>":(Ljava/lang/Throwable;)V
+     479: athrow
+     480: astore        20
+     482: aload         11
+     484: aload         18
+     486: aload         20
+     488: invokevirtual #161                // Method java/util/concurrent/ExecutionException.getCause:()Ljava/lang/Throwable;
+     491: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     494: goto          399
+     497: aload         11
+     499: invokevirtual #162                // Method org/apache/solr/common/util/NamedList.size:()I
+     502: ifle          566
+     505: aload         11
+     507: iconst_0
+     508: invokevirtual #163                // Method org/apache/solr/common/util/NamedList.getVal:(I)Ljava/lang/Object;
+     511: checkcast     #164                // class java/lang/Throwable
+     514: astore        16
+     516: aload         16
+     518: instanceof    #132                // class org/apache/solr/common/SolrException
+     521: ifeq          551
+     524: aload         16
+     526: checkcast     #132                // class org/apache/solr/common/SolrException
+     529: astore        17
+     531: new           #165                // class org/apache/solr/client/solrj/impl/CloudSolrClient$RouteException
+     534: dup
+     535: aload         17
+     537: invokevirtual #166                // Method org/apache/solr/common/SolrException.code:()I
+     540: invokestatic  #167                // Method org/apache/solr/common/SolrException$ErrorCode.getErrorCode:(I)Lorg/apache/solr/common/SolrException$ErrorCode;
+     543: aload         11
+     545: aload         10
+     547: invokespecial #168                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$RouteException."<init>":(Lorg/apache/solr/common/SolrException$ErrorCode;Lorg/apache/solr/common/util/NamedList;Ljava/util/Map;)V
+     550: athrow
+     551: new           #165                // class org/apache/solr/client/solrj/impl/CloudSolrClient$RouteException
+     554: dup
+     555: getstatic     #169                // Field org/apache/solr/common/SolrException$ErrorCode.SERVER_ERROR:Lorg/apache/solr/common/SolrException$ErrorCode;
+     558: aload         11
+     560: aload         10
+     562: invokespecial #168                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$RouteException."<init>":(Lorg/apache/solr/common/SolrException$ErrorCode;Lorg/apache/solr/common/util/NamedList;Ljava/util/Map;)V
+     565: athrow
+     566: goto          684
+     569: aload         10
+     571: invokeinterface #142,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+     576: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     581: astore        15
+     583: aload         15
+     585: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     590: ifeq          684
+     593: aload         15
+     595: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     600: checkcast     #143                // class java/util/Map$Entry
+     603: astore        16
+     605: aload         16
+     607: invokeinterface #144,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     612: checkcast     #120                // class java/lang/String
+     615: astore        17
+     617: aload         16
+     619: invokeinterface #145,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     624: checkcast     #146                // class org/apache/solr/client/solrj/impl/LBHttpSolrClient$Req
+     627: astore        18
+     629: aload_0
+     630: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     633: aload         18
+     635: invokevirtual #170                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.request:(Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Req;)Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Rsp;
+     638: invokevirtual #171                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Rsp.getResponse:()Lorg/apache/solr/common/util/NamedList;
+     641: astore        19
+     643: aload         12
+     645: aload         17
+     647: aload         19
+     649: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     652: goto          681
+     655: astore        19
+     657: aload         19
+     659: instanceof    #132                // class org/apache/solr/common/SolrException
+     662: ifeq          671
+     665: aload         19
+     667: checkcast     #132                // class org/apache/solr/common/SolrException
+     670: athrow
+     671: new           #122                // class org/apache/solr/client/solrj/SolrServerException
+     674: dup
+     675: aload         19
+     677: invokespecial #173                // Method org/apache/solr/client/solrj/SolrServerException."<init>":(Ljava/lang/Throwable;)V
+     680: athrow
+     681: goto          583
+     684: aconst_null
+     685: astore        15
+     687: aload_3
+     688: invokevirtual #174                // Method org/apache/solr/client/solrj/request/UpdateRequest.getDeleteQuery:()Ljava/util/List;
+     691: astore        16
+     693: aload         16
+     695: ifnull        728
+     698: aload         16
+     700: invokeinterface #175,  1          // InterfaceMethod java/util/List.size:()I
+     705: ifle          728
+     708: new           #112                // class org/apache/solr/client/solrj/request/UpdateRequest
+     711: dup
+     712: invokespecial #176                // Method org/apache/solr/client/solrj/request/UpdateRequest."<init>":()V
+     715: astore        17
+     717: aload         17
+     719: aload         16
+     721: invokevirtual #177                // Method org/apache/solr/client/solrj/request/UpdateRequest.setDeleteQuery:(Ljava/util/List;)V
+     724: aload         17
+     726: astore        15
+     728: aload         6
+     730: invokevirtual #178                // Method org/apache/solr/common/params/ModifiableSolrParams.getParameterNames:()Ljava/util/Set;
+     733: astore        17
+     735: new           #23                 // class java/util/HashSet
+     738: dup
+     739: aload         17
+     741: invokespecial #179                // Method java/util/HashSet."<init>":(Ljava/util/Collection;)V
+     744: astore        18
+     746: aload         18
+     748: aload_0
+     749: getfield      #25                 // Field NON_ROUTABLE_PARAMS:Ljava/util/Set;
+     752: invokeinterface #180,  2          // InterfaceMethod java/util/Set.retainAll:(Ljava/util/Collection;)Z
+     757: pop
+     758: aload         15
+     760: ifnonnull     773
+     763: aload         18
+     765: invokeinterface #181,  1          // InterfaceMethod java/util/Set.size:()I
+     770: ifle          901
+     773: aload         15
+     775: ifnonnull     787
+     778: new           #112                // class org/apache/solr/client/solrj/request/UpdateRequest
+     781: dup
+     782: invokespecial #176                // Method org/apache/solr/client/solrj/request/UpdateRequest."<init>":()V
+     785: astore        15
+     787: aload         15
+     789: aload         6
+     791: invokevirtual #182                // Method org/apache/solr/client/solrj/request/UpdateRequest.setParams:(Lorg/apache/solr/common/params/ModifiableSolrParams;)V
+     794: new           #183                // class java/util/ArrayList
+     797: dup
+     798: invokespecial #184                // Method java/util/ArrayList."<init>":()V
+     801: astore        19
+     803: aload         19
+     805: aload         10
+     807: invokeinterface #185,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+     812: invokeinterface #186,  2          // InterfaceMethod java/util/List.addAll:(Ljava/util/Collection;)Z
+     817: pop
+     818: aload         19
+     820: aload_0
+     821: getfield      #12                 // Field rand:Ljava/util/Random;
+     824: invokestatic  #187                // Method java/util/Collections.shuffle:(Ljava/util/List;Ljava/util/Random;)V
+     827: new           #146                // class org/apache/solr/client/solrj/impl/LBHttpSolrClient$Req
+     830: dup
+     831: aload         15
+     833: aload         19
+     835: invokespecial #188                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Req."<init>":(Lorg/apache/solr/client/solrj/SolrRequest;Ljava/util/List;)V
+     838: astore        20
+     840: aload_0
+     841: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     844: aload         20
+     846: invokevirtual #170                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.request:(Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Req;)Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Rsp;
+     849: astore        21
+     851: aload         12
+     853: aload         19
+     855: iconst_0
+     856: invokeinterface #189,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     861: checkcast     #120                // class java/lang/String
+     864: aload         21
+     866: invokevirtual #171                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Rsp.getResponse:()Lorg/apache/solr/common/util/NamedList;
+     869: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     872: goto          901
+     875: astore        21
+     877: new           #132                // class org/apache/solr/common/SolrException
+     880: dup
+     881: getstatic     #169                // Field org/apache/solr/common/SolrException$ErrorCode.SERVER_ERROR:Lorg/apache/solr/common/SolrException$ErrorCode;
+     884: aload         19
+     886: iconst_0
+     887: invokeinterface #189,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     892: checkcast     #120                // class java/lang/String
+     895: aload         21
+     897: invokespecial #190                // Method org/apache/solr/common/SolrException."<init>":(Lorg/apache/solr/common/SolrException$ErrorCode;Ljava/lang/String;Ljava/lang/Throwable;)V
+     900: athrow
+     901: invokestatic  #92                 // Method java/lang/System.nanoTime:()J
+     904: lstore        19
+     906: aload_0
+     907: aload         12
+     909: getstatic     #98                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     912: lload         19
+     914: lload         13
+     916: lsub
+     917: getstatic     #4                  // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+     920: invokevirtual #6                  // Method java/util/concurrent/TimeUnit.convert:(JLjava/util/concurrent/TimeUnit;)J
+     923: l2i
+     924: invokevirtual #191                // Method condenseResponse:(Lorg/apache/solr/common/util/NamedList;I)Lorg/apache/solr/client/solrj/impl/CloudSolrClient$RouteResponse;
+     927: astore        21
+     929: aload         21
+     931: aload         12
+     933: invokevirtual #192                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$RouteResponse.setRouteResponses:(Lorg/apache/solr/common/util/NamedList;)V
+     936: aload         21
+     938: aload         10
+     940: invokevirtual #193                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$RouteResponse.setRoutes:(Ljava/util/Map;)V
+     943: aload         21
+     945: areturn
+    Exception table:
+       from    to  target type
+         330   364   372   any
+         372   374   372   any
+         445   459   462   Class java/lang/InterruptedException
+         445   459   480   Class java/util/concurrent/ExecutionException
+         629   652   655   Class java/lang/Exception
+         840   872   875   Class java/lang/Exception
+
+  private java.util.Map<java.lang.String, java.util.List<java.lang.String>> buildUrlMap(org.apache.solr.common.cloud.DocCollection);
+    Code:
+       0: new           #140                // class java/util/HashMap
+       3: dup
+       4: invokespecial #194                // Method java/util/HashMap."<init>":()V
+       7: astore_2
+       8: aload_1
+       9: invokevirtual #195                // Method org/apache/solr/common/cloud/DocCollection.getActiveSlices:()Ljava/util/Collection;
+      12: astore_3
+      13: aload_3
+      14: invokeinterface #196,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      19: astore        4
+      21: aload         4
+      23: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      28: ifeq          229
+      31: aload         4
+      33: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      38: checkcast     #197                // class org/apache/solr/common/cloud/Slice
+      41: astore        5
+      43: aload         5
+      45: invokevirtual #198                // Method org/apache/solr/common/cloud/Slice.getName:()Ljava/lang/String;
+      48: astore        6
+      50: new           #183                // class java/util/ArrayList
+      53: dup
+      54: invokespecial #184                // Method java/util/ArrayList."<init>":()V
+      57: astore        7
+      59: aload         5
+      61: invokevirtual #199                // Method org/apache/solr/common/cloud/Slice.getLeader:()Lorg/apache/solr/common/cloud/Replica;
+      64: astore        8
+      66: aload         8
+      68: ifnonnull     83
+      71: aload_0
+      72: getfield      #58                 // Field directUpdatesToLeadersOnly:Z
+      75: ifeq          81
+      78: goto          21
+      81: aconst_null
+      82: areturn
+      83: new           #200                // class org/apache/solr/common/cloud/ZkCoreNodeProps
+      86: dup
+      87: aload         8
+      89: invokespecial #201                // Method org/apache/solr/common/cloud/ZkCoreNodeProps."<init>":(Lorg/apache/solr/common/cloud/ZkNodeProps;)V
+      92: astore        9
+      94: aload         9
+      96: invokevirtual #202                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getCoreUrl:()Ljava/lang/String;
+      99: astore        10
+     101: aload         7
+     103: aload         10
+     105: invokeinterface #203,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     110: pop
+     111: aload_0
+     112: getfield      #58                 // Field directUpdatesToLeadersOnly:Z
+     115: ifne          215
+     118: aload         5
+     120: invokevirtual #204                // Method org/apache/solr/common/cloud/Slice.getReplicas:()Ljava/util/Collection;
+     123: invokeinterface #196,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+     128: astore        11
+     130: aload         11
+     132: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     137: ifeq          215
+     140: aload         11
+     142: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     147: checkcast     #205                // class org/apache/solr/common/cloud/Replica
+     150: astore        12
+     152: aload         12
+     154: invokevirtual #206                // Method org/apache/solr/common/cloud/Replica.getNodeName:()Ljava/lang/String;
+     157: aload         8
+     159: invokevirtual #206                // Method org/apache/solr/common/cloud/Replica.getNodeName:()Ljava/lang/String;
+     162: invokevirtual #207                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     165: ifne          212
+     168: aload         12
+     170: invokevirtual #208                // Method org/apache/solr/common/cloud/Replica.getName:()Ljava/lang/String;
+     173: aload         8
+     175: invokevirtual #208                // Method org/apache/solr/common/cloud/Replica.getName:()Ljava/lang/String;
+     178: invokevirtual #207                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     181: ifne          212
+     184: new           #200                // class org/apache/solr/common/cloud/ZkCoreNodeProps
+     187: dup
+     188: aload         12
+     190: invokespecial #201                // Method org/apache/solr/common/cloud/ZkCoreNodeProps."<init>":(Lorg/apache/solr/common/cloud/ZkNodeProps;)V
+     193: astore        13
+     195: aload         13
+     197: invokevirtual #202                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getCoreUrl:()Ljava/lang/String;
+     200: astore        14
+     202: aload         7
+     204: aload         14
+     206: invokeinterface #203,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     211: pop
+     212: goto          130
+     215: aload_2
+     216: aload         6
+     218: aload         7
+     220: invokeinterface #151,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     225: pop
+     226: goto          21
+     229: aload_2
+     230: areturn
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient$RouteResponse condenseResponse(org.apache.solr.common.util.NamedList, int);
+    Code:
+       0: new           #209                // class org/apache/solr/client/solrj/impl/CloudSolrClient$RouteResponse
+       3: dup
+       4: invokespecial #210                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$RouteResponse."<init>":()V
+       7: astore_3
+       8: iconst_0
+       9: istore        4
+      11: aconst_null
+      12: astore        5
+      14: aconst_null
+      15: astore        6
+      17: aconst_null
+      18: astore        7
+      20: ldc           #212                // int 2147483647
+      22: istore        8
+      24: new           #140                // class java/util/HashMap
+      27: dup
+      28: invokespecial #194                // Method java/util/HashMap."<init>":()V
+      31: astore        9
+      33: iconst_0
+      34: istore        10
+      36: iload         10
+      38: aload_1
+      39: invokevirtual #162                // Method org/apache/solr/common/util/NamedList.size:()I
+      42: if_icmpge     428
+      45: aload_1
+      46: iload         10
+      48: invokevirtual #163                // Method org/apache/solr/common/util/NamedList.getVal:(I)Ljava/lang/Object;
+      51: checkcast     #136                // class org/apache/solr/common/util/NamedList
+      54: astore        11
+      56: aload         11
+      58: ldc           #213                // String responseHeader
+      60: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+      63: checkcast     #136                // class org/apache/solr/common/util/NamedList
+      66: astore        12
+      68: aload         12
+      70: ldc           #215                // String status
+      72: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+      75: checkcast     #211                // class java/lang/Integer
+      78: astore        13
+      80: aload         13
+      82: invokevirtual #216                // Method java/lang/Integer.intValue:()I
+      85: istore        14
+      87: iload         14
+      89: ifle          96
+      92: iload         14
+      94: istore        4
+      96: aload         12
+      98: ldc           #217                // String rf
+     100: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+     103: astore        15
+     105: aload         15
+     107: ifnull        147
+     110: aload         15
+     112: instanceof    #211                // class java/lang/Integer
+     115: ifeq          147
+     118: aload         15
+     120: checkcast     #211                // class java/lang/Integer
+     123: astore        16
+     125: aload         5
+     127: ifnull        143
+     130: aload         16
+     132: invokevirtual #216                // Method java/lang/Integer.intValue:()I
+     135: aload         5
+     137: invokevirtual #216                // Method java/lang/Integer.intValue:()I
+     140: if_icmpge     147
+     143: aload         16
+     145: astore        5
+     147: aload         12
+     149: ldc           #218                // String min_rf
+     151: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+     154: checkcast     #211                // class java/lang/Integer
+     157: astore        6
+     159: aload         12
+     161: ldc           #219                // String errors
+     163: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+     166: checkcast     #220                // class java/util/List
+     169: astore        16
+     171: aconst_null
+     172: aload         16
+     174: if_acmpeq     292
+     177: aload         12
+     179: ldc           #221                // String maxErrors
+     181: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+     184: checkcast     #211                // class java/lang/Integer
+     187: astore        17
+     189: getstatic     #68                 // Field $assertionsDisabled:Z
+     192: ifne          211
+     195: aconst_null
+     196: aload         17
+     198: if_acmpne     211
+     201: new           #69                 // class java/lang/AssertionError
+     204: dup
+     205: ldc           #222                // String TolerantUpdateProcessor reported errors but not maxErrors
+     207: invokespecial #223                // Method java/lang/AssertionError."<init>":(Ljava/lang/Object;)V
+     210: athrow
+     211: iload         8
+     213: aload         17
+     215: invokevirtual #216                // Method java/lang/Integer.intValue:()I
+     218: invokestatic  #224                // Method org/apache/solr/common/ToleratedUpdateError.getEffectiveMaxErrors:(I)I
+     221: invokestatic  #225                // Method java/lang/Math.min:(II)I
+     224: istore        8
+     226: aconst_null
+     227: aload         7
+     229: if_acmpne     248
+     232: new           #183                // class java/util/ArrayList
+     235: dup
+     236: aload         16
+     238: invokeinterface #175,  1          // InterfaceMethod java/util/List.size:()I
+     243: invokespecial #226                // Method java/util/ArrayList."<init>":(I)V
+     246: astore        7
+     248: aload         16
+     250: invokeinterface #227,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     255: astore        18
+     257: aload         18
+     259: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     264: ifeq          292
+     267: aload         18
+     269: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     274: checkcast     #228                // class org/apache/solr/common/util/SimpleOrderedMap
+     277: astore        19
+     279: aload         7
+     281: aload         19
+     283: invokeinterface #203,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     288: pop
+     289: goto          257
+     292: iconst_3
+     293: anewarray     #120                // class java/lang/String
+     296: dup
+     297: iconst_0
+     298: ldc           #229                // String adds
+     300: aastore
+     301: dup
+     302: iconst_1
+     303: ldc           #230                // String deletes
+     305: aastore
+     306: dup
+     307: iconst_2
+     308: ldc           #231                // String deleteByQuery
+     310: aastore
+     311: invokestatic  #232                // Method java/util/Arrays.asList:([Ljava/lang/Object;)Ljava/util/List;
+     314: invokeinterface #227,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     319: astore        17
+     321: aload         17
+     323: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     328: ifeq          422
+     331: aload         17
+     333: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     338: checkcast     #120                // class java/lang/String
+     341: astore        18
+     343: aload         11
+     345: aload         18
+     347: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+     350: astore        19
+     352: aload         19
+     354: instanceof    #136                // class org/apache/solr/common/util/NamedList
+     357: ifeq          419
+     360: aload         9
+     362: aload         18
+     364: invokeinterface #233,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     369: ifeq          387
+     372: aload         9
+     374: aload         18
+     376: invokeinterface #234,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     381: checkcast     #136                // class org/apache/solr/common/util/NamedList
+     384: goto          394
+     387: new           #136                // class org/apache/solr/common/util/NamedList
+     390: dup
+     391: invokespecial #137                // Method org/apache/solr/common/util/NamedList."<init>":()V
+     394: astore        20
+     396: aload         20
+     398: aload         19
+     400: checkcast     #136                // class org/apache/solr/common/util/NamedList
+     403: invokevirtual #235                // Method org/apache/solr/common/util/NamedList.addAll:(Lorg/apache/solr/common/util/NamedList;)Z
+     406: pop
+     407: aload         9
+     409: aload         18
+     411: aload         20
+     413: invokeinterface #151,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     418: pop
+     419: goto          321
+     422: iinc          10, 1
+     425: goto          36
+     428: new           #136                // class org/apache/solr/common/util/NamedList
+     431: dup
+     432: invokespecial #137                // Method org/apache/solr/common/util/NamedList."<init>":()V
+     435: astore        10
+     437: aload         10
+     439: ldc           #215                // String status
+     441: iload         4
+     443: invokestatic  #236                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     446: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     449: aload         10
+     451: ldc           #237                // String QTime
+     453: iload_2
+     454: invokestatic  #236                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     457: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     460: aload         5
+     462: ifnull        474
+     465: aload         10
+     467: ldc           #217                // String rf
+     469: aload         5
+     471: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     474: aload         6
+     476: ifnull        488
+     479: aload         10
+     481: ldc           #218                // String min_rf
+     483: aload         6
+     485: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     488: aconst_null
+     489: aload         7
+     491: if_acmpeq     662
+     494: aload         10
+     496: ldc           #221                // String maxErrors
+     498: iload         8
+     500: invokestatic  #238                // Method org/apache/solr/common/ToleratedUpdateError.getUserFriendlyMaxErrors:(I)I
+     503: invokestatic  #236                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     506: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     509: aload         10
+     511: ldc           #219                // String errors
+     513: aload         7
+     515: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     518: iload         8
+     520: aload         7
+     522: invokeinterface #175,  1          // InterfaceMethod java/util/List.size:()I
+     527: if_icmpge     662
+     530: new           #239                // class java/lang/StringBuilder
+     533: dup
+     534: invokespecial #240                // Method java/lang/StringBuilder."<init>":()V
+     537: aload         7
+     539: invokeinterface #175,  1          // InterfaceMethod java/util/List.size:()I
+     544: invokevirtual #241                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     547: ldc           #242                // String  Async failures during distributed update:
+     549: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     552: astore        11
+     554: new           #136                // class org/apache/solr/common/util/NamedList
+     557: dup
+     558: invokespecial #137                // Method org/apache/solr/common/util/NamedList."<init>":()V
+     561: astore        12
+     563: aload         7
+     565: invokeinterface #227,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     570: astore        13
+     572: aload         13
+     574: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     579: ifeq          635
+     582: aload         13
+     584: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     589: checkcast     #228                // class org/apache/solr/common/util/SimpleOrderedMap
+     592: astore        14
+     594: aload         14
+     596: invokestatic  #244                // Method org/apache/solr/common/ToleratedUpdateError.parseMap:(Lorg/apache/solr/common/util/SimpleOrderedMap;)Lorg/apache/solr/common/ToleratedUpdateError;
+     599: astore        15
+     601: aload         12
+     603: aload         15
+     605: invokevirtual #245                // Method org/apache/solr/common/ToleratedUpdateError.getMetadataKey:()Ljava/lang/String;
+     608: aload         15
+     610: invokevirtual #246                // Method org/apache/solr/common/ToleratedUpdateError.getMetadataValue:()Ljava/lang/String;
+     613: invokevirtual #155                // Method org/apache/solr/common/util/NamedList.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     616: aload         11
+     618: ldc           #247                // String \n
+     620: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     623: aload         15
+     625: invokevirtual #248                // Method org/apache/solr/common/ToleratedUpdateError.getMessage:()Ljava/lang/String;
+     628: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     631: pop
+     632: goto          572
+     635: new           #132                // class org/apache/solr/common/SolrException
+     638: dup
+     639: getstatic     #249                // Field org/apache/solr/common/SolrException$ErrorCode.BAD_REQUEST:Lorg/apache/solr/common/SolrException$ErrorCode;
+     642: aload         11
+     644: invokevirtual #250                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     647: invokespecial #135                // Method org/apache/solr/common/SolrException."<init>":(Lorg/apache/solr/common/SolrException$ErrorCode;Ljava/lang/String;)V
+     650: astore        13
+     652: aload         13
+     654: aload         12
+     656: invokevirtual #251                // Method org/apache/solr/common/SolrException.setMetadata:(Lorg/apache/solr/common/util/NamedList;)V
+     659: aload         13
+     661: athrow
+     662: aload         9
+     664: invokeinterface #185,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+     669: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     674: astore        11
+     676: aload         11
+     678: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     683: ifeq          716
+     686: aload         11
+     688: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     693: checkcast     #120                // class java/lang/String
+     696: astore        12
+     698: aload_3
+     699: aload         12
+     701: aload         9
+     703: aload         12
+     705: invokeinterface #234,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     710: invokevirtual #252                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$RouteResponse.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     713: goto          676
+     716: aload_3
+     717: ldc           #213                // String responseHeader
+     719: aload         10
+     721: invokevirtual #252                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$RouteResponse.add:(Ljava/lang/String;Ljava/lang/Object;)V
+     724: aload_3
+     725: areturn
+
+  public org.apache.solr.common.util.NamedList<java.lang.Object> request(org.apache.solr.client.solrj.SolrRequest, java.lang.String) throws org.apache.solr.client.solrj.SolrServerException, java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokevirtual #253                // Method org/apache/solr/client/solrj/SolrRequest.getParams:()Lorg/apache/solr/common/params/SolrParams;
+       4: astore_3
+       5: aload_2
+       6: ifnonnull     31
+       9: aload_3
+      10: ifnull        26
+      13: aload_3
+      14: ldc           #254                // String collection
+      16: aload_0
+      17: invokevirtual #255                // Method getDefaultCollection:()Ljava/lang/String;
+      20: invokevirtual #256                // Method org/apache/solr/common/params/SolrParams.get:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      23: goto          30
+      26: aload_0
+      27: invokevirtual #255                // Method getDefaultCollection:()Ljava/lang/String;
+      30: astore_2
+      31: aload_0
+      32: aload_1
+      33: iconst_0
+      34: aload_2
+      35: invokevirtual #257                // Method requestWithRetryOnStaleState:(Lorg/apache/solr/client/solrj/SolrRequest;ILjava/lang/String;)Lorg/apache/solr/common/util/NamedList;
+      38: areturn
+
+  protected org.apache.solr.common.util.NamedList<java.lang.Object> requestWithRetryOnStaleState(org.apache.solr.client.solrj.SolrRequest, int, java.lang.String) throws org.apache.solr.client.solrj.SolrServerException, java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #94                 // Method connect:()V
+       4: aconst_null
+       5: astore        4
+       7: aconst_null
+       8: astore        5
+      10: getstatic     #258                // Field ADMIN_PATHS:Ljava/util/Set;
+      13: aload_1
+      14: invokevirtual #259                // Method org/apache/solr/client/solrj/SolrRequest.getPath:()Ljava/lang/String;
+      17: invokeinterface #260,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+      22: istore        6
+      24: aload_3
+      25: ifnull        230
+      28: iload         6
+      30: ifne          230
+      33: aload_0
+      34: aload_3
+      35: invokevirtual #261                // Method getCollectionNames:(Ljava/lang/String;)Ljava/util/Set;
+      38: astore        7
+      40: aconst_null
+      41: astore        8
+      43: aload         7
+      45: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      50: astore        9
+      52: aload         9
+      54: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      59: ifeq          218
+      62: aload         9
+      64: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      69: checkcast     #120                // class java/lang/String
+      72: astore        10
+      74: aload_0
+      75: aload         10
+      77: aconst_null
+      78: invokevirtual #126                // Method getDocCollection:(Ljava/lang/String;Ljava/lang/Integer;)Lorg/apache/solr/common/cloud/DocCollection;
+      81: astore        11
+      83: aload         11
+      85: ifnonnull     120
+      88: new           #132                // class org/apache/solr/common/SolrException
+      91: dup
+      92: getstatic     #249                // Field org/apache/solr/common/SolrException$ErrorCode.BAD_REQUEST:Lorg/apache/solr/common/SolrException$ErrorCode;
+      95: new           #239                // class java/lang/StringBuilder
+      98: dup
+      99: invokespecial #240                // Method java/lang/StringBuilder."<init>":()V
+     102: ldc_w         #262                // String Collection not found:
+     105: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     108: aload         10
+     110: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     113: invokevirtual #250                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     116: invokespecial #135                // Method org/apache/solr/common/SolrException."<init>":(Lorg/apache/solr/common/SolrException$ErrorCode;Ljava/lang/String;)V
+     119: athrow
+     120: aload         11
+     122: invokevirtual #263                // Method org/apache/solr/common/cloud/DocCollection.getZNodeVersion:()I
+     125: istore        12
+     127: aload         11
+     129: invokevirtual #264                // Method org/apache/solr/common/cloud/DocCollection.getStateFormat:()I
+     132: iconst_1
+     133: if_icmple     215
+     136: aload         5
+     138: ifnonnull     157
+     141: new           #183                // class java/util/ArrayList
+     144: dup
+     145: aload         7
+     147: invokeinterface #181,  1          // InterfaceMethod java/util/Set.size:()I
+     152: invokespecial #226                // Method java/util/ArrayList."<init>":(I)V
+     155: astore        5
+     157: aload         5
+     159: aload         11
+     161: invokeinterface #203,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     166: pop
+     167: aload         8
+     169: ifnonnull     184
+     172: new           #239                // class java/lang/StringBuilder
+     175: dup
+     176: invokespecial #240                // Method java/lang/StringBuilder."<init>":()V
+     179: astore        8
+     181: goto          193
+     184: aload         8
+     186: ldc_w         #265                // String |
+     189: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     192: pop
+     193: aload         8
+     195: aload         11
+     197: invokevirtual #266                // Method org/apache/solr/common/cloud/DocCollection.getName:()Ljava/lang/String;
+     200: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     203: ldc_w         #267                // String :
+     206: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     209: iload         12
+     211: invokevirtual #241                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     214: pop
+     215: goto          52
+     218: aload         8
+     220: ifnull        230
+     223: aload         8
+     225: invokevirtual #250                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     228: astore        4
+     230: aload_1
+     231: invokevirtual #253                // Method org/apache/solr/client/solrj/SolrRequest.getParams:()Lorg/apache/solr/common/params/SolrParams;
+     234: instanceof    #114                // class org/apache/solr/common/params/ModifiableSolrParams
+     237: ifeq          282
+     240: aload_1
+     241: invokevirtual #253                // Method org/apache/solr/client/solrj/SolrRequest.getParams:()Lorg/apache/solr/common/params/SolrParams;
+     244: checkcast     #114                // class org/apache/solr/common/params/ModifiableSolrParams
+     247: astore        7
+     249: aload         4
+     251: ifnull        274
+     254: aload         7
+     256: ldc           #61                 // String _stateVer_
+     258: iconst_1
+     259: anewarray     #120                // class java/lang/String
+     262: dup
+     263: iconst_0
+     264: aload         4
+     266: aastore
+     267: invokevirtual #268                // Method org/apache/solr/common/params/ModifiableSolrParams.set:(Ljava/lang/String;[Ljava/lang/String;)Lorg/apache/solr/common/params/ModifiableSolrParams;
+     270: pop
+     271: goto          282
+     274: aload         7
+     276: ldc           #61                 // String _stateVer_
+     278: invokevirtual #121                // Method org/apache/solr/common/params/ModifiableSolrParams.remove:(Ljava/lang/String;)[Ljava/lang/String;
+     281: pop
+     282: aconst_null
+     283: astore        7
+     285: aload_0
+     286: aload_1
+     287: aload_3
+     288: invokevirtual #269                // Method sendRequest:(Lorg/apache/solr/client/solrj/SolrRequest;Ljava/lang/String;)Lorg/apache/solr/common/util/NamedList;
+     291: astore        7
+     293: aload         7
+     295: ifnull        306
+     298: aload         7
+     300: invokevirtual #162                // Method org/apache/solr/common/util/NamedList.size:()I
+     303: ifne          310
+     306: aconst_null
+     307: goto          324
+     310: aload         7
+     312: ldc           #61                 // String _stateVer_
+     314: aload         7
+     316: invokevirtual #162                // Method org/apache/solr/common/util/NamedList.size:()I
+     319: iconst_1
+     320: isub
+     321: invokevirtual #270                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;I)Ljava/lang/Object;
+     324: astore        8
+     326: aload         8
+     328: ifnull        427
+     331: aload         8
+     333: instanceof    #271                // class java/util/Map
+     336: ifeq          427
+     339: aload         7
+     341: aload         7
+     343: invokevirtual #162                // Method org/apache/solr/common/util/NamedList.size:()I
+     346: iconst_1
+     347: isub
+     348: invokevirtual #272                // Method org/apache/solr/common/util/NamedList.remove:(I)Ljava/lang/Object;
+     351: pop
+     352: aload         8
+     354: checkcast     #271                // class java/util/Map
+     357: astore        9
+     359: aload         9
+     361: invokeinterface #142,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+     366: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     371: astore        10
+     373: aload         10
+     375: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     380: ifeq          427
+     383: aload         10
+     385: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     390: astore        11
+     392: aload         11
+     394: checkcast     #143                // class java/util/Map$Entry
+     397: astore        12
+     399: aload_0
+     400: aload         12
+     402: invokeinterface #144,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     407: checkcast     #120                // class java/lang/String
+     410: aload         12
+     412: invokeinterface #145,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     417: checkcast     #211                // class java/lang/Integer
+     420: invokevirtual #126                // Method getDocCollection:(Ljava/lang/String;Ljava/lang/Integer;)Lorg/apache/solr/common/cloud/DocCollection;
+     423: pop
+     424: goto          373
+     427: goto          1006
+     430: astore        8
+     432: aload         8
+     434: invokestatic  #273                // Method org/apache/solr/common/SolrException.getRootCause:(Ljava/lang/Throwable;)Ljava/lang/Throwable;
+     437: astore        9
+     439: aload_3
+     440: ifnull        448
+     443: iload         6
+     445: ifeq          500
+     448: aload         8
+     450: instanceof    #122                // class org/apache/solr/client/solrj/SolrServerException
+     453: ifeq          462
+     456: aload         8
+     458: checkcast     #122                // class org/apache/solr/client/solrj/SolrServerException
+     461: athrow
+     462: aload         8
+     464: instanceof    #274                // class java/io/IOException
+     467: ifeq          476
+     470: aload         8
+     472: checkcast     #274                // class java/io/IOException
+     475: athrow
+     476: aload         8
+     478: instanceof    #97                 // class java/lang/RuntimeException
+     481: ifeq          490
+     484: aload         8
+     486: checkcast     #97                 // class java/lang/RuntimeException
+     489: athrow
+     490: new           #122                // class org/apache/solr/client/solrj/SolrServerException
+     493: dup
+     494: aload         9
+     496: invokespecial #173                // Method org/apache/solr/client/solrj/SolrServerException."<init>":(Ljava/lang/Throwable;)V
+     499: athrow
+     500: aload         9
+     502: instanceof    #132                // class org/apache/solr/common/SolrException
+     505: ifeq          519
+     508: aload         9
+     510: checkcast     #132                // class org/apache/solr/common/SolrException
+     513: invokevirtual #166                // Method org/apache/solr/common/SolrException.code:()I
+     516: goto          525
+     519: getstatic     #275                // Field org/apache/solr/common/SolrException$ErrorCode.UNKNOWN:Lorg/apache/solr/common/SolrException$ErrorCode;
+     522: getfield      #276                // Field org/apache/solr/common/SolrException$ErrorCode.code:I
+     525: istore        10
+     527: getstatic     #87                 // Field log:Lorg/slf4j/Logger;
+     530: new           #239                // class java/lang/StringBuilder
+     533: dup
+     534: invokespecial #240                // Method java/lang/StringBuilder."<init>":()V
+     537: ldc_w         #277                // String Request to collection {} failed due to (
+     540: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     543: iload         10
+     545: invokevirtual #241                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     548: ldc_w         #278                // String ) {}, retry?
+     551: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     554: iload_2
+     555: invokevirtual #241                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     558: invokevirtual #250                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     561: aload_3
+     562: aload         9
+     564: invokevirtual #279                // Method java/lang/Throwable.toString:()Ljava/lang/String;
+     567: invokeinterface #280,  4          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     572: aload         9
+     574: instanceof    #281                // class java/net/ConnectException
+     577: ifne          604
+     580: aload         9
+     582: instanceof    #282                // class org/apache/http/conn/ConnectTimeoutException
+     585: ifne          604
+     588: aload         9
+     590: instanceof    #283                // class org/apache/http/NoHttpResponseException
+     593: ifne          604
+     596: aload         9
+     598: instanceof    #284                // class java/net/SocketException
+     601: ifeq          608
+     604: iconst_1
+     605: goto          609
+     608: iconst_0
+     609: istore        11
+     611: iload         11
+     613: ifeq          693
+     616: aload         5
+     618: invokeinterface #227,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     623: astore        12
+     625: aload         12
+     627: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     632: ifeq          678
+     635: aload         12
+     637: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     642: checkcast     #285                // class org/apache/solr/common/cloud/DocCollection
+     645: astore        13
+     647: aload_0
+     648: getfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     651: aload         13
+     653: invokevirtual #266                // Method org/apache/solr/common/cloud/DocCollection.getName:()Ljava/lang/String;
+     656: invokevirtual #286                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache.get:(Ljava/lang/Object;)Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection;
+     659: astore        14
+     661: aload         14
+     663: ifnonnull     669
+     666: goto          625
+     669: aload         14
+     671: iconst_1
+     672: putfield      #287                // Field org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection.maybeStale:Z
+     675: goto          625
+     678: iload_2
+     679: iconst_5
+     680: if_icmpge     693
+     683: aload_0
+     684: aload_1
+     685: iload_2
+     686: iconst_1
+     687: iadd
+     688: aload_3
+     689: invokevirtual #257                // Method requestWithRetryOnStaleState:(Lorg/apache/solr/client/solrj/SolrRequest;ILjava/lang/String;)Lorg/apache/solr/common/util/NamedList;
+     692: areturn
+     693: iconst_0
+     694: istore        12
+     696: iload_2
+     697: iconst_5
+     698: if_icmpge     777
+     701: aload         5
+     703: ifnull        777
+     706: aload         5
+     708: invokeinterface #288,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+     713: ifne          777
+     716: iload         10
+     718: invokestatic  #167                // Method org/apache/solr/common/SolrException$ErrorCode.getErrorCode:(I)Lorg/apache/solr/common/SolrException$ErrorCode;
+     721: getstatic     #289                // Field org/apache/solr/common/SolrException$ErrorCode.INVALID_STATE:Lorg/apache/solr/common/SolrException$ErrorCode;
+     724: if_acmpne     777
+     727: iconst_1
+     728: istore        12
+     730: aload         5
+     732: invokeinterface #227,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     737: astore        13
+     739: aload         13
+     741: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     746: ifeq          777
+     749: aload         13
+     751: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     756: checkcast     #285                // class org/apache/solr/common/cloud/DocCollection
+     759: astore        14
+     761: aload_0
+     762: getfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     765: aload         14
+     767: invokevirtual #266                // Method org/apache/solr/common/cloud/DocCollection.getName:()Ljava/lang/String;
+     770: invokevirtual #290                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     773: pop
+     774: goto          739
+     777: iload_2
+     778: iconst_5
+     779: if_icmpge     892
+     782: iload         12
+     784: ifne          892
+     787: aload         5
+     789: ifnull        892
+     792: aload         5
+     794: invokeinterface #288,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+     799: ifne          892
+     802: iload         11
+     804: ifeq          892
+     807: aload         5
+     809: invokeinterface #227,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     814: astore        13
+     816: aload         13
+     818: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     823: ifeq          892
+     826: aload         13
+     828: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     833: checkcast     #285                // class org/apache/solr/common/cloud/DocCollection
+     836: astore        14
+     838: aload_0
+     839: aload         14
+     841: invokevirtual #266                // Method org/apache/solr/common/cloud/DocCollection.getName:()Ljava/lang/String;
+     844: aconst_null
+     845: invokevirtual #126                // Method getDocCollection:(Ljava/lang/String;Ljava/lang/Integer;)Lorg/apache/solr/common/cloud/DocCollection;
+     848: astore        15
+     850: aload         15
+     852: invokevirtual #263                // Method org/apache/solr/common/cloud/DocCollection.getZNodeVersion:()I
+     855: aload         14
+     857: invokevirtual #263                // Method org/apache/solr/common/cloud/DocCollection.getZNodeVersion:()I
+     860: if_icmpeq     889
+     863: iconst_1
+     864: istore        12
+     866: aload_0
+     867: getfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     870: aload         14
+     872: invokevirtual #266                // Method org/apache/solr/common/cloud/DocCollection.getName:()Ljava/lang/String;
+     875: new           #291                // class org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection
+     878: dup
+     879: aload_0
+     880: aload         15
+     882: invokespecial #292                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection."<init>":(Lorg/apache/solr/client/solrj/impl/CloudSolrClient;Lorg/apache/solr/common/cloud/DocCollection;)V
+     885: invokevirtual #293                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache.put:(Ljava/lang/String;Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection;)Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection;
+     888: pop
+     889: goto          816
+     892: aload         5
+     894: ifnull        904
+     897: aload         5
+     899: invokeinterface #294,  1          // InterfaceMethod java/util/List.clear:()V
+     904: iload         12
+     906: ifeq          957
+     909: getstatic     #87                 // Field log:Lorg/slf4j/Logger;
+     912: new           #239                // class java/lang/StringBuilder
+     915: dup
+     916: invokespecial #240                // Method java/lang/StringBuilder."<init>":()V
+     919: ldc_w         #295                // String Re-trying request to  collection(s)
+     922: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     925: aload_3
+     926: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     929: ldc_w         #296                // String  after stale state error from server.
+     932: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     935: invokevirtual #250                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     938: invokeinterface #297,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     943: aload_0
+     944: aload_1
+     945: iload_2
+     946: iconst_1
+     947: iadd
+     948: aload_3
+     949: invokevirtual #257                // Method requestWithRetryOnStaleState:(Lorg/apache/solr/client/solrj/SolrRequest;ILjava/lang/String;)Lorg/apache/solr/common/util/NamedList;
+     952: astore        7
+     954: goto          1006
+     957: aload         8
+     959: instanceof    #132                // class org/apache/solr/common/SolrException
+     962: ifeq          968
+     965: aload         8
+     967: athrow
+     968: aload         8
+     970: instanceof    #122                // class org/apache/solr/client/solrj/SolrServerException
+     973: ifeq          982
+     976: aload         8
+     978: checkcast     #122                // class org/apache/solr/client/solrj/SolrServerException
+     981: athrow
+     982: aload         8
+     984: instanceof    #274                // class java/io/IOException
+     987: ifeq          996
+     990: aload         8
+     992: checkcast     #274                // class java/io/IOException
+     995: athrow
+     996: new           #122                // class org/apache/solr/client/solrj/SolrServerException
+     999: dup
+    1000: aload         9
+    1002: invokespecial #173                // Method org/apache/solr/client/solrj/SolrServerException."<init>":(Ljava/lang/Throwable;)V
+    1005: athrow
+    1006: aload         7
+    1008: areturn
+    Exception table:
+       from    to  target type
+         285   427   430   Class java/lang/Exception
+
+  protected org.apache.solr.common.util.NamedList<java.lang.Object> sendRequest(org.apache.solr.client.solrj.SolrRequest, java.lang.String) throws org.apache.solr.client.solrj.SolrServerException, java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #94                 // Method connect:()V
+       4: iconst_0
+       5: istore_3
+       6: aconst_null
+       7: astore        4
+       9: aload_1
+      10: instanceof    #298                // class org/apache/solr/client/solrj/request/IsUpdateRequest
+      13: ifeq          53
+      16: aload_1
+      17: instanceof    #112                // class org/apache/solr/client/solrj/request/UpdateRequest
+      20: ifeq          42
+      23: aload_0
+      24: aload_1
+      25: checkcast     #299                // class org/apache/solr/client/solrj/request/AbstractUpdateRequest
+      28: aload_2
+      29: invokespecial #300                // Method directUpdate:(Lorg/apache/solr/client/solrj/request/AbstractUpdateRequest;Ljava/lang/String;)Lorg/apache/solr/common/util/NamedList;
+      32: astore        5
+      34: aload         5
+      36: ifnull        42
+      39: aload         5
+      41: areturn
+      42: iconst_1
+      43: istore_3
+      44: new           #183                // class java/util/ArrayList
+      47: dup
+      48: invokespecial #184                // Method java/util/ArrayList."<init>":()V
+      51: astore        4
+      53: aload_1
+      54: invokevirtual #253                // Method org/apache/solr/client/solrj/SolrRequest.getParams:()Lorg/apache/solr/common/params/SolrParams;
+      57: astore        5
+      59: aload         5
+      61: ifnonnull     73
+      64: new           #114                // class org/apache/solr/common/params/ModifiableSolrParams
+      67: dup
+      68: invokespecial #115                // Method org/apache/solr/common/params/ModifiableSolrParams."<init>":()V
+      71: astore        5
+      73: new           #183                // class java/util/ArrayList
+      76: dup
+      77: invokespecial #184                // Method java/util/ArrayList."<init>":()V
+      80: astore        6
+      82: getstatic     #258                // Field ADMIN_PATHS:Ljava/util/Set;
+      85: aload_1
+      86: invokevirtual #259                // Method org/apache/solr/client/solrj/SolrRequest.getPath:()Ljava/lang/String;
+      89: invokeinterface #260,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+      94: ifeq          181
+      97: aload_0
+      98: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     101: invokeinterface #301,  1          // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.liveNodes:()Ljava/util/Set;
+     106: astore        7
+     108: aload         7
+     110: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     115: astore        8
+     117: aload         8
+     119: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     124: ifeq          178
+     127: aload         8
+     129: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     134: checkcast     #120                // class java/lang/String
+     137: astore        9
+     139: aload         6
+     141: aload         9
+     143: aload_0
+     144: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     147: invokeinterface #302,  1          // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.getClusterProperties:()Ljava/util/Map;
+     152: ldc_w         #304                // String urlScheme
+     155: ldc_w         #305                // String http
+     158: invokeinterface #306,  3          // InterfaceMethod java/util/Map.getOrDefault:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     163: checkcast     #120                // class java/lang/String
+     166: invokestatic  #307                // Method org/apache/solr/common/cloud/ZkStateReader.getBaseUrlForNodeName:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+     169: invokeinterface #203,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     174: pop
+     175: goto          117
+     178: goto          824
+     181: aload_2
+     182: ifnonnull     195
+     185: new           #122                // class org/apache/solr/client/solrj/SolrServerException
+     188: dup
+     189: ldc           #123                // String No collection param specified on request and no default collection has been set.
+     191: invokespecial #124                // Method org/apache/solr/client/solrj/SolrServerException."<init>":(Ljava/lang/String;)V
+     194: athrow
+     195: aload_0
+     196: aload_2
+     197: invokevirtual #261                // Method getCollectionNames:(Ljava/lang/String;)Ljava/util/Set;
+     200: astore        7
+     202: aload         7
+     204: invokeinterface #181,  1          // InterfaceMethod java/util/Set.size:()I
+     209: ifne          243
+     212: new           #132                // class org/apache/solr/common/SolrException
+     215: dup
+     216: getstatic     #249                // Field org/apache/solr/common/SolrException$ErrorCode.BAD_REQUEST:Lorg/apache/solr/common/SolrException$ErrorCode;
+     219: new           #239                // class java/lang/StringBuilder
+     222: dup
+     223: invokespecial #240                // Method java/lang/StringBuilder."<init>":()V
+     226: ldc_w         #308                // String Could not find collection:
+     229: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     232: aload_2
+     233: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     236: invokevirtual #250                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     239: invokespecial #135                // Method org/apache/solr/common/SolrException."<init>":(Lorg/apache/solr/common/SolrException$ErrorCode;Ljava/lang/String;)V
+     242: athrow
+     243: aload         5
+     245: ldc_w         #310                // String _route_
+     248: invokevirtual #311                // Method org/apache/solr/common/params/SolrParams.get:(Ljava/lang/String;)Ljava/lang/String;
+     251: astore        8
+     253: new           #140                // class java/util/HashMap
+     256: dup
+     257: invokespecial #194                // Method java/util/HashMap."<init>":()V
+     260: astore        9
+     262: aload         7
+     264: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     269: astore        10
+     271: aload         10
+     273: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     278: ifeq          331
+     281: aload         10
+     283: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     288: checkcast     #120                // class java/lang/String
+     291: astore        11
+     293: aload_0
+     294: aload         11
+     296: aconst_null
+     297: invokevirtual #126                // Method getDocCollection:(Ljava/lang/String;Ljava/lang/Integer;)Lorg/apache/solr/common/cloud/DocCollection;
+     300: astore        12
+     302: aload         12
+     304: invokevirtual #127                // Method org/apache/solr/common/cloud/DocCollection.getRouter:()Lorg/apache/solr/common/cloud/DocRouter;
+     307: aload         8
+     309: aload         5
+     311: aload         12
+     313: invokevirtual #312                // Method org/apache/solr/common/cloud/DocRouter.getSearchSlices:(Ljava/lang/String;Lorg/apache/solr/common/params/SolrParams;Lorg/apache/solr/common/cloud/DocCollection;)Ljava/util/Collection;
+     316: astore        13
+     318: aload         9
+     320: aload         11
+     322: aload         13
+     324: iconst_1
+     325: invokestatic  #313                // Method org/apache/solr/client/solrj/util/ClientUtils.addSlices:(Ljava/util/Map;Ljava/lang/String;Ljava/util/Collection;Z)V
+     328: goto          271
+     331: aload_0
+     332: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+     335: invokeinterface #301,  1          // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.liveNodes:()Ljava/util/Set;
+     340: astore        10
+     342: aconst_null
+     343: astore        11
+     345: aconst_null
+     346: astore        12
+     348: aconst_null
+     349: astore        13
+     351: new           #140                // class java/util/HashMap
+     354: dup
+     355: invokespecial #194                // Method java/util/HashMap."<init>":()V
+     358: astore        14
+     360: new           #183                // class java/util/ArrayList
+     363: dup
+     364: invokespecial #184                // Method java/util/ArrayList."<init>":()V
+     367: astore        15
+     369: aload         9
+     371: invokeinterface #314,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+     376: invokeinterface #196,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+     381: astore        16
+     383: aload         16
+     385: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     390: ifeq          617
+     393: aload         16
+     395: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     400: checkcast     #197                // class org/apache/solr/common/cloud/Slice
+     403: astore        17
+     405: aload         17
+     407: invokevirtual #315                // Method org/apache/solr/common/cloud/Slice.getReplicasMap:()Ljava/util/Map;
+     410: invokeinterface #314,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+     415: invokeinterface #196,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+     420: astore        18
+     422: aload         18
+     424: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     429: ifeq          614
+     432: aload         18
+     434: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     439: checkcast     #316                // class org/apache/solr/common/cloud/ZkNodeProps
+     442: astore        19
+     444: new           #200                // class org/apache/solr/common/cloud/ZkCoreNodeProps
+     447: dup
+     448: aload         19
+     450: invokespecial #201                // Method org/apache/solr/common/cloud/ZkCoreNodeProps."<init>":(Lorg/apache/solr/common/cloud/ZkNodeProps;)V
+     453: astore        20
+     455: aload         20
+     457: invokevirtual #317                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getNodeName:()Ljava/lang/String;
+     460: astore        21
+     462: aload         10
+     464: aload         20
+     466: invokevirtual #317                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getNodeName:()Ljava/lang/String;
+     469: invokeinterface #260,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+     474: ifeq          422
+     477: aload         20
+     479: invokevirtual #318                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getState:()Ljava/lang/String;
+     482: invokestatic  #319                // Method org/apache/solr/common/cloud/Replica$State.getState:(Ljava/lang/String;)Lorg/apache/solr/common/cloud/Replica$State;
+     485: getstatic     #320                // Field org/apache/solr/common/cloud/Replica$State.ACTIVE:Lorg/apache/solr/common/cloud/Replica$State;
+     488: if_acmpeq     494
+     491: goto          422
+     494: aload         14
+     496: aload         21
+     498: aload         19
+     500: invokeinterface #151,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     505: ifnonnull     611
+     508: iload_3
+     509: ifeq          520
+     512: aload         20
+     514: invokevirtual #321                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.isLeader:()Z
+     517: ifeq          567
+     520: aload         5
+     522: ldc           #254                // String collection
+     524: invokevirtual #311                // Method org/apache/solr/common/params/SolrParams.get:(Ljava/lang/String;)Ljava/lang/String;
+     527: ifnonnull     547
+     530: aload         19
+     532: ldc_w         #322                // String base_url
+     535: invokevirtual #323                // Method org/apache/solr/common/cloud/ZkNodeProps.getStr:(Ljava/lang/String;)Ljava/lang/String;
+     538: aload_2
+     539: invokestatic  #324                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getCoreUrl:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+     542: astore        22
+     544: goto          554
+     547: aload         20
+     549: invokevirtual #202                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getCoreUrl:()Ljava/lang/String;
+     552: astore        22
+     554: aload         15
+     556: aload         22
+     558: invokeinterface #203,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     563: pop
+     564: goto          611
+     567: aload         5
+     569: ldc           #254                // String collection
+     571: invokevirtual #311                // Method org/apache/solr/common/params/SolrParams.get:(Ljava/lang/String;)Ljava/lang/String;
+     574: ifnonnull     594
+     577: aload         19
+     579: ldc_w         #322                // String base_url
+     582: invokevirtual #323                // Method org/apache/solr/common/cloud/ZkNodeProps.getStr:(Ljava/lang/String;)Ljava/lang/String;
+     585: aload_2
+     586: invokestatic  #324                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getCoreUrl:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+     589: astore        22
+     591: goto          601
+     594: aload         20
+     596: invokevirtual #202                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getCoreUrl:()Ljava/lang/String;
+     599: astore        22
+     601: aload         4
+     603: aload         22
+     605: invokeinterface #203,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     610: pop
+     611: goto          422
+     614: goto          383
+     617: iload_3
+     618: ifeq          632
+     621: aload         15
+     623: astore        11
+     625: aload         4
+     627: astore        13
+     629: goto          636
+     632: aload         15
+     634: astore        12
+     636: iload_3
+     637: ifeq          669
+     640: new           #183                // class java/util/ArrayList
+     643: dup
+     644: aload         11
+     646: invokeinterface #175,  1          // InterfaceMethod java/util/List.size:()I
+     651: invokespecial #226                // Method java/util/ArrayList."<init>":(I)V
+     654: astore        6
+     656: aload         6
+     658: aload         11
+     660: invokeinterface #186,  2          // InterfaceMethod java/util/List.addAll:(Ljava/util/Collection;)Z
+     665: pop
+     666: goto          695
+     669: new           #183                // class java/util/ArrayList
+     672: dup
+     673: aload         12
+     675: invokeinterface #175,  1          // InterfaceMethod java/util/List.size:()I
+     680: invokespecial #226                // Method java/util/ArrayList."<init>":(I)V
+     683: astore        6
+     685: aload         6
+     687: aload         12
+     689: invokeinterface #186,  2          // InterfaceMethod java/util/List.addAll:(Ljava/util/Collection;)Z
+     694: pop
+     695: aload         6
+     697: aload_0
+     698: getfield      #12                 // Field rand:Ljava/util/Random;
+     701: invokestatic  #187                // Method java/util/Collections.shuffle:(Ljava/util/List;Ljava/util/Random;)V
+     704: iload_3
+     705: ifeq          751
+     708: new           #183                // class java/util/ArrayList
+     711: dup
+     712: aload         13
+     714: invokeinterface #175,  1          // InterfaceMethod java/util/List.size:()I
+     719: invokespecial #226                // Method java/util/ArrayList."<init>":(I)V
+     722: astore        16
+     724: aload         16
+     726: aload         13
+     728: invokevirtual #325                // Method java/util/ArrayList.addAll:(Ljava/util/Collection;)Z
+     731: pop
+     732: aload         16
+     734: aload_0
+     735: getfield      #12                 // Field rand:Ljava/util/Random;
+     738: invokestatic  #187                // Method java/util/Collections.shuffle:(Ljava/util/List;Ljava/util/Random;)V
+     741: aload         6
+     743: aload         16
+     745: invokeinterface #186,  2          // InterfaceMethod java/util/List.addAll:(Ljava/util/Collection;)Z
+     750: pop
+     751: aload         6
+     753: invokeinterface #288,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+     758: ifeq          824
+     761: aload         7
+     763: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     768: astore        16
+     770: aload         16
+     772: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     777: ifeq          810
+     780: aload         16
+     782: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     787: checkcast     #120                // class java/lang/String
+     790: astore        17
+     792: aload         17
+     794: ifnull        807
+     797: aload_0
+     798: getfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     801: aload         17
+     803: invokevirtual #290                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     806: pop
+     807: goto          770
+     810: new           #132                // class org/apache/solr/common/SolrException
+     813: dup
+     814: getstatic     #289                // Field org/apache/solr/common/SolrException$ErrorCode.INVALID_STATE:Lorg/apache/solr/common/SolrException$ErrorCode;
+     817: ldc_w         #326                // String Could not find a healthy node to handle the request.
+     820: invokespecial #135                // Method org/apache/solr/common/SolrException."<init>":(Lorg/apache/solr/common/SolrException$ErrorCode;Ljava/lang/String;)V
+     823: athrow
+     824: new           #146                // class org/apache/solr/client/solrj/impl/LBHttpSolrClient$Req
+     827: dup
+     828: aload_1
+     829: aload         6
+     831: invokespecial #188                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Req."<init>":(Lorg/apache/solr/client/solrj/SolrRequest;Ljava/util/List;)V
+     834: astore        7
+     836: aload_0
+     837: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+     840: aload         7
+     842: invokevirtual #170                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.request:(Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Req;)Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Rsp;
+     845: astore        8
+     847: aload         8
+     849: invokevirtual #171                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Rsp.getResponse:()Lorg/apache/solr/common/util/NamedList;
+     852: areturn
+
+  java.util.Set<java.lang.String> getCollectionNames(java.lang.String);
+    Code:
+       0: aload_1
+       1: ldc_w         #327                // String ,
+       4: iconst_1
+       5: invokestatic  #328                // Method org/apache/solr/common/util/StrUtils.splitSmart:(Ljava/lang/String;Ljava/lang/String;Z)Ljava/util/List;
+       8: astore_2
+       9: new           #23                 // class java/util/HashSet
+      12: dup
+      13: invokespecial #24                 // Method java/util/HashSet."<init>":()V
+      16: astore_3
+      17: aload_2
+      18: invokeinterface #227,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      23: astore        4
+      25: aload         4
+      27: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      32: ifeq          145
+      35: aload         4
+      37: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      42: checkcast     #120                // class java/lang/String
+      45: astore        5
+      47: aload_0
+      48: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+      51: aload         5
+      53: invokeinterface #329,  2          // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.getState:(Ljava/lang/String;)Lorg/apache/solr/common/cloud/ClusterState$CollectionRef;
+      58: ifnonnull     133
+      61: aload_0
+      62: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+      65: aload_1
+      66: invokeinterface #330,  2          // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.getAlias:(Ljava/lang/String;)Ljava/lang/String;
+      71: astore        6
+      73: aload         6
+      75: ifnull        101
+      78: aload         6
+      80: ldc_w         #327                // String ,
+      83: iconst_1
+      84: invokestatic  #328                // Method org/apache/solr/common/util/StrUtils.splitSmart:(Ljava/lang/String;Ljava/lang/String;Z)Ljava/util/List;
+      87: astore        7
+      89: aload_3
+      90: aload         7
+      92: invokeinterface #331,  2          // InterfaceMethod java/util/Set.addAll:(Ljava/util/Collection;)Z
+      97: pop
+      98: goto          25
+     101: new           #132                // class org/apache/solr/common/SolrException
+     104: dup
+     105: getstatic     #249                // Field org/apache/solr/common/SolrException$ErrorCode.BAD_REQUEST:Lorg/apache/solr/common/SolrException$ErrorCode;
+     108: new           #239                // class java/lang/StringBuilder
+     111: dup
+     112: invokespecial #240                // Method java/lang/StringBuilder."<init>":()V
+     115: ldc_w         #262                // String Collection not found:
+     118: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     121: aload         5
+     123: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     126: invokevirtual #250                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     129: invokespecial #135                // Method org/apache/solr/common/SolrException."<init>":(Lorg/apache/solr/common/SolrException$ErrorCode;Ljava/lang/String;)V
+     132: athrow
+     133: aload_3
+     134: aload         5
+     136: invokeinterface #28,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     141: pop
+     142: goto          25
+     145: aload_3
+     146: areturn
+
+  public void close() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+       4: invokeinterface #332,  1          // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.close:()V
+       9: aload_0
+      10: getfield      #59                 // Field shutdownLBHttpSolrServer:Z
+      13: ifeq          23
+      16: aload_0
+      17: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+      20: invokevirtual #333                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.close:()V
+      23: aload_0
+      24: getfield      #44                 // Field clientIsInternal:Z
+      27: ifeq          44
+      30: aload_0
+      31: getfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+      34: ifnull        44
+      37: aload_0
+      38: getfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+      41: invokestatic  #334                // Method org/apache/solr/client/solrj/impl/HttpClientUtil.close:(Lorg/apache/http/client/HttpClient;)V
+      44: aload_0
+      45: getfield      #18                 // Field threadPool:Ljava/util/concurrent/ExecutorService;
+      48: ifnull        72
+      51: aload_0
+      52: getfield      #18                 // Field threadPool:Ljava/util/concurrent/ExecutorService;
+      55: invokeinterface #335,  1          // InterfaceMethod java/util/concurrent/ExecutorService.isShutdown:()Z
+      60: ifne          72
+      63: aload_0
+      64: getfield      #18                 // Field threadPool:Ljava/util/concurrent/ExecutorService;
+      67: invokeinterface #336,  1          // InterfaceMethod java/util/concurrent/ExecutorService.shutdown:()V
+      72: return
+
+  public org.apache.solr.client.solrj.impl.LBHttpSolrClient getLbClient();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+       4: areturn
+
+  public org.apache.http.client.HttpClient getHttpClient();
+    Code:
+       0: aload_0
+       1: getfield      #46                 // Field myClient:Lorg/apache/http/client/HttpClient;
+       4: areturn
+
+  public boolean isUpdatesToLeaders();
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field updatesToLeaders:Z
+       4: ireturn
+
+  public boolean isDirectUpdatesToLeadersOnly();
+    Code:
+       0: aload_0
+       1: getfield      #58                 // Field directUpdatesToLeadersOnly:Z
+       4: ireturn
+
+  public void setParallelCacheRefreshes(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: invokestatic  #36                 // Method objectList:(I)Ljava/util/ArrayList;
+       5: putfield      #37                 // Field locks:Ljava/util/List;
+       8: return
+
+  private static java.util.ArrayList<java.lang.Object> objectList(int);
+    Code:
+       0: new           #183                // class java/util/ArrayList
+       3: dup
+       4: iload_0
+       5: invokespecial #226                // Method java/util/ArrayList."<init>":(I)V
+       8: astore_1
+       9: iconst_0
+      10: istore_2
+      11: iload_2
+      12: iload_0
+      13: if_icmpge     34
+      16: aload_1
+      17: new           #89                 // class java/lang/Object
+      20: dup
+      21: invokespecial #337                // Method java/lang/Object."<init>":()V
+      24: invokevirtual #338                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+      27: pop
+      28: iinc          2, 1
+      31: goto          11
+      34: aload_1
+      35: areturn
+
+  protected org.apache.solr.common.cloud.DocCollection getDocCollection(java.lang.String, java.lang.Integer) throws org.apache.solr.common.SolrException;
+    Code:
+       0: aload_2
+       1: ifnonnull     9
+       4: iconst_m1
+       5: invokestatic  #236                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+       8: astore_2
+       9: aload_1
+      10: ifnonnull     15
+      13: aconst_null
+      14: areturn
+      15: aload_0
+      16: getfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+      19: aload_1
+      20: invokevirtual #286                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache.get:(Ljava/lang/Object;)Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection;
+      23: astore_3
+      24: aload_3
+      25: ifnonnull     32
+      28: aconst_null
+      29: goto          36
+      32: aload_3
+      33: getfield      #339                // Field org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection.cached:Lorg/apache/solr/common/cloud/DocCollection;
+      36: astore        4
+      38: aload         4
+      40: ifnull        65
+      43: aload_2
+      44: invokevirtual #216                // Method java/lang/Integer.intValue:()I
+      47: aload         4
+      49: invokevirtual #263                // Method org/apache/solr/common/cloud/DocCollection.getZNodeVersion:()I
+      52: if_icmpgt     65
+      55: aload_3
+      56: invokevirtual #340                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection.shoulRetry:()Z
+      59: ifne          65
+      62: aload         4
+      64: areturn
+      65: aload_0
+      66: aload_1
+      67: invokevirtual #341                // Method getCollectionRef:(Ljava/lang/String;)Lorg/apache/solr/common/cloud/ClusterState$CollectionRef;
+      70: astore        5
+      72: aload         5
+      74: ifnonnull     79
+      77: aconst_null
+      78: areturn
+      79: aload         5
+      81: invokevirtual #342                // Method org/apache/solr/common/cloud/ClusterState$CollectionRef.isLazilyLoaded:()Z
+      84: ifne          93
+      87: aload         5
+      89: invokevirtual #343                // Method org/apache/solr/common/cloud/ClusterState$CollectionRef.get:()Lorg/apache/solr/common/cloud/DocCollection;
+      92: areturn
+      93: aload_0
+      94: getfield      #37                 // Field locks:Ljava/util/List;
+      97: astore        6
+      99: aload         6
+     101: aload_1
+     102: iconst_0
+     103: aload_1
+     104: invokevirtual #344                // Method java/lang/String.length:()I
+     107: iconst_0
+     108: invokestatic  #345                // Method org/apache/solr/common/util/Hash.murmurhash3_x86_32:(Ljava/lang/CharSequence;III)I
+     111: aload         6
+     113: invokeinterface #175,  1          // InterfaceMethod java/util/List.size:()I
+     118: irem
+     119: invokestatic  #346                // Method java/lang/Math.abs:(I)I
+     122: invokeinterface #189,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     127: astore        7
+     129: aconst_null
+     130: astore        8
+     132: aload         7
+     134: dup
+     135: astore        9
+     137: monitorenter
+     138: aload_0
+     139: getfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     142: aload_1
+     143: invokevirtual #286                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache.get:(Ljava/lang/Object;)Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection;
+     146: astore_3
+     147: aload_3
+     148: ifnonnull     155
+     151: aconst_null
+     152: goto          159
+     155: aload_3
+     156: getfield      #339                // Field org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection.cached:Lorg/apache/solr/common/cloud/DocCollection;
+     159: astore        4
+     161: aload         4
+     163: ifnull        191
+     166: aload_2
+     167: invokevirtual #216                // Method java/lang/Integer.intValue:()I
+     170: aload         4
+     172: invokevirtual #263                // Method org/apache/solr/common/cloud/DocCollection.getZNodeVersion:()I
+     175: if_icmpgt     191
+     178: aload_3
+     179: invokevirtual #340                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection.shoulRetry:()Z
+     182: ifne          191
+     185: aload         4
+     187: aload         9
+     189: monitorexit
+     190: areturn
+     191: aload         5
+     193: invokevirtual #343                // Method org/apache/solr/common/cloud/ClusterState$CollectionRef.get:()Lorg/apache/solr/common/cloud/DocCollection;
+     196: astore        8
+     198: aload         8
+     200: ifnonnull     208
+     203: aconst_null
+     204: aload         9
+     206: monitorexit
+     207: areturn
+     208: aload         4
+     210: ifnull        238
+     213: aload         8
+     215: invokevirtual #263                // Method org/apache/solr/common/cloud/DocCollection.getZNodeVersion:()I
+     218: aload         4
+     220: invokevirtual #263                // Method org/apache/solr/common/cloud/DocCollection.getZNodeVersion:()I
+     223: if_icmpne     238
+     226: aload_3
+     227: invokevirtual #347                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection.setRetriedAt:()V
+     230: aload_3
+     231: iconst_0
+     232: putfield      #287                // Field org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection.maybeStale:Z
+     235: goto          266
+     238: aload         8
+     240: invokevirtual #264                // Method org/apache/solr/common/cloud/DocCollection.getStateFormat:()I
+     243: iconst_1
+     244: if_icmple     266
+     247: aload_0
+     248: getfield      #40                 // Field collectionStateCache:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$StateCache;
+     251: aload_1
+     252: new           #291                // class org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection
+     255: dup
+     256: aload_0
+     257: aload         8
+     259: invokespecial #292                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection."<init>":(Lorg/apache/solr/client/solrj/impl/CloudSolrClient;Lorg/apache/solr/common/cloud/DocCollection;)V
+     262: invokevirtual #293                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$StateCache.put:(Ljava/lang/String;Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection;)Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ExpiringCachedDocCollection;
+     265: pop
+     266: aload         8
+     268: aload         9
+     270: monitorexit
+     271: areturn
+     272: astore        10
+     274: aload         9
+     276: monitorexit
+     277: aload         10
+     279: athrow
+    Exception table:
+       from    to  target type
+         138   190   272   any
+         191   207   272   any
+         208   271   272   any
+         272   277   272   any
+
+  org.apache.solr.common.cloud.ClusterState$CollectionRef getCollectionRef(java.lang.String);
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+       4: aload_1
+       5: invokeinterface #329,  2          // InterfaceMethod org/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider.getState:(Ljava/lang/String;)Lorg/apache/solr/common/cloud/ClusterState$CollectionRef;
+      10: areturn
+
+  public int getMinAchievedReplicationFactor(java.lang.String, org.apache.solr.common.util.NamedList);
+    Code:
+       0: aload_2
+       1: ldc           #213                // String responseHeader
+       3: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+       6: checkcast     #136                // class org/apache/solr/common/util/NamedList
+       9: astore_3
+      10: aload_3
+      11: ldc           #217                // String rf
+      13: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+      16: checkcast     #211                // class java/lang/Integer
+      19: astore        4
+      21: aload         4
+      23: ifnull        32
+      26: aload         4
+      28: invokevirtual #216                // Method java/lang/Integer.intValue:()I
+      31: ireturn
+      32: aload_0
+      33: aload_1
+      34: aload_2
+      35: invokevirtual #348                // Method getShardReplicationFactor:(Ljava/lang/String;Lorg/apache/solr/common/util/NamedList;)Ljava/util/Map;
+      38: astore        5
+      40: aload         5
+      42: invokeinterface #314,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      47: invokeinterface #196,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      52: astore        6
+      54: aload         6
+      56: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      61: ifeq          101
+      64: aload         6
+      66: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      71: checkcast     #211                // class java/lang/Integer
+      74: astore        7
+      76: aload         4
+      78: ifnull        94
+      81: aload         7
+      83: invokevirtual #216                // Method java/lang/Integer.intValue:()I
+      86: aload         4
+      88: invokevirtual #216                // Method java/lang/Integer.intValue:()I
+      91: if_icmpge     98
+      94: aload         7
+      96: astore        4
+      98: goto          54
+     101: aload         4
+     103: ifnull        114
+     106: aload         4
+     108: invokevirtual #216                // Method java/lang/Integer.intValue:()I
+     111: goto          115
+     114: iconst_m1
+     115: ireturn
+
+  public java.util.Map<java.lang.String, java.lang.Integer> getShardReplicationFactor(java.lang.String, org.apache.solr.common.util.NamedList);
+    Code:
+       0: aload_0
+       1: invokevirtual #94                 // Method connect:()V
+       4: new           #140                // class java/util/HashMap
+       7: dup
+       8: invokespecial #194                // Method java/util/HashMap."<init>":()V
+      11: astore_3
+      12: aload_2
+      13: instanceof    #209                // class org/apache/solr/client/solrj/impl/CloudSolrClient$RouteResponse
+      16: ifeq          355
+      19: aload_2
+      20: checkcast     #209                // class org/apache/solr/client/solrj/impl/CloudSolrClient$RouteResponse
+      23: invokevirtual #349                // Method org/apache/solr/client/solrj/impl/CloudSolrClient$RouteResponse.getRouteResponses:()Lorg/apache/solr/common/util/NamedList;
+      26: astore        4
+      28: aload_0
+      29: aload_1
+      30: aconst_null
+      31: invokevirtual #126                // Method getDocCollection:(Ljava/lang/String;Ljava/lang/Integer;)Lorg/apache/solr/common/cloud/DocCollection;
+      34: astore        5
+      36: new           #140                // class java/util/HashMap
+      39: dup
+      40: invokespecial #194                // Method java/util/HashMap."<init>":()V
+      43: astore        6
+      45: aload         5
+      47: invokevirtual #195                // Method org/apache/solr/common/cloud/DocCollection.getActiveSlices:()Ljava/util/Collection;
+      50: invokeinterface #196,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      55: astore        7
+      57: aload         7
+      59: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      64: ifeq          199
+      67: aload         7
+      69: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      74: checkcast     #197                // class org/apache/solr/common/cloud/Slice
+      77: astore        8
+      79: aload         8
+      81: invokevirtual #199                // Method org/apache/solr/common/cloud/Slice.getLeader:()Lorg/apache/solr/common/cloud/Replica;
+      84: astore        9
+      86: aload         9
+      88: ifnull        196
+      91: new           #200                // class org/apache/solr/common/cloud/ZkCoreNodeProps
+      94: dup
+      95: aload         9
+      97: invokespecial #201                // Method org/apache/solr/common/cloud/ZkCoreNodeProps."<init>":(Lorg/apache/solr/common/cloud/ZkNodeProps;)V
+     100: astore        10
+     102: new           #239                // class java/lang/StringBuilder
+     105: dup
+     106: invokespecial #240                // Method java/lang/StringBuilder."<init>":()V
+     109: aload         10
+     111: invokevirtual #350                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getBaseUrl:()Ljava/lang/String;
+     114: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     117: ldc_w         #351                // String /
+     120: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     123: aload         10
+     125: invokevirtual #352                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getCoreName:()Ljava/lang/String;
+     128: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     131: invokevirtual #250                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     134: astore        11
+     136: aload         6
+     138: aload         11
+     140: aload         8
+     142: invokevirtual #198                // Method org/apache/solr/common/cloud/Slice.getName:()Ljava/lang/String;
+     145: invokeinterface #151,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     150: pop
+     151: new           #239                // class java/lang/StringBuilder
+     154: dup
+     155: invokespecial #240                // Method java/lang/StringBuilder."<init>":()V
+     158: aload         10
+     160: invokevirtual #350                // Method org/apache/solr/common/cloud/ZkCoreNodeProps.getBaseUrl:()Ljava/lang/String;
+     163: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     166: ldc_w         #351                // String /
+     169: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     172: aload_1
+     173: invokevirtual #243                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     176: invokevirtual #250                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     179: astore        12
+     181: aload         6
+     183: aload         12
+     185: aload         8
+     187: invokevirtual #198                // Method org/apache/solr/common/cloud/Slice.getName:()Ljava/lang/String;
+     190: invokeinterface #151,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     195: pop
+     196: goto          57
+     199: aload         4
+     201: invokevirtual #353                // Method org/apache/solr/common/util/NamedList.iterator:()Ljava/util/Iterator;
+     204: astore        7
+     206: aload         7
+     208: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     213: ifeq          355
+     216: aload         7
+     218: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     223: checkcast     #143                // class java/util/Map$Entry
+     226: astore        8
+     228: aload         8
+     230: invokeinterface #144,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     235: checkcast     #120                // class java/lang/String
+     238: astore        9
+     240: aload         8
+     242: invokeinterface #145,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     247: checkcast     #136                // class org/apache/solr/common/util/NamedList
+     250: astore        10
+     252: aload         10
+     254: ldc           #213                // String responseHeader
+     256: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+     259: checkcast     #136                // class org/apache/solr/common/util/NamedList
+     262: ldc           #217                // String rf
+     264: invokevirtual #214                // Method org/apache/solr/common/util/NamedList.get:(Ljava/lang/String;)Ljava/lang/Object;
+     267: checkcast     #211                // class java/lang/Integer
+     270: astore        11
+     272: aload         11
+     274: ifnull        352
+     277: aload         6
+     279: aload         9
+     281: invokeinterface #234,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     286: checkcast     #120                // class java/lang/String
+     289: astore        12
+     291: aload         12
+     293: ifnonnull     341
+     296: aload         9
+     298: ldc_w         #351                // String /
+     301: invokevirtual #354                // Method java/lang/String.endsWith:(Ljava/lang/String;)Z
+     304: ifeq          332
+     307: aload         6
+     309: aload         9
+     311: iconst_0
+     312: aload         9
+     314: invokevirtual #344                // Method java/lang/String.length:()I
+     317: iconst_1
+     318: isub
+     319: invokevirtual #355                // Method java/lang/String.substring:(II)Ljava/lang/String;
+     322: invokeinterface #234,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     327: checkcast     #120                // class java/lang/String
+     330: astore        12
+     332: aload         12
+     334: ifnonnull     341
+     337: aload         9
+     339: astore        12
+     341: aload_3
+     342: aload         12
+     344: aload         11
+     346: invokeinterface #151,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     351: pop
+     352: goto          206
+     355: aload_3
+     356: areturn
+
+  public org.apache.solr.client.solrj.impl.CloudSolrClient$ClusterStateProvider getClusterStateProvider();
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field stateProvider:Lorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;
+       4: areturn
+
+  private static boolean hasInfoToFindLeaders(org.apache.solr.client.solrj.request.UpdateRequest, java.lang.String);
+    Code:
+       0: aload_0
+       1: invokevirtual #356                // Method org/apache/solr/client/solrj/request/UpdateRequest.getDocumentsMap:()Ljava/util/Map;
+       4: astore_2
+       5: aload_0
+       6: invokevirtual #357                // Method org/apache/solr/client/solrj/request/UpdateRequest.getDeleteByIdMap:()Ljava/util/Map;
+       9: astore_3
+      10: aload_2
+      11: ifnull        23
+      14: aload_2
+      15: invokeinterface #358,  1          // InterfaceMethod java/util/Map.isEmpty:()Z
+      20: ifeq          27
+      23: iconst_1
+      24: goto          28
+      27: iconst_0
+      28: istore        4
+      30: aload_3
+      31: ifnull        43
+      34: aload_3
+      35: invokeinterface #358,  1          // InterfaceMethod java/util/Map.isEmpty:()Z
+      40: ifeq          47
+      43: iconst_1
+      44: goto          48
+      47: iconst_0
+      48: istore        5
+      50: iload         4
+      52: ifeq          62
+      55: iload         5
+      57: ifeq          62
+      60: iconst_0
+      61: ireturn
+      62: aload_2
+      63: ifnull        131
+      66: aload_2
+      67: invokeinterface #142,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+      72: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      77: astore        6
+      79: aload         6
+      81: invokeinterface #118,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      86: ifeq          131
+      89: aload         6
+      91: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      96: checkcast     #143                // class java/util/Map$Entry
+      99: astore        7
+     101: aload         7
+     103: invokeinterface #144,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     108: checkcast     #359                // class org/apache/solr/common/SolrInputDocument
+     111: astore        8
+     113: aload         8
+     115: aload_1
+     116: invokevirtual #360                // Method org/apache/solr/common/SolrInputDocument.getFieldValue:(Ljava/lang/String;)Ljava/lang/Object;
+     119: astore        9
+     121: aload         9
+     123: ifnonnull     128
+     126: iconst_0
+     127: ireturn
+     128: goto          79
+     131: iconst_1
+     132: ireturn
+
+  private static org.apache.solr.client.solrj.impl.LBHttpSolrClient createLBHttpSolrClient(org.apache.http.client.HttpClient);
+    Code:
+       0: new           #47                 // class org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder
+       3: dup
+       4: invokespecial #48                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder."<init>":()V
+       7: aload_0
+       8: invokevirtual #49                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder.withHttpClient:(Lorg/apache/http/client/HttpClient;)Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder;
+      11: invokevirtual #50                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder.build:()Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+      14: astore_1
+      15: aload_1
+      16: new           #51                 // class org/apache/solr/client/solrj/impl/BinaryRequestWriter
+      19: dup
+      20: invokespecial #52                 // Method org/apache/solr/client/solrj/impl/BinaryRequestWriter."<init>":()V
+      23: invokevirtual #53                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.setRequestWriter:(Lorg/apache/solr/client/solrj/request/RequestWriter;)V
+      26: aload_1
+      27: new           #54                 // class org/apache/solr/client/solrj/impl/BinaryResponseParser
+      30: dup
+      31: invokespecial #55                 // Method org/apache/solr/client/solrj/impl/BinaryResponseParser."<init>":()V
+      34: invokevirtual #56                 // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.setParser:(Lorg/apache/solr/client/solrj/ResponseParser;)V
+      37: aload_1
+      38: areturn
+
+  private org.apache.solr.common.util.NamedList lambda$directUpdate$0(org.apache.solr.client.solrj.impl.LBHttpSolrClient$Req) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field lbClient:Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;
+       4: aload_1
+       5: invokevirtual #170                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient.request:(Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Req;)Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Rsp;
+       8: invokevirtual #171                // Method org/apache/solr/client/solrj/impl/LBHttpSolrClient$Rsp.getResponse:()Lorg/apache/solr/common/util/NamedList;
+      11: areturn
+
+  static long access$000(org.apache.solr.client.solrj.impl.CloudSolrClient);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field retryExpiryTime:J
+       4: lreturn
+
+  org.apache.solr.client.solrj.impl.CloudSolrClient(java.util.Collection, java.lang.String, org.apache.http.client.HttpClient, org.apache.solr.client.solrj.impl.LBHttpSolrClient, org.apache.solr.client.solrj.impl.LBHttpSolrClient$Builder, boolean, boolean, org.apache.solr.client.solrj.impl.CloudSolrClient$ClusterStateProvider, org.apache.solr.client.solrj.impl.CloudSolrClient$1);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: aload         4
+       6: aload         5
+       8: iload         6
+      10: iload         7
+      12: aload         8
+      14: invokespecial #2                  // Method "<init>":(Ljava/util/Collection;Ljava/lang/String;Lorg/apache/http/client/HttpClient;Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient;Lorg/apache/solr/client/solrj/impl/LBHttpSolrClient$Builder;ZZLorg/apache/solr/client/solrj/impl/CloudSolrClient$ClusterStateProvider;)V
+      17: return
+
+  static {};
+    Code:
+       0: ldc           #60                 // class org/apache/solr/client/solrj/impl/CloudSolrClient
+       2: invokevirtual #361                // Method java/lang/Class.desiredAssertionStatus:()Z
+       5: ifne          12
+       8: iconst_1
+       9: goto          13
+      12: iconst_0
+      13: putstatic     #68                 // Field $assertionsDisabled:Z
+      16: invokestatic  #362                // Method java/lang/invoke/MethodHandles.lookup:()Ljava/lang/invoke/MethodHandles$Lookup;
+      19: invokevirtual #363                // Method java/lang/invoke/MethodHandles$Lookup.lookupClass:()Ljava/lang/Class;
+      22: invokestatic  #364                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      25: putstatic     #87                 // Field log:Lorg/slf4j/Logger;
+      28: new           #23                 // class java/util/HashSet
+      31: dup
+      32: bipush        7
+      34: anewarray     #120                // class java/lang/String
+      37: dup
+      38: iconst_0
+      39: ldc_w         #365                // String /admin/cores
+      42: aastore
+      43: dup
+      44: iconst_1
+      45: ldc_w         #366                // String /admin/collections
+      48: aastore
+      49: dup
+      50: iconst_2
+      51: ldc_w         #367                // String /admin/configs
+      54: aastore
+      55: dup
+      56: iconst_3
+      57: ldc_w         #368                // String /admin/authentication
+      60: aastore
+      61: dup
+      62: iconst_4
+      63: ldc_w         #369                // String /admin/authorization
+      66: aastore
+      67: dup
+      68: iconst_5
+      69: ldc_w         #370                // String /____v2/cluster/security/authentication
+      72: aastore
+      73: dup
+      74: bipush        6
+      76: ldc_w         #371                // String /____v2/cluster/security/authorization
+      79: aastore
+      80: invokestatic  #232                // Method java/util/Arrays.asList:([Ljava/lang/Object;)Ljava/util/List;
+      83: invokespecial #179                // Method java/util/HashSet."<init>":(Ljava/util/Collection;)V
+      86: putstatic     #258                // Field ADMIN_PATHS:Ljava/util/Set;
+      89: return
+}

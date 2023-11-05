@@ -1,0 +1,4105 @@
+Compiled from "Http2UpgradeHandler.java"
+public class org.apache.coyote.http2.Http2UpgradeHandler extends org.apache.coyote.http2.AbstractStream implements org.apache.coyote.http11.upgrade.InternalHttpUpgradeHandler,org.apache.coyote.http2.Http2Parser$Input,org.apache.coyote.http2.Http2Parser$Output {
+  private static final org.apache.juli.logging.Log log;
+
+  private static final org.apache.tomcat.util.res.StringManager sm;
+
+  private static final java.util.concurrent.atomic.AtomicInteger connectionIdGenerator;
+
+  private static final java.lang.Integer STREAM_ID_ZERO;
+
+  private static final int FLAG_END_OF_STREAM;
+
+  private static final int FLAG_END_OF_HEADERS;
+
+  private static final byte[] PING;
+
+  private static final byte[] PING_ACK;
+
+  private static final byte[] SETTINGS_ACK;
+
+  private static final byte[] GOAWAY;
+
+  private static final java.lang.String HTTP2_SETTINGS_HEADER;
+
+  private static final org.apache.coyote.http2.HeaderSink HEADER_SINK;
+
+  private final java.lang.String connectionId;
+
+  private final org.apache.coyote.http2.Http2Protocol protocol;
+
+  private final org.apache.coyote.Adapter adapter;
+
+  private volatile org.apache.tomcat.util.net.SocketWrapperBase<?> socketWrapper;
+
+  private volatile org.apache.tomcat.util.net.SSLSupport sslSupport;
+
+  private volatile org.apache.coyote.http2.Http2Parser parser;
+
+  private java.util.concurrent.atomic.AtomicReference<org.apache.coyote.http2.Http2UpgradeHandler$ConnectionState> connectionState;
+
+  private volatile long pausedNanoTime;
+
+  private final org.apache.coyote.http2.ConnectionSettingsRemote remoteSettings;
+
+  private final org.apache.coyote.http2.ConnectionSettingsLocal localSettings;
+
+  private org.apache.coyote.http2.HpackDecoder hpackDecoder;
+
+  private org.apache.coyote.http2.HpackEncoder hpackEncoder;
+
+  private long readTimeout;
+
+  private long keepAliveTimeout;
+
+  private long writeTimeout;
+
+  private final java.util.Map<java.lang.Integer, org.apache.coyote.http2.Stream> streams;
+
+  private final java.util.concurrent.atomic.AtomicInteger activeRemoteStreamCount;
+
+  private volatile int maxActiveRemoteStreamId;
+
+  private volatile int maxProcessedStreamId;
+
+  private final java.util.concurrent.atomic.AtomicInteger nextLocalStreamId;
+
+  private final org.apache.coyote.http2.Http2UpgradeHandler$PingManager pingManager;
+
+  private volatile int newStreamsSinceLastPrune;
+
+  private final java.util.concurrent.ConcurrentMap<org.apache.coyote.http2.AbstractStream, org.apache.coyote.http2.Http2UpgradeHandler$BacklogTracker> backLogStreams;
+
+  private long backLogSize;
+
+  private volatile long connectionTimeout;
+
+  private int maxConcurrentStreamExecution;
+
+  private java.util.concurrent.atomic.AtomicInteger streamConcurrency;
+
+  private java.util.Queue<org.apache.coyote.http2.StreamRunnable> queuedRunnable;
+
+  private java.util.Set<java.lang.String> allowedTrailerHeaders;
+
+  private int maxHeaderCount;
+
+  private int maxHeaderSize;
+
+  private int maxTrailerCount;
+
+  private int maxTrailerSize;
+
+  private final java.util.concurrent.atomic.AtomicLong overheadCount;
+
+  private volatile int lastNonFinalDataPayload;
+
+  private volatile int lastWindowUpdate;
+
+  public org.apache.coyote.http2.Http2UpgradeHandler(org.apache.coyote.http2.Http2Protocol, org.apache.coyote.Adapter, org.apache.coyote.Request);
+    Code:
+       0: aload_0
+       1: getstatic     #7                  // Field STREAM_ID_ZERO:Ljava/lang/Integer;
+       4: invokespecial #8                  // Method org/apache/coyote/http2/AbstractStream."<init>":(Ljava/lang/Integer;)V
+       7: aload_0
+       8: new           #9                  // class java/util/concurrent/atomic/AtomicReference
+      11: dup
+      12: getstatic     #10                 // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.NEW:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+      15: invokespecial #11                 // Method java/util/concurrent/atomic/AtomicReference."<init>":(Ljava/lang/Object;)V
+      18: putfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+      21: aload_0
+      22: ldc2_w        #13                 // long 9223372036854775807l
+      25: putfield      #15                 // Field pausedNanoTime:J
+      28: aload_0
+      29: ldc2_w        #16                 // long 5000l
+      32: putfield      #18                 // Field readTimeout:J
+      35: aload_0
+      36: ldc2_w        #19                 // long 20000l
+      39: putfield      #21                 // Field keepAliveTimeout:J
+      42: aload_0
+      43: ldc2_w        #16                 // long 5000l
+      46: putfield      #22                 // Field writeTimeout:J
+      49: aload_0
+      50: new           #23                 // class java/util/concurrent/ConcurrentHashMap
+      53: dup
+      54: invokespecial #24                 // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      57: putfield      #25                 // Field streams:Ljava/util/Map;
+      60: aload_0
+      61: new           #26                 // class java/util/concurrent/atomic/AtomicInteger
+      64: dup
+      65: iconst_0
+      66: invokespecial #27                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      69: putfield      #28                 // Field activeRemoteStreamCount:Ljava/util/concurrent/atomic/AtomicInteger;
+      72: aload_0
+      73: iconst_m1
+      74: putfield      #29                 // Field maxActiveRemoteStreamId:I
+      77: aload_0
+      78: new           #26                 // class java/util/concurrent/atomic/AtomicInteger
+      81: dup
+      82: iconst_2
+      83: invokespecial #27                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      86: putfield      #30                 // Field nextLocalStreamId:Ljava/util/concurrent/atomic/AtomicInteger;
+      89: aload_0
+      90: new           #31                 // class org/apache/coyote/http2/Http2UpgradeHandler$PingManager
+      93: dup
+      94: aload_0
+      95: aconst_null
+      96: invokespecial #32                 // Method org/apache/coyote/http2/Http2UpgradeHandler$PingManager."<init>":(Lorg/apache/coyote/http2/Http2UpgradeHandler;Lorg/apache/coyote/http2/Http2UpgradeHandler$1;)V
+      99: putfield      #33                 // Field pingManager:Lorg/apache/coyote/http2/Http2UpgradeHandler$PingManager;
+     102: aload_0
+     103: iconst_0
+     104: putfield      #34                 // Field newStreamsSinceLastPrune:I
+     107: aload_0
+     108: new           #23                 // class java/util/concurrent/ConcurrentHashMap
+     111: dup
+     112: invokespecial #24                 // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+     115: putfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+     118: aload_0
+     119: lconst_0
+     120: putfield      #36                 // Field backLogSize:J
+     123: aload_0
+     124: ldc2_w        #37                 // long -1l
+     127: putfield      #39                 // Field connectionTimeout:J
+     130: aload_0
+     131: bipush        20
+     133: putfield      #40                 // Field maxConcurrentStreamExecution:I
+     136: aload_0
+     137: aconst_null
+     138: putfield      #41                 // Field streamConcurrency:Ljava/util/concurrent/atomic/AtomicInteger;
+     141: aload_0
+     142: aconst_null
+     143: putfield      #42                 // Field queuedRunnable:Ljava/util/Queue;
+     146: aload_0
+     147: invokestatic  #43                 // Method java/util/Collections.emptySet:()Ljava/util/Set;
+     150: putfield      #44                 // Field allowedTrailerHeaders:Ljava/util/Set;
+     153: aload_0
+     154: bipush        100
+     156: putfield      #45                 // Field maxHeaderCount:I
+     159: aload_0
+     160: sipush        8192
+     163: putfield      #46                 // Field maxHeaderSize:I
+     166: aload_0
+     167: bipush        100
+     169: putfield      #47                 // Field maxTrailerCount:I
+     172: aload_0
+     173: sipush        8192
+     176: putfield      #48                 // Field maxTrailerSize:I
+     179: aload_0
+     180: new           #49                 // class java/util/concurrent/atomic/AtomicLong
+     183: dup
+     184: ldc2_w        #50                 // long -10l
+     187: invokespecial #52                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+     190: putfield      #53                 // Field overheadCount:Ljava/util/concurrent/atomic/AtomicLong;
+     193: aload_0
+     194: aload_1
+     195: putfield      #54                 // Field protocol:Lorg/apache/coyote/http2/Http2Protocol;
+     198: aload_0
+     199: aload_2
+     200: putfield      #55                 // Field adapter:Lorg/apache/coyote/Adapter;
+     203: aload_0
+     204: getstatic     #56                 // Field connectionIdGenerator:Ljava/util/concurrent/atomic/AtomicInteger;
+     207: invokevirtual #57                 // Method java/util/concurrent/atomic/AtomicInteger.getAndIncrement:()I
+     210: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+     213: putfield      #3                  // Field connectionId:Ljava/lang/String;
+     216: aload_0
+     217: aload_1
+     218: invokevirtual #59                 // Method org/apache/coyote/http2/Http2Protocol.getOverheadDataThreshold:()I
+     221: iconst_2
+     222: imul
+     223: putfield      #60                 // Field lastNonFinalDataPayload:I
+     226: aload_0
+     227: aload_1
+     228: invokevirtual #61                 // Method org/apache/coyote/http2/Http2Protocol.getOverheadWindowUpdateThreshold:()I
+     231: iconst_2
+     232: imul
+     233: putfield      #62                 // Field lastWindowUpdate:I
+     236: aload_0
+     237: new           #63                 // class org/apache/coyote/http2/ConnectionSettingsRemote
+     240: dup
+     241: aload_0
+     242: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     245: invokespecial #64                 // Method org/apache/coyote/http2/ConnectionSettingsRemote."<init>":(Ljava/lang/String;)V
+     248: putfield      #65                 // Field remoteSettings:Lorg/apache/coyote/http2/ConnectionSettingsRemote;
+     251: aload_0
+     252: new           #66                 // class org/apache/coyote/http2/ConnectionSettingsLocal
+     255: dup
+     256: aload_0
+     257: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     260: invokespecial #67                 // Method org/apache/coyote/http2/ConnectionSettingsLocal."<init>":(Ljava/lang/String;)V
+     263: putfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+     266: aload_3
+     267: ifnull        359
+     270: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     273: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     278: ifeq          308
+     281: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     284: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     287: ldc           #70                 // String upgradeHandler.upgrade
+     289: iconst_1
+     290: anewarray     #71                 // class java/lang/Object
+     293: dup
+     294: iconst_0
+     295: aload_0
+     296: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     299: aastore
+     300: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     303: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     308: iconst_1
+     309: invokestatic  #74                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     312: astore        4
+     314: new           #75                 // class org/apache/coyote/http2/Stream
+     317: dup
+     318: aload         4
+     320: aload_0
+     321: aload_3
+     322: invokespecial #76                 // Method org/apache/coyote/http2/Stream."<init>":(Ljava/lang/Integer;Lorg/apache/coyote/http2/Http2UpgradeHandler;Lorg/apache/coyote/Request;)V
+     325: astore        5
+     327: aload_0
+     328: getfield      #25                 // Field streams:Ljava/util/Map;
+     331: aload         4
+     333: aload         5
+     335: invokeinterface #77,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     340: pop
+     341: aload_0
+     342: iconst_1
+     343: putfield      #29                 // Field maxActiveRemoteStreamId:I
+     346: aload_0
+     347: getfield      #28                 // Field activeRemoteStreamCount:Ljava/util/concurrent/atomic/AtomicInteger;
+     350: iconst_1
+     351: invokevirtual #78                 // Method java/util/concurrent/atomic/AtomicInteger.set:(I)V
+     354: aload_0
+     355: iconst_1
+     356: putfield      #79                 // Field maxProcessedStreamId:I
+     359: return
+
+  public void init(javax.servlet.http.WebConnection);
+    Code:
+       0: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+       3: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+       8: ifeq          48
+      11: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      14: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      17: ldc           #80                 // String upgradeHandler.init
+      19: iconst_2
+      20: anewarray     #71                 // class java/lang/Object
+      23: dup
+      24: iconst_0
+      25: aload_0
+      26: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      29: aastore
+      30: dup
+      31: iconst_1
+      32: aload_0
+      33: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+      36: invokevirtual #81                 // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+      39: aastore
+      40: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      43: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+      48: aload_0
+      49: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+      52: getstatic     #10                 // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.NEW:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+      55: getstatic     #82                 // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.CONNECTED:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+      58: invokevirtual #83                 // Method java/util/concurrent/atomic/AtomicReference.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      61: ifne          65
+      64: return
+      65: aload_0
+      66: getfield      #40                 // Field maxConcurrentStreamExecution:I
+      69: i2l
+      70: aload_0
+      71: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+      74: invokevirtual #84                 // Method org/apache/coyote/http2/ConnectionSettingsLocal.getMaxConcurrentStreams:()J
+      77: lcmp
+      78: ifge          104
+      81: aload_0
+      82: new           #26                 // class java/util/concurrent/atomic/AtomicInteger
+      85: dup
+      86: iconst_0
+      87: invokespecial #27                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      90: putfield      #41                 // Field streamConcurrency:Ljava/util/concurrent/atomic/AtomicInteger;
+      93: aload_0
+      94: new           #85                 // class java/util/concurrent/ConcurrentLinkedQueue
+      97: dup
+      98: invokespecial #86                 // Method java/util/concurrent/ConcurrentLinkedQueue."<init>":()V
+     101: putfield      #42                 // Field queuedRunnable:Ljava/util/Queue;
+     104: aload_0
+     105: new           #87                 // class org/apache/coyote/http2/Http2Parser
+     108: dup
+     109: aload_0
+     110: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     113: aload_0
+     114: aload_0
+     115: invokespecial #88                 // Method org/apache/coyote/http2/Http2Parser."<init>":(Ljava/lang/String;Lorg/apache/coyote/http2/Http2Parser$Input;Lorg/apache/coyote/http2/Http2Parser$Output;)V
+     118: putfield      #89                 // Field parser:Lorg/apache/coyote/http2/Http2Parser;
+     121: aconst_null
+     122: astore_2
+     123: aload_0
+     124: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     127: aload_0
+     128: invokevirtual #90                 // Method getReadTimeout:()J
+     131: invokevirtual #91                 // Method org/apache/tomcat/util/net/SocketWrapperBase.setReadTimeout:(J)V
+     134: aload_0
+     135: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     138: aload_0
+     139: invokevirtual #92                 // Method getWriteTimeout:()J
+     142: invokevirtual #93                 // Method org/apache/tomcat/util/net/SocketWrapperBase.setWriteTimeout:(J)V
+     145: aload_1
+     146: ifnull        273
+     149: aload_0
+     150: iconst_1
+     151: iconst_1
+     152: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+     155: astore_2
+     156: aload_2
+     157: invokevirtual #95                 // Method org/apache/coyote/http2/Stream.getCoyoteRequest:()Lorg/apache/coyote/Request;
+     160: ldc           #96                 // String HTTP2-Settings
+     162: invokevirtual #97                 // Method org/apache/coyote/Request.getHeader:(Ljava/lang/String;)Ljava/lang/String;
+     165: astore_3
+     166: aload_3
+     167: invokestatic  #98                 // Method org/apache/tomcat/util/codec/binary/Base64.decodeBase64URLSafe:(Ljava/lang/String;)[B
+     170: astore        4
+     172: getstatic     #99                 // Field org/apache/coyote/http2/FrameType.SETTINGS:Lorg/apache/coyote/http2/FrameType;
+     175: iconst_0
+     176: aload         4
+     178: arraylength
+     179: invokevirtual #100                // Method org/apache/coyote/http2/FrameType.check:(II)V
+     182: iconst_0
+     183: istore        5
+     185: iload         5
+     187: aload         4
+     189: arraylength
+     190: bipush        6
+     192: irem
+     193: if_icmpge     242
+     196: aload         4
+     198: iload         5
+     200: bipush        6
+     202: imul
+     203: invokestatic  #101                // Method org/apache/coyote/http2/ByteUtil.getTwoBytes:([BI)I
+     206: istore        6
+     208: aload         4
+     210: iload         5
+     212: bipush        6
+     214: imul
+     215: iconst_2
+     216: iadd
+     217: invokestatic  #102                // Method org/apache/coyote/http2/ByteUtil.getFourBytes:([BI)J
+     220: lstore        7
+     222: aload_0
+     223: getfield      #65                 // Field remoteSettings:Lorg/apache/coyote/http2/ConnectionSettingsRemote;
+     226: iload         6
+     228: invokestatic  #103                // Method org/apache/coyote/http2/Setting.valueOf:(I)Lorg/apache/coyote/http2/Setting;
+     231: lload         7
+     233: invokevirtual #104                // Method org/apache/coyote/http2/ConnectionSettingsRemote.set:(Lorg/apache/coyote/http2/Setting;J)V
+     236: iinc          5, 1
+     239: goto          185
+     242: goto          273
+     245: astore_3
+     246: new           #106                // class org/apache/coyote/ProtocolException
+     249: dup
+     250: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     253: ldc           #107                // String upgradeHandler.upgrade.fail
+     255: iconst_1
+     256: anewarray     #71                 // class java/lang/Object
+     259: dup
+     260: iconst_0
+     261: aload_0
+     262: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     265: aastore
+     266: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     269: invokespecial #108                // Method org/apache/coyote/ProtocolException."<init>":(Ljava/lang/String;)V
+     272: athrow
+     273: aload_0
+     274: invokespecial #109                // Method writeSettings:()V
+     277: aload_0
+     278: getfield      #89                 // Field parser:Lorg/apache/coyote/http2/Http2Parser;
+     281: invokevirtual #110                // Method org/apache/coyote/http2/Http2Parser.readConnectionPreface:()V
+     284: goto          341
+     287: astore_3
+     288: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     291: ldc           #111                // String upgradeHandler.invalidPreface
+     293: iconst_1
+     294: anewarray     #71                 // class java/lang/Object
+     297: dup
+     298: iconst_0
+     299: aload_0
+     300: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     303: aastore
+     304: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     307: astore        4
+     309: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     312: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     317: ifeq          331
+     320: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     323: aload         4
+     325: aload_3
+     326: invokeinterface #112,  3          // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;Ljava/lang/Throwable;)V
+     331: new           #106                // class org/apache/coyote/ProtocolException
+     334: dup
+     335: aload         4
+     337: invokespecial #108                // Method org/apache/coyote/ProtocolException."<init>":(Ljava/lang/String;)V
+     340: athrow
+     341: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     344: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     349: ifeq          379
+     352: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     355: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     358: ldc           #113                // String upgradeHandler.prefaceReceived
+     360: iconst_1
+     361: anewarray     #71                 // class java/lang/Object
+     364: dup
+     365: iconst_0
+     366: aload_0
+     367: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     370: aastore
+     371: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     374: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     379: aload_0
+     380: getfield      #33                 // Field pingManager:Lorg/apache/coyote/http2/Http2UpgradeHandler$PingManager;
+     383: iconst_1
+     384: invokevirtual #114                // Method org/apache/coyote/http2/Http2UpgradeHandler$PingManager.sendPing:(Z)V
+     387: goto          408
+     390: astore_3
+     391: new           #106                // class org/apache/coyote/ProtocolException
+     394: dup
+     395: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     398: ldc           #116                // String upgradeHandler.pingFailed
+     400: invokevirtual #117                // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;)Ljava/lang/String;
+     403: aload_3
+     404: invokespecial #118                // Method org/apache/coyote/ProtocolException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     407: athrow
+     408: aload_1
+     409: ifnull        417
+     412: aload_0
+     413: aload_2
+     414: invokespecial #119                // Method processStreamOnContainerThread:(Lorg/apache/coyote/http2/Stream;)V
+     417: return
+    Exception table:
+       from    to  target type
+         149   242   245   Class org/apache/coyote/http2/Http2Exception
+         277   284   287   Class org/apache/coyote/http2/Http2Exception
+         379   387   390   Class java/io/IOException
+
+  private void processStreamOnContainerThread(org.apache.coyote.http2.Stream);
+    Code:
+       0: new           #120                // class org/apache/coyote/http2/StreamProcessor
+       3: dup
+       4: aload_0
+       5: aload_1
+       6: aload_0
+       7: getfield      #55                 // Field adapter:Lorg/apache/coyote/Adapter;
+      10: aload_0
+      11: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      14: invokespecial #121                // Method org/apache/coyote/http2/StreamProcessor."<init>":(Lorg/apache/coyote/http2/Http2UpgradeHandler;Lorg/apache/coyote/http2/Stream;Lorg/apache/coyote/Adapter;Lorg/apache/tomcat/util/net/SocketWrapperBase;)V
+      17: astore_2
+      18: aload_2
+      19: aload_0
+      20: getfield      #122                // Field sslSupport:Lorg/apache/tomcat/util/net/SSLSupport;
+      23: invokevirtual #123                // Method org/apache/coyote/http2/StreamProcessor.setSslSupport:(Lorg/apache/tomcat/util/net/SSLSupport;)V
+      26: aload_0
+      27: aload_2
+      28: getstatic     #124                // Field org/apache/tomcat/util/net/SocketEvent.OPEN_READ:Lorg/apache/tomcat/util/net/SocketEvent;
+      31: invokevirtual #125                // Method processStreamOnContainerThread:(Lorg/apache/coyote/http2/StreamProcessor;Lorg/apache/tomcat/util/net/SocketEvent;)V
+      34: return
+
+  void processStreamOnContainerThread(org.apache.coyote.http2.StreamProcessor, org.apache.tomcat.util.net.SocketEvent);
+    Code:
+       0: new           #126                // class org/apache/coyote/http2/StreamRunnable
+       3: dup
+       4: aload_1
+       5: aload_2
+       6: invokespecial #127                // Method org/apache/coyote/http2/StreamRunnable."<init>":(Lorg/apache/coyote/http2/StreamProcessor;Lorg/apache/tomcat/util/net/SocketEvent;)V
+       9: astore_3
+      10: aload_0
+      11: getfield      #41                 // Field streamConcurrency:Ljava/util/concurrent/atomic/AtomicInteger;
+      14: ifnonnull     36
+      17: aload_0
+      18: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      21: invokevirtual #128                // Method org/apache/tomcat/util/net/SocketWrapperBase.getEndpoint:()Lorg/apache/tomcat/util/net/AbstractEndpoint;
+      24: invokevirtual #129                // Method org/apache/tomcat/util/net/AbstractEndpoint.getExecutor:()Ljava/util/concurrent/Executor;
+      27: aload_3
+      28: invokeinterface #130,  2          // InterfaceMethod java/util/concurrent/Executor.execute:(Ljava/lang/Runnable;)V
+      33: goto          82
+      36: aload_0
+      37: invokespecial #131                // Method getStreamConcurrency:()I
+      40: aload_0
+      41: getfield      #40                 // Field maxConcurrentStreamExecution:I
+      44: if_icmpge     71
+      47: aload_0
+      48: invokespecial #132                // Method increaseStreamConcurrency:()I
+      51: pop
+      52: aload_0
+      53: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      56: invokevirtual #128                // Method org/apache/tomcat/util/net/SocketWrapperBase.getEndpoint:()Lorg/apache/tomcat/util/net/AbstractEndpoint;
+      59: invokevirtual #129                // Method org/apache/tomcat/util/net/AbstractEndpoint.getExecutor:()Ljava/util/concurrent/Executor;
+      62: aload_3
+      63: invokeinterface #130,  2          // InterfaceMethod java/util/concurrent/Executor.execute:(Ljava/lang/Runnable;)V
+      68: goto          82
+      71: aload_0
+      72: getfield      #42                 // Field queuedRunnable:Ljava/util/Queue;
+      75: aload_3
+      76: invokeinterface #133,  2          // InterfaceMethod java/util/Queue.offer:(Ljava/lang/Object;)Z
+      81: pop
+      82: return
+
+  public void setSocketWrapper(org.apache.tomcat.util.net.SocketWrapperBase<?>);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+       5: return
+
+  public void setSslSupport(org.apache.tomcat.util.net.SSLSupport);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #122                // Field sslSupport:Lorg/apache/tomcat/util/net/SSLSupport;
+       5: return
+
+  public org.apache.tomcat.util.net.AbstractEndpoint$Handler$SocketState upgradeDispatch(org.apache.tomcat.util.net.SocketEvent);
+    Code:
+       0: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+       3: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+       8: ifeq          42
+      11: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      14: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      17: ldc           #134                // String upgradeHandler.upgradeDispatch.entry
+      19: iconst_2
+      20: anewarray     #71                 // class java/lang/Object
+      23: dup
+      24: iconst_0
+      25: aload_0
+      26: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      29: aastore
+      30: dup
+      31: iconst_1
+      32: aload_1
+      33: aastore
+      34: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      37: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+      42: aload_0
+      43: aconst_null
+      44: invokevirtual #135                // Method init:(Ljavax/servlet/http/WebConnection;)V
+      47: getstatic     #136                // Field org/apache/tomcat/util/net/AbstractEndpoint$Handler$SocketState.CLOSED:Lorg/apache/tomcat/util/net/AbstractEndpoint$Handler$SocketState;
+      50: astore_2
+      51: aload_0
+      52: getfield      #33                 // Field pingManager:Lorg/apache/coyote/http2/Http2UpgradeHandler$PingManager;
+      55: iconst_0
+      56: invokevirtual #114                // Method org/apache/coyote/http2/Http2UpgradeHandler$PingManager.sendPing:(Z)V
+      59: getstatic     #137                // Field org/apache/coyote/http2/Http2UpgradeHandler$1.$SwitchMap$org$apache$tomcat$util$net$SocketEvent:[I
+      62: aload_1
+      63: invokevirtual #138                // Method org/apache/tomcat/util/net/SocketEvent.ordinal:()I
+      66: iaload
+      67: tableswitch   { // 1 to 7
+                     1: 108
+                     2: 297
+                     3: 308
+                     4: 316
+                     5: 316
+                     6: 316
+                     7: 316
+               default: 320
+          }
+     108: aload_0
+     109: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     112: aload_0
+     113: invokevirtual #90                 // Method getReadTimeout:()J
+     116: invokevirtual #91                 // Method org/apache/tomcat/util/net/SocketWrapperBase.setReadTimeout:(J)V
+     119: aload_0
+     120: ldc2_w        #37                 // long -1l
+     123: invokespecial #139                // Method setConnectionTimeout:(J)V
+     126: aload_0
+     127: getfield      #89                 // Field parser:Lorg/apache/coyote/http2/Http2Parser;
+     130: iconst_0
+     131: invokevirtual #140                // Method org/apache/coyote/http2/Http2Parser.readFrame:(Z)Z
+     134: ifne          140
+     137: goto          216
+     140: goto          174
+     143: astore_3
+     144: aload_0
+     145: aload_3
+     146: invokevirtual #142                // Method org/apache/coyote/http2/StreamException.getStreamId:()I
+     149: iconst_0
+     150: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+     153: astore        4
+     155: aload         4
+     157: ifnonnull     168
+     160: aload_0
+     161: aload_3
+     162: invokevirtual #143                // Method sendStreamReset:(Lorg/apache/coyote/http2/StreamException;)V
+     165: goto          174
+     168: aload         4
+     170: aload_3
+     171: invokevirtual #144                // Method org/apache/coyote/http2/Stream.close:(Lorg/apache/coyote/http2/Http2Exception;)V
+     174: aload_0
+     175: getfield      #53                 // Field overheadCount:Ljava/util/concurrent/atomic/AtomicLong;
+     178: invokevirtual #145                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     181: lconst_0
+     182: lcmp
+     183: ifle          126
+     186: new           #146                // class org/apache/coyote/http2/ConnectionException
+     189: dup
+     190: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     193: ldc           #147                // String upgradeHandler.tooMuchOverhead
+     195: iconst_1
+     196: anewarray     #71                 // class java/lang/Object
+     199: dup
+     200: iconst_0
+     201: aload_0
+     202: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     205: aastore
+     206: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     209: getstatic     #148                // Field org/apache/coyote/http2/Http2Error.ENHANCE_YOUR_CALM:Lorg/apache/coyote/http2/Http2Error;
+     212: invokespecial #149                // Method org/apache/coyote/http2/ConnectionException."<init>":(Ljava/lang/String;Lorg/apache/coyote/http2/Http2Error;)V
+     215: athrow
+     216: aload_0
+     217: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     220: ldc2_w        #37                 // long -1l
+     223: invokevirtual #91                 // Method org/apache/tomcat/util/net/SocketWrapperBase.setReadTimeout:(J)V
+     226: aload_0
+     227: aload_0
+     228: getfield      #28                 // Field activeRemoteStreamCount:Ljava/util/concurrent/atomic/AtomicInteger;
+     231: invokevirtual #150                // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+     234: invokevirtual #151                // Method setConnectionTimeoutForStreamCount:(I)V
+     237: goto          277
+     240: astore_3
+     241: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     244: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     249: ifeq          269
+     252: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     255: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     258: ldc           #152                // String upgradeHandler.connectionError
+     260: invokevirtual #117                // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;)Ljava/lang/String;
+     263: aload_3
+     264: invokeinterface #112,  3          // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;Ljava/lang/Throwable;)V
+     269: aload_0
+     270: aload_3
+     271: invokevirtual #153                // Method closeConnection:(Lorg/apache/coyote/http2/Http2Exception;)V
+     274: goto          320
+     277: aload_0
+     278: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+     281: invokevirtual #81                 // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+     284: getstatic     #154                // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.CLOSED:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+     287: if_acmpeq     320
+     290: getstatic     #155                // Field org/apache/tomcat/util/net/AbstractEndpoint$Handler$SocketState.UPGRADED:Lorg/apache/tomcat/util/net/AbstractEndpoint$Handler$SocketState;
+     293: astore_2
+     294: goto          320
+     297: aload_0
+     298: invokespecial #156                // Method processWrites:()V
+     301: getstatic     #155                // Field org/apache/tomcat/util/net/AbstractEndpoint$Handler$SocketState.UPGRADED:Lorg/apache/tomcat/util/net/AbstractEndpoint$Handler$SocketState;
+     304: astore_2
+     305: goto          320
+     308: aload_0
+     309: aconst_null
+     310: invokevirtual #153                // Method closeConnection:(Lorg/apache/coyote/http2/Http2Exception;)V
+     313: goto          320
+     316: aload_0
+     317: invokespecial #157                // Method close:()V
+     320: goto          367
+     323: astore_3
+     324: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     327: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     332: ifeq          363
+     335: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     338: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     341: ldc           #158                // String upgradeHandler.ioerror
+     343: iconst_1
+     344: anewarray     #71                 // class java/lang/Object
+     347: dup
+     348: iconst_0
+     349: aload_0
+     350: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     353: aastore
+     354: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     357: aload_3
+     358: invokeinterface #112,  3          // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;Ljava/lang/Throwable;)V
+     363: aload_0
+     364: invokespecial #157                // Method close:()V
+     367: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     370: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     375: ifeq          409
+     378: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     381: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     384: ldc           #159                // String upgradeHandler.upgradeDispatch.exit
+     386: iconst_2
+     387: anewarray     #71                 // class java/lang/Object
+     390: dup
+     391: iconst_0
+     392: aload_0
+     393: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     396: aastore
+     397: dup
+     398: iconst_1
+     399: aload_2
+     400: aastore
+     401: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     404: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     409: aload_2
+     410: areturn
+    Exception table:
+       from    to  target type
+         126   137   143   Class org/apache/coyote/http2/StreamException
+         108   237   240   Class org/apache/coyote/http2/Http2Exception
+          51   320   323   Class java/io/IOException
+
+  protected void setConnectionTimeoutForStreamCount(int);
+    Code:
+       0: iload_1
+       1: ifne          42
+       4: aload_0
+       5: getfield      #54                 // Field protocol:Lorg/apache/coyote/http2/Http2Protocol;
+       8: invokevirtual #160                // Method org/apache/coyote/http2/Http2Protocol.getKeepAliveTimeout:()J
+      11: lstore_2
+      12: lload_2
+      13: ldc2_w        #37                 // long -1l
+      16: lcmp
+      17: ifne          30
+      20: aload_0
+      21: ldc2_w        #37                 // long -1l
+      24: invokespecial #139                // Method setConnectionTimeout:(J)V
+      27: goto          39
+      30: aload_0
+      31: invokestatic  #161                // Method java/lang/System.currentTimeMillis:()J
+      34: lload_2
+      35: ladd
+      36: invokespecial #139                // Method setConnectionTimeout:(J)V
+      39: goto          49
+      42: aload_0
+      43: ldc2_w        #37                 // long -1l
+      46: invokespecial #139                // Method setConnectionTimeout:(J)V
+      49: return
+
+  private void setConnectionTimeout(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: putfield      #39                 // Field connectionTimeout:J
+       5: return
+
+  public void timeoutAsync(long);
+    Code:
+       0: aload_0
+       1: getfield      #39                 // Field connectionTimeout:J
+       4: lstore_3
+       5: lload_1
+       6: ldc2_w        #37                 // long -1l
+       9: lcmp
+      10: ifeq          27
+      13: lload_3
+      14: ldc2_w        #37                 // long -1l
+      17: lcmp
+      18: ifle          38
+      21: lload_1
+      22: lload_3
+      23: lcmp
+      24: ifle          38
+      27: aload_0
+      28: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      31: getstatic     #162                // Field org/apache/tomcat/util/net/SocketEvent.TIMEOUT:Lorg/apache/tomcat/util/net/SocketEvent;
+      34: iconst_1
+      35: invokevirtual #163                // Method org/apache/tomcat/util/net/SocketWrapperBase.processSocket:(Lorg/apache/tomcat/util/net/SocketEvent;Z)V
+      38: return
+
+  org.apache.coyote.http2.ConnectionSettingsRemote getRemoteSettings();
+    Code:
+       0: aload_0
+       1: getfield      #65                 // Field remoteSettings:Lorg/apache/coyote/http2/ConnectionSettingsRemote;
+       4: areturn
+
+  org.apache.coyote.http2.ConnectionSettingsLocal getLocalSettings();
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+       4: areturn
+
+  org.apache.coyote.http2.Http2Protocol getProtocol();
+    Code:
+       0: aload_0
+       1: getfield      #54                 // Field protocol:Lorg/apache/coyote/http2/Http2Protocol;
+       4: areturn
+
+  public void pause();
+    Code:
+       0: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+       3: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+       8: ifeq          38
+      11: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      14: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      17: ldc           #164                // String upgradeHandler.pause.entry
+      19: iconst_1
+      20: anewarray     #71                 // class java/lang/Object
+      23: dup
+      24: iconst_0
+      25: aload_0
+      26: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      29: aastore
+      30: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      33: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+      38: aload_0
+      39: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+      42: getstatic     #82                 // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.CONNECTED:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+      45: getstatic     #165                // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.PAUSING:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+      48: invokevirtual #83                 // Method java/util/concurrent/atomic/AtomicReference.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      51: ifeq          78
+      54: aload_0
+      55: invokestatic  #166                // Method java/lang/System.nanoTime:()J
+      58: putfield      #15                 // Field pausedNanoTime:J
+      61: aload_0
+      62: ldc           #167                // int 2147483647
+      64: getstatic     #168                // Field org/apache/coyote/http2/Http2Error.NO_ERROR:Lorg/apache/coyote/http2/Http2Error;
+      67: invokevirtual #169                // Method org/apache/coyote/http2/Http2Error.getCode:()J
+      70: aconst_null
+      71: invokespecial #170                // Method writeGoAwayFrame:(IJ[B)V
+      74: goto          78
+      77: astore_1
+      78: return
+    Exception table:
+       from    to  target type
+          61    74    77   Class java/io/IOException
+
+  public void destroy();
+    Code:
+       0: return
+
+  private void checkPauseState() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+       4: invokevirtual #81                 // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+       7: getstatic     #165                // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.PAUSING:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+      10: if_acmpne     61
+      13: aload_0
+      14: getfield      #15                 // Field pausedNanoTime:J
+      17: aload_0
+      18: getfield      #33                 // Field pingManager:Lorg/apache/coyote/http2/Http2UpgradeHandler$PingManager;
+      21: invokevirtual #171                // Method org/apache/coyote/http2/Http2UpgradeHandler$PingManager.getRoundTripTimeNano:()J
+      24: ladd
+      25: invokestatic  #166                // Method java/lang/System.nanoTime:()J
+      28: lcmp
+      29: ifge          61
+      32: aload_0
+      33: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+      36: getstatic     #165                // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.PAUSING:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+      39: getstatic     #172                // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.PAUSED:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+      42: invokevirtual #83                 // Method java/util/concurrent/atomic/AtomicReference.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      45: pop
+      46: aload_0
+      47: aload_0
+      48: getfield      #79                 // Field maxProcessedStreamId:I
+      51: getstatic     #168                // Field org/apache/coyote/http2/Http2Error.NO_ERROR:Lorg/apache/coyote/http2/Http2Error;
+      54: invokevirtual #169                // Method org/apache/coyote/http2/Http2Error.getCode:()J
+      57: aconst_null
+      58: invokespecial #170                // Method writeGoAwayFrame:(IJ[B)V
+      61: return
+
+  private int increaseStreamConcurrency();
+    Code:
+       0: aload_0
+       1: getfield      #41                 // Field streamConcurrency:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #173                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+       7: ireturn
+
+  private int decreaseStreamConcurrency();
+    Code:
+       0: aload_0
+       1: getfield      #41                 // Field streamConcurrency:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #174                // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+       7: ireturn
+
+  private int getStreamConcurrency();
+    Code:
+       0: aload_0
+       1: getfield      #41                 // Field streamConcurrency:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #150                // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+       7: ireturn
+
+  void executeQueuedStream();
+    Code:
+       0: aload_0
+       1: getfield      #41                 // Field streamConcurrency:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: ifnonnull     8
+       7: return
+       8: aload_0
+       9: invokespecial #175                // Method decreaseStreamConcurrency:()I
+      12: pop
+      13: aload_0
+      14: invokespecial #131                // Method getStreamConcurrency:()I
+      17: aload_0
+      18: getfield      #40                 // Field maxConcurrentStreamExecution:I
+      21: if_icmpge     62
+      24: aload_0
+      25: getfield      #42                 // Field queuedRunnable:Ljava/util/Queue;
+      28: invokeinterface #176,  1          // InterfaceMethod java/util/Queue.poll:()Ljava/lang/Object;
+      33: checkcast     #126                // class org/apache/coyote/http2/StreamRunnable
+      36: astore_1
+      37: aload_1
+      38: ifnull        62
+      41: aload_0
+      42: invokespecial #132                // Method increaseStreamConcurrency:()I
+      45: pop
+      46: aload_0
+      47: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      50: invokevirtual #128                // Method org/apache/tomcat/util/net/SocketWrapperBase.getEndpoint:()Lorg/apache/tomcat/util/net/AbstractEndpoint;
+      53: invokevirtual #129                // Method org/apache/tomcat/util/net/AbstractEndpoint.getExecutor:()Ljava/util/concurrent/Executor;
+      56: aload_1
+      57: invokeinterface #130,  2          // InterfaceMethod java/util/concurrent/Executor.execute:(Ljava/lang/Runnable;)V
+      62: return
+
+  void sendStreamReset(org.apache.coyote.http2.StreamException) throws java.io.IOException;
+    Code:
+       0: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+       3: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+       8: ifeq          62
+      11: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      14: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      17: ldc           #177                // String upgradeHandler.rst.debug
+      19: iconst_4
+      20: anewarray     #71                 // class java/lang/Object
+      23: dup
+      24: iconst_0
+      25: aload_0
+      26: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      29: aastore
+      30: dup
+      31: iconst_1
+      32: aload_1
+      33: invokevirtual #142                // Method org/apache/coyote/http2/StreamException.getStreamId:()I
+      36: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+      39: aastore
+      40: dup
+      41: iconst_2
+      42: aload_1
+      43: invokevirtual #178                // Method org/apache/coyote/http2/StreamException.getError:()Lorg/apache/coyote/http2/Http2Error;
+      46: aastore
+      47: dup
+      48: iconst_3
+      49: aload_1
+      50: invokevirtual #179                // Method org/apache/coyote/http2/StreamException.getMessage:()Ljava/lang/String;
+      53: aastore
+      54: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      57: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+      62: bipush        13
+      64: newarray       byte
+      66: astore_2
+      67: aload_2
+      68: iconst_0
+      69: iconst_4
+      70: invokestatic  #180                // Method org/apache/coyote/http2/ByteUtil.setThreeBytes:([BII)V
+      73: aload_2
+      74: iconst_3
+      75: getstatic     #181                // Field org/apache/coyote/http2/FrameType.RST:Lorg/apache/coyote/http2/FrameType;
+      78: invokevirtual #182                // Method org/apache/coyote/http2/FrameType.getIdByte:()B
+      81: bastore
+      82: aload_2
+      83: iconst_5
+      84: aload_1
+      85: invokevirtual #142                // Method org/apache/coyote/http2/StreamException.getStreamId:()I
+      88: invokestatic  #183                // Method org/apache/coyote/http2/ByteUtil.set31Bits:([BII)V
+      91: aload_2
+      92: bipush        9
+      94: aload_1
+      95: invokevirtual #178                // Method org/apache/coyote/http2/StreamException.getError:()Lorg/apache/coyote/http2/Http2Error;
+      98: invokevirtual #169                // Method org/apache/coyote/http2/Http2Error.getCode:()J
+     101: invokestatic  #184                // Method org/apache/coyote/http2/ByteUtil.setFourBytes:([BIJ)V
+     104: aload_0
+     105: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     108: dup
+     109: astore_3
+     110: monitorenter
+     111: aload_0
+     112: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     115: iconst_1
+     116: aload_2
+     117: iconst_0
+     118: aload_2
+     119: arraylength
+     120: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+     123: aload_0
+     124: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     127: iconst_1
+     128: invokevirtual #186                // Method org/apache/tomcat/util/net/SocketWrapperBase.flush:(Z)Z
+     131: pop
+     132: aload_3
+     133: monitorexit
+     134: goto          144
+     137: astore        4
+     139: aload_3
+     140: monitorexit
+     141: aload         4
+     143: athrow
+     144: return
+    Exception table:
+       from    to  target type
+         111   134   137   any
+         137   141   137   any
+
+  void closeConnection(org.apache.coyote.http2.Http2Exception);
+    Code:
+       0: aload_1
+       1: ifnonnull     17
+       4: getstatic     #168                // Field org/apache/coyote/http2/Http2Error.NO_ERROR:Lorg/apache/coyote/http2/Http2Error;
+       7: invokevirtual #169                // Method org/apache/coyote/http2/Http2Error.getCode:()J
+      10: lstore_2
+      11: aconst_null
+      12: astore        4
+      14: goto          37
+      17: aload_1
+      18: invokevirtual #187                // Method org/apache/coyote/http2/Http2Exception.getError:()Lorg/apache/coyote/http2/Http2Error;
+      21: invokevirtual #169                // Method org/apache/coyote/http2/Http2Error.getCode:()J
+      24: lstore_2
+      25: aload_1
+      26: invokevirtual #188                // Method org/apache/coyote/http2/Http2Exception.getMessage:()Ljava/lang/String;
+      29: getstatic     #189                // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+      32: invokevirtual #190                // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+      35: astore        4
+      37: aload_0
+      38: aload_0
+      39: getfield      #79                 // Field maxProcessedStreamId:I
+      42: lload_2
+      43: aload         4
+      45: invokespecial #170                // Method writeGoAwayFrame:(IJ[B)V
+      48: goto          53
+      51: astore        5
+      53: aload_0
+      54: invokespecial #157                // Method close:()V
+      57: return
+    Exception table:
+       from    to  target type
+          37    48    51   Class java/io/IOException
+
+  private void writeSettings();
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+       4: invokevirtual #191                // Method org/apache/coyote/http2/ConnectionSettingsLocal.getSettingsFrameForPending:()[B
+       7: astore_1
+       8: aload_0
+       9: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      12: iconst_1
+      13: aload_1
+      14: iconst_0
+      15: aload_1
+      16: arraylength
+      17: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+      20: aload_0
+      21: invokevirtual #192                // Method createWindowUpdateForSettings:()[B
+      24: astore_2
+      25: aload_2
+      26: arraylength
+      27: ifle          42
+      30: aload_0
+      31: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      34: iconst_1
+      35: aload_2
+      36: iconst_0
+      37: aload_2
+      38: arraylength
+      39: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+      42: aload_0
+      43: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      46: iconst_1
+      47: invokevirtual #186                // Method org/apache/tomcat/util/net/SocketWrapperBase.flush:(Z)Z
+      50: pop
+      51: goto          105
+      54: astore_1
+      55: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      58: ldc           #193                // String upgradeHandler.sendPrefaceFail
+      60: iconst_1
+      61: anewarray     #71                 // class java/lang/Object
+      64: dup
+      65: iconst_0
+      66: aload_0
+      67: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      70: aastore
+      71: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      74: astore_2
+      75: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      78: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+      83: ifeq          95
+      86: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      89: aload_2
+      90: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+      95: new           #106                // class org/apache/coyote/ProtocolException
+      98: dup
+      99: aload_2
+     100: aload_1
+     101: invokespecial #118                // Method org/apache/coyote/ProtocolException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     104: athrow
+     105: return
+    Exception table:
+       from    to  target type
+           0    51    54   Class java/io/IOException
+
+  protected byte[] createWindowUpdateForSettings();
+    Code:
+       0: aload_0
+       1: getfield      #54                 // Field protocol:Lorg/apache/coyote/http2/Http2Protocol;
+       4: invokevirtual #194                // Method org/apache/coyote/http2/Http2Protocol.getInitialWindowSize:()I
+       7: ldc           #195                // int 65535
+       9: isub
+      10: istore_2
+      11: iload_2
+      12: ifle          45
+      15: bipush        13
+      17: newarray       byte
+      19: astore_1
+      20: aload_1
+      21: iconst_0
+      22: iconst_4
+      23: invokestatic  #180                // Method org/apache/coyote/http2/ByteUtil.setThreeBytes:([BII)V
+      26: aload_1
+      27: iconst_3
+      28: getstatic     #196                // Field org/apache/coyote/http2/FrameType.WINDOW_UPDATE:Lorg/apache/coyote/http2/FrameType;
+      31: invokevirtual #182                // Method org/apache/coyote/http2/FrameType.getIdByte:()B
+      34: bastore
+      35: aload_1
+      36: bipush        9
+      38: iload_2
+      39: invokestatic  #183                // Method org/apache/coyote/http2/ByteUtil.set31Bits:([BII)V
+      42: goto          49
+      45: iconst_0
+      46: newarray       byte
+      48: astore_1
+      49: aload_1
+      50: areturn
+
+  private void writeGoAwayFrame(int, long, byte[]) throws java.io.IOException;
+    Code:
+       0: bipush        8
+       2: newarray       byte
+       4: astore        5
+       6: aload         5
+       8: iconst_0
+       9: iload_1
+      10: invokestatic  #183                // Method org/apache/coyote/http2/ByteUtil.set31Bits:([BII)V
+      13: aload         5
+      15: iconst_4
+      16: lload_2
+      17: invokestatic  #184                // Method org/apache/coyote/http2/ByteUtil.setFourBytes:([BIJ)V
+      20: bipush        8
+      22: istore        6
+      24: aload         4
+      26: ifnull        37
+      29: iload         6
+      31: aload         4
+      33: arraylength
+      34: iadd
+      35: istore        6
+      37: iconst_3
+      38: newarray       byte
+      40: astore        7
+      42: aload         7
+      44: iconst_0
+      45: iload         6
+      47: invokestatic  #180                // Method org/apache/coyote/http2/ByteUtil.setThreeBytes:([BII)V
+      50: aload_0
+      51: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      54: dup
+      55: astore        8
+      57: monitorenter
+      58: aload_0
+      59: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      62: iconst_1
+      63: aload         7
+      65: iconst_0
+      66: aload         7
+      68: arraylength
+      69: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+      72: aload_0
+      73: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      76: iconst_1
+      77: getstatic     #197                // Field GOAWAY:[B
+      80: iconst_0
+      81: getstatic     #197                // Field GOAWAY:[B
+      84: arraylength
+      85: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+      88: aload_0
+      89: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      92: iconst_1
+      93: aload         5
+      95: iconst_0
+      96: bipush        8
+      98: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+     101: aload         4
+     103: ifnull        120
+     106: aload_0
+     107: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     110: iconst_1
+     111: aload         4
+     113: iconst_0
+     114: aload         4
+     116: arraylength
+     117: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+     120: aload_0
+     121: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     124: iconst_1
+     125: invokevirtual #186                // Method org/apache/tomcat/util/net/SocketWrapperBase.flush:(Z)Z
+     128: pop
+     129: aload         8
+     131: monitorexit
+     132: goto          143
+     135: astore        9
+     137: aload         8
+     139: monitorexit
+     140: aload         9
+     142: athrow
+     143: return
+    Exception table:
+       from    to  target type
+          58   132   135   any
+         135   140   135   any
+
+  void writeHeaders(org.apache.coyote.http2.Stream, int, org.apache.tomcat.util.http.MimeHeaders, boolean, int) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+       4: dup
+       5: astore        6
+       7: monitorenter
+       8: aload_0
+       9: aload_1
+      10: iload_2
+      11: aload_3
+      12: iload         4
+      14: iload         5
+      16: invokevirtual #198                // Method doWriteHeaders:(Lorg/apache/coyote/http2/Stream;ILorg/apache/tomcat/util/http/MimeHeaders;ZI)V
+      19: aload         6
+      21: monitorexit
+      22: goto          33
+      25: astore        7
+      27: aload         6
+      29: monitorexit
+      30: aload         7
+      32: athrow
+      33: aload_1
+      34: invokevirtual #199                // Method org/apache/coyote/http2/Stream.sentHeaders:()V
+      37: iload         4
+      39: ifeq          46
+      42: aload_1
+      43: invokevirtual #200                // Method org/apache/coyote/http2/Stream.sentEndOfStream:()V
+      46: return
+    Exception table:
+       from    to  target type
+           8    22    25   any
+          25    30    25   any
+
+  protected void doWriteHeaders(org.apache.coyote.http2.Stream, int, org.apache.tomcat.util.http.MimeHeaders, boolean, int) throws java.io.IOException;
+    Code:
+       0: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+       3: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+       8: ifeq          101
+      11: iload_2
+      12: ifne          52
+      15: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      18: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      21: ldc           #201                // String upgradeHandler.writeHeaders
+      23: iconst_2
+      24: anewarray     #71                 // class java/lang/Object
+      27: dup
+      28: iconst_0
+      29: aload_0
+      30: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      33: aastore
+      34: dup
+      35: iconst_1
+      36: aload_1
+      37: invokevirtual #202                // Method org/apache/coyote/http2/Stream.getIdentifier:()Ljava/lang/Integer;
+      40: aastore
+      41: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      44: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+      49: goto          101
+      52: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      55: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      58: ldc           #203                // String upgradeHandler.writePushHeaders
+      60: iconst_4
+      61: anewarray     #71                 // class java/lang/Object
+      64: dup
+      65: iconst_0
+      66: aload_0
+      67: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      70: aastore
+      71: dup
+      72: iconst_1
+      73: aload_1
+      74: invokevirtual #202                // Method org/apache/coyote/http2/Stream.getIdentifier:()Ljava/lang/Integer;
+      77: aastore
+      78: dup
+      79: iconst_2
+      80: iload_2
+      81: invokestatic  #74                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      84: aastore
+      85: dup
+      86: iconst_3
+      87: iload         4
+      89: invokestatic  #204                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      92: aastore
+      93: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      96: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     101: aload_1
+     102: invokevirtual #205                // Method org/apache/coyote/http2/Stream.canWrite:()Z
+     105: ifne          109
+     108: return
+     109: bipush        9
+     111: newarray       byte
+     113: astore        6
+     115: iload         5
+     117: invokestatic  #206                // Method java/nio/ByteBuffer.allocate:(I)Ljava/nio/ByteBuffer;
+     120: astore        7
+     122: aconst_null
+     123: astore        8
+     125: iload_2
+     126: ifle          141
+     129: iconst_4
+     130: newarray       byte
+     132: astore        8
+     134: aload         8
+     136: iconst_0
+     137: iload_2
+     138: invokestatic  #183                // Method org/apache/coyote/http2/ByteUtil.set31Bits:([BII)V
+     141: iconst_1
+     142: istore        9
+     144: aconst_null
+     145: astore        10
+     147: aload         10
+     149: getstatic     #207                // Field org/apache/coyote/http2/HpackEncoder$State.COMPLETE:Lorg/apache/coyote/http2/HpackEncoder$State;
+     152: if_acmpeq     422
+     155: iload         9
+     157: ifeq          173
+     160: aload         8
+     162: ifnull        173
+     165: aload         7
+     167: aload         8
+     169: invokevirtual #208                // Method java/nio/ByteBuffer.put:([B)Ljava/nio/ByteBuffer;
+     172: pop
+     173: aload_0
+     174: invokespecial #209                // Method getHpackEncoder:()Lorg/apache/coyote/http2/HpackEncoder;
+     177: aload_3
+     178: aload         7
+     180: invokevirtual #210                // Method org/apache/coyote/http2/HpackEncoder.encode:(Lorg/apache/tomcat/util/http/MimeHeaders;Ljava/nio/ByteBuffer;)Lorg/apache/coyote/http2/HpackEncoder$State;
+     183: astore        10
+     185: aload         7
+     187: invokevirtual #211                // Method java/nio/ByteBuffer.flip:()Ljava/nio/Buffer;
+     190: pop
+     191: aload         10
+     193: getstatic     #207                // Field org/apache/coyote/http2/HpackEncoder$State.COMPLETE:Lorg/apache/coyote/http2/HpackEncoder$State;
+     196: if_acmpeq     207
+     199: aload         7
+     201: invokevirtual #212                // Method java/nio/ByteBuffer.limit:()I
+     204: ifle          399
+     207: aload         6
+     209: iconst_0
+     210: aload         7
+     212: invokevirtual #212                // Method java/nio/ByteBuffer.limit:()I
+     215: invokestatic  #180                // Method org/apache/coyote/http2/ByteUtil.setThreeBytes:([BII)V
+     218: iload         9
+     220: ifeq          267
+     223: iconst_0
+     224: istore        9
+     226: aload         8
+     228: ifnonnull     244
+     231: aload         6
+     233: iconst_3
+     234: getstatic     #213                // Field org/apache/coyote/http2/FrameType.HEADERS:Lorg/apache/coyote/http2/FrameType;
+     237: invokevirtual #182                // Method org/apache/coyote/http2/FrameType.getIdByte:()B
+     240: bastore
+     241: goto          254
+     244: aload         6
+     246: iconst_3
+     247: getstatic     #214                // Field org/apache/coyote/http2/FrameType.PUSH_PROMISE:Lorg/apache/coyote/http2/FrameType;
+     250: invokevirtual #182                // Method org/apache/coyote/http2/FrameType.getIdByte:()B
+     253: bastore
+     254: iload         4
+     256: ifeq          277
+     259: aload         6
+     261: iconst_4
+     262: iconst_1
+     263: bastore
+     264: goto          277
+     267: aload         6
+     269: iconst_3
+     270: getstatic     #215                // Field org/apache/coyote/http2/FrameType.CONTINUATION:Lorg/apache/coyote/http2/FrameType;
+     273: invokevirtual #182                // Method org/apache/coyote/http2/FrameType.getIdByte:()B
+     276: bastore
+     277: aload         10
+     279: getstatic     #207                // Field org/apache/coyote/http2/HpackEncoder$State.COMPLETE:Lorg/apache/coyote/http2/HpackEncoder$State;
+     282: if_acmpne     294
+     285: aload         6
+     287: iconst_4
+     288: dup2
+     289: baload
+     290: iconst_4
+     291: iadd
+     292: i2b
+     293: bastore
+     294: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     297: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     302: ifeq          336
+     305: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     308: new           #216                // class java/lang/StringBuilder
+     311: dup
+     312: invokespecial #217                // Method java/lang/StringBuilder."<init>":()V
+     315: aload         7
+     317: invokevirtual #212                // Method java/nio/ByteBuffer.limit:()I
+     320: invokevirtual #218                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     323: ldc           #219                // String  bytes
+     325: invokevirtual #220                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     328: invokevirtual #221                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     331: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     336: aload         6
+     338: iconst_5
+     339: aload_1
+     340: invokevirtual #222                // Method org/apache/coyote/http2/Stream.getIdAsInt:()I
+     343: invokestatic  #183                // Method org/apache/coyote/http2/ByteUtil.set31Bits:([BII)V
+     346: aload_0
+     347: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     350: iconst_1
+     351: aload         6
+     353: iconst_0
+     354: aload         6
+     356: arraylength
+     357: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+     360: aload_0
+     361: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     364: iconst_1
+     365: aload         7
+     367: invokevirtual #223                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(ZLjava/nio/ByteBuffer;)V
+     370: aload_0
+     371: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     374: iconst_1
+     375: invokevirtual #186                // Method org/apache/tomcat/util/net/SocketWrapperBase.flush:(Z)Z
+     378: pop
+     379: goto          390
+     382: astore        11
+     384: aload_0
+     385: aload         11
+     387: invokespecial #224                // Method handleAppInitiatedIOException:(Ljava/io/IOException;)V
+     390: aload         7
+     392: invokevirtual #225                // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+     395: pop
+     396: goto          147
+     399: aload         10
+     401: getstatic     #226                // Field org/apache/coyote/http2/HpackEncoder$State.UNDERFLOW:Lorg/apache/coyote/http2/HpackEncoder$State;
+     404: if_acmpne     147
+     407: aload         7
+     409: invokevirtual #227                // Method java/nio/ByteBuffer.capacity:()I
+     412: iconst_2
+     413: imul
+     414: invokestatic  #206                // Method java/nio/ByteBuffer.allocate:(I)Ljava/nio/ByteBuffer;
+     417: astore        7
+     419: goto          147
+     422: return
+    Exception table:
+       from    to  target type
+         346   379   382   Class java/io/IOException
+
+  private org.apache.coyote.http2.HpackEncoder getHpackEncoder();
+    Code:
+       0: aload_0
+       1: getfield      #228                // Field hpackEncoder:Lorg/apache/coyote/http2/HpackEncoder;
+       4: ifnonnull     18
+       7: aload_0
+       8: new           #229                // class org/apache/coyote/http2/HpackEncoder
+      11: dup
+      12: invokespecial #230                // Method org/apache/coyote/http2/HpackEncoder."<init>":()V
+      15: putfield      #228                // Field hpackEncoder:Lorg/apache/coyote/http2/HpackEncoder;
+      18: aload_0
+      19: getfield      #228                // Field hpackEncoder:Lorg/apache/coyote/http2/HpackEncoder;
+      22: aload_0
+      23: getfield      #65                 // Field remoteSettings:Lorg/apache/coyote/http2/ConnectionSettingsRemote;
+      26: invokevirtual #231                // Method org/apache/coyote/http2/ConnectionSettingsRemote.getHeaderTableSize:()I
+      29: invokevirtual #232                // Method org/apache/coyote/http2/HpackEncoder.setMaxTableSize:(I)V
+      32: aload_0
+      33: getfield      #228                // Field hpackEncoder:Lorg/apache/coyote/http2/HpackEncoder;
+      36: areturn
+
+  void writeBody(org.apache.coyote.http2.Stream, java.nio.ByteBuffer, int, boolean) throws java.io.IOException;
+    Code:
+       0: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+       3: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+       8: ifeq          52
+      11: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      14: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      17: ldc           #233                // String upgradeHandler.writeBody
+      19: iconst_3
+      20: anewarray     #71                 // class java/lang/Object
+      23: dup
+      24: iconst_0
+      25: aload_0
+      26: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      29: aastore
+      30: dup
+      31: iconst_1
+      32: aload_1
+      33: invokevirtual #202                // Method org/apache/coyote/http2/Stream.getIdentifier:()Ljava/lang/Integer;
+      36: aastore
+      37: dup
+      38: iconst_2
+      39: iload_3
+      40: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+      43: aastore
+      44: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      47: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+      52: aload_0
+      53: invokespecial #234                // Method reduceOverheadCount:()V
+      56: aload_1
+      57: invokevirtual #205                // Method org/apache/coyote/http2/Stream.canWrite:()Z
+      60: istore        5
+      62: bipush        9
+      64: newarray       byte
+      66: astore        6
+      68: aload         6
+      70: iconst_0
+      71: iload_3
+      72: invokestatic  #180                // Method org/apache/coyote/http2/ByteUtil.setThreeBytes:([BII)V
+      75: aload         6
+      77: iconst_3
+      78: getstatic     #235                // Field org/apache/coyote/http2/FrameType.DATA:Lorg/apache/coyote/http2/FrameType;
+      81: invokevirtual #182                // Method org/apache/coyote/http2/FrameType.getIdByte:()B
+      84: bastore
+      85: iload         4
+      87: ifeq          117
+      90: aload         6
+      92: iconst_4
+      93: iconst_1
+      94: bastore
+      95: aload_1
+      96: invokevirtual #200                // Method org/apache/coyote/http2/Stream.sentEndOfStream:()V
+      99: aload_1
+     100: invokevirtual #236                // Method org/apache/coyote/http2/Stream.isActive:()Z
+     103: ifne          117
+     106: aload_0
+     107: aload_0
+     108: getfield      #28                 // Field activeRemoteStreamCount:Ljava/util/concurrent/atomic/AtomicInteger;
+     111: invokevirtual #174                // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+     114: invokevirtual #151                // Method setConnectionTimeoutForStreamCount:(I)V
+     117: iload         5
+     119: ifeq          221
+     122: aload         6
+     124: iconst_5
+     125: aload_1
+     126: invokevirtual #222                // Method org/apache/coyote/http2/Stream.getIdAsInt:()I
+     129: invokestatic  #183                // Method org/apache/coyote/http2/ByteUtil.set31Bits:([BII)V
+     132: aload_0
+     133: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     136: dup
+     137: astore        7
+     139: monitorenter
+     140: aload_0
+     141: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     144: iconst_1
+     145: aload         6
+     147: iconst_0
+     148: aload         6
+     150: arraylength
+     151: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+     154: aload_2
+     155: invokevirtual #212                // Method java/nio/ByteBuffer.limit:()I
+     158: istore        8
+     160: aload_2
+     161: aload_2
+     162: invokevirtual #237                // Method java/nio/ByteBuffer.position:()I
+     165: iload_3
+     166: iadd
+     167: invokevirtual #238                // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+     170: pop
+     171: aload_0
+     172: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     175: iconst_1
+     176: aload_2
+     177: invokevirtual #223                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(ZLjava/nio/ByteBuffer;)V
+     180: aload_2
+     181: iload         8
+     183: invokevirtual #238                // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+     186: pop
+     187: aload_0
+     188: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+     191: iconst_1
+     192: invokevirtual #186                // Method org/apache/tomcat/util/net/SocketWrapperBase.flush:(Z)Z
+     195: pop
+     196: goto          207
+     199: astore        8
+     201: aload_0
+     202: aload         8
+     204: invokespecial #224                // Method handleAppInitiatedIOException:(Ljava/io/IOException;)V
+     207: aload         7
+     209: monitorexit
+     210: goto          221
+     213: astore        9
+     215: aload         7
+     217: monitorexit
+     218: aload         9
+     220: athrow
+     221: return
+    Exception table:
+       from    to  target type
+         140   196   199   Class java/io/IOException
+         140   210   213   any
+         213   218   213   any
+
+  private void handleAppInitiatedIOException(java.io.IOException) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #157                // Method close:()V
+       4: aload_1
+       5: athrow
+
+  void writeWindowUpdate(org.apache.coyote.http2.Stream, int, boolean) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokevirtual #205                // Method org/apache/coyote/http2/Stream.canWrite:()Z
+       4: ifne          8
+       7: return
+       8: aload_0
+       9: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      12: dup
+      13: astore        4
+      15: monitorenter
+      16: bipush        13
+      18: newarray       byte
+      20: astore        5
+      22: aload         5
+      24: iconst_0
+      25: iconst_4
+      26: invokestatic  #180                // Method org/apache/coyote/http2/ByteUtil.setThreeBytes:([BII)V
+      29: aload         5
+      31: iconst_3
+      32: getstatic     #196                // Field org/apache/coyote/http2/FrameType.WINDOW_UPDATE:Lorg/apache/coyote/http2/FrameType;
+      35: invokevirtual #182                // Method org/apache/coyote/http2/FrameType.getIdByte:()B
+      38: bastore
+      39: aload         5
+      41: bipush        9
+      43: iload_2
+      44: invokestatic  #183                // Method org/apache/coyote/http2/ByteUtil.set31Bits:([BII)V
+      47: aload_0
+      48: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      51: iconst_1
+      52: aload         5
+      54: iconst_0
+      55: aload         5
+      57: arraylength
+      58: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+      61: aload         5
+      63: iconst_5
+      64: aload_1
+      65: invokevirtual #222                // Method org/apache/coyote/http2/Stream.getIdAsInt:()I
+      68: invokestatic  #183                // Method org/apache/coyote/http2/ByteUtil.set31Bits:([BII)V
+      71: aload_0
+      72: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      75: iconst_1
+      76: aload         5
+      78: iconst_0
+      79: aload         5
+      81: arraylength
+      82: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+      85: aload_0
+      86: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      89: iconst_1
+      90: invokevirtual #186                // Method org/apache/tomcat/util/net/SocketWrapperBase.flush:(Z)Z
+      93: pop
+      94: goto          115
+      97: astore        6
+      99: iload_3
+     100: ifeq          112
+     103: aload_0
+     104: aload         6
+     106: invokespecial #224                // Method handleAppInitiatedIOException:(Ljava/io/IOException;)V
+     109: goto          115
+     112: aload         6
+     114: athrow
+     115: aload         4
+     117: monitorexit
+     118: goto          129
+     121: astore        7
+     123: aload         4
+     125: monitorexit
+     126: aload         7
+     128: athrow
+     129: return
+    Exception table:
+       from    to  target type
+          71    94    97   Class java/io/IOException
+          16   118   121   any
+         121   126   121   any
+
+  private void processWrites() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+       4: dup
+       5: astore_1
+       6: monitorenter
+       7: aload_0
+       8: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      11: iconst_0
+      12: invokevirtual #186                // Method org/apache/tomcat/util/net/SocketWrapperBase.flush:(Z)Z
+      15: ifeq          25
+      18: aload_0
+      19: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      22: invokevirtual #239                // Method org/apache/tomcat/util/net/SocketWrapperBase.registerWriteInterest:()V
+      25: aload_1
+      26: monitorexit
+      27: goto          35
+      30: astore_2
+      31: aload_1
+      32: monitorexit
+      33: aload_2
+      34: athrow
+      35: return
+    Exception table:
+       from    to  target type
+           7    27    30   any
+          30    33    30   any
+
+  int reserveWindowSize(org.apache.coyote.http2.Stream, int, boolean) throws java.io.IOException;
+    Code:
+       0: iconst_0
+       1: istore        4
+       3: aload_1
+       4: dup
+       5: astore        5
+       7: monitorenter
+       8: aload_0
+       9: dup
+      10: astore        6
+      12: monitorenter
+      13: aload_1
+      14: invokevirtual #205                // Method org/apache/coyote/http2/Stream.canWrite:()Z
+      17: ifne          54
+      20: new           #240                // class org/apache/coyote/CloseNowException
+      23: dup
+      24: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      27: ldc           #241                // String upgradeHandler.stream.notWritable
+      29: iconst_2
+      30: anewarray     #71                 // class java/lang/Object
+      33: dup
+      34: iconst_0
+      35: aload_1
+      36: invokevirtual #242                // Method org/apache/coyote/http2/Stream.getConnectionId:()Ljava/lang/String;
+      39: aastore
+      40: dup
+      41: iconst_1
+      42: aload_1
+      43: invokevirtual #202                // Method org/apache/coyote/http2/Stream.getIdentifier:()Ljava/lang/Integer;
+      46: aastore
+      47: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      50: invokespecial #243                // Method org/apache/coyote/CloseNowException."<init>":(Ljava/lang/String;)V
+      53: athrow
+      54: aload_0
+      55: invokevirtual #244                // Method getWindowSize:()J
+      58: lstore        7
+      60: lload         7
+      62: lconst_1
+      63: lcmp
+      64: iflt          76
+      67: aload_0
+      68: getfield      #36                 // Field backLogSize:J
+      71: lconst_0
+      72: lcmp
+      73: ifle          226
+      76: aload_0
+      77: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+      80: aload_1
+      81: invokeinterface #245,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      86: checkcast     #246                // class org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker
+      89: astore        9
+      91: aload         9
+      93: ifnonnull     175
+      96: new           #246                // class org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker
+      99: dup
+     100: iload_2
+     101: invokespecial #247                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker."<init>":(I)V
+     104: astore        9
+     106: aload_0
+     107: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+     110: aload_1
+     111: aload         9
+     113: invokeinterface #248,  3          // InterfaceMethod java/util/concurrent/ConcurrentMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     118: pop
+     119: aload_0
+     120: dup
+     121: getfield      #36                 // Field backLogSize:J
+     124: iload_2
+     125: i2l
+     126: ladd
+     127: putfield      #36                 // Field backLogSize:J
+     130: aload_1
+     131: invokevirtual #249                // Method org/apache/coyote/http2/Stream.getParentStream:()Lorg/apache/coyote/http2/AbstractStream;
+     134: astore        10
+     136: aload         10
+     138: ifnull        172
+     141: aload_0
+     142: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+     145: aload         10
+     147: new           #246                // class org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker
+     150: dup
+     151: invokespecial #250                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker."<init>":()V
+     154: invokeinterface #251,  3          // InterfaceMethod java/util/concurrent/ConcurrentMap.putIfAbsent:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     159: ifnonnull     172
+     162: aload         10
+     164: invokevirtual #252                // Method org/apache/coyote/http2/AbstractStream.getParentStream:()Lorg/apache/coyote/http2/AbstractStream;
+     167: astore        10
+     169: goto          136
+     172: goto          223
+     175: aload         9
+     177: invokevirtual #253                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker.getUnusedAllocation:()I
+     180: ifle          223
+     183: aload         9
+     185: invokevirtual #253                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker.getUnusedAllocation:()I
+     188: istore        4
+     190: aload_0
+     191: iload         4
+     193: invokevirtual #254                // Method decrementWindowSize:(I)V
+     196: aload         9
+     198: invokevirtual #255                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker.getRemainingReservation:()I
+     201: ifne          218
+     204: aload_0
+     205: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+     208: aload_1
+     209: invokeinterface #256,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     214: pop
+     215: goto          223
+     218: aload         9
+     220: invokevirtual #257                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker.useAllocation:()V
+     223: goto          257
+     226: lload         7
+     228: iload_2
+     229: i2l
+     230: lcmp
+     231: ifge          248
+     234: lload         7
+     236: l2i
+     237: istore        4
+     239: aload_0
+     240: iload         4
+     242: invokevirtual #254                // Method decrementWindowSize:(I)V
+     245: goto          257
+     248: iload_2
+     249: istore        4
+     251: aload_0
+     252: iload         4
+     254: invokevirtual #254                // Method decrementWindowSize:(I)V
+     257: aload         6
+     259: monitorexit
+     260: goto          271
+     263: astore        11
+     265: aload         6
+     267: monitorexit
+     268: aload         11
+     270: athrow
+     271: iload         4
+     273: ifne          454
+     276: iload_3
+     277: ifeq          445
+     280: aload_0
+     281: getfield      #54                 // Field protocol:Lorg/apache/coyote/http2/Http2Protocol;
+     284: invokevirtual #258                // Method org/apache/coyote/http2/Http2Protocol.getWriteTimeout:()J
+     287: lstore        6
+     289: aload_1
+     290: lload         6
+     292: invokevirtual #259                // Method org/apache/coyote/http2/Stream.waitForConnectionAllocation:(J)V
+     295: aload_0
+     296: dup
+     297: astore        9
+     299: monitorenter
+     300: aload_0
+     301: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+     304: aload_1
+     305: invokeinterface #245,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     310: checkcast     #246                // class org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker
+     313: astore        8
+     315: aload         9
+     317: monitorexit
+     318: goto          329
+     321: astore        12
+     323: aload         9
+     325: monitorexit
+     326: aload         12
+     328: athrow
+     329: aload         8
+     331: ifnull        396
+     334: aload         8
+     336: invokevirtual #253                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker.getUnusedAllocation:()I
+     339: ifne          396
+     342: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     345: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     350: ifeq          388
+     353: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     356: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     359: ldc_w         #260                // String upgradeHandler.noAllocation
+     362: iconst_2
+     363: anewarray     #71                 // class java/lang/Object
+     366: dup
+     367: iconst_0
+     368: aload_0
+     369: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     372: aastore
+     373: dup
+     374: iconst_1
+     375: aload_1
+     376: invokevirtual #202                // Method org/apache/coyote/http2/Stream.getIdentifier:()Ljava/lang/Integer;
+     379: aastore
+     380: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     383: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     388: aload_0
+     389: invokespecial #157                // Method close:()V
+     392: aload_1
+     393: invokevirtual #261                // Method org/apache/coyote/http2/Stream.doWriteTimeout:()V
+     396: goto          454
+     399: astore        6
+     401: new           #115                // class java/io/IOException
+     404: dup
+     405: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     408: ldc_w         #263                // String upgradeHandler.windowSizeReservationInterrupted
+     411: iconst_3
+     412: anewarray     #71                 // class java/lang/Object
+     415: dup
+     416: iconst_0
+     417: aload_0
+     418: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     421: aastore
+     422: dup
+     423: iconst_1
+     424: aload_1
+     425: invokevirtual #202                // Method org/apache/coyote/http2/Stream.getIdentifier:()Ljava/lang/Integer;
+     428: aastore
+     429: dup
+     430: iconst_2
+     431: iload_2
+     432: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+     435: aastore
+     436: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     439: aload         6
+     441: invokespecial #264                // Method java/io/IOException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     444: athrow
+     445: aload_1
+     446: invokevirtual #265                // Method org/apache/coyote/http2/Stream.waitForConnectionAllocationNonBlocking:()V
+     449: iconst_0
+     450: aload         5
+     452: monitorexit
+     453: ireturn
+     454: iload         4
+     456: ifeq          8
+     459: aload         5
+     461: monitorexit
+     462: goto          473
+     465: astore        13
+     467: aload         5
+     469: monitorexit
+     470: aload         13
+     472: athrow
+     473: iload         4
+     475: ireturn
+    Exception table:
+       from    to  target type
+          13   260   263   any
+         263   268   263   any
+         300   318   321   any
+         321   326   321   any
+         280   396   399   Class java/lang/InterruptedException
+           8   453   465   any
+         454   462   465   any
+         465   470   465   any
+
+  protected void incrementWindowSize(int) throws org.apache.coyote.http2.Http2Exception;
+    Code:
+       0: aconst_null
+       1: astore_2
+       2: aload_0
+       3: dup
+       4: astore_3
+       5: monitorenter
+       6: aload_0
+       7: invokevirtual #244                // Method getWindowSize:()J
+      10: lstore        4
+      12: lload         4
+      14: lconst_1
+      15: lcmp
+      16: ifge          40
+      19: lload         4
+      21: iload_1
+      22: i2l
+      23: ladd
+      24: lconst_0
+      25: lcmp
+      26: ifle          40
+      29: aload_0
+      30: lload         4
+      32: iload_1
+      33: i2l
+      34: ladd
+      35: l2i
+      36: invokespecial #266                // Method releaseBackLog:(I)Ljava/util/Set;
+      39: astore_2
+      40: aload_0
+      41: iload_1
+      42: invokespecial #267                // Method org/apache/coyote/http2/AbstractStream.incrementWindowSize:(I)V
+      45: aload_3
+      46: monitorexit
+      47: goto          57
+      50: astore        6
+      52: aload_3
+      53: monitorexit
+      54: aload         6
+      56: athrow
+      57: aload_2
+      58: ifnull        155
+      61: aload_2
+      62: invokeinterface #268,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      67: astore_3
+      68: aload_3
+      69: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      74: ifeq          155
+      77: aload_3
+      78: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      83: checkcast     #271                // class org/apache/coyote/http2/AbstractStream
+      86: astore        4
+      88: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      91: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+      96: ifeq          135
+      99: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     102: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     105: ldc_w         #272                // String upgradeHandler.releaseBacklog
+     108: iconst_2
+     109: anewarray     #71                 // class java/lang/Object
+     112: dup
+     113: iconst_0
+     114: aload_0
+     115: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     118: aastore
+     119: dup
+     120: iconst_1
+     121: aload         4
+     123: invokevirtual #273                // Method org/apache/coyote/http2/AbstractStream.getIdentifier:()Ljava/lang/Integer;
+     126: aastore
+     127: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     130: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     135: aload_0
+     136: aload         4
+     138: if_acmpne     144
+     141: goto          68
+     144: aload         4
+     146: checkcast     #75                 // class org/apache/coyote/http2/Stream
+     149: invokevirtual #274                // Method org/apache/coyote/http2/Stream.notifyConnection:()V
+     152: goto          68
+     155: return
+    Exception table:
+       from    to  target type
+           6    47    50   any
+          50    54    50   any
+
+  private synchronized java.util.Set<org.apache.coyote.http2.AbstractStream> releaseBackLog(int);
+    Code:
+       0: new           #275                // class java/util/HashSet
+       3: dup
+       4: invokespecial #276                // Method java/util/HashSet."<init>":()V
+       7: astore_2
+       8: aload_0
+       9: getfield      #36                 // Field backLogSize:J
+      12: iload_1
+      13: i2l
+      14: lcmp
+      15: ifge          51
+      18: aload_2
+      19: aload_0
+      20: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+      23: invokeinterface #277,  1          // InterfaceMethod java/util/concurrent/ConcurrentMap.keySet:()Ljava/util/Set;
+      28: invokeinterface #278,  2          // InterfaceMethod java/util/Set.addAll:(Ljava/util/Collection;)Z
+      33: pop
+      34: aload_0
+      35: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+      38: invokeinterface #279,  1          // InterfaceMethod java/util/concurrent/ConcurrentMap.clear:()V
+      43: aload_0
+      44: lconst_0
+      45: putfield      #36                 // Field backLogSize:J
+      48: goto          183
+      51: iload_1
+      52: istore_3
+      53: iload_3
+      54: ifle          67
+      57: aload_0
+      58: aload_0
+      59: iload_3
+      60: invokespecial #280                // Method allocate:(Lorg/apache/coyote/http2/AbstractStream;I)I
+      63: istore_3
+      64: goto          53
+      67: aload_0
+      68: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+      71: invokeinterface #281,  1          // InterfaceMethod java/util/concurrent/ConcurrentMap.entrySet:()Ljava/util/Set;
+      76: invokeinterface #268,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      81: astore        4
+      83: aload         4
+      85: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      90: ifeq          183
+      93: aload         4
+      95: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     100: checkcast     #282                // class java/util/Map$Entry
+     103: astore        5
+     105: aload         5
+     107: invokeinterface #283,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     112: checkcast     #246                // class org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker
+     115: invokevirtual #253                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker.getUnusedAllocation:()I
+     118: istore        6
+     120: iload         6
+     122: ifle          180
+     125: aload_0
+     126: dup
+     127: getfield      #36                 // Field backLogSize:J
+     130: iload         6
+     132: i2l
+     133: lsub
+     134: putfield      #36                 // Field backLogSize:J
+     137: aload         5
+     139: invokeinterface #283,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     144: checkcast     #246                // class org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker
+     147: invokevirtual #284                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker.isNotifyInProgress:()Z
+     150: ifne          180
+     153: aload_2
+     154: aload         5
+     156: invokeinterface #285,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     161: invokeinterface #286,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     166: pop
+     167: aload         5
+     169: invokeinterface #283,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     174: checkcast     #246                // class org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker
+     177: invokevirtual #287                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker.startNotify:()V
+     180: goto          83
+     183: aload_2
+     184: areturn
+
+  protected synchronized void doNotifyAll();
+    Code:
+       0: return
+
+  private int allocate(org.apache.coyote.http2.AbstractStream, int);
+    Code:
+       0: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+       3: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+       8: ifeq          53
+      11: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      14: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      17: ldc_w         #288                // String upgradeHandler.allocate.debug
+      20: iconst_3
+      21: anewarray     #71                 // class java/lang/Object
+      24: dup
+      25: iconst_0
+      26: aload_0
+      27: invokevirtual #289                // Method getConnectionId:()Ljava/lang/String;
+      30: aastore
+      31: dup
+      32: iconst_1
+      33: aload_1
+      34: invokevirtual #273                // Method org/apache/coyote/http2/AbstractStream.getIdentifier:()Ljava/lang/Integer;
+      37: aastore
+      38: dup
+      39: iconst_2
+      40: iload_2
+      41: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+      44: aastore
+      45: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      48: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+      53: aload_0
+      54: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+      57: aload_1
+      58: invokeinterface #245,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      63: checkcast     #246                // class org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker
+      66: astore_3
+      67: aload_3
+      68: iload_2
+      69: invokestatic  #290                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker.access$100:(Lorg/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker;I)I
+      72: istore        4
+      74: iload         4
+      76: ifne          81
+      79: iconst_0
+      80: ireturn
+      81: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      84: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+      89: ifeq          135
+      92: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      95: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      98: ldc_w         #291                // String upgradeHandler.allocate.left
+     101: iconst_3
+     102: anewarray     #71                 // class java/lang/Object
+     105: dup
+     106: iconst_0
+     107: aload_0
+     108: invokevirtual #289                // Method getConnectionId:()Ljava/lang/String;
+     111: aastore
+     112: dup
+     113: iconst_1
+     114: aload_1
+     115: invokevirtual #273                // Method org/apache/coyote/http2/AbstractStream.getIdentifier:()Ljava/lang/Integer;
+     118: aastore
+     119: dup
+     120: iconst_2
+     121: iload         4
+     123: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+     126: aastore
+     127: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     130: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     135: new           #275                // class java/util/HashSet
+     138: dup
+     139: invokespecial #276                // Method java/util/HashSet."<init>":()V
+     142: astore        5
+     144: aload         5
+     146: aload_1
+     147: invokevirtual #292                // Method org/apache/coyote/http2/AbstractStream.getChildStreams:()Ljava/util/Set;
+     150: invokeinterface #278,  2          // InterfaceMethod java/util/Set.addAll:(Ljava/util/Collection;)Z
+     155: pop
+     156: aload         5
+     158: aload_0
+     159: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+     162: invokeinterface #277,  1          // InterfaceMethod java/util/concurrent/ConcurrentMap.keySet:()Ljava/util/Set;
+     167: invokeinterface #293,  2          // InterfaceMethod java/util/Set.retainAll:(Ljava/util/Collection;)Z
+     172: pop
+     173: iload         4
+     175: ifle          414
+     178: aload         5
+     180: invokeinterface #294,  1          // InterfaceMethod java/util/Set.size:()I
+     185: ifne          202
+     188: aload_0
+     189: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+     192: aload_1
+     193: invokeinterface #256,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     198: pop
+     199: iload         4
+     201: ireturn
+     202: iconst_0
+     203: istore        6
+     205: aload         5
+     207: invokeinterface #268,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     212: astore        7
+     214: aload         7
+     216: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     221: ifeq          314
+     224: aload         7
+     226: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     231: checkcast     #271                // class org/apache/coyote/http2/AbstractStream
+     234: astore        8
+     236: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     239: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     244: ifeq          301
+     247: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     250: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     253: ldc_w         #295                // String upgradeHandler.allocate.recipient
+     256: iconst_4
+     257: anewarray     #71                 // class java/lang/Object
+     260: dup
+     261: iconst_0
+     262: aload_0
+     263: invokevirtual #289                // Method getConnectionId:()Ljava/lang/String;
+     266: aastore
+     267: dup
+     268: iconst_1
+     269: aload_1
+     270: invokevirtual #273                // Method org/apache/coyote/http2/AbstractStream.getIdentifier:()Ljava/lang/Integer;
+     273: aastore
+     274: dup
+     275: iconst_2
+     276: aload         8
+     278: invokevirtual #273                // Method org/apache/coyote/http2/AbstractStream.getIdentifier:()Ljava/lang/Integer;
+     281: aastore
+     282: dup
+     283: iconst_3
+     284: aload         8
+     286: invokevirtual #296                // Method org/apache/coyote/http2/AbstractStream.getWeight:()I
+     289: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+     292: aastore
+     293: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     296: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     301: iload         6
+     303: aload         8
+     305: invokevirtual #296                // Method org/apache/coyote/http2/AbstractStream.getWeight:()I
+     308: iadd
+     309: istore        6
+     311: goto          214
+     314: aload         5
+     316: invokeinterface #297,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     321: astore        7
+     323: iconst_0
+     324: istore        8
+     326: aload         7
+     328: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     333: ifeq          404
+     336: aload         7
+     338: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     343: checkcast     #271                // class org/apache/coyote/http2/AbstractStream
+     346: astore        9
+     348: iload         4
+     350: aload         9
+     352: invokevirtual #296                // Method org/apache/coyote/http2/AbstractStream.getWeight:()I
+     355: imul
+     356: iload         6
+     358: idiv
+     359: istore        10
+     361: iload         10
+     363: ifne          369
+     366: iconst_1
+     367: istore        10
+     369: aload_0
+     370: aload         9
+     372: iload         10
+     374: invokespecial #280                // Method allocate:(Lorg/apache/coyote/http2/AbstractStream;I)I
+     377: istore        11
+     379: iload         11
+     381: ifle          391
+     384: aload         7
+     386: invokeinterface #298,  1          // InterfaceMethod java/util/Iterator.remove:()V
+     391: iload         8
+     393: iload         10
+     395: iload         11
+     397: isub
+     398: iadd
+     399: istore        8
+     401: goto          326
+     404: iload         4
+     406: iload         8
+     408: isub
+     409: istore        4
+     411: goto          173
+     414: iconst_0
+     415: ireturn
+
+  private org.apache.coyote.http2.Stream getStream(int, boolean) throws org.apache.coyote.http2.ConnectionException;
+    Code:
+       0: iload_1
+       1: invokestatic  #74                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+       4: astore_3
+       5: aload_0
+       6: getfield      #25                 // Field streams:Ljava/util/Map;
+       9: aload_3
+      10: invokeinterface #299,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      15: checkcast     #75                 // class org/apache/coyote/http2/Stream
+      18: astore        4
+      20: aload         4
+      22: ifnonnull     57
+      25: iload_2
+      26: ifeq          57
+      29: new           #146                // class org/apache/coyote/http2/ConnectionException
+      32: dup
+      33: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      36: ldc_w         #300                // String upgradeHandler.stream.closed
+      39: iconst_1
+      40: anewarray     #71                 // class java/lang/Object
+      43: dup
+      44: iconst_0
+      45: aload_3
+      46: aastore
+      47: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      50: getstatic     #301                // Field org/apache/coyote/http2/Http2Error.PROTOCOL_ERROR:Lorg/apache/coyote/http2/Http2Error;
+      53: invokespecial #149                // Method org/apache/coyote/http2/ConnectionException."<init>":(Ljava/lang/String;Lorg/apache/coyote/http2/Http2Error;)V
+      56: athrow
+      57: aload         4
+      59: areturn
+
+  private org.apache.coyote.http2.Stream createRemoteStream(int) throws org.apache.coyote.http2.ConnectionException;
+    Code:
+       0: iload_1
+       1: invokestatic  #74                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+       4: astore_2
+       5: iload_1
+       6: iconst_2
+       7: irem
+       8: iconst_1
+       9: if_icmpeq     40
+      12: new           #146                // class org/apache/coyote/http2/ConnectionException
+      15: dup
+      16: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      19: ldc_w         #302                // String upgradeHandler.stream.even
+      22: iconst_1
+      23: anewarray     #71                 // class java/lang/Object
+      26: dup
+      27: iconst_0
+      28: aload_2
+      29: aastore
+      30: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      33: getstatic     #301                // Field org/apache/coyote/http2/Http2Error.PROTOCOL_ERROR:Lorg/apache/coyote/http2/Http2Error;
+      36: invokespecial #149                // Method org/apache/coyote/http2/ConnectionException."<init>":(Ljava/lang/String;Lorg/apache/coyote/http2/Http2Error;)V
+      39: athrow
+      40: aload_0
+      41: iload_1
+      42: invokespecial #303                // Method pruneClosedStreams:(I)V
+      45: new           #75                 // class org/apache/coyote/http2/Stream
+      48: dup
+      49: aload_2
+      50: aload_0
+      51: invokespecial #304                // Method org/apache/coyote/http2/Stream."<init>":(Ljava/lang/Integer;Lorg/apache/coyote/http2/Http2UpgradeHandler;)V
+      54: astore_3
+      55: aload_0
+      56: getfield      #25                 // Field streams:Ljava/util/Map;
+      59: aload_2
+      60: aload_3
+      61: invokeinterface #77,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      66: pop
+      67: aload_3
+      68: areturn
+
+  private org.apache.coyote.http2.Stream createLocalStream(org.apache.coyote.Request);
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field nextLocalStreamId:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: iconst_2
+       5: invokevirtual #305                // Method java/util/concurrent/atomic/AtomicInteger.getAndAdd:(I)I
+       8: istore_2
+       9: iload_2
+      10: invokestatic  #74                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      13: astore_3
+      14: new           #75                 // class org/apache/coyote/http2/Stream
+      17: dup
+      18: aload_3
+      19: aload_0
+      20: aload_1
+      21: invokespecial #76                 // Method org/apache/coyote/http2/Stream."<init>":(Ljava/lang/Integer;Lorg/apache/coyote/http2/Http2UpgradeHandler;Lorg/apache/coyote/Request;)V
+      24: astore        4
+      26: aload_0
+      27: getfield      #25                 // Field streams:Ljava/util/Map;
+      30: aload_3
+      31: aload         4
+      33: invokeinterface #77,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      38: pop
+      39: aload         4
+      41: areturn
+
+  private void close();
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+       4: getstatic     #154                // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.CLOSED:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+       7: invokevirtual #306                // Method java/util/concurrent/atomic/AtomicReference.getAndSet:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #307                // class org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState
+      13: astore_1
+      14: aload_1
+      15: getstatic     #154                // Field org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.CLOSED:Lorg/apache/coyote/http2/Http2UpgradeHandler$ConnectionState;
+      18: if_acmpne     22
+      21: return
+      22: aload_0
+      23: getfield      #25                 // Field streams:Ljava/util/Map;
+      26: invokeinterface #308,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      31: invokeinterface #309,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      36: astore_2
+      37: aload_2
+      38: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      43: ifeq          69
+      46: aload_2
+      47: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      52: checkcast     #75                 // class org/apache/coyote/http2/Stream
+      55: astore_3
+      56: aload_3
+      57: getstatic     #310                // Field org/apache/coyote/http2/Http2Error.CANCEL:Lorg/apache/coyote/http2/Http2Error;
+      60: invokevirtual #169                // Method org/apache/coyote/http2/Http2Error.getCode:()J
+      63: invokevirtual #311                // Method org/apache/coyote/http2/Stream.receiveReset:(J)V
+      66: goto          37
+      69: aload_0
+      70: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      73: invokevirtual #312                // Method org/apache/tomcat/util/net/SocketWrapperBase.close:()V
+      76: goto          98
+      79: astore_2
+      80: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      83: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      86: ldc_w         #313                // String upgradeHandler.socketCloseFailed
+      89: invokevirtual #117                // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;)Ljava/lang/String;
+      92: aload_2
+      93: invokeinterface #112,  3          // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;Ljava/lang/Throwable;)V
+      98: return
+    Exception table:
+       from    to  target type
+          69    76    79   Class java/io/IOException
+
+  private void pruneClosedStreams(int);
+    Code:
+       0: aload_0
+       1: getfield      #34                 // Field newStreamsSinceLastPrune:I
+       4: bipush        9
+       6: if_icmpge     20
+       9: aload_0
+      10: dup
+      11: getfield      #34                 // Field newStreamsSinceLastPrune:I
+      14: iconst_1
+      15: iadd
+      16: putfield      #34                 // Field newStreamsSinceLastPrune:I
+      19: return
+      20: aload_0
+      21: iconst_0
+      22: putfield      #34                 // Field newStreamsSinceLastPrune:I
+      25: aload_0
+      26: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+      29: invokevirtual #84                 // Method org/apache/coyote/http2/ConnectionSettingsLocal.getMaxConcurrentStreams:()J
+      32: lstore_2
+      33: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      36: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+      41: ifeq          94
+      44: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      47: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      50: ldc_w         #314                // String upgradeHandler.pruneStart
+      53: iconst_3
+      54: anewarray     #71                 // class java/lang/Object
+      57: dup
+      58: iconst_0
+      59: aload_0
+      60: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      63: aastore
+      64: dup
+      65: iconst_1
+      66: lload_2
+      67: invokestatic  #315                // Method java/lang/Long.toString:(J)Ljava/lang/String;
+      70: aastore
+      71: dup
+      72: iconst_2
+      73: aload_0
+      74: getfield      #25                 // Field streams:Ljava/util/Map;
+      77: invokeinterface #316,  1          // InterfaceMethod java/util/Map.size:()I
+      82: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+      85: aastore
+      86: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      89: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+      94: lload_2
+      95: lload_2
+      96: ldc2_w        #317                // long 10l
+      99: ldiv
+     100: ladd
+     101: lstore_2
+     102: lload_2
+     103: ldc2_w        #319                // long 2147483647l
+     106: lcmp
+     107: ifle          114
+     110: ldc2_w        #319                // long 2147483647l
+     113: lstore_2
+     114: aload_0
+     115: getfield      #25                 // Field streams:Ljava/util/Map;
+     118: invokeinterface #316,  1          // InterfaceMethod java/util/Map.size:()I
+     123: lload_2
+     124: l2i
+     125: isub
+     126: istore        4
+     128: iload         4
+     130: iconst_1
+     131: if_icmpge     135
+     134: return
+     135: new           #321                // class java/util/TreeSet
+     138: dup
+     139: invokespecial #322                // Method java/util/TreeSet."<init>":()V
+     142: astore        5
+     144: new           #321                // class java/util/TreeSet
+     147: dup
+     148: invokespecial #322                // Method java/util/TreeSet."<init>":()V
+     151: astore        6
+     153: new           #321                // class java/util/TreeSet
+     156: dup
+     157: invokespecial #322                // Method java/util/TreeSet."<init>":()V
+     160: astore        7
+     162: aload_0
+     163: getfield      #25                 // Field streams:Ljava/util/Map;
+     166: invokeinterface #323,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+     171: invokeinterface #268,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     176: astore        8
+     178: aload         8
+     180: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     185: ifeq          292
+     188: aload         8
+     190: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     195: checkcast     #282                // class java/util/Map$Entry
+     198: astore        9
+     200: aload         9
+     202: invokeinterface #283,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     207: checkcast     #75                 // class org/apache/coyote/http2/Stream
+     210: astore        10
+     212: aload         10
+     214: invokevirtual #236                // Method org/apache/coyote/http2/Stream.isActive:()Z
+     217: ifeq          223
+     220: goto          178
+     223: aload         10
+     225: invokevirtual #324                // Method org/apache/coyote/http2/Stream.isClosedFinal:()Z
+     228: ifeq          247
+     231: aload         7
+     233: aload         9
+     235: invokeinterface #285,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     240: invokevirtual #325                // Method java/util/TreeSet.add:(Ljava/lang/Object;)Z
+     243: pop
+     244: goto          289
+     247: aload         10
+     249: invokevirtual #326                // Method org/apache/coyote/http2/Stream.getChildStreams:()Ljava/util/Set;
+     252: invokeinterface #294,  1          // InterfaceMethod java/util/Set.size:()I
+     257: ifne          276
+     260: aload         5
+     262: aload         9
+     264: invokeinterface #285,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     269: invokevirtual #325                // Method java/util/TreeSet.add:(Ljava/lang/Object;)Z
+     272: pop
+     273: goto          289
+     276: aload         6
+     278: aload         9
+     280: invokeinterface #285,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     285: invokevirtual #325                // Method java/util/TreeSet.add:(Ljava/lang/Object;)Z
+     288: pop
+     289: goto          178
+     292: aload         5
+     294: invokevirtual #327                // Method java/util/TreeSet.iterator:()Ljava/util/Iterator;
+     297: astore        8
+     299: aload         8
+     301: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     306: ifeq          530
+     309: aload         8
+     311: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     316: checkcast     #328                // class java/lang/Integer
+     319: astore        9
+     321: aload_0
+     322: getfield      #25                 // Field streams:Ljava/util/Map;
+     325: aload         9
+     327: invokeinterface #329,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     332: checkcast     #75                 // class org/apache/coyote/http2/Stream
+     335: astore        10
+     337: aload         10
+     339: invokevirtual #330                // Method org/apache/coyote/http2/Stream.detachFromParent:()V
+     342: iinc          4, -1
+     345: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     348: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     353: ifeq          389
+     356: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     359: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     362: ldc_w         #331                // String upgradeHandler.pruned
+     365: iconst_2
+     366: anewarray     #71                 // class java/lang/Object
+     369: dup
+     370: iconst_0
+     371: aload_0
+     372: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     375: aastore
+     376: dup
+     377: iconst_1
+     378: aload         9
+     380: aastore
+     381: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     384: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     389: aload         10
+     391: invokevirtual #249                // Method org/apache/coyote/http2/Stream.getParentStream:()Lorg/apache/coyote/http2/AbstractStream;
+     394: astore        11
+     396: aload         11
+     398: instanceof    #75                 // class org/apache/coyote/http2/Stream
+     401: ifeq          527
+     404: aload         11
+     406: checkcast     #75                 // class org/apache/coyote/http2/Stream
+     409: invokevirtual #236                // Method org/apache/coyote/http2/Stream.isActive:()Z
+     412: ifne          527
+     415: aload         11
+     417: checkcast     #75                 // class org/apache/coyote/http2/Stream
+     420: invokevirtual #324                // Method org/apache/coyote/http2/Stream.isClosedFinal:()Z
+     423: ifne          527
+     426: aload         11
+     428: invokevirtual #292                // Method org/apache/coyote/http2/AbstractStream.getChildStreams:()Ljava/util/Set;
+     431: invokeinterface #294,  1          // InterfaceMethod java/util/Set.size:()I
+     436: ifne          527
+     439: aload_0
+     440: getfield      #25                 // Field streams:Ljava/util/Map;
+     443: aload         11
+     445: invokevirtual #273                // Method org/apache/coyote/http2/AbstractStream.getIdentifier:()Ljava/lang/Integer;
+     448: invokeinterface #329,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     453: pop
+     454: aload         11
+     456: invokevirtual #332                // Method org/apache/coyote/http2/AbstractStream.detachFromParent:()V
+     459: iinc          4, -1
+     462: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     465: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     470: ifeq          506
+     473: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     476: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     479: ldc_w         #331                // String upgradeHandler.pruned
+     482: iconst_2
+     483: anewarray     #71                 // class java/lang/Object
+     486: dup
+     487: iconst_0
+     488: aload_0
+     489: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     492: aastore
+     493: dup
+     494: iconst_1
+     495: aload         9
+     497: aastore
+     498: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     501: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     506: aload         6
+     508: aload         11
+     510: invokevirtual #273                // Method org/apache/coyote/http2/AbstractStream.getIdentifier:()Ljava/lang/Integer;
+     513: invokevirtual #333                // Method java/util/TreeSet.remove:(Ljava/lang/Object;)Z
+     516: pop
+     517: aload         11
+     519: invokevirtual #252                // Method org/apache/coyote/http2/AbstractStream.getParentStream:()Lorg/apache/coyote/http2/AbstractStream;
+     522: astore        11
+     524: goto          396
+     527: goto          299
+     530: aload         6
+     532: invokevirtual #327                // Method java/util/TreeSet.iterator:()Ljava/util/Iterator;
+     535: astore        8
+     537: aload         8
+     539: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     544: ifeq          615
+     547: aload         8
+     549: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     554: checkcast     #328                // class java/lang/Integer
+     557: astore        9
+     559: aload_0
+     560: aload         9
+     562: invokespecial #334                // Method removeStreamFromPriorityTree:(Ljava/lang/Integer;)V
+     565: iinc          4, -1
+     568: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     571: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     576: ifeq          612
+     579: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     582: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     585: ldc_w         #331                // String upgradeHandler.pruned
+     588: iconst_2
+     589: anewarray     #71                 // class java/lang/Object
+     592: dup
+     593: iconst_0
+     594: aload_0
+     595: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     598: aastore
+     599: dup
+     600: iconst_1
+     601: aload         9
+     603: aastore
+     604: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     607: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     612: goto          537
+     615: iload         4
+     617: ifle          694
+     620: aload         7
+     622: invokevirtual #335                // Method java/util/TreeSet.size:()I
+     625: ifle          694
+     628: aload         7
+     630: invokevirtual #336                // Method java/util/TreeSet.pollLast:()Ljava/lang/Object;
+     633: checkcast     #328                // class java/lang/Integer
+     636: astore        8
+     638: aload_0
+     639: aload         8
+     641: invokespecial #334                // Method removeStreamFromPriorityTree:(Ljava/lang/Integer;)V
+     644: iinc          4, -1
+     647: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     650: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     655: ifeq          691
+     658: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     661: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     664: ldc_w         #337                // String upgradeHandler.prunedPriority
+     667: iconst_2
+     668: anewarray     #71                 // class java/lang/Object
+     671: dup
+     672: iconst_0
+     673: aload_0
+     674: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     677: aastore
+     678: dup
+     679: iconst_1
+     680: aload         8
+     682: aastore
+     683: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     686: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     691: goto          615
+     694: iload         4
+     696: ifle          742
+     699: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     702: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     705: ldc_w         #338                // String upgradeHandler.pruneIncomplete
+     708: iconst_3
+     709: anewarray     #71                 // class java/lang/Object
+     712: dup
+     713: iconst_0
+     714: aload_0
+     715: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     718: aastore
+     719: dup
+     720: iconst_1
+     721: iload_1
+     722: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+     725: aastore
+     726: dup
+     727: iconst_2
+     728: iload         4
+     730: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+     733: aastore
+     734: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     737: invokeinterface #339,  2          // InterfaceMethod org/apache/juli/logging/Log.warn:(Ljava/lang/Object;)V
+     742: return
+
+  private void removeStreamFromPriorityTree(java.lang.Integer);
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field streams:Ljava/util/Map;
+       4: aload_1
+       5: invokeinterface #329,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #75                 // class org/apache/coyote/http2/Stream
+      13: astore_2
+      14: aload_2
+      15: invokevirtual #326                // Method org/apache/coyote/http2/Stream.getChildStreams:()Ljava/util/Set;
+      18: astore_3
+      19: aload_2
+      20: invokevirtual #326                // Method org/apache/coyote/http2/Stream.getChildStreams:()Ljava/util/Set;
+      23: invokeinterface #294,  1          // InterfaceMethod java/util/Set.size:()I
+      28: iconst_1
+      29: if_icmpne     63
+      32: aload_2
+      33: invokevirtual #326                // Method org/apache/coyote/http2/Stream.getChildStreams:()Ljava/util/Set;
+      36: invokeinterface #297,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      41: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      46: checkcast     #75                 // class org/apache/coyote/http2/Stream
+      49: aload_2
+      50: invokevirtual #249                // Method org/apache/coyote/http2/Stream.getParentStream:()Lorg/apache/coyote/http2/AbstractStream;
+      53: aload_2
+      54: invokevirtual #340                // Method org/apache/coyote/http2/Stream.getWeight:()I
+      57: invokevirtual #341                // Method org/apache/coyote/http2/Stream.rePrioritise:(Lorg/apache/coyote/http2/AbstractStream;I)V
+      60: goto          179
+      63: iconst_0
+      64: istore        4
+      66: aload_3
+      67: invokeinterface #268,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      72: astore        5
+      74: aload         5
+      76: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      81: ifeq          109
+      84: aload         5
+      86: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      91: checkcast     #75                 // class org/apache/coyote/http2/Stream
+      94: astore        6
+      96: iload         4
+      98: aload         6
+     100: invokevirtual #340                // Method org/apache/coyote/http2/Stream.getWeight:()I
+     103: iadd
+     104: istore        4
+     106: goto          74
+     109: aload_3
+     110: invokeinterface #268,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     115: astore        5
+     117: aload         5
+     119: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     124: ifeq          179
+     127: aload         5
+     129: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     134: checkcast     #75                 // class org/apache/coyote/http2/Stream
+     137: astore        6
+     139: aload_2
+     140: invokevirtual #326                // Method org/apache/coyote/http2/Stream.getChildStreams:()Ljava/util/Set;
+     143: invokeinterface #297,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     148: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     153: checkcast     #75                 // class org/apache/coyote/http2/Stream
+     156: aload_2
+     157: invokevirtual #249                // Method org/apache/coyote/http2/Stream.getParentStream:()Lorg/apache/coyote/http2/AbstractStream;
+     160: aload_2
+     161: invokevirtual #340                // Method org/apache/coyote/http2/Stream.getWeight:()I
+     164: aload         6
+     166: invokevirtual #340                // Method org/apache/coyote/http2/Stream.getWeight:()I
+     169: imul
+     170: iload         4
+     172: idiv
+     173: invokevirtual #341                // Method org/apache/coyote/http2/Stream.rePrioritise:(Lorg/apache/coyote/http2/AbstractStream;I)V
+     176: goto          117
+     179: aload_2
+     180: invokevirtual #330                // Method org/apache/coyote/http2/Stream.detachFromParent:()V
+     183: aload_2
+     184: invokevirtual #326                // Method org/apache/coyote/http2/Stream.getChildStreams:()Ljava/util/Set;
+     187: invokeinterface #342,  1          // InterfaceMethod java/util/Set.clear:()V
+     192: return
+
+  void push(org.apache.coyote.Request, org.apache.coyote.http2.Stream) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+       4: invokevirtual #84                 // Method org/apache/coyote/http2/ConnectionSettingsLocal.getMaxConcurrentStreams:()J
+       7: aload_0
+       8: getfield      #28                 // Field activeRemoteStreamCount:Ljava/util/concurrent/atomic/AtomicInteger;
+      11: invokevirtual #173                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+      14: i2l
+      15: lcmp
+      16: ifge          31
+      19: aload_0
+      20: aload_0
+      21: getfield      #28                 // Field activeRemoteStreamCount:Ljava/util/concurrent/atomic/AtomicInteger;
+      24: invokevirtual #174                // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+      27: invokevirtual #151                // Method setConnectionTimeoutForStreamCount:(I)V
+      30: return
+      31: aload_0
+      32: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      35: dup
+      36: astore        4
+      38: monitorenter
+      39: aload_0
+      40: aload_1
+      41: invokespecial #343                // Method createLocalStream:(Lorg/apache/coyote/Request;)Lorg/apache/coyote/http2/Stream;
+      44: astore_3
+      45: aload_0
+      46: aload_2
+      47: aload_3
+      48: invokevirtual #222                // Method org/apache/coyote/http2/Stream.getIdAsInt:()I
+      51: aload_1
+      52: invokevirtual #344                // Method org/apache/coyote/Request.getMimeHeaders:()Lorg/apache/tomcat/util/http/MimeHeaders;
+      55: iconst_0
+      56: sipush        1024
+      59: invokevirtual #345                // Method writeHeaders:(Lorg/apache/coyote/http2/Stream;ILorg/apache/tomcat/util/http/MimeHeaders;ZI)V
+      62: aload         4
+      64: monitorexit
+      65: goto          76
+      68: astore        5
+      70: aload         4
+      72: monitorexit
+      73: aload         5
+      75: athrow
+      76: aload_3
+      77: invokevirtual #346                // Method org/apache/coyote/http2/Stream.sentPushPromise:()V
+      80: aload_0
+      81: aload_3
+      82: invokespecial #119                // Method processStreamOnContainerThread:(Lorg/apache/coyote/http2/Stream;)V
+      85: return
+    Exception table:
+       from    to  target type
+          39    65    68   any
+          68    73    68   any
+
+  protected final java.lang.String getConnectionId();
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field connectionId:Ljava/lang/String;
+       4: areturn
+
+  protected final int getWeight();
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  boolean isTrailerHeaderAllowed(java.lang.String);
+    Code:
+       0: aload_0
+       1: getfield      #44                 // Field allowedTrailerHeaders:Ljava/util/Set;
+       4: aload_1
+       5: invokeinterface #347,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+      10: ireturn
+
+  private void reduceOverheadCount();
+    Code:
+       0: aload_0
+       1: getfield      #53                 // Field overheadCount:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #348                // Method java/util/concurrent/atomic/AtomicLong.decrementAndGet:()J
+       7: pop2
+       8: return
+
+  private void increaseOverheadCount();
+    Code:
+       0: aload_0
+       1: getfield      #53                 // Field overheadCount:Ljava/util/concurrent/atomic/AtomicLong;
+       4: aload_0
+       5: invokevirtual #349                // Method getProtocol:()Lorg/apache/coyote/http2/Http2Protocol;
+       8: invokevirtual #350                // Method org/apache/coyote/http2/Http2Protocol.getOverheadCountFactor:()I
+      11: i2l
+      12: invokevirtual #351                // Method java/util/concurrent/atomic/AtomicLong.addAndGet:(J)J
+      15: pop2
+      16: return
+
+  public long getReadTimeout();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field readTimeout:J
+       4: lreturn
+
+  public void setReadTimeout(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: putfield      #18                 // Field readTimeout:J
+       5: return
+
+  public long getKeepAliveTimeout();
+    Code:
+       0: aload_0
+       1: getfield      #21                 // Field keepAliveTimeout:J
+       4: lreturn
+
+  public void setKeepAliveTimeout(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: putfield      #21                 // Field keepAliveTimeout:J
+       5: return
+
+  public long getWriteTimeout();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field writeTimeout:J
+       4: lreturn
+
+  public void setWriteTimeout(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: putfield      #22                 // Field writeTimeout:J
+       5: return
+
+  public void setMaxConcurrentStreams(long);
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+       4: getstatic     #352                // Field org/apache/coyote/http2/Setting.MAX_CONCURRENT_STREAMS:Lorg/apache/coyote/http2/Setting;
+       7: lload_1
+       8: invokevirtual #353                // Method org/apache/coyote/http2/ConnectionSettingsLocal.set:(Lorg/apache/coyote/http2/Setting;J)V
+      11: return
+
+  public void setMaxConcurrentStreamExecution(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #40                 // Field maxConcurrentStreamExecution:I
+       5: return
+
+  public void setInitialWindowSize(int);
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+       4: getstatic     #354                // Field org/apache/coyote/http2/Setting.INITIAL_WINDOW_SIZE:Lorg/apache/coyote/http2/Setting;
+       7: iload_1
+       8: i2l
+       9: invokevirtual #353                // Method org/apache/coyote/http2/ConnectionSettingsLocal.set:(Lorg/apache/coyote/http2/Setting;J)V
+      12: return
+
+  public void setAllowedTrailerHeaders(java.util.Set<java.lang.String>);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #44                 // Field allowedTrailerHeaders:Ljava/util/Set;
+       5: return
+
+  public void setMaxHeaderCount(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #45                 // Field maxHeaderCount:I
+       5: return
+
+  public int getMaxHeaderCount();
+    Code:
+       0: aload_0
+       1: getfield      #45                 // Field maxHeaderCount:I
+       4: ireturn
+
+  public void setMaxHeaderSize(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #46                 // Field maxHeaderSize:I
+       5: return
+
+  public int getMaxHeaderSize();
+    Code:
+       0: aload_0
+       1: getfield      #46                 // Field maxHeaderSize:I
+       4: ireturn
+
+  public void setMaxTrailerCount(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #47                 // Field maxTrailerCount:I
+       5: return
+
+  public int getMaxTrailerCount();
+    Code:
+       0: aload_0
+       1: getfield      #47                 // Field maxTrailerCount:I
+       4: ireturn
+
+  public void setMaxTrailerSize(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #48                 // Field maxTrailerSize:I
+       5: return
+
+  public int getMaxTrailerSize();
+    Code:
+       0: aload_0
+       1: getfield      #48                 // Field maxTrailerSize:I
+       4: ireturn
+
+  public void setInitiatePingDisabled(boolean);
+    Code:
+       0: aload_0
+       1: getfield      #33                 // Field pingManager:Lorg/apache/coyote/http2/Http2UpgradeHandler$PingManager;
+       4: iload_1
+       5: putfield      #355                // Field org/apache/coyote/http2/Http2UpgradeHandler$PingManager.initiateDisabled:Z
+       8: return
+
+  public boolean fill(boolean, byte[]) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: iload_1
+       2: aload_2
+       3: iconst_0
+       4: aload_2
+       5: arraylength
+       6: invokevirtual #356                // Method fill:(Z[BII)Z
+       9: ireturn
+
+  public boolean fill(boolean, java.nio.ByteBuffer, int) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: iload_1
+       2: aload_2
+       3: invokevirtual #357                // Method java/nio/ByteBuffer.array:()[B
+       6: aload_2
+       7: invokevirtual #358                // Method java/nio/ByteBuffer.arrayOffset:()I
+      10: aload_2
+      11: invokevirtual #237                // Method java/nio/ByteBuffer.position:()I
+      14: iadd
+      15: iload_3
+      16: invokevirtual #356                // Method fill:(Z[BII)Z
+      19: istore        4
+      21: iload         4
+      23: ifeq          37
+      26: aload_2
+      27: aload_2
+      28: invokevirtual #237                // Method java/nio/ByteBuffer.position:()I
+      31: iload_3
+      32: iadd
+      33: invokevirtual #359                // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+      36: pop
+      37: iload         4
+      39: ireturn
+
+  public boolean fill(boolean, byte[], int, int) throws java.io.IOException;
+    Code:
+       0: iload         4
+       2: istore        5
+       4: iload_3
+       5: istore        6
+       7: iload_1
+       8: istore        7
+      10: iconst_0
+      11: istore        8
+      13: iload         5
+      15: ifle          106
+      18: aload_0
+      19: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      22: iload         7
+      24: aload_2
+      25: iload         6
+      27: iload         5
+      29: invokevirtual #360                // Method org/apache/tomcat/util/net/SocketWrapperBase.read:(Z[BII)I
+      32: istore        8
+      34: iload         8
+      36: ifne          54
+      39: iload         7
+      41: ifeq          52
+      44: new           #361                // class java/lang/IllegalStateException
+      47: dup
+      48: invokespecial #362                // Method java/lang/IllegalStateException."<init>":()V
+      51: athrow
+      52: iconst_0
+      53: ireturn
+      54: iload         8
+      56: iconst_m1
+      57: if_icmpne     86
+      60: aload_0
+      61: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+      64: invokevirtual #81                 // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+      67: checkcast     #307                // class org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState
+      70: invokevirtual #363                // Method org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.isNewStreamAllowed:()Z
+      73: ifeq          84
+      76: new           #364                // class java/io/EOFException
+      79: dup
+      80: invokespecial #365                // Method java/io/EOFException."<init>":()V
+      83: athrow
+      84: iconst_0
+      85: ireturn
+      86: iload         6
+      88: iload         8
+      90: iadd
+      91: istore        6
+      93: iload         5
+      95: iload         8
+      97: isub
+      98: istore        5
+     100: iconst_1
+     101: istore        7
+     103: goto          13
+     106: iconst_1
+     107: ireturn
+
+  public int getMaxFrameSize();
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+       4: invokevirtual #366                // Method org/apache/coyote/http2/ConnectionSettingsLocal.getMaxFrameSize:()I
+       7: ireturn
+
+  public org.apache.coyote.http2.HpackDecoder getHpackDecoder();
+    Code:
+       0: aload_0
+       1: getfield      #367                // Field hpackDecoder:Lorg/apache/coyote/http2/HpackDecoder;
+       4: ifnonnull     25
+       7: aload_0
+       8: new           #368                // class org/apache/coyote/http2/HpackDecoder
+      11: dup
+      12: aload_0
+      13: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+      16: invokevirtual #369                // Method org/apache/coyote/http2/ConnectionSettingsLocal.getHeaderTableSize:()I
+      19: invokespecial #370                // Method org/apache/coyote/http2/HpackDecoder."<init>":(I)V
+      22: putfield      #367                // Field hpackDecoder:Lorg/apache/coyote/http2/HpackDecoder;
+      25: aload_0
+      26: getfield      #367                // Field hpackDecoder:Lorg/apache/coyote/http2/HpackDecoder;
+      29: areturn
+
+  public java.nio.ByteBuffer startRequestBodyFrame(int, int, boolean) throws org.apache.coyote.http2.Http2Exception;
+    Code:
+       0: aload_0
+       1: invokespecial #234                // Method reduceOverheadCount:()V
+       4: iload_3
+       5: ifne          63
+       8: aload_0
+       9: getfield      #54                 // Field protocol:Lorg/apache/coyote/http2/Http2Protocol;
+      12: invokevirtual #59                 // Method org/apache/coyote/http2/Http2Protocol.getOverheadDataThreshold:()I
+      15: istore        4
+      17: aload_0
+      18: getfield      #60                 // Field lastNonFinalDataPayload:I
+      21: iconst_1
+      22: ishr
+      23: iload_2
+      24: iconst_1
+      25: ishr
+      26: iadd
+      27: istore        5
+      29: aload_0
+      30: iload_2
+      31: putfield      #60                 // Field lastNonFinalDataPayload:I
+      34: iload         5
+      36: ifne          42
+      39: iconst_1
+      40: istore        5
+      42: iload         5
+      44: iload         4
+      46: if_icmpge     63
+      49: aload_0
+      50: getfield      #53                 // Field overheadCount:Ljava/util/concurrent/atomic/AtomicLong;
+      53: iload         4
+      55: iload         5
+      57: idiv
+      58: i2l
+      59: invokevirtual #351                // Method java/util/concurrent/atomic/AtomicLong.addAndGet:(J)J
+      62: pop2
+      63: aload_0
+      64: iload_1
+      65: iconst_1
+      66: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+      69: astore        4
+      71: aload         4
+      73: getstatic     #235                // Field org/apache/coyote/http2/FrameType.DATA:Lorg/apache/coyote/http2/FrameType;
+      76: invokevirtual #371                // Method org/apache/coyote/http2/Stream.checkState:(Lorg/apache/coyote/http2/FrameType;)V
+      79: aload         4
+      81: iload_2
+      82: invokevirtual #372                // Method org/apache/coyote/http2/Stream.receivedData:(I)V
+      85: aload         4
+      87: invokevirtual #373                // Method org/apache/coyote/http2/Stream.getInputByteBuffer:()Ljava/nio/ByteBuffer;
+      90: areturn
+
+  public void endRequestBodyFrame(int) throws org.apache.coyote.http2.Http2Exception;
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iconst_1
+       3: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+       6: astore_2
+       7: aload_2
+       8: invokevirtual #374                // Method org/apache/coyote/http2/Stream.getInputBuffer:()Lorg/apache/coyote/http2/Stream$StreamInputBuffer;
+      11: invokevirtual #375                // Method org/apache/coyote/http2/Stream$StreamInputBuffer.onDataAvailable:()Z
+      14: pop
+      15: return
+
+  public void receivedEndOfStream(int) throws org.apache.coyote.http2.ConnectionException;
+    Code:
+       0: aload_0
+       1: iload_1
+       2: aload_0
+       3: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+       6: invokevirtual #81                 // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+       9: checkcast     #307                // class org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState
+      12: invokevirtual #363                // Method org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.isNewStreamAllowed:()Z
+      15: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+      18: astore_2
+      19: aload_2
+      20: ifnull        45
+      23: aload_2
+      24: invokevirtual #376                // Method org/apache/coyote/http2/Stream.receivedEndOfStream:()V
+      27: aload_2
+      28: invokevirtual #236                // Method org/apache/coyote/http2/Stream.isActive:()Z
+      31: ifne          45
+      34: aload_0
+      35: aload_0
+      36: getfield      #28                 // Field activeRemoteStreamCount:Ljava/util/concurrent/atomic/AtomicInteger;
+      39: invokevirtual #174                // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+      42: invokevirtual #151                // Method setConnectionTimeoutForStreamCount:(I)V
+      45: return
+
+  public void swallowedPadding(int, int) throws org.apache.coyote.http2.ConnectionException, java.io.IOException;
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iconst_1
+       3: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+       6: astore_3
+       7: aload_0
+       8: aload_3
+       9: iload_2
+      10: iconst_1
+      11: iadd
+      12: iconst_0
+      13: invokevirtual #377                // Method writeWindowUpdate:(Lorg/apache/coyote/http2/Stream;IZ)V
+      16: return
+
+  public org.apache.coyote.http2.HpackDecoder$HeaderEmitter headersStart(int, boolean) throws org.apache.coyote.http2.Http2Exception, java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #378                // Method checkPauseState:()V
+       4: aload_0
+       5: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+       8: invokevirtual #81                 // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+      11: checkcast     #307                // class org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState
+      14: invokevirtual #363                // Method org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.isNewStreamAllowed:()Z
+      17: ifeq          181
+      20: aload_0
+      21: iload_1
+      22: iconst_0
+      23: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+      26: astore_3
+      27: aload_3
+      28: ifnonnull     37
+      31: aload_0
+      32: iload_1
+      33: invokespecial #379                // Method createRemoteStream:(I)Lorg/apache/coyote/http2/Stream;
+      36: astore_3
+      37: iload_1
+      38: aload_0
+      39: getfield      #29                 // Field maxActiveRemoteStreamId:I
+      42: if_icmpge     86
+      45: new           #146                // class org/apache/coyote/http2/ConnectionException
+      48: dup
+      49: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      52: ldc_w         #380                // String upgradeHandler.stream.old
+      55: iconst_2
+      56: anewarray     #71                 // class java/lang/Object
+      59: dup
+      60: iconst_0
+      61: iload_1
+      62: invokestatic  #74                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      65: aastore
+      66: dup
+      67: iconst_1
+      68: aload_0
+      69: getfield      #29                 // Field maxActiveRemoteStreamId:I
+      72: invokestatic  #74                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      75: aastore
+      76: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      79: getstatic     #301                // Field org/apache/coyote/http2/Http2Error.PROTOCOL_ERROR:Lorg/apache/coyote/http2/Http2Error;
+      82: invokespecial #149                // Method org/apache/coyote/http2/ConnectionException."<init>":(Ljava/lang/String;Lorg/apache/coyote/http2/Http2Error;)V
+      85: athrow
+      86: aload_3
+      87: getstatic     #213                // Field org/apache/coyote/http2/FrameType.HEADERS:Lorg/apache/coyote/http2/FrameType;
+      90: invokevirtual #371                // Method org/apache/coyote/http2/Stream.checkState:(Lorg/apache/coyote/http2/FrameType;)V
+      93: aload_3
+      94: iload_2
+      95: invokevirtual #381                // Method org/apache/coyote/http2/Stream.receivedStartOfHeaders:(Z)V
+      98: aload_0
+      99: iload_1
+     100: invokespecial #382                // Method closeIdleStreams:(I)V
+     103: aload_0
+     104: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+     107: invokevirtual #84                 // Method org/apache/coyote/http2/ConnectionSettingsLocal.getMaxConcurrentStreams:()J
+     110: aload_0
+     111: getfield      #28                 // Field activeRemoteStreamCount:Ljava/util/concurrent/atomic/AtomicInteger;
+     114: invokevirtual #173                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+     117: i2l
+     118: lcmp
+     119: ifge          175
+     122: aload_0
+     123: aload_0
+     124: getfield      #28                 // Field activeRemoteStreamCount:Ljava/util/concurrent/atomic/AtomicInteger;
+     127: invokevirtual #174                // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+     130: invokevirtual #151                // Method setConnectionTimeoutForStreamCount:(I)V
+     133: aload_0
+     134: invokespecial #383                // Method increaseOverheadCount:()V
+     137: new           #141                // class org/apache/coyote/http2/StreamException
+     140: dup
+     141: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     144: ldc_w         #384                // String upgradeHandler.tooManyRemoteStreams
+     147: iconst_1
+     148: anewarray     #71                 // class java/lang/Object
+     151: dup
+     152: iconst_0
+     153: aload_0
+     154: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+     157: invokevirtual #84                 // Method org/apache/coyote/http2/ConnectionSettingsLocal.getMaxConcurrentStreams:()J
+     160: invokestatic  #315                // Method java/lang/Long.toString:(J)Ljava/lang/String;
+     163: aastore
+     164: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     167: getstatic     #385                // Field org/apache/coyote/http2/Http2Error.REFUSED_STREAM:Lorg/apache/coyote/http2/Http2Error;
+     170: iload_1
+     171: invokespecial #386                // Method org/apache/coyote/http2/StreamException."<init>":(Ljava/lang/String;Lorg/apache/coyote/http2/Http2Error;I)V
+     174: athrow
+     175: aload_0
+     176: invokespecial #234                // Method reduceOverheadCount:()V
+     179: aload_3
+     180: areturn
+     181: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     184: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+     189: ifeq          227
+     192: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+     195: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     198: ldc_w         #387                // String upgradeHandler.noNewStreams
+     201: iconst_2
+     202: anewarray     #71                 // class java/lang/Object
+     205: dup
+     206: iconst_0
+     207: aload_0
+     208: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     211: aastore
+     212: dup
+     213: iconst_1
+     214: iload_1
+     215: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+     218: aastore
+     219: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     222: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+     227: aload_0
+     228: invokespecial #234                // Method reduceOverheadCount:()V
+     231: getstatic     #388                // Field HEADER_SINK:Lorg/apache/coyote/http2/HeaderSink;
+     234: areturn
+
+  private void closeIdleStreams(int) throws org.apache.coyote.http2.Http2Exception;
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field maxActiveRemoteStreamId:I
+       4: iconst_2
+       5: iadd
+       6: istore_2
+       7: iload_2
+       8: iload_1
+       9: if_icmpge     33
+      12: aload_0
+      13: iload_2
+      14: iconst_0
+      15: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+      18: astore_3
+      19: aload_3
+      20: ifnull        27
+      23: aload_3
+      24: invokevirtual #389                // Method org/apache/coyote/http2/Stream.closeIfIdle:()V
+      27: iinc          2, 2
+      30: goto          7
+      33: aload_0
+      34: iload_1
+      35: putfield      #29                 // Field maxActiveRemoteStreamId:I
+      38: return
+
+  public void reprioritise(int, int, boolean, int) throws org.apache.coyote.http2.Http2Exception;
+    Code:
+       0: iload_1
+       1: iload_2
+       2: if_icmpne     43
+       5: new           #146                // class org/apache/coyote/http2/ConnectionException
+       8: dup
+       9: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      12: ldc_w         #390                // String upgradeHandler.dependency.invalid
+      15: iconst_2
+      16: anewarray     #71                 // class java/lang/Object
+      19: dup
+      20: iconst_0
+      21: aload_0
+      22: invokevirtual #289                // Method getConnectionId:()Ljava/lang/String;
+      25: aastore
+      26: dup
+      27: iconst_1
+      28: iload_1
+      29: invokestatic  #74                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      32: aastore
+      33: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      36: getstatic     #301                // Field org/apache/coyote/http2/Http2Error.PROTOCOL_ERROR:Lorg/apache/coyote/http2/Http2Error;
+      39: invokespecial #149                // Method org/apache/coyote/http2/ConnectionException."<init>":(Ljava/lang/String;Lorg/apache/coyote/http2/Http2Error;)V
+      42: athrow
+      43: aload_0
+      44: invokespecial #383                // Method increaseOverheadCount:()V
+      47: aload_0
+      48: iload_1
+      49: iconst_0
+      50: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+      53: astore        5
+      55: aload         5
+      57: ifnonnull     67
+      60: aload_0
+      61: iload_1
+      62: invokespecial #379                // Method createRemoteStream:(I)Lorg/apache/coyote/http2/Stream;
+      65: astore        5
+      67: aload         5
+      69: getstatic     #391                // Field org/apache/coyote/http2/FrameType.PRIORITY:Lorg/apache/coyote/http2/FrameType;
+      72: invokevirtual #371                // Method org/apache/coyote/http2/Stream.checkState:(Lorg/apache/coyote/http2/FrameType;)V
+      75: aload_0
+      76: iload_2
+      77: iconst_0
+      78: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+      81: astore        6
+      83: aload         6
+      85: ifnonnull     91
+      88: aload_0
+      89: astore        6
+      91: aload         5
+      93: aload         6
+      95: iload_3
+      96: iload         4
+      98: invokevirtual #392                // Method org/apache/coyote/http2/Stream.rePrioritise:(Lorg/apache/coyote/http2/AbstractStream;ZI)V
+     101: return
+
+  public void headersContinue(int, boolean);
+    Code:
+       0: iload_2
+       1: ifne          46
+       4: aload_0
+       5: invokevirtual #349                // Method getProtocol:()Lorg/apache/coyote/http2/Http2Protocol;
+       8: invokevirtual #393                // Method org/apache/coyote/http2/Http2Protocol.getOverheadContinuationThreshold:()I
+      11: istore_3
+      12: iload_1
+      13: iload_3
+      14: if_icmpge     46
+      17: iload_1
+      18: ifne          34
+      21: aload_0
+      22: getfield      #53                 // Field overheadCount:Ljava/util/concurrent/atomic/AtomicLong;
+      25: iload_3
+      26: i2l
+      27: invokevirtual #351                // Method java/util/concurrent/atomic/AtomicLong.addAndGet:(J)J
+      30: pop2
+      31: goto          46
+      34: aload_0
+      35: getfield      #53                 // Field overheadCount:Ljava/util/concurrent/atomic/AtomicLong;
+      38: iload_3
+      39: iload_1
+      40: idiv
+      41: i2l
+      42: invokevirtual #351                // Method java/util/concurrent/atomic/AtomicLong.addAndGet:(J)J
+      45: pop2
+      46: return
+
+  public void headersEnd(int) throws org.apache.coyote.http2.ConnectionException;
+    Code:
+       0: aload_0
+       1: iload_1
+       2: aload_0
+       3: getfield      #12                 // Field connectionState:Ljava/util/concurrent/atomic/AtomicReference;
+       6: invokevirtual #81                 // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+       9: checkcast     #307                // class org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState
+      12: invokevirtual #363                // Method org/apache/coyote/http2/Http2UpgradeHandler$ConnectionState.isNewStreamAllowed:()Z
+      15: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+      18: astore_2
+      19: aload_2
+      20: ifnull        47
+      23: aload_0
+      24: iload_1
+      25: invokespecial #394                // Method setMaxProcessedStream:(I)V
+      28: aload_2
+      29: invokevirtual #236                // Method org/apache/coyote/http2/Stream.isActive:()Z
+      32: ifeq          47
+      35: aload_2
+      36: invokevirtual #395                // Method org/apache/coyote/http2/Stream.receivedEndOfHeaders:()Z
+      39: ifeq          47
+      42: aload_0
+      43: aload_2
+      44: invokespecial #119                // Method processStreamOnContainerThread:(Lorg/apache/coyote/http2/Stream;)V
+      47: return
+
+  private void setMaxProcessedStream(int);
+    Code:
+       0: aload_0
+       1: getfield      #79                 // Field maxProcessedStreamId:I
+       4: iload_1
+       5: if_icmpge     13
+       8: aload_0
+       9: iload_1
+      10: putfield      #79                 // Field maxProcessedStreamId:I
+      13: return
+
+  public void reset(int, long) throws org.apache.coyote.http2.Http2Exception;
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iconst_1
+       3: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+       6: astore        4
+       8: aload         4
+      10: getstatic     #181                // Field org/apache/coyote/http2/FrameType.RST:Lorg/apache/coyote/http2/FrameType;
+      13: invokevirtual #371                // Method org/apache/coyote/http2/Stream.checkState:(Lorg/apache/coyote/http2/FrameType;)V
+      16: aload         4
+      18: lload_2
+      19: invokevirtual #311                // Method org/apache/coyote/http2/Stream.receiveReset:(J)V
+      22: return
+
+  public void setting(org.apache.coyote.http2.Setting, long) throws org.apache.coyote.http2.ConnectionException;
+    Code:
+       0: aload_0
+       1: invokespecial #383                // Method increaseOverheadCount:()V
+       4: aload_1
+       5: ifnonnull     9
+       8: return
+       9: aload_1
+      10: getstatic     #354                // Field org/apache/coyote/http2/Setting.INITIAL_WINDOW_SIZE:Lorg/apache/coyote/http2/Setting;
+      13: if_acmpne     148
+      16: aload_0
+      17: getfield      #65                 // Field remoteSettings:Lorg/apache/coyote/http2/ConnectionSettingsRemote;
+      20: invokevirtual #396                // Method org/apache/coyote/http2/ConnectionSettingsRemote.getInitialWindowSize:()I
+      23: i2l
+      24: lstore        4
+      26: aload_0
+      27: getfield      #65                 // Field remoteSettings:Lorg/apache/coyote/http2/ConnectionSettingsRemote;
+      30: aload_1
+      31: lload_2
+      32: invokevirtual #104                // Method org/apache/coyote/http2/ConnectionSettingsRemote.set:(Lorg/apache/coyote/http2/Setting;J)V
+      35: lload_2
+      36: lload         4
+      38: lsub
+      39: l2i
+      40: istore        6
+      42: aload_0
+      43: getfield      #25                 // Field streams:Ljava/util/Map;
+      46: invokeinterface #308,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      51: invokeinterface #309,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      56: astore        7
+      58: aload         7
+      60: invokeinterface #269,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      65: ifeq          145
+      68: aload         7
+      70: invokeinterface #270,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      75: checkcast     #75                 // class org/apache/coyote/http2/Stream
+      78: astore        8
+      80: aload         8
+      82: iload         6
+      84: invokevirtual #397                // Method org/apache/coyote/http2/Stream.incrementWindowSize:(I)V
+      87: goto          142
+      90: astore        9
+      92: aload         8
+      94: new           #141                // class org/apache/coyote/http2/StreamException
+      97: dup
+      98: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+     101: ldc_w         #398                // String upgradeHandler.windowSizeTooBig
+     104: iconst_2
+     105: anewarray     #71                 // class java/lang/Object
+     108: dup
+     109: iconst_0
+     110: aload_0
+     111: getfield      #3                  // Field connectionId:Ljava/lang/String;
+     114: aastore
+     115: dup
+     116: iconst_1
+     117: aload         8
+     119: invokevirtual #202                // Method org/apache/coyote/http2/Stream.getIdentifier:()Ljava/lang/Integer;
+     122: aastore
+     123: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     126: aload         9
+     128: invokevirtual #187                // Method org/apache/coyote/http2/Http2Exception.getError:()Lorg/apache/coyote/http2/Http2Error;
+     131: aload         8
+     133: invokevirtual #222                // Method org/apache/coyote/http2/Stream.getIdAsInt:()I
+     136: invokespecial #386                // Method org/apache/coyote/http2/StreamException."<init>":(Ljava/lang/String;Lorg/apache/coyote/http2/Http2Error;I)V
+     139: invokevirtual #144                // Method org/apache/coyote/http2/Stream.close:(Lorg/apache/coyote/http2/Http2Exception;)V
+     142: goto          58
+     145: goto          157
+     148: aload_0
+     149: getfield      #65                 // Field remoteSettings:Lorg/apache/coyote/http2/ConnectionSettingsRemote;
+     152: aload_1
+     153: lload_2
+     154: invokevirtual #104                // Method org/apache/coyote/http2/ConnectionSettingsRemote.set:(Lorg/apache/coyote/http2/Setting;J)V
+     157: return
+    Exception table:
+       from    to  target type
+          80    87    90   Class org/apache/coyote/http2/Http2Exception
+
+  public void settingsEnd(boolean) throws java.io.IOException;
+    Code:
+       0: iload_1
+       1: ifeq          52
+       4: aload_0
+       5: getfield      #68                 // Field localSettings:Lorg/apache/coyote/http2/ConnectionSettingsLocal;
+       8: invokevirtual #399                // Method org/apache/coyote/http2/ConnectionSettingsLocal.ack:()Z
+      11: ifne          94
+      14: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      17: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      20: ldc_w         #400                // String upgradeHandler.unexpectedAck
+      23: iconst_2
+      24: anewarray     #71                 // class java/lang/Object
+      27: dup
+      28: iconst_0
+      29: aload_0
+      30: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      33: aastore
+      34: dup
+      35: iconst_1
+      36: aload_0
+      37: invokevirtual #401                // Method getIdentifier:()Ljava/lang/Integer;
+      40: aastore
+      41: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      44: invokeinterface #339,  2          // InterfaceMethod org/apache/juli/logging/Log.warn:(Ljava/lang/Object;)V
+      49: goto          94
+      52: aload_0
+      53: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      56: dup
+      57: astore_2
+      58: monitorenter
+      59: aload_0
+      60: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      63: iconst_1
+      64: getstatic     #402                // Field SETTINGS_ACK:[B
+      67: iconst_0
+      68: getstatic     #402                // Field SETTINGS_ACK:[B
+      71: arraylength
+      72: invokevirtual #185                // Method org/apache/tomcat/util/net/SocketWrapperBase.write:(Z[BII)V
+      75: aload_0
+      76: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+      79: iconst_1
+      80: invokevirtual #186                // Method org/apache/tomcat/util/net/SocketWrapperBase.flush:(Z)Z
+      83: pop
+      84: aload_2
+      85: monitorexit
+      86: goto          94
+      89: astore_3
+      90: aload_2
+      91: monitorexit
+      92: aload_3
+      93: athrow
+      94: return
+    Exception table:
+       from    to  target type
+          59    86    89   any
+          89    92    89   any
+
+  public void pingReceive(byte[], boolean) throws java.io.IOException;
+    Code:
+       0: iload_2
+       1: ifne          8
+       4: aload_0
+       5: invokespecial #383                // Method increaseOverheadCount:()V
+       8: aload_0
+       9: getfield      #33                 // Field pingManager:Lorg/apache/coyote/http2/Http2UpgradeHandler$PingManager;
+      12: aload_1
+      13: iload_2
+      14: invokevirtual #403                // Method org/apache/coyote/http2/Http2UpgradeHandler$PingManager.receivePing:([BZ)V
+      17: return
+
+  public void goaway(int, long, java.lang.String);
+    Code:
+       0: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+       3: invokeinterface #69,  1           // InterfaceMethod org/apache/juli/logging/Log.isDebugEnabled:()Z
+       8: ifeq          58
+      11: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+      14: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      17: ldc_w         #404                // String upgradeHandler.goaway.debug
+      20: iconst_4
+      21: anewarray     #71                 // class java/lang/Object
+      24: dup
+      25: iconst_0
+      26: aload_0
+      27: getfield      #3                  // Field connectionId:Ljava/lang/String;
+      30: aastore
+      31: dup
+      32: iconst_1
+      33: iload_1
+      34: invokestatic  #58                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+      37: aastore
+      38: dup
+      39: iconst_2
+      40: lload_2
+      41: invokestatic  #405                // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      44: aastore
+      45: dup
+      46: iconst_3
+      47: aload         4
+      49: aastore
+      50: invokevirtual #72                 // Method org/apache/tomcat/util/res/StringManager.getString:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      53: invokeinterface #73,  2           // InterfaceMethod org/apache/juli/logging/Log.debug:(Ljava/lang/Object;)V
+      58: aload_0
+      59: invokespecial #157                // Method close:()V
+      62: return
+
+  public void incrementWindowSize(int, int) throws org.apache.coyote.http2.Http2Exception;
+    Code:
+       0: aload_0
+       1: getfield      #62                 // Field lastWindowUpdate:I
+       4: iconst_1
+       5: ishr
+       6: iload_2
+       7: iconst_1
+       8: ishr
+       9: iadd
+      10: istore_3
+      11: aload_0
+      12: getfield      #54                 // Field protocol:Lorg/apache/coyote/http2/Http2Protocol;
+      15: invokevirtual #61                 // Method org/apache/coyote/http2/Http2Protocol.getOverheadWindowUpdateThreshold:()I
+      18: istore        4
+      20: aload_0
+      21: iload_2
+      22: putfield      #62                 // Field lastWindowUpdate:I
+      25: iload_3
+      26: ifne          31
+      29: iconst_1
+      30: istore_3
+      31: iload_1
+      32: ifne          62
+      35: iload_3
+      36: iload         4
+      38: if_icmpge     54
+      41: aload_0
+      42: getfield      #53                 // Field overheadCount:Ljava/util/concurrent/atomic/AtomicLong;
+      45: iload         4
+      47: iload_3
+      48: idiv
+      49: i2l
+      50: invokevirtual #351                // Method java/util/concurrent/atomic/AtomicLong.addAndGet:(J)J
+      53: pop2
+      54: aload_0
+      55: iload_2
+      56: invokevirtual #406                // Method incrementWindowSize:(I)V
+      59: goto          133
+      62: aload_0
+      63: iload_1
+      64: iconst_1
+      65: invokespecial #94                 // Method getStream:(IZ)Lorg/apache/coyote/http2/Stream;
+      68: astore        5
+      70: iload_3
+      71: iload         4
+      73: if_icmpge     119
+      76: aload_0
+      77: getfield      #35                 // Field backLogStreams:Ljava/util/concurrent/ConcurrentMap;
+      80: aload         5
+      82: invokeinterface #245,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      87: checkcast     #246                // class org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker
+      90: astore        6
+      92: aload         6
+      94: ifnull        106
+      97: iload_2
+      98: aload         6
+     100: invokevirtual #255                // Method org/apache/coyote/http2/Http2UpgradeHandler$BacklogTracker.getRemainingReservation:()I
+     103: if_icmpge     119
+     106: aload_0
+     107: getfield      #53                 // Field overheadCount:Ljava/util/concurrent/atomic/AtomicLong;
+     110: iload         4
+     112: iload_3
+     113: idiv
+     114: i2l
+     115: invokevirtual #351                // Method java/util/concurrent/atomic/AtomicLong.addAndGet:(J)J
+     118: pop2
+     119: aload         5
+     121: getstatic     #196                // Field org/apache/coyote/http2/FrameType.WINDOW_UPDATE:Lorg/apache/coyote/http2/FrameType;
+     124: invokevirtual #371                // Method org/apache/coyote/http2/Stream.checkState:(Lorg/apache/coyote/http2/FrameType;)V
+     127: aload         5
+     129: iload_2
+     130: invokevirtual #397                // Method org/apache/coyote/http2/Stream.incrementWindowSize:(I)V
+     133: return
+
+  public void swallowed(int, org.apache.coyote.http2.FrameType, int, int) throws java.io.IOException;
+    Code:
+       0: return
+
+  public int getIdAsInt();
+    Code:
+       0: aload_0
+       1: invokespecial #407                // Method org/apache/coyote/http2/AbstractStream.getIdAsInt:()I
+       4: ireturn
+
+  public java.lang.Integer getIdentifier();
+    Code:
+       0: aload_0
+       1: invokespecial #273                // Method org/apache/coyote/http2/AbstractStream.getIdentifier:()Ljava/lang/Integer;
+       4: areturn
+
+  static org.apache.tomcat.util.net.SocketWrapperBase access$200(org.apache.coyote.http2.Http2UpgradeHandler);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field socketWrapper:Lorg/apache/tomcat/util/net/SocketWrapperBase;
+       4: areturn
+
+  static byte[] access$300();
+    Code:
+       0: getstatic     #5                  // Field PING:[B
+       3: areturn
+
+  static org.apache.juli.logging.Log access$400();
+    Code:
+       0: getstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+       3: areturn
+
+  static java.lang.String access$500(org.apache.coyote.http2.Http2UpgradeHandler);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field connectionId:Ljava/lang/String;
+       4: areturn
+
+  static org.apache.tomcat.util.res.StringManager access$600();
+    Code:
+       0: getstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+       3: areturn
+
+  static byte[] access$700();
+    Code:
+       0: getstatic     #1                  // Field PING_ACK:[B
+       3: areturn
+
+  static {};
+    Code:
+       0: ldc_w         #408                // class org/apache/coyote/http2/Http2UpgradeHandler
+       3: invokestatic  #409                // Method org/apache/juli/logging/LogFactory.getLog:(Ljava/lang/Class;)Lorg/apache/juli/logging/Log;
+       6: putstatic     #4                  // Field log:Lorg/apache/juli/logging/Log;
+       9: ldc_w         #408                // class org/apache/coyote/http2/Http2UpgradeHandler
+      12: invokestatic  #410                // Method org/apache/tomcat/util/res/StringManager.getManager:(Ljava/lang/Class;)Lorg/apache/tomcat/util/res/StringManager;
+      15: putstatic     #2                  // Field sm:Lorg/apache/tomcat/util/res/StringManager;
+      18: new           #26                 // class java/util/concurrent/atomic/AtomicInteger
+      21: dup
+      22: iconst_0
+      23: invokespecial #27                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      26: putstatic     #56                 // Field connectionIdGenerator:Ljava/util/concurrent/atomic/AtomicInteger;
+      29: iconst_0
+      30: invokestatic  #74                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      33: putstatic     #7                  // Field STREAM_ID_ZERO:Ljava/lang/Integer;
+      36: bipush        9
+      38: newarray       byte
+      40: dup
+      41: iconst_0
+      42: iconst_0
+      43: bastore
+      44: dup
+      45: iconst_1
+      46: iconst_0
+      47: bastore
+      48: dup
+      49: iconst_2
+      50: bipush        8
+      52: bastore
+      53: dup
+      54: iconst_3
+      55: bipush        6
+      57: bastore
+      58: dup
+      59: iconst_4
+      60: iconst_0
+      61: bastore
+      62: dup
+      63: iconst_5
+      64: iconst_0
+      65: bastore
+      66: dup
+      67: bipush        6
+      69: iconst_0
+      70: bastore
+      71: dup
+      72: bipush        7
+      74: iconst_0
+      75: bastore
+      76: dup
+      77: bipush        8
+      79: iconst_0
+      80: bastore
+      81: putstatic     #5                  // Field PING:[B
+      84: bipush        9
+      86: newarray       byte
+      88: dup
+      89: iconst_0
+      90: iconst_0
+      91: bastore
+      92: dup
+      93: iconst_1
+      94: iconst_0
+      95: bastore
+      96: dup
+      97: iconst_2
+      98: bipush        8
+     100: bastore
+     101: dup
+     102: iconst_3
+     103: bipush        6
+     105: bastore
+     106: dup
+     107: iconst_4
+     108: iconst_1
+     109: bastore
+     110: dup
+     111: iconst_5
+     112: iconst_0
+     113: bastore
+     114: dup
+     115: bipush        6
+     117: iconst_0
+     118: bastore
+     119: dup
+     120: bipush        7
+     122: iconst_0
+     123: bastore
+     124: dup
+     125: bipush        8
+     127: iconst_0
+     128: bastore
+     129: putstatic     #1                  // Field PING_ACK:[B
+     132: bipush        9
+     134: newarray       byte
+     136: dup
+     137: iconst_0
+     138: iconst_0
+     139: bastore
+     140: dup
+     141: iconst_1
+     142: iconst_0
+     143: bastore
+     144: dup
+     145: iconst_2
+     146: iconst_0
+     147: bastore
+     148: dup
+     149: iconst_3
+     150: iconst_4
+     151: bastore
+     152: dup
+     153: iconst_4
+     154: iconst_1
+     155: bastore
+     156: dup
+     157: iconst_5
+     158: iconst_0
+     159: bastore
+     160: dup
+     161: bipush        6
+     163: iconst_0
+     164: bastore
+     165: dup
+     166: bipush        7
+     168: iconst_0
+     169: bastore
+     170: dup
+     171: bipush        8
+     173: iconst_0
+     174: bastore
+     175: putstatic     #402                // Field SETTINGS_ACK:[B
+     178: bipush        6
+     180: newarray       byte
+     182: dup
+     183: iconst_0
+     184: bipush        7
+     186: bastore
+     187: dup
+     188: iconst_1
+     189: iconst_0
+     190: bastore
+     191: dup
+     192: iconst_2
+     193: iconst_0
+     194: bastore
+     195: dup
+     196: iconst_3
+     197: iconst_0
+     198: bastore
+     199: dup
+     200: iconst_4
+     201: iconst_0
+     202: bastore
+     203: dup
+     204: iconst_5
+     205: iconst_0
+     206: bastore
+     207: putstatic     #197                // Field GOAWAY:[B
+     210: new           #411                // class org/apache/coyote/http2/HeaderSink
+     213: dup
+     214: invokespecial #412                // Method org/apache/coyote/http2/HeaderSink."<init>":()V
+     217: putstatic     #388                // Field HEADER_SINK:Lorg/apache/coyote/http2/HeaderSink;
+     220: return
+}

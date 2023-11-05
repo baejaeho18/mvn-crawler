@@ -1,0 +1,659 @@
+Compiled from "RingHashLoadBalancer.java"
+final class io.grpc.xds.RingHashLoadBalancer extends io.grpc.LoadBalancer {
+  private static final io.grpc.Attributes$Key<io.grpc.xds.RingHashLoadBalancer$Ref<io.grpc.ConnectivityStateInfo>> STATE_INFO;
+
+  private static final io.grpc.Status RPC_HASH_NOT_FOUND;
+
+  private static final io.grpc.xds.XxHash64 hashFunc;
+
+  private final io.grpc.xds.XdsLogger logger;
+
+  private final io.grpc.SynchronizationContext syncContext;
+
+  private final java.util.Map<io.grpc.EquivalentAddressGroup, io.grpc.LoadBalancer$Subchannel> subchannels;
+
+  private final io.grpc.LoadBalancer$Helper helper;
+
+  private java.util.List<io.grpc.xds.RingHashLoadBalancer$RingEntry> ring;
+
+  private io.grpc.ConnectivityState currentState;
+
+  io.grpc.xds.RingHashLoadBalancer(io.grpc.LoadBalancer$Helper);
+    Code:
+       0: aload_0
+       1: invokespecial #96                 // Method io/grpc/LoadBalancer."<init>":()V
+       4: aload_0
+       5: new           #98                 // class java/util/HashMap
+       8: dup
+       9: invokespecial #99                 // Method java/util/HashMap."<init>":()V
+      12: putfield      #101                // Field subchannels:Ljava/util/Map;
+      15: aload_0
+      16: aload_1
+      17: ldc           #102                // String helper
+      19: invokestatic  #108                // Method com/google/common/base/Preconditions.checkNotNull:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      22: checkcast     #32                 // class io/grpc/LoadBalancer$Helper
+      25: putfield      #110                // Field helper:Lio/grpc/LoadBalancer$Helper;
+      28: aload_0
+      29: aload_1
+      30: invokevirtual #114                // Method io/grpc/LoadBalancer$Helper.getSynchronizationContext:()Lio/grpc/SynchronizationContext;
+      33: ldc           #115                // String syncContext
+      35: invokestatic  #108                // Method com/google/common/base/Preconditions.checkNotNull:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      38: checkcast     #117                // class io/grpc/SynchronizationContext
+      41: putfield      #119                // Field syncContext:Lio/grpc/SynchronizationContext;
+      44: aload_0
+      45: ldc           #121                // String ring_hash_lb
+      47: aload_1
+      48: invokevirtual #125                // Method io/grpc/LoadBalancer$Helper.getAuthority:()Ljava/lang/String;
+      51: invokestatic  #131                // Method io/grpc/InternalLogId.allocate:(Ljava/lang/String;Ljava/lang/String;)Lio/grpc/InternalLogId;
+      54: invokestatic  #135                // Method io/grpc/xds/XdsLogger.withLogId:(Lio/grpc/InternalLogId;)Lio/grpc/xds/XdsLogger;
+      57: putfield      #137                // Field logger:Lio/grpc/xds/XdsLogger;
+      60: aload_0
+      61: getfield      #137                // Field logger:Lio/grpc/xds/XdsLogger;
+      64: getstatic     #141                // Field io/grpc/xds/XdsLogger$XdsLogLevel.INFO:Lio/grpc/xds/XdsLogger$XdsLogLevel;
+      67: ldc           #143                // String Created
+      69: invokevirtual #147                // Method io/grpc/xds/XdsLogger.log:(Lio/grpc/xds/XdsLogger$XdsLogLevel;Ljava/lang/String;)V
+      72: return
+
+  public void handleResolvedAddresses(io.grpc.LoadBalancer$ResolvedAddresses);
+    Code:
+       0: aload_0
+       1: getfield      #137                // Field logger:Lio/grpc/xds/XdsLogger;
+       4: getstatic     #154                // Field io/grpc/xds/XdsLogger$XdsLogLevel.DEBUG:Lio/grpc/xds/XdsLogger$XdsLogLevel;
+       7: ldc           #156                // String Received resolution result: {0}
+       9: iconst_1
+      10: anewarray     #158                // class java/lang/Object
+      13: dup
+      14: iconst_0
+      15: aload_1
+      16: aastore
+      17: invokevirtual #161                // Method io/grpc/xds/XdsLogger.log:(Lio/grpc/xds/XdsLogger$XdsLogLevel;Ljava/lang/String;[Ljava/lang/Object;)V
+      20: aload_1
+      21: invokevirtual #165                // Method io/grpc/LoadBalancer$ResolvedAddresses.getAddresses:()Ljava/util/List;
+      24: astore_2
+      25: aload_2
+      26: invokeinterface #171,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+      31: ifeq          47
+      34: aload_0
+      35: getstatic     #176                // Field io/grpc/Status.UNAVAILABLE:Lio/grpc/Status;
+      38: ldc           #178                // String Ring hash lb error: EDS resolution was successful, but returned server addresses are empty.
+      40: invokevirtual #182                // Method io/grpc/Status.withDescription:(Ljava/lang/String;)Lio/grpc/Status;
+      43: invokevirtual #186                // Method handleNameResolutionError:(Lio/grpc/Status;)V
+      46: return
+      47: aload_2
+      48: invokestatic  #190                // Method stripAttrs:(Ljava/util/List;)Ljava/util/Map;
+      51: astore_3
+      52: aload_0
+      53: getfield      #101                // Field subchannels:Ljava/util/Map;
+      56: invokeinterface #194,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+      61: aload_3
+      62: invokeinterface #194,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+      67: invokestatic  #198                // Method com/google/common/collect/Sets.difference:(Ljava/util/Set;Ljava/util/Set;)Lcom/google/common/collect/Sets$SetView;
+      70: invokestatic  #202                // Method com/google/common/collect/Sets.newHashSet:(Ljava/lang/Iterable;)Ljava/util/HashSet;
+      73: astore        4
+      75: aload_1
+      76: invokevirtual #206                // Method io/grpc/LoadBalancer$ResolvedAddresses.getLoadBalancingPolicyConfig:()Ljava/lang/Object;
+      79: checkcast     #7                  // class io/grpc/xds/RingHashLoadBalancer$RingHashConfig
+      82: astore        5
+      84: new           #98                 // class java/util/HashMap
+      87: dup
+      88: invokespecial #99                 // Method java/util/HashMap."<init>":()V
+      91: astore        6
+      93: lconst_0
+      94: lstore        7
+      96: aload_2
+      97: invokeinterface #210,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     102: astore        9
+     104: aload         9
+     106: invokeinterface #217,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     111: ifeq          349
+     114: aload         9
+     116: invokeinterface #220,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     121: checkcast     #222                // class io/grpc/EquivalentAddressGroup
+     124: astore        10
+     126: aload         10
+     128: invokevirtual #226                // Method io/grpc/EquivalentAddressGroup.getAttributes:()Lio/grpc/Attributes;
+     131: getstatic     #231                // Field io/grpc/xds/InternalXdsAttributes.ATTR_SERVER_WEIGHT:Lio/grpc/Attributes$Key;
+     134: invokevirtual #235                // Method io/grpc/Attributes.get:(Lio/grpc/Attributes$Key;)Ljava/lang/Object;
+     137: checkcast     #237                // class java/lang/Long
+     140: astore        11
+     142: aload         11
+     144: ifnonnull     153
+     147: lconst_1
+     148: invokestatic  #241                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     151: astore        11
+     153: lload         7
+     155: aload         11
+     157: invokevirtual #245                // Method java/lang/Long.longValue:()J
+     160: ladd
+     161: lstore        7
+     163: aload         10
+     165: invokestatic  #248                // Method stripAttrs:(Lio/grpc/EquivalentAddressGroup;)Lio/grpc/EquivalentAddressGroup;
+     168: astore        12
+     170: aload         6
+     172: aload         12
+     174: invokeinterface #252,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     179: ifeq          219
+     182: aload         6
+     184: aload         12
+     186: aload         6
+     188: aload         12
+     190: invokeinterface #255,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     195: checkcast     #237                // class java/lang/Long
+     198: invokevirtual #245                // Method java/lang/Long.longValue:()J
+     201: aload         11
+     203: invokevirtual #245                // Method java/lang/Long.longValue:()J
+     206: ladd
+     207: invokestatic  #241                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     210: invokeinterface #258,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     215: pop
+     216: goto          231
+     219: aload         6
+     221: aload         12
+     223: aload         11
+     225: invokeinterface #258,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     230: pop
+     231: aload_0
+     232: getfield      #101                // Field subchannels:Ljava/util/Map;
+     235: aload         12
+     237: invokeinterface #255,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     242: checkcast     #29                 // class io/grpc/LoadBalancer$Subchannel
+     245: astore        13
+     247: aload         13
+     249: ifnull        265
+     252: aload         13
+     254: aload         10
+     256: invokestatic  #264                // Method java/util/Collections.singletonList:(Ljava/lang/Object;)Ljava/util/List;
+     259: invokevirtual #268                // Method io/grpc/LoadBalancer$Subchannel.updateAddresses:(Ljava/util/List;)V
+     262: goto          104
+     265: invokestatic  #272                // Method io/grpc/Attributes.newBuilder:()Lio/grpc/Attributes$Builder;
+     268: getstatic     #274                // Field STATE_INFO:Lio/grpc/Attributes$Key;
+     271: new           #10                 // class io/grpc/xds/RingHashLoadBalancer$Ref
+     274: dup
+     275: getstatic     #279                // Field io/grpc/ConnectivityState.IDLE:Lio/grpc/ConnectivityState;
+     278: invokestatic  #285                // Method io/grpc/ConnectivityStateInfo.forNonError:(Lio/grpc/ConnectivityState;)Lio/grpc/ConnectivityStateInfo;
+     281: invokespecial #288                // Method io/grpc/xds/RingHashLoadBalancer$Ref."<init>":(Ljava/lang/Object;)V
+     284: invokevirtual #292                // Method io/grpc/Attributes$Builder.set:(Lio/grpc/Attributes$Key;Ljava/lang/Object;)Lio/grpc/Attributes$Builder;
+     287: invokevirtual #295                // Method io/grpc/Attributes$Builder.build:()Lio/grpc/Attributes;
+     290: astore        14
+     292: aload_0
+     293: getfield      #110                // Field helper:Lio/grpc/LoadBalancer$Helper;
+     296: invokestatic  #298                // Method io/grpc/LoadBalancer$CreateSubchannelArgs.newBuilder:()Lio/grpc/LoadBalancer$CreateSubchannelArgs$Builder;
+     299: aload         10
+     301: invokevirtual #302                // Method io/grpc/LoadBalancer$CreateSubchannelArgs$Builder.setAddresses:(Lio/grpc/EquivalentAddressGroup;)Lio/grpc/LoadBalancer$CreateSubchannelArgs$Builder;
+     304: aload         14
+     306: invokevirtual #306                // Method io/grpc/LoadBalancer$CreateSubchannelArgs$Builder.setAttributes:(Lio/grpc/Attributes;)Lio/grpc/LoadBalancer$CreateSubchannelArgs$Builder;
+     309: invokevirtual #309                // Method io/grpc/LoadBalancer$CreateSubchannelArgs$Builder.build:()Lio/grpc/LoadBalancer$CreateSubchannelArgs;
+     312: invokevirtual #313                // Method io/grpc/LoadBalancer$Helper.createSubchannel:(Lio/grpc/LoadBalancer$CreateSubchannelArgs;)Lio/grpc/LoadBalancer$Subchannel;
+     315: astore        15
+     317: aload         15
+     319: new           #22                 // class io/grpc/xds/RingHashLoadBalancer$1
+     322: dup
+     323: aload_0
+     324: aload         15
+     326: invokespecial #316                // Method io/grpc/xds/RingHashLoadBalancer$1."<init>":(Lio/grpc/xds/RingHashLoadBalancer;Lio/grpc/LoadBalancer$Subchannel;)V
+     329: invokevirtual #320                // Method io/grpc/LoadBalancer$Subchannel.start:(Lio/grpc/LoadBalancer$SubchannelStateListener;)V
+     332: aload_0
+     333: getfield      #101                // Field subchannels:Ljava/util/Map;
+     336: aload         12
+     338: aload         15
+     340: invokeinterface #258,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     345: pop
+     346: goto          104
+     349: aload         6
+     351: invokeinterface #324,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+     356: invokestatic  #328                // Method java/util/Collections.min:(Ljava/util/Collection;)Ljava/lang/Object;
+     359: checkcast     #237                // class java/lang/Long
+     362: invokevirtual #245                // Method java/lang/Long.longValue:()J
+     365: lstore        9
+     367: lload         9
+     369: l2d
+     370: lload         7
+     372: l2d
+     373: ddiv
+     374: dstore        11
+     376: dload         11
+     378: aload         5
+     380: getfield      #332                // Field io/grpc/xds/RingHashLoadBalancer$RingHashConfig.minRingSize:J
+     383: l2d
+     384: dmul
+     385: invokestatic  #338                // Method java/lang/Math.ceil:(D)D
+     388: dload         11
+     390: ddiv
+     391: aload         5
+     393: getfield      #341                // Field io/grpc/xds/RingHashLoadBalancer$RingHashConfig.maxRingSize:J
+     396: l2d
+     397: invokestatic  #344                // Method java/lang/Math.min:(DD)D
+     400: dstore        13
+     402: aload_0
+     403: aload         6
+     405: lload         7
+     407: dload         13
+     409: invokestatic  #348                // Method buildRing:(Ljava/util/Map;JD)Ljava/util/List;
+     412: putfield      #350                // Field ring:Ljava/util/List;
+     415: new           #352                // class java/util/ArrayList
+     418: dup
+     419: invokespecial #353                // Method java/util/ArrayList."<init>":()V
+     422: astore        15
+     424: aload         4
+     426: invokeinterface #354,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     431: astore        16
+     433: aload         16
+     435: invokeinterface #217,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     440: ifeq          477
+     443: aload         16
+     445: invokeinterface #220,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     450: checkcast     #222                // class io/grpc/EquivalentAddressGroup
+     453: astore        17
+     455: aload         15
+     457: aload_0
+     458: getfield      #101                // Field subchannels:Ljava/util/Map;
+     461: aload         17
+     463: invokeinterface #357,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     468: invokeinterface #360,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     473: pop
+     474: goto          433
+     477: aload_0
+     478: invokespecial #363                // Method updateBalancingState:()V
+     481: aload         15
+     483: invokeinterface #210,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     488: astore        16
+     490: aload         16
+     492: invokeinterface #217,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     497: ifeq          520
+     500: aload         16
+     502: invokeinterface #220,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     507: checkcast     #29                 // class io/grpc/LoadBalancer$Subchannel
+     510: astore        17
+     512: aload         17
+     514: invokestatic  #367                // Method shutdownSubchannel:(Lio/grpc/LoadBalancer$Subchannel;)V
+     517: goto          490
+     520: return
+
+  private static java.util.List<io.grpc.xds.RingHashLoadBalancer$RingEntry> buildRing(java.util.Map<io.grpc.EquivalentAddressGroup, java.lang.Long>, long, double);
+    Code:
+       0: new           #352                // class java/util/ArrayList
+       3: dup
+       4: invokespecial #353                // Method java/util/ArrayList."<init>":()V
+       7: astore        5
+       9: dconst_0
+      10: dstore        6
+      12: dconst_0
+      13: dstore        8
+      15: aload_0
+      16: invokeinterface #403,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+      21: invokeinterface #354,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      26: astore        10
+      28: aload         10
+      30: invokeinterface #217,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      35: ifeq          197
+      38: aload         10
+      40: invokeinterface #220,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      45: checkcast     #38                 // class java/util/Map$Entry
+      48: astore        11
+      50: aload         11
+      52: invokeinterface #406,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      57: checkcast     #222                // class io/grpc/EquivalentAddressGroup
+      60: astore        12
+      62: aload         11
+      64: invokeinterface #409,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      69: checkcast     #237                // class java/lang/Long
+      72: invokevirtual #245                // Method java/lang/Long.longValue:()J
+      75: l2d
+      76: lload_1
+      77: l2d
+      78: ddiv
+      79: dstore        13
+      81: new           #411                // class java/lang/StringBuilder
+      84: dup
+      85: aload         12
+      87: invokevirtual #412                // Method io/grpc/EquivalentAddressGroup.getAddresses:()Ljava/util/List;
+      90: invokevirtual #415                // Method java/lang/Object.toString:()Ljava/lang/String;
+      93: invokespecial #418                // Method java/lang/StringBuilder."<init>":(Ljava/lang/String;)V
+      96: astore        15
+      98: aload         15
+     100: bipush        95
+     102: invokevirtual #422                // Method java/lang/StringBuilder.append:(C)Ljava/lang/StringBuilder;
+     105: pop
+     106: dload         8
+     108: dload_3
+     109: dload         13
+     111: dmul
+     112: dadd
+     113: dstore        8
+     115: lconst_0
+     116: lstore        16
+     118: dload         6
+     120: dload         8
+     122: dcmpg
+     123: ifge          194
+     126: aload         15
+     128: lload         16
+     130: invokevirtual #425                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     133: pop
+     134: getstatic     #427                // Field hashFunc:Lio/grpc/xds/XxHash64;
+     137: aload         15
+     139: invokevirtual #428                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     142: invokevirtual #434                // Method io/grpc/xds/XxHash64.hashAsciiString:(Ljava/lang/String;)J
+     145: lstore        18
+     147: aload         5
+     149: new           #13                 // class io/grpc/xds/RingHashLoadBalancer$RingEntry
+     152: dup
+     153: lload         18
+     155: aload         12
+     157: aconst_null
+     158: invokespecial #437                // Method io/grpc/xds/RingHashLoadBalancer$RingEntry."<init>":(JLio/grpc/EquivalentAddressGroup;Lio/grpc/xds/RingHashLoadBalancer$1;)V
+     161: invokeinterface #360,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     166: pop
+     167: lload         16
+     169: lconst_1
+     170: ladd
+     171: lstore        16
+     173: dload         6
+     175: dconst_1
+     176: dadd
+     177: dstore        6
+     179: aload         15
+     181: aload         15
+     183: invokevirtual #441                // Method java/lang/StringBuilder.length:()I
+     186: iconst_1
+     187: isub
+     188: invokevirtual #445                // Method java/lang/StringBuilder.setLength:(I)V
+     191: goto          118
+     194: goto          28
+     197: aload         5
+     199: invokestatic  #448                // Method java/util/Collections.sort:(Ljava/util/List;)V
+     202: aload         5
+     204: invokestatic  #452                // Method java/util/Collections.unmodifiableList:(Ljava/util/List;)Ljava/util/List;
+     207: areturn
+
+  public void handleNameResolutionError(io.grpc.Status);
+    Code:
+       0: aload_0
+       1: getfield      #464                // Field currentState:Lio/grpc/ConnectivityState;
+       4: getstatic     #467                // Field io/grpc/ConnectivityState.READY:Lio/grpc/ConnectivityState;
+       7: if_acmpeq     28
+      10: aload_0
+      11: getfield      #110                // Field helper:Lio/grpc/LoadBalancer$Helper;
+      14: getstatic     #470                // Field io/grpc/ConnectivityState.TRANSIENT_FAILURE:Lio/grpc/ConnectivityState;
+      17: new           #43                 // class io/grpc/xds/XdsSubchannelPickers$ErrorPicker
+      20: dup
+      21: aload_1
+      22: invokespecial #472                // Method io/grpc/xds/XdsSubchannelPickers$ErrorPicker."<init>":(Lio/grpc/Status;)V
+      25: invokevirtual #475                // Method io/grpc/LoadBalancer$Helper.updateBalancingState:(Lio/grpc/ConnectivityState;Lio/grpc/LoadBalancer$SubchannelPicker;)V
+      28: return
+
+  public void shutdown();
+    Code:
+       0: aload_0
+       1: getfield      #137                // Field logger:Lio/grpc/xds/XdsLogger;
+       4: getstatic     #141                // Field io/grpc/xds/XdsLogger$XdsLogLevel.INFO:Lio/grpc/xds/XdsLogger$XdsLogLevel;
+       7: ldc_w         #479                // String Shutdown
+      10: invokevirtual #147                // Method io/grpc/xds/XdsLogger.log:(Lio/grpc/xds/XdsLogger$XdsLogLevel;Ljava/lang/String;)V
+      13: aload_0
+      14: getfield      #101                // Field subchannels:Ljava/util/Map;
+      17: invokeinterface #324,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      22: invokeinterface #482,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      27: astore_1
+      28: aload_1
+      29: invokeinterface #217,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      34: ifeq          54
+      37: aload_1
+      38: invokeinterface #220,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      43: checkcast     #29                 // class io/grpc/LoadBalancer$Subchannel
+      46: astore_2
+      47: aload_2
+      48: invokestatic  #367                // Method shutdownSubchannel:(Lio/grpc/LoadBalancer$Subchannel;)V
+      51: goto          28
+      54: aload_0
+      55: getfield      #101                // Field subchannels:Ljava/util/Map;
+      58: invokeinterface #485,  1          // InterfaceMethod java/util/Map.clear:()V
+      63: return
+
+  private void updateBalancingState();
+    Code:
+       0: aload_0
+       1: getfield      #101                // Field subchannels:Ljava/util/Map;
+       4: invokeinterface #486,  1          // InterfaceMethod java/util/Map.isEmpty:()Z
+       9: ifne          16
+      12: iconst_1
+      13: goto          17
+      16: iconst_0
+      17: ldc_w         #488                // String no subchannel has been created
+      20: invokestatic  #492                // Method com/google/common/base/Preconditions.checkState:(ZLjava/lang/Object;)V
+      23: iconst_0
+      24: istore_1
+      25: iconst_0
+      26: istore_2
+      27: aconst_null
+      28: astore_3
+      29: aconst_null
+      30: astore        4
+      32: aload_0
+      33: getfield      #101                // Field subchannels:Ljava/util/Map;
+      36: invokeinterface #324,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      41: invokeinterface #482,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      46: astore        5
+      48: aload         5
+      50: invokeinterface #217,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      55: ifeq          147
+      58: aload         5
+      60: invokeinterface #220,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      65: checkcast     #29                 // class io/grpc/LoadBalancer$Subchannel
+      68: astore        6
+      70: aload         6
+      72: invokestatic  #496                // Method getSubchannelStateInfoRef:(Lio/grpc/LoadBalancer$Subchannel;)Lio/grpc/xds/RingHashLoadBalancer$Ref;
+      75: getfield      #500                // Field io/grpc/xds/RingHashLoadBalancer$Ref.value:Ljava/lang/Object;
+      78: checkcast     #281                // class io/grpc/ConnectivityStateInfo
+      81: invokevirtual #504                // Method io/grpc/ConnectivityStateInfo.getState:()Lio/grpc/ConnectivityState;
+      84: astore        7
+      86: aload         7
+      88: getstatic     #467                // Field io/grpc/ConnectivityState.READY:Lio/grpc/ConnectivityState;
+      91: if_acmpne     102
+      94: getstatic     #467                // Field io/grpc/ConnectivityState.READY:Lio/grpc/ConnectivityState;
+      97: astore        4
+      99: goto          147
+     102: aload         7
+     104: getstatic     #470                // Field io/grpc/ConnectivityState.TRANSIENT_FAILURE:Lio/grpc/ConnectivityState;
+     107: if_acmpne     116
+     110: iinc          1, 1
+     113: goto          144
+     116: aload         7
+     118: getstatic     #507                // Field io/grpc/ConnectivityState.CONNECTING:Lio/grpc/ConnectivityState;
+     121: if_acmpne     129
+     124: iconst_1
+     125: istore_2
+     126: goto          144
+     129: aload         7
+     131: getstatic     #279                // Field io/grpc/ConnectivityState.IDLE:Lio/grpc/ConnectivityState;
+     134: if_acmpne     144
+     137: aload_3
+     138: ifnonnull     144
+     141: aload         6
+     143: astore_3
+     144: goto          48
+     147: aload         4
+     149: ifnonnull     206
+     152: iload_1
+     153: iconst_2
+     154: if_icmplt     177
+     157: iload_2
+     158: ifne          169
+     161: aload_3
+     162: ifnull        169
+     165: aload_3
+     166: invokevirtual #510                // Method io/grpc/LoadBalancer$Subchannel.requestConnection:()V
+     169: getstatic     #470                // Field io/grpc/ConnectivityState.TRANSIENT_FAILURE:Lio/grpc/ConnectivityState;
+     172: astore        4
+     174: goto          206
+     177: iload_2
+     178: ifeq          189
+     181: getstatic     #507                // Field io/grpc/ConnectivityState.CONNECTING:Lio/grpc/ConnectivityState;
+     184: astore        4
+     186: goto          206
+     189: aload_3
+     190: ifnull        201
+     193: getstatic     #279                // Field io/grpc/ConnectivityState.IDLE:Lio/grpc/ConnectivityState;
+     196: astore        4
+     198: goto          206
+     201: getstatic     #470                // Field io/grpc/ConnectivityState.TRANSIENT_FAILURE:Lio/grpc/ConnectivityState;
+     204: astore        4
+     206: new           #19                 // class io/grpc/xds/RingHashLoadBalancer$RingHashPicker
+     209: dup
+     210: aload_0
+     211: getfield      #119                // Field syncContext:Lio/grpc/SynchronizationContext;
+     214: aload_0
+     215: getfield      #350                // Field ring:Ljava/util/List;
+     218: aload_0
+     219: getfield      #101                // Field subchannels:Ljava/util/Map;
+     222: aconst_null
+     223: invokespecial #513                // Method io/grpc/xds/RingHashLoadBalancer$RingHashPicker."<init>":(Lio/grpc/SynchronizationContext;Ljava/util/List;Ljava/util/Map;Lio/grpc/xds/RingHashLoadBalancer$1;)V
+     226: astore        5
+     228: aload_0
+     229: getfield      #110                // Field helper:Lio/grpc/LoadBalancer$Helper;
+     232: aload         4
+     234: aload         5
+     236: invokevirtual #475                // Method io/grpc/LoadBalancer$Helper.updateBalancingState:(Lio/grpc/ConnectivityState;Lio/grpc/LoadBalancer$SubchannelPicker;)V
+     239: aload_0
+     240: aload         4
+     242: putfield      #464                // Field currentState:Lio/grpc/ConnectivityState;
+     245: return
+
+  private void processSubchannelState(io.grpc.LoadBalancer$Subchannel, io.grpc.ConnectivityStateInfo);
+    Code:
+       0: aload_0
+       1: getfield      #101                // Field subchannels:Ljava/util/Map;
+       4: aload_1
+       5: invokevirtual #527                // Method io/grpc/LoadBalancer$Subchannel.getAddresses:()Lio/grpc/EquivalentAddressGroup;
+       8: invokestatic  #248                // Method stripAttrs:(Lio/grpc/EquivalentAddressGroup;)Lio/grpc/EquivalentAddressGroup;
+      11: invokeinterface #255,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      16: aload_1
+      17: if_acmpeq     21
+      20: return
+      21: aload_2
+      22: invokevirtual #504                // Method io/grpc/ConnectivityStateInfo.getState:()Lio/grpc/ConnectivityState;
+      25: getstatic     #470                // Field io/grpc/ConnectivityState.TRANSIENT_FAILURE:Lio/grpc/ConnectivityState;
+      28: if_acmpeq     41
+      31: aload_2
+      32: invokevirtual #504                // Method io/grpc/ConnectivityStateInfo.getState:()Lio/grpc/ConnectivityState;
+      35: getstatic     #279                // Field io/grpc/ConnectivityState.IDLE:Lio/grpc/ConnectivityState;
+      38: if_acmpne     48
+      41: aload_0
+      42: getfield      #110                // Field helper:Lio/grpc/LoadBalancer$Helper;
+      45: invokevirtual #530                // Method io/grpc/LoadBalancer$Helper.refreshNameResolution:()V
+      48: aload_1
+      49: invokestatic  #496                // Method getSubchannelStateInfoRef:(Lio/grpc/LoadBalancer$Subchannel;)Lio/grpc/xds/RingHashLoadBalancer$Ref;
+      52: astore_3
+      53: aload_3
+      54: getfield      #500                // Field io/grpc/xds/RingHashLoadBalancer$Ref.value:Ljava/lang/Object;
+      57: checkcast     #281                // class io/grpc/ConnectivityStateInfo
+      60: invokevirtual #504                // Method io/grpc/ConnectivityStateInfo.getState:()Lio/grpc/ConnectivityState;
+      63: getstatic     #470                // Field io/grpc/ConnectivityState.TRANSIENT_FAILURE:Lio/grpc/ConnectivityState;
+      66: if_acmpne     90
+      69: aload_2
+      70: invokevirtual #504                // Method io/grpc/ConnectivityStateInfo.getState:()Lio/grpc/ConnectivityState;
+      73: getstatic     #507                // Field io/grpc/ConnectivityState.CONNECTING:Lio/grpc/ConnectivityState;
+      76: if_acmpeq     89
+      79: aload_2
+      80: invokevirtual #504                // Method io/grpc/ConnectivityStateInfo.getState:()Lio/grpc/ConnectivityState;
+      83: getstatic     #279                // Field io/grpc/ConnectivityState.IDLE:Lio/grpc/ConnectivityState;
+      86: if_acmpne     90
+      89: return
+      90: aload_3
+      91: aload_2
+      92: putfield      #500                // Field io/grpc/xds/RingHashLoadBalancer$Ref.value:Ljava/lang/Object;
+      95: aload_0
+      96: invokespecial #363                // Method updateBalancingState:()V
+      99: return
+
+  private static void shutdownSubchannel(io.grpc.LoadBalancer$Subchannel);
+    Code:
+       0: aload_0
+       1: invokevirtual #537                // Method io/grpc/LoadBalancer$Subchannel.shutdown:()V
+       4: aload_0
+       5: invokestatic  #496                // Method getSubchannelStateInfoRef:(Lio/grpc/LoadBalancer$Subchannel;)Lio/grpc/xds/RingHashLoadBalancer$Ref;
+       8: getstatic     #540                // Field io/grpc/ConnectivityState.SHUTDOWN:Lio/grpc/ConnectivityState;
+      11: invokestatic  #285                // Method io/grpc/ConnectivityStateInfo.forNonError:(Lio/grpc/ConnectivityState;)Lio/grpc/ConnectivityStateInfo;
+      14: putfield      #500                // Field io/grpc/xds/RingHashLoadBalancer$Ref.value:Ljava/lang/Object;
+      17: return
+
+  private static java.util.Map<io.grpc.EquivalentAddressGroup, io.grpc.EquivalentAddressGroup> stripAttrs(java.util.List<io.grpc.EquivalentAddressGroup>);
+    Code:
+       0: new           #98                 // class java/util/HashMap
+       3: dup
+       4: aload_0
+       5: invokeinterface #544,  1          // InterfaceMethod java/util/List.size:()I
+      10: iconst_2
+      11: imul
+      12: invokespecial #546                // Method java/util/HashMap."<init>":(I)V
+      15: astore_1
+      16: aload_0
+      17: invokeinterface #210,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      22: astore_2
+      23: aload_2
+      24: invokeinterface #217,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      29: ifeq          57
+      32: aload_2
+      33: invokeinterface #220,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      38: checkcast     #222                // class io/grpc/EquivalentAddressGroup
+      41: astore_3
+      42: aload_1
+      43: aload_3
+      44: invokestatic  #248                // Method stripAttrs:(Lio/grpc/EquivalentAddressGroup;)Lio/grpc/EquivalentAddressGroup;
+      47: aload_3
+      48: invokeinterface #258,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      53: pop
+      54: goto          23
+      57: aload_1
+      58: areturn
+
+  private static io.grpc.EquivalentAddressGroup stripAttrs(io.grpc.EquivalentAddressGroup);
+    Code:
+       0: new           #222                // class io/grpc/EquivalentAddressGroup
+       3: dup
+       4: aload_0
+       5: invokevirtual #412                // Method io/grpc/EquivalentAddressGroup.getAddresses:()Ljava/util/List;
+       8: invokespecial #551                // Method io/grpc/EquivalentAddressGroup."<init>":(Ljava/util/List;)V
+      11: areturn
+
+  private static io.grpc.xds.RingHashLoadBalancer$Ref<io.grpc.ConnectivityStateInfo> getSubchannelStateInfoRef(io.grpc.LoadBalancer$Subchannel);
+    Code:
+       0: aload_0
+       1: invokevirtual #553                // Method io/grpc/LoadBalancer$Subchannel.getAttributes:()Lio/grpc/Attributes;
+       4: getstatic     #274                // Field STATE_INFO:Lio/grpc/Attributes$Key;
+       7: invokevirtual #235                // Method io/grpc/Attributes.get:(Lio/grpc/Attributes$Key;)Ljava/lang/Object;
+      10: ldc_w         #554                // String STATE_INFO
+      13: invokestatic  #108                // Method com/google/common/base/Preconditions.checkNotNull:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      16: checkcast     #10                 // class io/grpc/xds/RingHashLoadBalancer$Ref
+      19: areturn
+
+  static void access$000(io.grpc.xds.RingHashLoadBalancer, io.grpc.LoadBalancer$Subchannel, io.grpc.ConnectivityStateInfo);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #558                // Method processSubchannelState:(Lio/grpc/LoadBalancer$Subchannel;Lio/grpc/ConnectivityStateInfo;)V
+       6: return
+
+  static io.grpc.Attributes$Key access$300();
+    Code:
+       0: getstatic     #274                // Field STATE_INFO:Lio/grpc/Attributes$Key;
+       3: areturn
+
+  static io.grpc.Status access$500();
+    Code:
+       0: getstatic     #567                // Field RPC_HASH_NOT_FOUND:Lio/grpc/Status;
+       3: areturn
+
+  static {};
+    Code:
+       0: ldc_w         #570                // String state-info
+       3: invokestatic  #574                // Method io/grpc/Attributes$Key.create:(Ljava/lang/String;)Lio/grpc/Attributes$Key;
+       6: putstatic     #274                // Field STATE_INFO:Lio/grpc/Attributes$Key;
+       9: getstatic     #577                // Field io/grpc/Status.INTERNAL:Lio/grpc/Status;
+      12: ldc_w         #579                // String RPC hash not found. Probably a bug because xds resolver config selector always generates a hash.
+      15: invokevirtual #182                // Method io/grpc/Status.withDescription:(Ljava/lang/String;)Lio/grpc/Status;
+      18: putstatic     #567                // Field RPC_HASH_NOT_FOUND:Lio/grpc/Status;
+      21: getstatic     #582                // Field io/grpc/xds/XxHash64.INSTANCE:Lio/grpc/xds/XxHash64;
+      24: putstatic     #427                // Field hashFunc:Lio/grpc/xds/XxHash64;
+      27: return
+}

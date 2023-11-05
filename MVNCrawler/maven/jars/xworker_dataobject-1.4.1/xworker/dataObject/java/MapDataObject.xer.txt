@@ -1,0 +1,499 @@
+^1364549884868
+@xworker.dataObject.java.MapDataObject
+sname
+MapDataObject
+slabel
+MapDataObject
+sdescriptors
+xworker.lang.MetaDescriptor3
+sextends
+xworker.dataObject.DataObject
+smany
+true
+seditCols
+2
+sinitialization
+false
+smodifier
+public
+sinheritDescription
+false
+sdescription
+<p>把一个Map中的数据映射成List&lt;Map&lt;key,value&gt;&gt;的列表，然后类ListDataObect映射属性。</p>
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@actions1
+sname
+actions
+sdescriptors
+xworker.lang.MetaDescriptor3/@actions
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@actions1/@query
+sname
+doQuery
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+
+//获取数据实例
+log.info("varName=" + self.mapVarName);
+def mapData = Ognl.getValue(self.mapVarName, actionContext);
+def instance = [];
+if(mapData == null){
+    log.info("map data is null,mapVarName=" + self.mapVarName);
+    return;
+}
+for(key in mapData.keySet()){
+    instance.add(["key":key, "value":mapData.get(key)]);
+}
+
+
+def matchedDatas = [];
+//log.info("instance=" + instance);
+//从实例中查询匹配的数据
+if(actionContext.get("conditionConfig") == null){
+    //没有条件，返回全部
+    for(child in instance){        
+        def dobj = child;
+        dobj = self.doAction("createDataObjectFromObject", actionContext, ["data":child, "descriptor":self]);
+        //log.info("dobj=" + dobj);
+        if(dobj != null){
+            matchedDatas.add(dobj);
+        }
+    }
+}else{
+    for(child in instance){
+        def dobj = child;
+        dobj = self.doAction("createDataObjectFromObject", actionContext, ["data":child, "descriptor":self]);
+
+        if(dobj != null){
+            def matched = conditionConfig.doAction("isMatch", actionContext, ["condition":conditionData, "data":dobj]);        
+            //log.info("matched=" + matched);
+            if(matched){
+                matchedDatas.add(dobj);
+            }        
+        }
+    }
+}
+
+if(actionContext.get("pageInfo") != null){
+    //是否排序
+    if(pageInfo.sort != null && pageInfo.sort != ""){
+        matchedDatas.sort(){ a,b->   
+            def av = a == null ? null : a.get(pageInfo.sort);
+            def bv = b == null ? null : b.get(pageInfo.sort);
+            if(av == null && bv == null){
+                return 0;
+            }else if(av == null && bv != null){
+                return pageInfo.dir == "DESC" ? 1 : -1;
+            }else if(av != null && bv == null){
+                return pageInfo.dir == "DESC" ? -1 : 1;
+            }else{
+                return pageInfo.dir == "DESC" ? -av.compareTo(bv) : av.compareTo(bv);
+            }            
+        }   	
+    
+    }
+    pageInfo.totalCount = matchedDatas.size();
+    if(pageInfo.limit > 0){
+        if(pageInfo.start > matchedDatas.size()){
+            pageInfo.start = matchedDatas.size();
+        }
+        def toIndex = pageInfo.start + pageInfo.limit;
+        if(toIndex > matchedDatas.size()){ 
+            toIndex = matchedDatas.size();
+        }
+        def startIndex = pageInfo.start;
+        if(startIndex < 0){
+            startIndex = 0;
+        }    
+        pageInfo.datas = matchedDatas.subList(pageInfo.start, toIndex);
+    }else{
+        pageInfo.datas = matchedDatas;
+    }
+    return pageInfo.datas;
+}else{
+    if(actionContext.get("pageInfo") != null){
+        pageInfo.totalCount = matchedDatas.size();
+        pageInfo.datas = matchedDatas;
+    }
+    return matchedDatas;
+}
+#$@text#$@
+sinitBreakPoint
+false
+ssuccessBreakPoint
+false
+sexceptionBreakPoint
+false
+seditBreakPoint
+false
+sinterpretationType
+Action
+ssaveReturn
+false
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.java.MapDataObject/@actions1/@createDataObjectFromObject
+sname
+createDataObjectFromObject
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+
+import xworker.dataObject.DataObject;
+import xworker.dataObject.DataObjectList;
+import xworker.dataObject.utils.DataObjectUtil;
+
+return createDataObject(data, descriptor);
+
+def createDataObject(data, descriptor){
+    def dataObj = new DataObject(descriptor);
+    for(attribute in descriptor.getChilds("attribute")){
+        def name = attribute.name;
+        def d = Ognl.getValue(attribute.propertyPath, data);
+        dataObj.put(name, d);
+        //log.info(name + "=" + d);
+    }   
+    
+    //初始化多个属性列表
+    def things = dataObj.getMetadata().getThings();
+    for(int i=0; i<things.size(); i++){
+        def refThing = things[i];
+        if(things[i].getBoolean("many")){
+            def list = new DataObjectList(refThing, dataObj);
+            list.setInited(false);
+            dataObj.put(refThing.name, list);
+        }else{
+            def dchild = new DataObject(refThing.dataObjectPath);
+            dchild.put(refThing.refAttributeName, dataObj.get(refThing.localAttributeName));
+            dchild.setInited(false);
+            dataObj.put(refThing.name, dchild);
+        }
+    }      
+    
+    return dataObj;
+}
+#$@text#$@
+sinitBreakPoint
+false
+ssuccessBreakPoint
+false
+sexceptionBreakPoint
+false
+seditBreakPoint
+false
+sinterpretationType
+Action
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@actions1/@createDataObjectFromObject/@ins
+sisValidate
+false
+sname
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@xworker.dataObject.java.MapDataObject/@actions1/@createDataObjectFromObject/@ins/@thing
+sname
+thing
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@xworker.dataObject.java.MapDataObject/@actions1/@createDataObjectFromObject/@ins/@descriptor
+sname
+descriptor
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@xworker.dataObject.java.MapDataObject/@actions1/@isMappingAble
+sname
+isMappingAble
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+scode
+return true;
+Sdescription
+#$@text#$@
+<p>返回属性是否可以映射，比如数据库数据对象、CSV数据对象和Excel等数据对象的属性适合表字段、CSV或Excel的列映射的。</p>
+<p>如果不能映射，直接抛出有说明文字的异常。</p>
+<p>映射用于快速编辑属性。</p>
+#$@text#$@
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@actions1/@getMappingFields
+sname
+getMappingFields
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import xworker.dataObject.DataObject;
+
+//获取全部的表
+def datas = [];
+datas.add(["colName":"key", "colTitle":"键"]);
+datas.add(["colName":"value", "colTitle":"值"]);
+
+return datas;
+#$@text#$@
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@actions1/@getMappingAttributeName
+sname
+getMappingAttributeName
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+scode
+return "propertyPath";
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@actions1/@getAttributeDescriptor
+sname
+getAttributeDescriptor
+stype
+string
+svalue
+xworker.dataObject.java.MapDataObject/@attribute
+sinitBreakPoint
+false
+ssuccessBreakPoint
+false
+sexceptionBreakPoint
+false
+seditBreakPoint
+false
+sinterpretationType
+Self
+svarScope
+Local
+sdescriptors
+xworker.lang.actions.Actions/@ValueFactory
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@name
+sname
+name
+sreadOnly
+false
+sinheritDescription
+false
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@label
+sname
+label
+sreadOnly
+false
+sinheritDescription
+false
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@mapVarName
+sname
+mapVarName
+ssize
+60
+scolspan
+2
+sreadOnly
+false
+sinheritDescription
+false
+sdescription
+<p>Map数据的变量名，从actionContext用Ognl表达失取。</p>
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@attribute
+sname
+attribute
+slabel
+Attribute
+sdescriptors
+xworker.lang.MetaDescriptor2/@thing
+sextends
+xworker.dataObject.Attribute
+smany
+true
+seditCols
+2
+Sdescription
+#$@text#$@
+<p>属性映射，Map的键值是key，值是value。</p>
+<p>如：key对应的键值，value.name对应value的name属性。</p>
+#$@text#$@
+sid
+attribute
+szh_label
+属性
+Szh_description
+#$@text#$@
+<p>attribute things, used to describe the properties of a thing.</p>
+<p>description of the property is also used to edit attributes, the properties of the various properties of things, defines how to edit the method described properties can be adjusted by setting the relevant parameters editing interface.</p>
+<p>property editor control, the name of the default in the action context &quot;attribute name&gt; + Input, such as attribute named name, then it's the name of the edit control nameInput.</p>
+<p>If the specified edit control for the list, drop-down box, multiple choice, radio, etc., you can set the property value to specify the multiple-choice sub-things the value, you can write a getValues action to return the value of multiple-choice at this time getValues should return a List
+<thing></thing>
+.</p>
+<p>this property to achieve a number of things that the default edit control, custom edit control if needed, you can edit the settings by defining the SWT child to achieve things.</p>
+#$@text#$@
+@xworker.dataObject.java.MapDataObject/@attribute/@propertyPath
+sname
+propertyPath
+ssize
+60
+scolspan
+2
+sgroup
+Attribute
+sdescription
+<p>Ognl表达式，从数据上获取值。</p>
+sdescriptors
+xworker.lang.MetaDescriptor2/@attribute
+sth_createIndex
+false
+@xworker.dataObject.java.MapDataObject/@thing
+sname
+thing
+slabel
+Thing
+sdescriptors
+xworker.lang.MetaDescriptor2/@thing
+sextends
+xworker.dataObject.RelationDataObject
+smany
+true
+seditCols
+2
+sdescription
+<p>与其他数据对象有关联的属性或属性列表。</p>
+sid
+thing
+szh_label
+事物
+Szh_description
+#$@text#$@
+MetaDescriptorX是对元事物的扩展，MetaDescriptor3是目前常用的元事物扩展。<br />
+<br />
+因元事物任意事物的结构的结构，如果说Schema是XML的结构的话，那么可以说元事物是Scehma的Schema，所以元事物主要是用来定义结构（描述者或Schema）的事物。<br />
+<br />
+因元事物比较简单，用其直接定义结构功能比较弱，比如通过元事物不能定义属性的类型等，所以在此依次定义MetaDescriptorX了。<br />
+<br />
+事物编辑器的动态输入表单是根据MetaDescriptor3所设计，定义结构的根本是元事物，所以可以根据实际的需要定义元事物的扩展。
+#$@text#$@
+@xworker.dataObject.java.MapDataObject/@actions
+sname
+actions
+slabel
+Actions
+sdescriptors
+xworker.lang.MetaDescriptor2/@thing
+sextends
+xworker.lang.actions.Actions
+sid
+actions
+szh_label
+动作
+@xworker.dataObject.java.MapDataObject/@actions/@name
+sname
+name
+sid
+name
+sdescriptors
+xworker.lang.MetaDescriptor2/@attribute

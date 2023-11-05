@@ -1,0 +1,2763 @@
+Compiled from "Auditor.java"
+public class org.apache.bookkeeper.replication.Auditor implements java.lang.AutoCloseable {
+  private static final org.slf4j.Logger LOG;
+
+  private static final int MAX_CONCURRENT_REPLICAS_CHECK_LEDGER_REQUESTS;
+
+  private static final int REPLICAS_CHECK_TIMEOUT_IN_SECS;
+
+  private static final java.util.BitSet EMPTY_BITSET;
+
+  private final org.apache.bookkeeper.conf.ServerConfiguration conf;
+
+  private final org.apache.bookkeeper.client.BookKeeper bkc;
+
+  private final boolean ownBkc;
+
+  private final org.apache.bookkeeper.client.BookKeeperAdmin admin;
+
+  private final boolean ownAdmin;
+
+  private org.apache.bookkeeper.replication.BookieLedgerIndexer bookieLedgerIndexer;
+
+  private org.apache.bookkeeper.meta.LedgerManager ledgerManager;
+
+  private org.apache.bookkeeper.meta.LedgerUnderreplicationManager ledgerUnderreplicationManager;
+
+  private final java.util.concurrent.ScheduledExecutorService executor;
+
+  private java.util.List<java.lang.String> knownBookies;
+
+  private final java.lang.String bookieIdentifier;
+
+  private volatile java.util.concurrent.Future<?> auditTask;
+
+  private java.util.Set<java.lang.String> bookiesToBeAudited;
+
+  private volatile int lostBookieRecoveryDelayBeforeChange;
+
+  private final java.util.concurrent.atomic.AtomicInteger ledgersNotAdheringToPlacementPolicyGuageValue;
+
+  private final java.util.concurrent.atomic.AtomicInteger numOfLedgersFoundNotAdheringInPlacementPolicyCheck;
+
+  private final java.util.concurrent.atomic.AtomicInteger ledgersSoftlyAdheringToPlacementPolicyGuageValue;
+
+  private final java.util.concurrent.atomic.AtomicInteger numOfLedgersFoundSoftlyAdheringInPlacementPolicyCheck;
+
+  private final java.util.concurrent.atomic.AtomicInteger numOfClosedLedgersAuditedInPlacementPolicyCheck;
+
+  private final java.util.concurrent.atomic.AtomicInteger numOfURLedgersElapsedRecoveryGracePeriodGuageValue;
+
+  private final java.util.concurrent.atomic.AtomicInteger numOfURLedgersElapsedRecoveryGracePeriod;
+
+  private final java.util.concurrent.atomic.AtomicInteger numLedgersHavingNoReplicaOfAnEntryGuageValue;
+
+  private final java.util.concurrent.atomic.AtomicInteger numLedgersFoundHavingNoReplicaOfAnEntry;
+
+  private final java.util.concurrent.atomic.AtomicInteger numLedgersHavingLessThanAQReplicasOfAnEntryGuageValue;
+
+  private final java.util.concurrent.atomic.AtomicInteger numLedgersFoundHavingLessThanAQReplicasOfAnEntry;
+
+  private final java.util.concurrent.atomic.AtomicInteger numLedgersHavingLessThanWQReplicasOfAnEntryGuageValue;
+
+  private final java.util.concurrent.atomic.AtomicInteger numLedgersFoundHavingLessThanWQReplicasOfAnEntry;
+
+  private final long underreplicatedLedgerRecoveryGracePeriod;
+
+  private final int zkOpTimeoutMs;
+
+  private final java.util.concurrent.Semaphore openLedgerNoRecoverySemaphore;
+
+  private final int openLedgerNoRecoverySemaphoreWaitTimeoutMSec;
+
+  private final org.apache.bookkeeper.stats.StatsLogger statsLogger;
+
+  private final org.apache.bookkeeper.stats.OpStatsLogger numUnderReplicatedLedger;
+
+  private final org.apache.bookkeeper.stats.OpStatsLogger underReplicatedLedgerTotalSize;
+
+  private final org.apache.bookkeeper.stats.OpStatsLogger uRLPublishTimeForLostBookies;
+
+  private final org.apache.bookkeeper.stats.OpStatsLogger bookieToLedgersMapCreationTime;
+
+  private final org.apache.bookkeeper.stats.OpStatsLogger checkAllLedgersTime;
+
+  private final org.apache.bookkeeper.stats.OpStatsLogger placementPolicyCheckTime;
+
+  private final org.apache.bookkeeper.stats.OpStatsLogger replicasCheckTime;
+
+  private final org.apache.bookkeeper.stats.OpStatsLogger auditBookiesTime;
+
+  private final org.apache.bookkeeper.stats.Counter numLedgersChecked;
+
+  private final org.apache.bookkeeper.stats.OpStatsLogger numFragmentsPerLedger;
+
+  private final org.apache.bookkeeper.stats.OpStatsLogger numBookiesPerLedger;
+
+  private final org.apache.bookkeeper.stats.Counter numBookieAuditsDelayed;
+
+  private final org.apache.bookkeeper.stats.Counter numDelayedBookieAuditsCancelled;
+
+  private final org.apache.bookkeeper.stats.Gauge<java.lang.Integer> numLedgersNotAdheringToPlacementPolicy;
+
+  private final org.apache.bookkeeper.stats.Gauge<java.lang.Integer> numLedgersSoftlyAdheringToPlacementPolicy;
+
+  private final org.apache.bookkeeper.stats.Gauge<java.lang.Integer> numUnderreplicatedLedgersElapsedRecoveryGracePeriod;
+
+  private final org.apache.bookkeeper.stats.Gauge<java.lang.Integer> numLedgersHavingNoReplicaOfAnEntry;
+
+  private final org.apache.bookkeeper.stats.Gauge<java.lang.Integer> numLedgersHavingLessThanAQReplicasOfAnEntry;
+
+  private final org.apache.bookkeeper.stats.Gauge<java.lang.Integer> numLedgersHavingLessThanWQReplicasOfAnEntry;
+
+  private final java.lang.Runnable bookieCheck;
+
+  static org.apache.bookkeeper.client.BookKeeper createBookKeeperClient(org.apache.bookkeeper.conf.ServerConfiguration) throws java.lang.InterruptedException, java.io.IOException;
+    Code:
+       0: aload_0
+       1: getstatic     #34                 // Field org/apache/bookkeeper/stats/NullStatsLogger.INSTANCE:Lorg/apache/bookkeeper/stats/NullStatsLogger;
+       4: invokestatic  #35                 // Method createBookKeeperClient:(Lorg/apache/bookkeeper/conf/ServerConfiguration;Lorg/apache/bookkeeper/stats/StatsLogger;)Lorg/apache/bookkeeper/client/BookKeeper;
+       7: areturn
+
+  static org.apache.bookkeeper.client.BookKeeper createBookKeeperClient(org.apache.bookkeeper.conf.ServerConfiguration, org.apache.bookkeeper.stats.StatsLogger) throws java.lang.InterruptedException, java.io.IOException;
+    Code:
+       0: new           #36                 // class org/apache/bookkeeper/conf/ClientConfiguration
+       3: dup
+       4: aload_0
+       5: invokespecial #37                 // Method org/apache/bookkeeper/conf/ClientConfiguration."<init>":(Lorg/apache/bookkeeper/conf/AbstractConfiguration;)V
+       8: astore_2
+       9: aload_2
+      10: ldc           #38                 // String system
+      12: invokevirtual #39                 // Method org/apache/bookkeeper/conf/ClientConfiguration.setClientRole:(Ljava/lang/String;)Lorg/apache/bookkeeper/conf/ClientConfiguration;
+      15: pop
+      16: aload_2
+      17: invokestatic  #40                 // Method org/apache/bookkeeper/client/BookKeeper.forConfig:(Lorg/apache/bookkeeper/conf/ClientConfiguration;)Lorg/apache/bookkeeper/client/BookKeeper$Builder;
+      20: aload_1
+      21: invokevirtual #41                 // Method org/apache/bookkeeper/client/BookKeeper$Builder.statsLogger:(Lorg/apache/bookkeeper/stats/StatsLogger;)Lorg/apache/bookkeeper/client/BookKeeper$Builder;
+      24: invokevirtual #42                 // Method org/apache/bookkeeper/client/BookKeeper$Builder.build:()Lorg/apache/bookkeeper/client/BookKeeper;
+      27: areturn
+      28: astore_3
+      29: new           #44                 // class java/io/IOException
+      32: dup
+      33: ldc           #45                 // String Failed to create bookkeeper client
+      35: aload_3
+      36: invokespecial #46                 // Method java/io/IOException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      39: athrow
+    Exception table:
+       from    to  target type
+          16    27    28   Class org/apache/bookkeeper/client/BKException
+
+  static org.apache.bookkeeper.client.BookKeeper createBookKeeperClientThrowUnavailableException(org.apache.bookkeeper.conf.ServerConfiguration) throws org.apache.bookkeeper.replication.ReplicationException$UnavailableException;
+    Code:
+       0: aload_0
+       1: invokestatic  #47                 // Method createBookKeeperClient:(Lorg/apache/bookkeeper/conf/ServerConfiguration;)Lorg/apache/bookkeeper/client/BookKeeper;
+       4: areturn
+       5: astore_1
+       6: invokestatic  #49                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+       9: invokevirtual #50                 // Method java/lang/Thread.interrupt:()V
+      12: new           #51                 // class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+      15: dup
+      16: ldc           #45                 // String Failed to create bookkeeper client
+      18: aload_1
+      19: invokespecial #52                 // Method org/apache/bookkeeper/replication/ReplicationException$UnavailableException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      22: athrow
+      23: astore_1
+      24: new           #51                 // class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+      27: dup
+      28: ldc           #45                 // String Failed to create bookkeeper client
+      30: aload_1
+      31: invokespecial #52                 // Method org/apache/bookkeeper/replication/ReplicationException$UnavailableException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      34: athrow
+    Exception table:
+       from    to  target type
+           0     4     5   Class java/lang/InterruptedException
+           0     4    23   Class java/io/IOException
+
+  public org.apache.bookkeeper.replication.Auditor(java.lang.String, org.apache.bookkeeper.conf.ServerConfiguration, org.apache.bookkeeper.stats.StatsLogger) throws org.apache.bookkeeper.replication.ReplicationException$UnavailableException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_2
+       4: invokestatic  #53                 // Method createBookKeeperClientThrowUnavailableException:(Lorg/apache/bookkeeper/conf/ServerConfiguration;)Lorg/apache/bookkeeper/client/BookKeeper;
+       7: iconst_1
+       8: aload_3
+       9: invokespecial #54                 // Method "<init>":(Ljava/lang/String;Lorg/apache/bookkeeper/conf/ServerConfiguration;Lorg/apache/bookkeeper/client/BookKeeper;ZLorg/apache/bookkeeper/stats/StatsLogger;)V
+      12: return
+
+  public org.apache.bookkeeper.replication.Auditor(java.lang.String, org.apache.bookkeeper.conf.ServerConfiguration, org.apache.bookkeeper.client.BookKeeper, boolean, org.apache.bookkeeper.stats.StatsLogger) throws org.apache.bookkeeper.replication.ReplicationException$UnavailableException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: iload         4
+       6: new           #55                 // class org/apache/bookkeeper/client/BookKeeperAdmin
+       9: dup
+      10: aload_3
+      11: aload         5
+      13: invokespecial #56                 // Method org/apache/bookkeeper/client/BookKeeperAdmin."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;Lorg/apache/bookkeeper/stats/StatsLogger;)V
+      16: iconst_1
+      17: aload         5
+      19: invokespecial #57                 // Method "<init>":(Ljava/lang/String;Lorg/apache/bookkeeper/conf/ServerConfiguration;Lorg/apache/bookkeeper/client/BookKeeper;ZLorg/apache/bookkeeper/client/BookKeeperAdmin;ZLorg/apache/bookkeeper/stats/StatsLogger;)V
+      22: return
+
+  public org.apache.bookkeeper.replication.Auditor(java.lang.String, org.apache.bookkeeper.conf.ServerConfiguration, org.apache.bookkeeper.client.BookKeeper, boolean, org.apache.bookkeeper.client.BookKeeperAdmin, boolean, org.apache.bookkeeper.stats.StatsLogger) throws org.apache.bookkeeper.replication.ReplicationException$UnavailableException;
+    Code:
+       0: aload_0
+       1: invokespecial #58                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #59                 // class java/util/ArrayList
+       8: dup
+       9: invokespecial #60                 // Method java/util/ArrayList."<init>":()V
+      12: putfield      #22                 // Field knownBookies:Ljava/util/List;
+      15: aload_0
+      16: invokestatic  #61                 // Method com/google/common/collect/Sets.newHashSet:()Ljava/util/HashSet;
+      19: putfield      #21                 // Field bookiesToBeAudited:Ljava/util/Set;
+      22: aload_0
+      23: new           #62                 // class org/apache/bookkeeper/replication/Auditor$17
+      26: dup
+      27: aload_0
+      28: invokespecial #63                 // Method org/apache/bookkeeper/replication/Auditor$17."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+      31: putfield      #64                 // Field bookieCheck:Ljava/lang/Runnable;
+      34: aload_0
+      35: aload_2
+      36: putfield      #65                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+      39: aload_0
+      40: aload_2
+      41: invokevirtual #66                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getUnderreplicatedLedgerRecoveryGracePeriod:()J
+      44: putfield      #67                 // Field underreplicatedLedgerRecoveryGracePeriod:J
+      47: aload_0
+      48: aload_2
+      49: invokevirtual #68                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getZkTimeout:()I
+      52: iconst_2
+      53: imul
+      54: putfield      #69                 // Field zkOpTimeoutMs:I
+      57: aload_0
+      58: aload_1
+      59: putfield      #70                 // Field bookieIdentifier:Ljava/lang/String;
+      62: aload_0
+      63: aload         7
+      65: putfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+      68: aload_0
+      69: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+      72: dup
+      73: iconst_0
+      74: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      77: putfield      #14                 // Field numOfLedgersFoundNotAdheringInPlacementPolicyCheck:Ljava/util/concurrent/atomic/AtomicInteger;
+      80: aload_0
+      81: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+      84: dup
+      85: iconst_0
+      86: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      89: putfield      #33                 // Field ledgersNotAdheringToPlacementPolicyGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+      92: aload_0
+      93: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+      96: dup
+      97: iconst_0
+      98: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     101: putfield      #13                 // Field numOfLedgersFoundSoftlyAdheringInPlacementPolicyCheck:Ljava/util/concurrent/atomic/AtomicInteger;
+     104: aload_0
+     105: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     108: dup
+     109: iconst_0
+     110: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     113: putfield      #32                 // Field ledgersSoftlyAdheringToPlacementPolicyGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+     116: aload_0
+     117: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     120: dup
+     121: iconst_0
+     122: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     125: putfield      #12                 // Field numOfClosedLedgersAuditedInPlacementPolicyCheck:Ljava/util/concurrent/atomic/AtomicInteger;
+     128: aload_0
+     129: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     132: dup
+     133: iconst_0
+     134: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     137: putfield      #11                 // Field numOfURLedgersElapsedRecoveryGracePeriod:Ljava/util/concurrent/atomic/AtomicInteger;
+     140: aload_0
+     141: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     144: dup
+     145: iconst_0
+     146: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     149: putfield      #31                 // Field numOfURLedgersElapsedRecoveryGracePeriodGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+     152: aload_0
+     153: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     156: dup
+     157: iconst_0
+     158: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     161: putfield      #30                 // Field numLedgersHavingNoReplicaOfAnEntryGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+     164: aload_0
+     165: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     168: dup
+     169: iconst_0
+     170: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     173: putfield      #9                  // Field numLedgersFoundHavingNoReplicaOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+     176: aload_0
+     177: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     180: dup
+     181: iconst_0
+     182: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     185: putfield      #29                 // Field numLedgersHavingLessThanAQReplicasOfAnEntryGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+     188: aload_0
+     189: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     192: dup
+     193: iconst_0
+     194: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     197: putfield      #8                  // Field numLedgersFoundHavingLessThanAQReplicasOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+     200: aload_0
+     201: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     204: dup
+     205: iconst_0
+     206: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     209: putfield      #28                 // Field numLedgersHavingLessThanWQReplicasOfAnEntryGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+     212: aload_0
+     213: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     216: dup
+     217: iconst_0
+     218: invokespecial #73                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     221: putfield      #7                  // Field numLedgersFoundHavingLessThanWQReplicasOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+     224: aload_2
+     225: invokevirtual #74                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getAuditorMaxNumberOfConcurrentOpenLedgerOperations:()I
+     228: ifgt          251
+     231: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     234: ldc           #75                 // String auditorMaxNumberOfConcurrentOpenLedgerOperations should be greater than 0
+     236: invokeinterface #76,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+     241: new           #51                 // class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+     244: dup
+     245: ldc           #75                 // String auditorMaxNumberOfConcurrentOpenLedgerOperations should be greater than 0
+     247: invokespecial #77                 // Method org/apache/bookkeeper/replication/ReplicationException$UnavailableException."<init>":(Ljava/lang/String;)V
+     250: athrow
+     251: aload_0
+     252: new           #78                 // class java/util/concurrent/Semaphore
+     255: dup
+     256: aload_2
+     257: invokevirtual #74                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getAuditorMaxNumberOfConcurrentOpenLedgerOperations:()I
+     260: invokespecial #79                 // Method java/util/concurrent/Semaphore."<init>":(I)V
+     263: putfield      #80                 // Field openLedgerNoRecoverySemaphore:Ljava/util/concurrent/Semaphore;
+     266: aload_2
+     267: invokevirtual #81                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getAuditorAcquireConcurrentOpenLedgerOperationsTimeoutMSec:()I
+     270: ifge          293
+     273: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     276: ldc           #82                 // String auditorAcquireConcurrentOpenLedgerOperationsTimeoutMSec should be greater than or equal to 0
+     278: invokeinterface #76,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+     283: new           #51                 // class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+     286: dup
+     287: ldc           #82                 // String auditorAcquireConcurrentOpenLedgerOperationsTimeoutMSec should be greater than or equal to 0
+     289: invokespecial #77                 // Method org/apache/bookkeeper/replication/ReplicationException$UnavailableException."<init>":(Ljava/lang/String;)V
+     292: athrow
+     293: aload_0
+     294: aload_2
+     295: invokevirtual #81                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getAuditorAcquireConcurrentOpenLedgerOperationsTimeoutMSec:()I
+     298: putfield      #83                 // Field openLedgerNoRecoverySemaphoreWaitTimeoutMSec:I
+     301: aload_0
+     302: aload_0
+     303: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     306: ldc           #84                 // String NUM_UNDER_REPLICATED_LEDGERS
+     308: invokeinterface #85,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getOpStatsLogger:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     313: putfield      #86                 // Field numUnderReplicatedLedger:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     316: aload_0
+     317: aload_0
+     318: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     321: ldc           #87                 // String UNDER_REPLICATED_LEDGERS_TOTAL_SIZE
+     323: invokeinterface #85,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getOpStatsLogger:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     328: putfield      #88                 // Field underReplicatedLedgerTotalSize:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     331: aload_0
+     332: aload_0
+     333: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     336: ldc           #89                 // String URL_PUBLISH_TIME_FOR_LOST_BOOKIE
+     338: invokeinterface #85,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getOpStatsLogger:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     343: putfield      #90                 // Field uRLPublishTimeForLostBookies:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     346: aload_0
+     347: aload_0
+     348: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     351: ldc           #91                 // String BOOKIE_TO_LEDGERS_MAP_CREATION_TIME
+     353: invokeinterface #85,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getOpStatsLogger:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     358: putfield      #92                 // Field bookieToLedgersMapCreationTime:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     361: aload_0
+     362: aload_0
+     363: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     366: ldc           #93                 // String CHECK_ALL_LEDGERS_TIME
+     368: invokeinterface #85,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getOpStatsLogger:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     373: putfield      #15                 // Field checkAllLedgersTime:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     376: aload_0
+     377: aload_0
+     378: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     381: ldc           #94                 // String PLACEMENT_POLICY_CHECK_TIME
+     383: invokeinterface #85,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getOpStatsLogger:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     388: putfield      #10                 // Field placementPolicyCheckTime:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     391: aload_0
+     392: aload_0
+     393: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     396: ldc           #95                 // String REPLICAS_CHECK_TIME
+     398: invokeinterface #85,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getOpStatsLogger:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     403: putfield      #6                  // Field replicasCheckTime:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     406: aload_0
+     407: aload_0
+     408: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     411: ldc           #96                 // String AUDIT_BOOKIES_TIME
+     413: invokeinterface #85,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getOpStatsLogger:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     418: putfield      #97                 // Field auditBookiesTime:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     421: aload_0
+     422: aload_0
+     423: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     426: ldc           #98                 // String NUM_LEDGERS_CHECKED
+     428: invokeinterface #99,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getCounter:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/Counter;
+     433: putfield      #100                // Field numLedgersChecked:Lorg/apache/bookkeeper/stats/Counter;
+     436: aload_0
+     437: aload         7
+     439: ldc           #101                // String NUM_FRAGMENTS_PER_LEDGER
+     441: invokeinterface #85,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getOpStatsLogger:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     446: putfield      #102                // Field numFragmentsPerLedger:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     449: aload_0
+     450: aload         7
+     452: ldc           #103                // String NUM_BOOKIES_PER_LEDGER
+     454: invokeinterface #85,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getOpStatsLogger:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     459: putfield      #104                // Field numBookiesPerLedger:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     462: aload_0
+     463: aload_0
+     464: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     467: ldc           #105                // String NUM_BOOKIE_AUDITS_DELAYED
+     469: invokeinterface #99,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getCounter:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/Counter;
+     474: putfield      #17                 // Field numBookieAuditsDelayed:Lorg/apache/bookkeeper/stats/Counter;
+     477: aload_0
+     478: aload_0
+     479: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     482: ldc           #106                // String NUM_DELAYED_BOOKIE_AUDITS_CANCELLED
+     484: invokeinterface #99,  2           // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.getCounter:(Ljava/lang/String;)Lorg/apache/bookkeeper/stats/Counter;
+     489: putfield      #19                 // Field numDelayedBookieAuditsCancelled:Lorg/apache/bookkeeper/stats/Counter;
+     492: aload_0
+     493: new           #107                // class org/apache/bookkeeper/replication/Auditor$1
+     496: dup
+     497: aload_0
+     498: invokespecial #108                // Method org/apache/bookkeeper/replication/Auditor$1."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+     501: putfield      #109                // Field numLedgersNotAdheringToPlacementPolicy:Lorg/apache/bookkeeper/stats/Gauge;
+     504: aload_0
+     505: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     508: ldc           #110                // String NUM_LEDGERS_NOT_ADHERING_TO_PLACEMENT_POLICY
+     510: aload_0
+     511: getfield      #109                // Field numLedgersNotAdheringToPlacementPolicy:Lorg/apache/bookkeeper/stats/Gauge;
+     514: invokeinterface #111,  3          // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.registerGauge:(Ljava/lang/String;Lorg/apache/bookkeeper/stats/Gauge;)V
+     519: aload_0
+     520: new           #112                // class org/apache/bookkeeper/replication/Auditor$2
+     523: dup
+     524: aload_0
+     525: invokespecial #113                // Method org/apache/bookkeeper/replication/Auditor$2."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+     528: putfield      #114                // Field numLedgersSoftlyAdheringToPlacementPolicy:Lorg/apache/bookkeeper/stats/Gauge;
+     531: aload_0
+     532: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     535: ldc           #115                // String NUM_LEDGERS_SOFTLY_ADHERING_TO_PLACEMENT_POLICY
+     537: aload_0
+     538: getfield      #114                // Field numLedgersSoftlyAdheringToPlacementPolicy:Lorg/apache/bookkeeper/stats/Gauge;
+     541: invokeinterface #111,  3          // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.registerGauge:(Ljava/lang/String;Lorg/apache/bookkeeper/stats/Gauge;)V
+     546: aload_0
+     547: new           #116                // class org/apache/bookkeeper/replication/Auditor$3
+     550: dup
+     551: aload_0
+     552: invokespecial #117                // Method org/apache/bookkeeper/replication/Auditor$3."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+     555: putfield      #118                // Field numUnderreplicatedLedgersElapsedRecoveryGracePeriod:Lorg/apache/bookkeeper/stats/Gauge;
+     558: aload_0
+     559: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     562: ldc           #119                // String NUM_UNDERREPLICATED_LEDGERS_ELAPSED_RECOVERY_GRACE_PERIOD
+     564: aload_0
+     565: getfield      #118                // Field numUnderreplicatedLedgersElapsedRecoveryGracePeriod:Lorg/apache/bookkeeper/stats/Gauge;
+     568: invokeinterface #111,  3          // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.registerGauge:(Ljava/lang/String;Lorg/apache/bookkeeper/stats/Gauge;)V
+     573: aload_0
+     574: new           #120                // class org/apache/bookkeeper/replication/Auditor$4
+     577: dup
+     578: aload_0
+     579: invokespecial #121                // Method org/apache/bookkeeper/replication/Auditor$4."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+     582: putfield      #122                // Field numLedgersHavingNoReplicaOfAnEntry:Lorg/apache/bookkeeper/stats/Gauge;
+     585: aload_0
+     586: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     589: ldc           #123                // String NUM_LEDGERS_HAVING_NO_REPLICA_OF_AN_ENTRY
+     591: aload_0
+     592: getfield      #122                // Field numLedgersHavingNoReplicaOfAnEntry:Lorg/apache/bookkeeper/stats/Gauge;
+     595: invokeinterface #111,  3          // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.registerGauge:(Ljava/lang/String;Lorg/apache/bookkeeper/stats/Gauge;)V
+     600: aload_0
+     601: new           #124                // class org/apache/bookkeeper/replication/Auditor$5
+     604: dup
+     605: aload_0
+     606: invokespecial #125                // Method org/apache/bookkeeper/replication/Auditor$5."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+     609: putfield      #126                // Field numLedgersHavingLessThanAQReplicasOfAnEntry:Lorg/apache/bookkeeper/stats/Gauge;
+     612: aload_0
+     613: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     616: ldc           #127                // String NUM_LEDGERS_HAVING_LESS_THAN_AQ_REPLICAS_OF_AN_ENTRY
+     618: aload_0
+     619: getfield      #126                // Field numLedgersHavingLessThanAQReplicasOfAnEntry:Lorg/apache/bookkeeper/stats/Gauge;
+     622: invokeinterface #111,  3          // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.registerGauge:(Ljava/lang/String;Lorg/apache/bookkeeper/stats/Gauge;)V
+     627: aload_0
+     628: new           #128                // class org/apache/bookkeeper/replication/Auditor$6
+     631: dup
+     632: aload_0
+     633: invokespecial #129                // Method org/apache/bookkeeper/replication/Auditor$6."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+     636: putfield      #130                // Field numLedgersHavingLessThanWQReplicasOfAnEntry:Lorg/apache/bookkeeper/stats/Gauge;
+     639: aload_0
+     640: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+     643: ldc           #131                // String NUM_LEDGERS_HAVING_LESS_THAN_WQ_REPLICAS_OF_AN_ENTRY
+     645: aload_0
+     646: getfield      #130                // Field numLedgersHavingLessThanWQReplicasOfAnEntry:Lorg/apache/bookkeeper/stats/Gauge;
+     649: invokeinterface #111,  3          // InterfaceMethod org/apache/bookkeeper/stats/StatsLogger.registerGauge:(Ljava/lang/String;Lorg/apache/bookkeeper/stats/Gauge;)V
+     654: aload_0
+     655: aload_3
+     656: putfield      #132                // Field bkc:Lorg/apache/bookkeeper/client/BookKeeper;
+     659: aload_0
+     660: iload         4
+     662: putfield      #133                // Field ownBkc:Z
+     665: aload_0
+     666: aload         5
+     668: putfield      #3                  // Field admin:Lorg/apache/bookkeeper/client/BookKeeperAdmin;
+     671: aload_0
+     672: iload         6
+     674: putfield      #134                // Field ownAdmin:Z
+     677: aload_0
+     678: aload_2
+     679: aload_3
+     680: invokespecial #135                // Method initialize:(Lorg/apache/bookkeeper/conf/ServerConfiguration;Lorg/apache/bookkeeper/client/BookKeeper;)V
+     683: aload_0
+     684: new           #136                // class org/apache/bookkeeper/replication/Auditor$7
+     687: dup
+     688: aload_0
+     689: aload_1
+     690: invokespecial #137                // Method org/apache/bookkeeper/replication/Auditor$7."<init>":(Lorg/apache/bookkeeper/replication/Auditor;Ljava/lang/String;)V
+     693: invokestatic  #138                // Method java/util/concurrent/Executors.newSingleThreadScheduledExecutor:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ScheduledExecutorService;
+     696: putfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+     699: return
+
+  private void initialize(org.apache.bookkeeper.conf.ServerConfiguration, org.apache.bookkeeper.client.BookKeeper) throws org.apache.bookkeeper.replication.ReplicationException$UnavailableException;
+    Code:
+       0: aload_1
+       1: aload_2
+       2: invokevirtual #139                // Method org/apache/bookkeeper/client/BookKeeper.getMetadataClientDriver:()Lorg/apache/bookkeeper/meta/MetadataClientDriver;
+       5: invokeinterface #140,  1          // InterfaceMethod org/apache/bookkeeper/meta/MetadataClientDriver.getLayoutManager:()Lorg/apache/bookkeeper/meta/LayoutManager;
+      10: invokestatic  #141                // Method org/apache/bookkeeper/meta/AbstractZkLedgerManagerFactory.newLedgerManagerFactory:(Lorg/apache/bookkeeper/conf/AbstractConfiguration;Lorg/apache/bookkeeper/meta/LayoutManager;)Lorg/apache/bookkeeper/meta/LedgerManagerFactory;
+      13: astore_3
+      14: aload_0
+      15: aload_3
+      16: invokeinterface #142,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManagerFactory.newLedgerManager:()Lorg/apache/bookkeeper/meta/LedgerManager;
+      21: putfield      #4                  // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+      24: aload_0
+      25: new           #143                // class org/apache/bookkeeper/replication/BookieLedgerIndexer
+      28: dup
+      29: aload_0
+      30: getfield      #4                  // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+      33: invokespecial #144                // Method org/apache/bookkeeper/replication/BookieLedgerIndexer."<init>":(Lorg/apache/bookkeeper/meta/LedgerManager;)V
+      36: putfield      #145                // Field bookieLedgerIndexer:Lorg/apache/bookkeeper/replication/BookieLedgerIndexer;
+      39: aload_0
+      40: aload_3
+      41: invokeinterface #146,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManagerFactory.newLedgerUnderreplicationManager:()Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      46: putfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      49: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      52: ldc           #147                // String AuthProvider used by the Auditor is {}
+      54: aload_0
+      55: getfield      #3                  // Field admin:Lorg/apache/bookkeeper/client/BookKeeperAdmin;
+      58: invokevirtual #148                // Method org/apache/bookkeeper/client/BookKeeperAdmin.getConf:()Lorg/apache/bookkeeper/conf/ClientConfiguration;
+      61: invokevirtual #149                // Method org/apache/bookkeeper/conf/ClientConfiguration.getClientAuthProviderFactoryClass:()Ljava/lang/String;
+      64: invokeinterface #150,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      69: aload_0
+      70: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      73: aload_1
+      74: invokevirtual #151                // Method org/apache/bookkeeper/conf/ServerConfiguration.getLostBookieRecoveryDelay:()I
+      77: invokeinterface #152,  2          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.initializeLostBookieRecoveryDelay:(I)Z
+      82: ifeq          105
+      85: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      88: ldc           #153                // String Initializing lostBookieRecoveryDelay zNode to the conif value: {}
+      90: aload_1
+      91: invokevirtual #151                // Method org/apache/bookkeeper/conf/ServerConfiguration.getLostBookieRecoveryDelay:()I
+      94: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      97: invokeinterface #150,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     102: goto          115
+     105: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     108: ldc           #155                // String Valid lostBookieRecoveryDelay zNode is available, so not creating lostBookieRecoveryDelay zNode as part of Auditor initialization
+     110: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     115: aload_0
+     116: aload_0
+     117: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+     120: invokeinterface #157,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.getLostBookieRecoveryDelay:()I
+     125: putfield      #16                 // Field lostBookieRecoveryDelayBeforeChange:I
+     128: goto          173
+     131: astore_3
+     132: new           #51                 // class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+     135: dup
+     136: ldc           #159                // String CompatibilityException while initializing Auditor
+     138: aload_3
+     139: invokespecial #52                 // Method org/apache/bookkeeper/replication/ReplicationException$UnavailableException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     142: athrow
+     143: astore_3
+     144: new           #51                 // class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+     147: dup
+     148: ldc           #161                // String Exception while initializing Auditor
+     150: aload_3
+     151: invokespecial #52                 // Method org/apache/bookkeeper/replication/ReplicationException$UnavailableException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     154: athrow
+     155: astore_3
+     156: invokestatic  #49                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     159: invokevirtual #50                 // Method java/lang/Thread.interrupt:()V
+     162: new           #51                 // class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+     165: dup
+     166: ldc           #162                // String Interrupted while initializing Auditor
+     168: aload_3
+     169: invokespecial #52                 // Method org/apache/bookkeeper/replication/ReplicationException$UnavailableException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     172: athrow
+     173: return
+    Exception table:
+       from    to  target type
+           0   128   131   Class org/apache/bookkeeper/replication/ReplicationException$CompatibilityException
+           0   128   143   Class java/io/IOException
+           0   128   143   Class org/apache/zookeeper/KeeperException
+           0   128   155   Class java/lang/InterruptedException
+
+  private void submitShutdownTask();
+    Code:
+       0: aload_0
+       1: dup
+       2: astore_1
+       3: monitorenter
+       4: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+       7: ldc           #163                // String Executing submitShutdownTask
+       9: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      14: aload_0
+      15: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      18: invokeinterface #164,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.isShutdown:()Z
+      23: ifeq          39
+      26: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      29: ldc           #165                // String executor is already shutdown
+      31: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      36: aload_1
+      37: monitorexit
+      38: return
+      39: aload_0
+      40: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      43: new           #166                // class org/apache/bookkeeper/replication/Auditor$8
+      46: dup
+      47: aload_0
+      48: invokespecial #167                // Method org/apache/bookkeeper/replication/Auditor$8."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+      51: invokestatic  #168                // Method org/apache/bookkeeper/util/SafeRunnable.safeRun:(Ljava/lang/Runnable;)Lorg/apache/bookkeeper/util/SafeRunnable;
+      54: invokeinterface #169,  2          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+      59: pop
+      60: aload_1
+      61: monitorexit
+      62: goto          70
+      65: astore_2
+      66: aload_1
+      67: monitorexit
+      68: aload_2
+      69: athrow
+      70: return
+    Exception table:
+       from    to  target type
+           4    38    65   any
+          39    62    65   any
+          65    68    65   any
+
+  synchronized java.util.concurrent.Future<?> submitAuditTask();
+    Code:
+       0: aload_0
+       1: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+       4: invokeinterface #164,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.isShutdown:()Z
+       9: ifeq          32
+      12: invokestatic  #170                // Method com/google/common/util/concurrent/SettableFuture.create:()Lcom/google/common/util/concurrent/SettableFuture;
+      15: astore_1
+      16: aload_1
+      17: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+      20: dup
+      21: ldc           #172                // String Auditor shutting down
+      23: invokespecial #173                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;)V
+      26: invokevirtual #174                // Method com/google/common/util/concurrent/SettableFuture.setException:(Ljava/lang/Throwable;)Z
+      29: pop
+      30: aload_1
+      31: areturn
+      32: aload_0
+      33: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      36: new           #175                // class org/apache/bookkeeper/replication/Auditor$9
+      39: dup
+      40: aload_0
+      41: invokespecial #176                // Method org/apache/bookkeeper/replication/Auditor$9."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+      44: invokestatic  #168                // Method org/apache/bookkeeper/util/SafeRunnable.safeRun:(Ljava/lang/Runnable;)Lorg/apache/bookkeeper/util/SafeRunnable;
+      47: invokeinterface #169,  2          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+      52: areturn
+
+  synchronized java.util.concurrent.Future<?> submitLostBookieRecoveryDelayChangedEvent();
+    Code:
+       0: aload_0
+       1: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+       4: invokeinterface #164,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.isShutdown:()Z
+       9: ifeq          32
+      12: invokestatic  #170                // Method com/google/common/util/concurrent/SettableFuture.create:()Lcom/google/common/util/concurrent/SettableFuture;
+      15: astore_1
+      16: aload_1
+      17: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+      20: dup
+      21: ldc           #172                // String Auditor shutting down
+      23: invokespecial #173                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;)V
+      26: invokevirtual #174                // Method com/google/common/util/concurrent/SettableFuture.setException:(Ljava/lang/Throwable;)Z
+      29: pop
+      30: aload_1
+      31: areturn
+      32: aload_0
+      33: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      36: new           #177                // class org/apache/bookkeeper/replication/Auditor$10
+      39: dup
+      40: aload_0
+      41: invokespecial #178                // Method org/apache/bookkeeper/replication/Auditor$10."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+      44: invokestatic  #168                // Method org/apache/bookkeeper/util/SafeRunnable.safeRun:(Ljava/lang/Runnable;)Lorg/apache/bookkeeper/util/SafeRunnable;
+      47: invokeinterface #169,  2          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+      52: areturn
+
+  public void start();
+    Code:
+       0: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #179                // String I\'m starting as Auditor Bookie. ID: {}
+       5: aload_0
+       6: getfield      #70                 // Field bookieIdentifier:Ljava/lang/String;
+       9: invokeinterface #150,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      14: aload_0
+      15: dup
+      16: astore_1
+      17: monitorenter
+      18: aload_0
+      19: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      22: invokeinterface #164,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.isShutdown:()Z
+      27: ifeq          33
+      30: aload_1
+      31: monitorexit
+      32: return
+      33: aload_0
+      34: invokespecial #180                // Method watchBookieChanges:()V
+      37: aload_0
+      38: aload_0
+      39: invokespecial #23                 // Method getAvailableBookies:()Ljava/util/List;
+      42: putfield      #22                 // Field knownBookies:Ljava/util/List;
+      45: goto          64
+      48: astore_2
+      49: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      52: ldc           #181                // String Couldn\'t get bookie list, so exiting
+      54: aload_2
+      55: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      60: aload_0
+      61: invokespecial #183                // Method submitShutdownTask:()V
+      64: aload_0
+      65: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      68: new           #184                // class org/apache/bookkeeper/replication/Auditor$LostBookieRecoveryDelayChangedCb
+      71: dup
+      72: aload_0
+      73: aconst_null
+      74: invokespecial #185                // Method org/apache/bookkeeper/replication/Auditor$LostBookieRecoveryDelayChangedCb."<init>":(Lorg/apache/bookkeeper/replication/Auditor;Lorg/apache/bookkeeper/replication/Auditor$1;)V
+      77: invokeinterface #186,  2          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.notifyLostBookieRecoveryDelayChanged:(Lorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$GenericCallback;)V
+      82: goto          101
+      85: astore_2
+      86: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      89: ldc           #187                // String Exception while registering for LostBookieRecoveryDelay change notification, so exiting
+      91: aload_2
+      92: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      97: aload_0
+      98: invokespecial #183                // Method submitShutdownTask:()V
+     101: aload_0
+     102: invokespecial #188                // Method scheduleBookieCheckTask:()V
+     105: aload_0
+     106: invokespecial #189                // Method scheduleCheckAllLedgersTask:()V
+     109: aload_0
+     110: invokespecial #190                // Method schedulePlacementPolicyCheckTask:()V
+     113: aload_0
+     114: invokespecial #191                // Method scheduleReplicasCheckTask:()V
+     117: aload_1
+     118: monitorexit
+     119: goto          127
+     122: astore_3
+     123: aload_1
+     124: monitorexit
+     125: aload_3
+     126: athrow
+     127: return
+    Exception table:
+       from    to  target type
+          33    45    48   Class org/apache/bookkeeper/client/BKException
+          64    82    85   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+          18    32   122   any
+          33   119   122   any
+         122   125   122   any
+
+  private void scheduleBookieCheckTask();
+    Code:
+       0: aload_0
+       1: getfield      #65                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+       4: invokevirtual #192                // Method org/apache/bookkeeper/conf/ServerConfiguration.getAuditorPeriodicBookieCheckInterval:()J
+       7: lstore_1
+       8: lload_1
+       9: lconst_0
+      10: lcmp
+      11: ifne          44
+      14: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      17: ldc           #193                // String Auditor periodic bookie checking disabled, running once check now anyhow
+      19: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      24: aload_0
+      25: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      28: aload_0
+      29: getfield      #64                 // Field bookieCheck:Ljava/lang/Runnable;
+      32: invokestatic  #168                // Method org/apache/bookkeeper/util/SafeRunnable.safeRun:(Ljava/lang/Runnable;)Lorg/apache/bookkeeper/util/SafeRunnable;
+      35: invokeinterface #169,  2          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+      40: pop
+      41: goto          80
+      44: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      47: ldc           #194                // String Auditor periodic bookie checking enabled \'auditorPeriodicBookieCheckInterval\' {} seconds
+      49: lload_1
+      50: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      53: invokeinterface #150,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      58: aload_0
+      59: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      62: aload_0
+      63: getfield      #64                 // Field bookieCheck:Ljava/lang/Runnable;
+      66: invokestatic  #168                // Method org/apache/bookkeeper/util/SafeRunnable.safeRun:(Ljava/lang/Runnable;)Lorg/apache/bookkeeper/util/SafeRunnable;
+      69: lconst_0
+      70: lload_1
+      71: getstatic     #196                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      74: invokeinterface #197,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+      79: pop
+      80: return
+
+  private void scheduleCheckAllLedgersTask();
+    Code:
+       0: aload_0
+       1: getfield      #65                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+       4: invokevirtual #198                // Method org/apache/bookkeeper/conf/ServerConfiguration.getAuditorPeriodicCheckInterval:()J
+       7: lstore_1
+       8: lload_1
+       9: lconst_0
+      10: lcmp
+      11: ifle          190
+      14: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      17: ldc           #199                // String Auditor periodic ledger checking enabled \'auditorPeriodicCheckInterval\' {} seconds
+      19: lload_1
+      20: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      23: invokeinterface #150,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      28: aload_0
+      29: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      32: invokeinterface #200,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.getCheckAllLedgersCTime:()J
+      37: lstore_3
+      38: goto          59
+      41: astore        9
+      43: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      46: ldc           #201                // String Got UnavailableException while trying to get checkAllLedgersCTime
+      48: aload         9
+      50: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      55: ldc2_w        #202                // long -1l
+      58: lstore_3
+      59: lload_3
+      60: ldc2_w        #202                // long -1l
+      63: lcmp
+      64: ifne          78
+      67: ldc2_w        #202                // long -1l
+      70: lstore        5
+      72: lconst_0
+      73: lstore        7
+      75: goto          116
+      78: invokestatic  #204                // Method java/lang/System.currentTimeMillis:()J
+      81: lload_3
+      82: lsub
+      83: ldc2_w        #205                // long 1000l
+      86: ldiv
+      87: lstore        5
+      89: lload         5
+      91: lconst_0
+      92: lcmp
+      93: ifge          99
+      96: lconst_0
+      97: lstore        5
+      99: lload         5
+     101: lload_1
+     102: lcmp
+     103: ifle          110
+     106: lconst_0
+     107: goto          114
+     110: lload_1
+     111: lload         5
+     113: lsub
+     114: lstore        7
+     116: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     119: ldc           #207                // String checkAllLedgers scheduling info.  checkAllLedgersLastExecutedCTime: {} durationSinceLastExecutionInSecs: {} initialDelay: {} interval: {}
+     121: iconst_4
+     122: anewarray     #208                // class java/lang/Object
+     125: dup
+     126: iconst_0
+     127: lload_3
+     128: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     131: aastore
+     132: dup
+     133: iconst_1
+     134: lload         5
+     136: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     139: aastore
+     140: dup
+     141: iconst_2
+     142: lload         7
+     144: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     147: aastore
+     148: dup
+     149: iconst_3
+     150: lload_1
+     151: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     154: aastore
+     155: invokeinterface #209,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+     160: aload_0
+     161: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+     164: new           #210                // class org/apache/bookkeeper/replication/Auditor$11
+     167: dup
+     168: aload_0
+     169: invokespecial #211                // Method org/apache/bookkeeper/replication/Auditor$11."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+     172: invokestatic  #168                // Method org/apache/bookkeeper/util/SafeRunnable.safeRun:(Ljava/lang/Runnable;)Lorg/apache/bookkeeper/util/SafeRunnable;
+     175: lload         7
+     177: lload_1
+     178: getstatic     #196                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     181: invokeinterface #197,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+     186: pop
+     187: goto          200
+     190: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     193: ldc           #212                // String Periodic checking disabled
+     195: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     200: return
+    Exception table:
+       from    to  target type
+          28    38    41   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+
+  private void schedulePlacementPolicyCheckTask();
+    Code:
+       0: aload_0
+       1: getfield      #65                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+       4: invokevirtual #213                // Method org/apache/bookkeeper/conf/ServerConfiguration.getAuditorPeriodicPlacementPolicyCheckInterval:()J
+       7: lstore_1
+       8: lload_1
+       9: lconst_0
+      10: lcmp
+      11: ifle          190
+      14: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      17: ldc           #214                // String Auditor periodic placement policy check enabled \'auditorPeriodicPlacementPolicyCheckInterval\' {} seconds
+      19: lload_1
+      20: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      23: invokeinterface #150,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      28: aload_0
+      29: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      32: invokeinterface #215,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.getPlacementPolicyCheckCTime:()J
+      37: lstore_3
+      38: goto          59
+      41: astore        9
+      43: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      46: ldc           #216                // String Got UnavailableException while trying to get placementPolicyCheckCTime
+      48: aload         9
+      50: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      55: ldc2_w        #202                // long -1l
+      58: lstore_3
+      59: lload_3
+      60: ldc2_w        #202                // long -1l
+      63: lcmp
+      64: ifne          78
+      67: ldc2_w        #202                // long -1l
+      70: lstore        5
+      72: lconst_0
+      73: lstore        7
+      75: goto          116
+      78: invokestatic  #204                // Method java/lang/System.currentTimeMillis:()J
+      81: lload_3
+      82: lsub
+      83: ldc2_w        #205                // long 1000l
+      86: ldiv
+      87: lstore        5
+      89: lload         5
+      91: lconst_0
+      92: lcmp
+      93: ifge          99
+      96: lconst_0
+      97: lstore        5
+      99: lload         5
+     101: lload_1
+     102: lcmp
+     103: ifle          110
+     106: lconst_0
+     107: goto          114
+     110: lload_1
+     111: lload         5
+     113: lsub
+     114: lstore        7
+     116: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     119: ldc           #217                // String placementPolicyCheck scheduling info.  placementPolicyCheckLastExecutedCTime: {} durationSinceLastExecutionInSecs: {} initialDelay: {} interval: {}
+     121: iconst_4
+     122: anewarray     #208                // class java/lang/Object
+     125: dup
+     126: iconst_0
+     127: lload_3
+     128: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     131: aastore
+     132: dup
+     133: iconst_1
+     134: lload         5
+     136: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     139: aastore
+     140: dup
+     141: iconst_2
+     142: lload         7
+     144: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     147: aastore
+     148: dup
+     149: iconst_3
+     150: lload_1
+     151: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     154: aastore
+     155: invokeinterface #209,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+     160: aload_0
+     161: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+     164: new           #218                // class org/apache/bookkeeper/replication/Auditor$12
+     167: dup
+     168: aload_0
+     169: invokespecial #219                // Method org/apache/bookkeeper/replication/Auditor$12."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+     172: invokestatic  #168                // Method org/apache/bookkeeper/util/SafeRunnable.safeRun:(Ljava/lang/Runnable;)Lorg/apache/bookkeeper/util/SafeRunnable;
+     175: lload         7
+     177: lload_1
+     178: getstatic     #196                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     181: invokeinterface #197,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+     186: pop
+     187: goto          200
+     190: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     193: ldc           #220                // String Periodic placementPolicy check disabled
+     195: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     200: return
+    Exception table:
+       from    to  target type
+          28    38    41   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+
+  private void scheduleReplicasCheckTask();
+    Code:
+       0: aload_0
+       1: getfield      #65                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+       4: invokevirtual #221                // Method org/apache/bookkeeper/conf/ServerConfiguration.getAuditorPeriodicReplicasCheckInterval:()J
+       7: lstore_1
+       8: lload_1
+       9: lconst_0
+      10: lcmp
+      11: ifgt          25
+      14: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      17: ldc           #222                // String Periodic replicas check disabled
+      19: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      24: return
+      25: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      28: ldc           #223                // String Auditor periodic replicas check enabled \'auditorReplicasCheckInterval\' {} seconds
+      30: lload_1
+      31: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      34: invokeinterface #150,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      39: aload_0
+      40: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      43: invokeinterface #224,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.getReplicasCheckCTime:()J
+      48: lstore_3
+      49: goto          70
+      52: astore        9
+      54: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      57: ldc           #225                // String Got UnavailableException while trying to get replicasCheckCTime
+      59: aload         9
+      61: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      66: ldc2_w        #202                // long -1l
+      69: lstore_3
+      70: lload_3
+      71: ldc2_w        #202                // long -1l
+      74: lcmp
+      75: ifne          89
+      78: ldc2_w        #202                // long -1l
+      81: lstore        5
+      83: lconst_0
+      84: lstore        7
+      86: goto          127
+      89: invokestatic  #204                // Method java/lang/System.currentTimeMillis:()J
+      92: lload_3
+      93: lsub
+      94: ldc2_w        #205                // long 1000l
+      97: ldiv
+      98: lstore        5
+     100: lload         5
+     102: lconst_0
+     103: lcmp
+     104: ifge          110
+     107: lconst_0
+     108: lstore        5
+     110: lload         5
+     112: lload_1
+     113: lcmp
+     114: ifle          121
+     117: lconst_0
+     118: goto          125
+     121: lload_1
+     122: lload         5
+     124: lsub
+     125: lstore        7
+     127: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     130: ldc           #226                // String replicasCheck scheduling info. replicasCheckLastExecutedCTime: {} durationSinceLastExecutionInSecs: {} initialDelay: {} interval: {}
+     132: iconst_4
+     133: anewarray     #208                // class java/lang/Object
+     136: dup
+     137: iconst_0
+     138: lload_3
+     139: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     142: aastore
+     143: dup
+     144: iconst_1
+     145: lload         5
+     147: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     150: aastore
+     151: dup
+     152: iconst_2
+     153: lload         7
+     155: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     158: aastore
+     159: dup
+     160: iconst_3
+     161: lload_1
+     162: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     165: aastore
+     166: invokeinterface #209,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+     171: aload_0
+     172: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+     175: new           #227                // class org/apache/bookkeeper/replication/Auditor$13
+     178: dup
+     179: aload_0
+     180: invokespecial #228                // Method org/apache/bookkeeper/replication/Auditor$13."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+     183: invokestatic  #168                // Method org/apache/bookkeeper/util/SafeRunnable.safeRun:(Ljava/lang/Runnable;)Lorg/apache/bookkeeper/util/SafeRunnable;
+     186: lload         7
+     188: lload_1
+     189: getstatic     #196                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     192: invokeinterface #197,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+     197: pop
+     198: return
+    Exception table:
+       from    to  target type
+          39    49    52   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+
+  private void waitIfLedgerReplicationDisabled() throws org.apache.bookkeeper.replication.ReplicationException$UnavailableException, java.lang.InterruptedException;
+    Code:
+       0: new           #229                // class org/apache/bookkeeper/replication/ReplicationEnableCb
+       3: dup
+       4: invokespecial #230                // Method org/apache/bookkeeper/replication/ReplicationEnableCb."<init>":()V
+       7: astore_1
+       8: aload_0
+       9: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      12: invokeinterface #231,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.isLedgerReplicationEnabled:()Z
+      17: ifne          44
+      20: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      23: ldc           #232                // String LedgerReplication is disabled externally through Zookeeper, since DISABLE_NODE ZNode is created, so waiting untill it is enabled
+      25: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      30: aload_0
+      31: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      34: aload_1
+      35: invokeinterface #233,  2          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.notifyLedgerReplicationEnabled:(Lorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$GenericCallback;)V
+      40: aload_1
+      41: invokevirtual #234                // Method org/apache/bookkeeper/replication/ReplicationEnableCb.await:()V
+      44: return
+
+  private java.util.List<java.lang.String> getAvailableBookies() throws org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field admin:Lorg/apache/bookkeeper/client/BookKeeperAdmin;
+       4: invokevirtual #235                // Method org/apache/bookkeeper/client/BookKeeperAdmin.getAvailableBookies:()Ljava/util/Collection;
+       7: astore_1
+       8: aload_0
+       9: getfield      #3                  // Field admin:Lorg/apache/bookkeeper/client/BookKeeperAdmin;
+      12: invokevirtual #236                // Method org/apache/bookkeeper/client/BookKeeperAdmin.getReadOnlyBookies:()Ljava/util/Collection;
+      15: astore_2
+      16: aload_1
+      17: aload_2
+      18: invokeinterface #237,  2          // InterfaceMethod java/util/Collection.addAll:(Ljava/util/Collection;)Z
+      23: pop
+      24: new           #59                 // class java/util/ArrayList
+      27: dup
+      28: invokespecial #60                 // Method java/util/ArrayList."<init>":()V
+      31: astore_3
+      32: aload_1
+      33: invokeinterface #238,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      38: astore        4
+      40: aload         4
+      42: invokeinterface #239,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      47: ifeq          77
+      50: aload         4
+      52: invokeinterface #240,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      57: checkcast     #241                // class org/apache/bookkeeper/net/BookieId
+      60: astore        5
+      62: aload_3
+      63: aload         5
+      65: invokevirtual #242                // Method org/apache/bookkeeper/net/BookieId.toString:()Ljava/lang/String;
+      68: invokeinterface #243,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      73: pop
+      74: goto          40
+      77: aload_3
+      78: areturn
+
+  private void watchBookieChanges() throws org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field admin:Lorg/apache/bookkeeper/client/BookKeeperAdmin;
+       4: aload_0
+       5: invokedynamic #244,  0            // InvokeDynamic #0:onBookiesChanged:(Lorg/apache/bookkeeper/replication/Auditor;)Lorg/apache/bookkeeper/discover/RegistrationClient$RegistrationListener;
+      10: invokevirtual #245                // Method org/apache/bookkeeper/client/BookKeeperAdmin.watchWritableBookiesChanged:(Lorg/apache/bookkeeper/discover/RegistrationClient$RegistrationListener;)V
+      13: aload_0
+      14: getfield      #3                  // Field admin:Lorg/apache/bookkeeper/client/BookKeeperAdmin;
+      17: aload_0
+      18: invokedynamic #246,  0            // InvokeDynamic #1:onBookiesChanged:(Lorg/apache/bookkeeper/replication/Auditor;)Lorg/apache/bookkeeper/discover/RegistrationClient$RegistrationListener;
+      23: invokevirtual #247                // Method org/apache/bookkeeper/client/BookKeeperAdmin.watchReadOnlyBookiesChanged:(Lorg/apache/bookkeeper/discover/RegistrationClient$RegistrationListener;)V
+      26: return
+
+  private void startAudit(boolean);
+    Code:
+       0: aload_0
+       1: invokespecial #248                // Method auditBookies:()V
+       4: iconst_0
+       5: istore_1
+       6: goto          57
+       9: astore_2
+      10: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      13: ldc           #249                // String Exception getting bookie list
+      15: aload_2
+      16: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      21: goto          57
+      24: astore_2
+      25: invokestatic  #49                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      28: invokevirtual #50                 // Method java/lang/Thread.interrupt:()V
+      31: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      34: ldc           #250                // String Interrupted while watching available bookies
+      36: aload_2
+      37: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      42: goto          57
+      45: astore_2
+      46: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      49: ldc           #251                // String Exception while watching available bookies
+      51: aload_2
+      52: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      57: iload_1
+      58: ifeq          65
+      61: aload_0
+      62: invokespecial #183                // Method submitShutdownTask:()V
+      65: return
+    Exception table:
+       from    to  target type
+           0     6     9   Class org/apache/bookkeeper/client/BKException
+           0     6    24   Class java/lang/InterruptedException
+           0     6    45   Class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+
+  private void auditBookies() throws org.apache.bookkeeper.replication.ReplicationException$BKAuditException, java.lang.InterruptedException, org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: invokespecial #25                 // Method waitIfLedgerReplicationDisabled:()V
+       4: goto          19
+       7: astore_1
+       8: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      11: ldc           #252                // String Underreplication unavailable, skipping audit.Will retry after a period
+      13: invokeinterface #76,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      18: return
+      19: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      22: ldc           #253                // String Starting auditBookies
+      24: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      29: invokestatic  #254                // Method com/google/common/base/Stopwatch.createStarted:()Lcom/google/common/base/Stopwatch;
+      32: astore_1
+      33: aload_0
+      34: invokespecial #255                // Method generateBookie2LedgersIndex:()Ljava/util/Map;
+      37: astore_2
+      38: aload_0
+      39: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      42: invokeinterface #231,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.isLedgerReplicationEnabled:()Z
+      47: ifne          68
+      50: aload_0
+      51: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      54: aload_0
+      55: getfield      #64                 // Field bookieCheck:Ljava/lang/Runnable;
+      58: invokestatic  #168                // Method org/apache/bookkeeper/util/SafeRunnable.safeRun:(Ljava/lang/Runnable;)Lorg/apache/bookkeeper/util/SafeRunnable;
+      61: invokeinterface #169,  2          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+      66: pop
+      67: return
+      68: goto          83
+      71: astore_3
+      72: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      75: ldc           #252                // String Underreplication unavailable, skipping audit.Will retry after a period
+      77: invokeinterface #76,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      82: return
+      83: aload_0
+      84: invokespecial #23                 // Method getAvailableBookies:()Ljava/util/List;
+      87: astore_3
+      88: aload_2
+      89: invokeinterface #256,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+      94: astore        4
+      96: aload         4
+      98: aload_3
+      99: invokestatic  #257                // Method org/apache/commons/collections4/CollectionUtils.subtract:(Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/util/Collection;
+     102: astore        5
+     104: aload_0
+     105: getfield      #92                 // Field bookieToLedgersMapCreationTime:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     108: aload_1
+     109: getstatic     #258                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     112: invokevirtual #259                // Method com/google/common/base/Stopwatch.elapsed:(Ljava/util/concurrent/TimeUnit;)J
+     115: getstatic     #258                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     118: invokeinterface #260,  4          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulEvent:(JLjava/util/concurrent/TimeUnit;)V
+     123: aload         5
+     125: invokeinterface #261,  1          // InterfaceMethod java/util/Collection.size:()I
+     130: ifle          189
+     133: aload_0
+     134: aload         5
+     136: aload_2
+     137: invokespecial #262                // Method handleLostBookiesAsync:(Ljava/util/Collection;Ljava/util/Map;)Ljava/util/concurrent/CompletableFuture;
+     140: getstatic     #263                // Field org/apache/bookkeeper/replication/ReplicationException.EXCEPTION_HANDLER:Ljava/util/function/Function;
+     143: invokestatic  #264                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.result:(Ljava/util/concurrent/CompletableFuture;Ljava/util/function/Function;)Ljava/lang/Object;
+     146: pop
+     147: goto          170
+     150: astore        6
+     152: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+     155: dup
+     156: aload         6
+     158: invokevirtual #266                // Method org/apache/bookkeeper/replication/ReplicationException.getMessage:()Ljava/lang/String;
+     161: aload         6
+     163: invokevirtual #267                // Method org/apache/bookkeeper/replication/ReplicationException.getCause:()Ljava/lang/Throwable;
+     166: invokespecial #268                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     169: athrow
+     170: aload_0
+     171: getfield      #90                 // Field uRLPublishTimeForLostBookies:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     174: aload_1
+     175: getstatic     #258                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     178: invokevirtual #259                // Method com/google/common/base/Stopwatch.elapsed:(Ljava/util/concurrent/TimeUnit;)J
+     181: getstatic     #258                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     184: invokeinterface #260,  4          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulEvent:(JLjava/util/concurrent/TimeUnit;)V
+     189: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     192: ldc_w         #269                // String Completed auditBookies
+     195: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     200: aload_0
+     201: getfield      #97                 // Field auditBookiesTime:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     204: aload_1
+     205: invokevirtual #270                // Method com/google/common/base/Stopwatch.stop:()Lcom/google/common/base/Stopwatch;
+     208: getstatic     #258                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     211: invokevirtual #259                // Method com/google/common/base/Stopwatch.elapsed:(Ljava/util/concurrent/TimeUnit;)J
+     214: getstatic     #258                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     217: invokeinterface #260,  4          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulEvent:(JLjava/util/concurrent/TimeUnit;)V
+     222: return
+    Exception table:
+       from    to  target type
+           0     4     7   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+          38    67    71   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+         133   147   150   Class org/apache/bookkeeper/replication/ReplicationException
+
+  private java.util.Map<java.lang.String, java.util.Set<java.lang.Long>> generateBookie2LedgersIndex() throws org.apache.bookkeeper.replication.ReplicationException$BKAuditException;
+    Code:
+       0: aload_0
+       1: getfield      #145                // Field bookieLedgerIndexer:Lorg/apache/bookkeeper/replication/BookieLedgerIndexer;
+       4: invokevirtual #271                // Method org/apache/bookkeeper/replication/BookieLedgerIndexer.getBookieToLedgerIndex:()Ljava/util/Map;
+       7: areturn
+
+  private java.util.concurrent.CompletableFuture<?> handleLostBookiesAsync(java.util.Collection<java.lang.String>, java.util.Map<java.lang.String, java.util.Set<java.lang.Long>>);
+    Code:
+       0: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+       3: ldc_w         #272                // String Following are the failed bookies: {}, and searching its ledgers for re-replication
+       6: aload_1
+       7: invokeinterface #150,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      12: aload_1
+      13: invokestatic  #273                // Method com/google/common/collect/Lists.newArrayList:(Ljava/lang/Iterable;)Ljava/util/ArrayList;
+      16: aload_0
+      17: aload_2
+      18: invokedynamic #274,  0            // InvokeDynamic #2:apply:(Lorg/apache/bookkeeper/replication/Auditor;Ljava/util/Map;)Ljava/util/function/Function;
+      23: aconst_null
+      24: invokestatic  #275                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.processList:(Ljava/util/List;Ljava/util/function/Function;Ljava/util/concurrent/ExecutorService;)Ljava/util/concurrent/CompletableFuture;
+      27: areturn
+
+  private java.util.concurrent.CompletableFuture<?> publishSuspectedLedgersAsync(java.util.Collection<java.lang.String>, java.util.Set<java.lang.Long>);
+    Code:
+       0: aconst_null
+       1: aload_2
+       2: if_acmpeq     14
+       5: aload_2
+       6: invokeinterface #276,  1          // InterfaceMethod java/util/Set.size:()I
+      11: ifne          30
+      14: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      17: ldc_w         #277                // String There is no ledgers for the failed bookie: {}
+      20: aload_1
+      21: invokeinterface #150,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      26: invokestatic  #278                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.Void:()Ljava/util/concurrent/CompletableFuture;
+      29: areturn
+      30: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      33: ldc_w         #279                // String Following ledgers: {} of bookie: {} are identified as underreplicated
+      36: aload_2
+      37: aload_1
+      38: invokeinterface #280,  4          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      43: aload_0
+      44: getfield      #86                 // Field numUnderReplicatedLedger:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+      47: aload_2
+      48: invokeinterface #276,  1          // InterfaceMethod java/util/Set.size:()I
+      53: i2l
+      54: invokeinterface #281,  3          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulValue:(J)V
+      59: new           #282                // class java/util/concurrent/atomic/LongAdder
+      62: dup
+      63: invokespecial #283                // Method java/util/concurrent/atomic/LongAdder."<init>":()V
+      66: astore_3
+      67: aload_2
+      68: invokestatic  #273                // Method com/google/common/collect/Lists.newArrayList:(Ljava/lang/Iterable;)Ljava/util/ArrayList;
+      71: aload_0
+      72: aload_3
+      73: invokedynamic #284,  0            // InvokeDynamic #3:apply:(Lorg/apache/bookkeeper/replication/Auditor;Ljava/util/concurrent/atomic/LongAdder;)Ljava/util/function/Function;
+      78: aconst_null
+      79: invokestatic  #275                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.processList:(Ljava/util/List;Ljava/util/function/Function;Ljava/util/concurrent/ExecutorService;)Ljava/util/concurrent/CompletableFuture;
+      82: pop
+      83: aload_0
+      84: getfield      #88                 // Field underReplicatedLedgerTotalSize:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+      87: aload_3
+      88: invokevirtual #285                // Method java/util/concurrent/atomic/LongAdder.longValue:()J
+      91: invokeinterface #281,  3          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulValue:(J)V
+      96: aload_2
+      97: invokestatic  #273                // Method com/google/common/collect/Lists.newArrayList:(Ljava/lang/Iterable;)Ljava/util/ArrayList;
+     100: aload_0
+     101: aload_1
+     102: invokedynamic #286,  0            // InvokeDynamic #4:apply:(Lorg/apache/bookkeeper/replication/Auditor;Ljava/util/Collection;)Ljava/util/function/Function;
+     107: aconst_null
+     108: invokestatic  #275                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.processList:(Ljava/util/List;Ljava/util/function/Function;Ljava/util/concurrent/ExecutorService;)Ljava/util/concurrent/CompletableFuture;
+     111: areturn
+
+  org.apache.bookkeeper.client.BookKeeper getBookKeeper(org.apache.bookkeeper.conf.ServerConfiguration) throws java.io.IOException, java.lang.InterruptedException;
+    Code:
+       0: aload_1
+       1: invokestatic  #47                 // Method createBookKeeperClient:(Lorg/apache/bookkeeper/conf/ServerConfiguration;)Lorg/apache/bookkeeper/client/BookKeeper;
+       4: areturn
+
+  org.apache.bookkeeper.client.BookKeeperAdmin getBookKeeperAdmin(org.apache.bookkeeper.client.BookKeeper);
+    Code:
+       0: new           #55                 // class org/apache/bookkeeper/client/BookKeeperAdmin
+       3: dup
+       4: aload_1
+       5: aload_0
+       6: getfield      #71                 // Field statsLogger:Lorg/apache/bookkeeper/stats/StatsLogger;
+       9: invokespecial #56                 // Method org/apache/bookkeeper/client/BookKeeperAdmin."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;Lorg/apache/bookkeeper/stats/StatsLogger;)V
+      12: areturn
+
+  void checkAllLedgers() throws org.apache.bookkeeper.client.BKException, java.io.IOException, java.lang.InterruptedException, org.apache.zookeeper.KeeperException;
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #65                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+       5: invokevirtual #287                // Method getBookKeeper:(Lorg/apache/bookkeeper/conf/ServerConfiguration;)Lorg/apache/bookkeeper/client/BookKeeper;
+       8: astore_1
+       9: aload_0
+      10: aload_1
+      11: invokevirtual #288                // Method getBookKeeperAdmin:(Lorg/apache/bookkeeper/client/BookKeeper;)Lorg/apache/bookkeeper/client/BookKeeperAdmin;
+      14: astore_2
+      15: new           #289                // class org/apache/bookkeeper/client/LedgerChecker
+      18: dup
+      19: aload_1
+      20: invokespecial #290                // Method org/apache/bookkeeper/client/LedgerChecker."<init>":(Lorg/apache/bookkeeper/client/BookKeeper;)V
+      23: astore_3
+      24: new           #291                // class java/util/concurrent/CompletableFuture
+      27: dup
+      28: invokespecial #292                // Method java/util/concurrent/CompletableFuture."<init>":()V
+      31: astore        4
+      33: aload_0
+      34: aload         4
+      36: aload_2
+      37: aload_3
+      38: invokedynamic #293,  0            // InvokeDynamic #5:process:(Lorg/apache/bookkeeper/replication/Auditor;Ljava/util/concurrent/CompletableFuture;Lorg/apache/bookkeeper/client/BookKeeperAdmin;Lorg/apache/bookkeeper/client/LedgerChecker;)Lorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$Processor;
+      43: astore        5
+      45: aload_0
+      46: getfield      #4                  // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+      49: aload         5
+      51: aload         4
+      53: invokedynamic #294,  0            // InvokeDynamic #6:processResult:(Ljava/util/concurrent/CompletableFuture;)Lorg/apache/zookeeper/AsyncCallback$VoidCallback;
+      58: aconst_null
+      59: iconst_0
+      60: iconst_m1
+      61: invokeinterface #296,  6          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager.asyncProcessLedgers:(Lorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$Processor;Lorg/apache/zookeeper/AsyncCallback$VoidCallback;Ljava/lang/Object;II)V
+      66: aload         4
+      68: getstatic     #297                // Field org/apache/bookkeeper/client/BKException.HANDLER:Ljava/util/function/Function;
+      71: invokestatic  #264                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.result:(Ljava/util/concurrent/CompletableFuture;Ljava/util/function/Function;)Ljava/lang/Object;
+      74: pop
+      75: aload_0
+      76: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      79: invokestatic  #204                // Method java/lang/System.currentTimeMillis:()J
+      82: invokeinterface #298,  3          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.setCheckAllLedgersCTime:(J)V
+      87: goto          105
+      90: astore        6
+      92: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      95: ldc_w         #299                // String Got exception while trying to set checkAllLedgersCTime
+      98: aload         6
+     100: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     105: aload_2
+     106: invokevirtual #300                // Method org/apache/bookkeeper/client/BookKeeperAdmin.close:()V
+     109: aload_1
+     110: invokevirtual #301                // Method org/apache/bookkeeper/client/BookKeeper.close:()V
+     113: goto          129
+     116: astore        7
+     118: aload_2
+     119: invokevirtual #300                // Method org/apache/bookkeeper/client/BookKeeperAdmin.close:()V
+     122: aload_1
+     123: invokevirtual #301                // Method org/apache/bookkeeper/client/BookKeeper.close:()V
+     126: aload         7
+     128: athrow
+     129: return
+    Exception table:
+       from    to  target type
+          75    87    90   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+          15   105   116   any
+         116   118   116   any
+
+  void placementPolicyCheck() throws org.apache.bookkeeper.replication.ReplicationException$BKAuditException;
+    Code:
+       0: new           #302                // class java/util/concurrent/CountDownLatch
+       3: dup
+       4: iconst_1
+       5: invokespecial #303                // Method java/util/concurrent/CountDownLatch."<init>":(I)V
+       8: astore_1
+       9: aload_0
+      10: getfield      #14                 // Field numOfLedgersFoundNotAdheringInPlacementPolicyCheck:Ljava/util/concurrent/atomic/AtomicInteger;
+      13: iconst_0
+      14: invokevirtual #304                // Method java/util/concurrent/atomic/AtomicInteger.set:(I)V
+      17: aload_0
+      18: getfield      #13                 // Field numOfLedgersFoundSoftlyAdheringInPlacementPolicyCheck:Ljava/util/concurrent/atomic/AtomicInteger;
+      21: iconst_0
+      22: invokevirtual #304                // Method java/util/concurrent/atomic/AtomicInteger.set:(I)V
+      25: aload_0
+      26: getfield      #12                 // Field numOfClosedLedgersAuditedInPlacementPolicyCheck:Ljava/util/concurrent/atomic/AtomicInteger;
+      29: iconst_0
+      30: invokevirtual #304                // Method java/util/concurrent/atomic/AtomicInteger.set:(I)V
+      33: aload_0
+      34: getfield      #11                 // Field numOfURLedgersElapsedRecoveryGracePeriod:Ljava/util/concurrent/atomic/AtomicInteger;
+      37: iconst_0
+      38: invokevirtual #304                // Method java/util/concurrent/atomic/AtomicInteger.set:(I)V
+      41: aload_0
+      42: getfield      #67                 // Field underreplicatedLedgerRecoveryGracePeriod:J
+      45: lconst_0
+      46: lcmp
+      47: ifle          189
+      50: aload_0
+      51: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+      54: aconst_null
+      55: invokeinterface #305,  2          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.listLedgersToRereplicate:(Ljava/util/function/Predicate;)Ljava/util/Iterator;
+      60: astore_2
+      61: new           #59                 // class java/util/ArrayList
+      64: dup
+      65: invokespecial #60                 // Method java/util/ArrayList."<init>":()V
+      68: astore_3
+      69: aload_2
+      70: invokeinterface #239,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      75: ifeq          153
+      78: aload_2
+      79: invokeinterface #240,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      84: checkcast     #306                // class org/apache/bookkeeper/meta/UnderreplicatedLedger
+      87: astore        4
+      89: aload         4
+      91: invokevirtual #307                // Method org/apache/bookkeeper/meta/UnderreplicatedLedger.getCtime:()J
+      94: lstore        5
+      96: lload         5
+      98: ldc2_w        #202                // long -1l
+     101: lcmp
+     102: ifeq          150
+     105: invokestatic  #204                // Method java/lang/System.currentTimeMillis:()J
+     108: lload         5
+     110: lsub
+     111: ldc2_w        #205                // long 1000l
+     114: ldiv
+     115: lstore        7
+     117: lload         7
+     119: aload_0
+     120: getfield      #67                 // Field underreplicatedLedgerRecoveryGracePeriod:J
+     123: lcmp
+     124: ifle          150
+     127: aload_3
+     128: aload         4
+     130: invokevirtual #308                // Method org/apache/bookkeeper/meta/UnderreplicatedLedger.getLedgerId:()J
+     133: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     136: invokeinterface #243,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     141: pop
+     142: aload_0
+     143: getfield      #11                 // Field numOfURLedgersElapsedRecoveryGracePeriod:Ljava/util/concurrent/atomic/AtomicInteger;
+     146: invokevirtual #309                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+     149: pop
+     150: goto          69
+     153: aload_3
+     154: invokeinterface #310,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+     159: ifeq          177
+     162: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     165: ldc_w         #311                // String No Underreplicated ledger has elapsed recovery graceperiod: {}
+     168: aload_3
+     169: invokeinterface #150,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     174: goto          189
+     177: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     180: ldc_w         #312                // String Following Underreplicated ledgers have elapsed recovery graceperiod: {}
+     183: aload_3
+     184: invokeinterface #313,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;)V
+     189: new           #314                // class org/apache/bookkeeper/replication/Auditor$14
+     192: dup
+     193: aload_0
+     194: invokespecial #315                // Method org/apache/bookkeeper/replication/Auditor$14."<init>":(Lorg/apache/bookkeeper/replication/Auditor;)V
+     197: astore_2
+     198: new           #59                 // class java/util/ArrayList
+     201: dup
+     202: iconst_1
+     203: invokespecial #316                // Method java/util/ArrayList."<init>":(I)V
+     206: astore_3
+     207: aload_0
+     208: getfield      #4                  // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+     211: aload_2
+     212: new           #317                // class org/apache/bookkeeper/replication/Auditor$15
+     215: dup
+     216: aload_0
+     217: aload_3
+     218: aload_1
+     219: invokespecial #318                // Method org/apache/bookkeeper/replication/Auditor$15."<init>":(Lorg/apache/bookkeeper/replication/Auditor;Ljava/util/List;Ljava/util/concurrent/CountDownLatch;)V
+     222: aconst_null
+     223: iconst_0
+     224: iconst_m1
+     225: invokeinterface #296,  6          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager.asyncProcessLedgers:(Lorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$Processor;Lorg/apache/zookeeper/AsyncCallback$VoidCallback;Ljava/lang/Object;II)V
+     230: aload_1
+     231: invokevirtual #319                // Method java/util/concurrent/CountDownLatch.await:()V
+     234: goto          258
+     237: astore        4
+     239: invokestatic  #49                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     242: invokevirtual #50                 // Method java/lang/Thread.interrupt:()V
+     245: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+     248: dup
+     249: ldc_w         #320                // String Exception while doing placementPolicy check
+     252: aload         4
+     254: invokespecial #268                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     257: athrow
+     258: aload_3
+     259: iconst_0
+     260: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     263: invokeinterface #321,  2          // InterfaceMethod java/util/List.contains:(Ljava/lang/Object;)Z
+     268: ifne          298
+     271: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+     274: dup
+     275: ldc_w         #320                // String Exception while doing placementPolicy check
+     278: aload_3
+     279: iconst_0
+     280: invokeinterface #322,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     285: checkcast     #323                // class java/lang/Integer
+     288: invokevirtual #324                // Method java/lang/Integer.intValue:()I
+     291: invokestatic  #325                // Method org/apache/bookkeeper/client/BKException.create:(I)Lorg/apache/bookkeeper/client/BKException;
+     294: invokespecial #268                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     297: athrow
+     298: aload_0
+     299: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+     302: invokestatic  #204                // Method java/lang/System.currentTimeMillis:()J
+     305: invokeinterface #326,  3          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.setPlacementPolicyCheckCTime:(J)V
+     310: goto          328
+     313: astore        4
+     315: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     318: ldc_w         #327                // String Got exception while trying to set PlacementPolicyCheckCTime
+     321: aload         4
+     323: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     328: return
+    Exception table:
+       from    to  target type
+         230   234   237   Class java/lang/InterruptedException
+         298   310   313   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+
+  void replicasCheck() throws org.apache.bookkeeper.replication.ReplicationException$BKAuditException;
+    Code:
+       0: new           #328                // class java/util/concurrent/ConcurrentHashMap
+       3: dup
+       4: invokespecial #329                // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+       7: astore_1
+       8: new           #328                // class java/util/concurrent/ConcurrentHashMap
+      11: dup
+      12: invokespecial #329                // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      15: astore_2
+      16: aload_0
+      17: getfield      #4                  // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+      20: aload_0
+      21: getfield      #69                 // Field zkOpTimeoutMs:I
+      24: i2l
+      25: invokeinterface #330,  3          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager.getLedgerRanges:(J)Lorg/apache/bookkeeper/meta/LedgerManager$LedgerRangeIterator;
+      30: astore_3
+      31: new           #78                 // class java/util/concurrent/Semaphore
+      34: dup
+      35: bipush        100
+      37: invokespecial #79                 // Method java/util/concurrent/Semaphore."<init>":(I)V
+      40: astore        4
+      42: aconst_null
+      43: astore        5
+      45: aload_3
+      46: invokeinterface #332,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager$LedgerRangeIterator.hasNext:()Z
+      51: ifeq          65
+      54: aload_3
+      55: invokeinterface #333,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager$LedgerRangeIterator.next:()Lorg/apache/bookkeeper/meta/LedgerManager$LedgerRange;
+      60: astore        5
+      62: goto          68
+      65: goto          503
+      68: goto          99
+      71: astore        6
+      73: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      76: ldc_w         #334                // String Got IOException while iterating LedgerRangeIterator
+      79: aload         6
+      81: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      86: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+      89: dup
+      90: ldc_w         #334                // String Got IOException while iterating LedgerRangeIterator
+      93: aload         6
+      95: invokespecial #268                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      98: athrow
+      99: aload_1
+     100: invokevirtual #335                // Method java/util/concurrent/ConcurrentHashMap.clear:()V
+     103: aload_2
+     104: invokevirtual #335                // Method java/util/concurrent/ConcurrentHashMap.clear:()V
+     107: aload_0
+     108: getfield      #9                  // Field numLedgersFoundHavingNoReplicaOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+     111: iconst_0
+     112: invokevirtual #304                // Method java/util/concurrent/atomic/AtomicInteger.set:(I)V
+     115: aload_0
+     116: getfield      #8                  // Field numLedgersFoundHavingLessThanAQReplicasOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+     119: iconst_0
+     120: invokevirtual #304                // Method java/util/concurrent/atomic/AtomicInteger.set:(I)V
+     123: aload_0
+     124: getfield      #7                  // Field numLedgersFoundHavingLessThanWQReplicasOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+     127: iconst_0
+     128: invokevirtual #304                // Method java/util/concurrent/atomic/AtomicInteger.set:(I)V
+     131: aload         5
+     133: invokevirtual #336                // Method org/apache/bookkeeper/meta/LedgerManager$LedgerRange.getLedgers:()Ljava/util/Set;
+     136: astore        6
+     138: aload         6
+     140: invokeinterface #276,  1          // InterfaceMethod java/util/Set.size:()I
+     145: istore        7
+     147: new           #72                 // class java/util/concurrent/atomic/AtomicInteger
+     150: dup
+     151: invokespecial #337                // Method java/util/concurrent/atomic/AtomicInteger."<init>":()V
+     154: astore        8
+     156: new           #302                // class java/util/concurrent/CountDownLatch
+     159: dup
+     160: iconst_1
+     161: invokespecial #303                // Method java/util/concurrent/CountDownLatch."<init>":(I)V
+     164: astore        9
+     166: new           #338                // class org/apache/bookkeeper/replication/Auditor$ReplicasCheckFinalCallback
+     169: dup
+     170: aload         8
+     172: aload         9
+     174: aconst_null
+     175: invokespecial #339                // Method org/apache/bookkeeper/replication/Auditor$ReplicasCheckFinalCallback."<init>":(Ljava/util/concurrent/atomic/AtomicInteger;Ljava/util/concurrent/CountDownLatch;Lorg/apache/bookkeeper/replication/Auditor$1;)V
+     178: astore        10
+     180: new           #340                // class org/apache/bookkeeper/replication/Auditor$16
+     183: dup
+     184: aload_0
+     185: iload         7
+     187: aload         10
+     189: aconst_null
+     190: iconst_0
+     191: iconst_m1
+     192: aload         4
+     194: invokespecial #341                // Method org/apache/bookkeeper/replication/Auditor$16."<init>":(Lorg/apache/bookkeeper/replication/Auditor;ILorg/apache/zookeeper/AsyncCallback$VoidCallback;Ljava/lang/Object;IILjava/util/concurrent/Semaphore;)V
+     197: astore        11
+     199: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     202: ldc_w         #342                // String Number of ledgers in the current LedgerRange : {}
+     205: iload         7
+     207: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     210: invokeinterface #343,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     215: aload         6
+     217: invokeinterface #344,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     222: astore        12
+     224: aload         12
+     226: invokeinterface #239,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     231: ifeq          379
+     234: aload         12
+     236: invokeinterface #240,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     241: checkcast     #345                // class java/lang/Long
+     244: astore        13
+     246: aload         4
+     248: ldc2_w        #346                // long 120l
+     251: getstatic     #196                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     254: invokevirtual #348                // Method java/util/concurrent/Semaphore.tryAcquire:(JLjava/util/concurrent/TimeUnit;)Z
+     257: ifne          287
+     260: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     263: ldc_w         #349                // String Timedout ({} secs) while waiting for acquiring semaphore
+     266: bipush        120
+     268: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     271: invokeinterface #313,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;)V
+     276: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+     279: dup
+     280: ldc_w         #350                // String Timedout while waiting for acquiring semaphore
+     283: invokespecial #173                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;)V
+     286: athrow
+     287: goto          324
+     290: astore        14
+     292: invokestatic  #49                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     295: invokevirtual #50                 // Method java/lang/Thread.interrupt:()V
+     298: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     301: ldc_w         #351                // String Got InterruptedException while acquiring semaphore for replicascheck
+     304: aload         14
+     306: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     311: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+     314: dup
+     315: ldc_w         #351                // String Got InterruptedException while acquiring semaphore for replicascheck
+     318: aload         14
+     320: invokespecial #268                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     323: athrow
+     324: aload_0
+     325: aload         13
+     327: invokevirtual #352                // Method java/lang/Long.longValue:()J
+     330: aload         11
+     332: invokevirtual #353                // Method checkUnderReplicationForReplicasCheck:(JLorg/apache/zookeeper/AsyncCallback$VoidCallback;)Z
+     335: ifeq          341
+     338: goto          224
+     341: aload_0
+     342: getfield      #4                  // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+     345: aload         13
+     347: invokevirtual #352                // Method java/lang/Long.longValue:()J
+     350: invokeinterface #354,  3          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager.readLedgerMetadata:(J)Ljava/util/concurrent/CompletableFuture;
+     355: new           #355                // class org/apache/bookkeeper/replication/Auditor$ReadLedgerMetadataCallbackForReplicasCheck
+     358: dup
+     359: aload_0
+     360: aload         13
+     362: invokevirtual #352                // Method java/lang/Long.longValue:()J
+     365: aload         11
+     367: aload_1
+     368: aload_2
+     369: invokespecial #356                // Method org/apache/bookkeeper/replication/Auditor$ReadLedgerMetadataCallbackForReplicasCheck."<init>":(Lorg/apache/bookkeeper/replication/Auditor;JLorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$MultiCallback;Ljava/util/concurrent/ConcurrentHashMap;Ljava/util/concurrent/ConcurrentHashMap;)V
+     372: invokevirtual #357                // Method java/util/concurrent/CompletableFuture.whenComplete:(Ljava/util/function/BiConsumer;)Ljava/util/concurrent/CompletableFuture;
+     375: pop
+     376: goto          224
+     379: aload         9
+     381: ldc2_w        #346                // long 120l
+     384: getstatic     #196                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     387: invokevirtual #358                // Method java/util/concurrent/CountDownLatch.await:(JLjava/util/concurrent/TimeUnit;)Z
+     390: ifne          425
+     393: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     396: ldc_w         #359                // String For LedgerRange with num of ledgers : {} it didn\'t complete replicascheck in {} secs, so giving up
+     399: iload         7
+     401: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     404: bipush        120
+     406: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     409: invokeinterface #360,  4          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     414: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+     417: dup
+     418: ldc_w         #361                // String Got InterruptedException while doing replicascheck
+     421: invokespecial #173                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;)V
+     424: athrow
+     425: goto          462
+     428: astore        12
+     430: invokestatic  #49                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     433: invokevirtual #50                 // Method java/lang/Thread.interrupt:()V
+     436: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     439: ldc_w         #361                // String Got InterruptedException while doing replicascheck
+     442: aload         12
+     444: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     449: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+     452: dup
+     453: ldc_w         #361                // String Got InterruptedException while doing replicascheck
+     456: aload         12
+     458: invokespecial #268                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     461: athrow
+     462: aload_0
+     463: aload_1
+     464: invokespecial #362                // Method reportLedgersWithMissingEntries:(Ljava/util/concurrent/ConcurrentHashMap;)V
+     467: aload_0
+     468: aload_2
+     469: invokespecial #363                // Method reportLedgersWithUnavailableBookies:(Ljava/util/concurrent/ConcurrentHashMap;)V
+     472: aload         8
+     474: invokevirtual #364                // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+     477: istore        12
+     479: iload         12
+     481: ifeq          500
+     484: new           #171                // class org/apache/bookkeeper/replication/ReplicationException$BKAuditException
+     487: dup
+     488: ldc_w         #365                // String Exception while doing replicas check
+     491: iload         12
+     493: invokestatic  #325                // Method org/apache/bookkeeper/client/BKException.create:(I)Lorg/apache/bookkeeper/client/BKException;
+     496: invokespecial #268                // Method org/apache/bookkeeper/replication/ReplicationException$BKAuditException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     499: athrow
+     500: goto          42
+     503: aload_0
+     504: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+     507: invokestatic  #204                // Method java/lang/System.currentTimeMillis:()J
+     510: invokeinterface #366,  3          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.setReplicasCheckCTime:(J)V
+     515: goto          533
+     518: astore        5
+     520: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     523: ldc_w         #367                // String Got exception while trying to set ReplicasCheckCTime
+     526: aload         5
+     528: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     533: return
+    Exception table:
+       from    to  target type
+          45    65    71   Class java/io/IOException
+         246   287   290   Class java/lang/InterruptedException
+         379   425   428   Class java/lang/InterruptedException
+         503   515   518   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+
+  private void reportLedgersWithMissingEntries(java.util.concurrent.ConcurrentHashMap<java.lang.Long, org.apache.bookkeeper.replication.Auditor$MissingEntriesInfoOfLedger>);
+    Code:
+       0: new           #368                // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #369                // Method java/lang/StringBuilder."<init>":()V
+       7: astore_2
+       8: invokestatic  #370                // Method com/google/common/collect/HashMultiset.create:()Lcom/google/common/collect/HashMultiset;
+      11: astore_3
+      12: aload_1
+      13: invokevirtual #371                // Method java/util/concurrent/ConcurrentHashMap.entrySet:()Ljava/util/Set;
+      16: invokeinterface #344,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      21: astore        6
+      23: aload         6
+      25: invokeinterface #239,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      30: ifeq          554
+      33: aload         6
+      35: invokeinterface #240,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      40: checkcast     #372                // class java/util/Map$Entry
+      43: astore        7
+      45: aload_3
+      46: invokevirtual #373                // Method com/google/common/collect/HashMultiset.clear:()V
+      49: aload_2
+      50: iconst_0
+      51: invokevirtual #374                // Method java/lang/StringBuilder.setLength:(I)V
+      54: aload         7
+      56: invokeinterface #375,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      61: checkcast     #345                // class java/lang/Long
+      64: invokevirtual #352                // Method java/lang/Long.longValue:()J
+      67: lstore        8
+      69: aload         7
+      71: invokeinterface #376,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      76: checkcast     #377                // class org/apache/bookkeeper/replication/Auditor$MissingEntriesInfoOfLedger
+      79: astore        10
+      81: aload         10
+      83: invokestatic  #378                // Method org/apache/bookkeeper/replication/Auditor$MissingEntriesInfoOfLedger.access$3600:(Lorg/apache/bookkeeper/replication/Auditor$MissingEntriesInfoOfLedger;)Ljava/util/List;
+      86: astore        11
+      88: aload         10
+      90: invokestatic  #379                // Method org/apache/bookkeeper/replication/Auditor$MissingEntriesInfoOfLedger.access$3900:(Lorg/apache/bookkeeper/replication/Auditor$MissingEntriesInfoOfLedger;)I
+      93: istore        4
+      95: aload         10
+      97: invokestatic  #380                // Method org/apache/bookkeeper/replication/Auditor$MissingEntriesInfoOfLedger.access$4000:(Lorg/apache/bookkeeper/replication/Auditor$MissingEntriesInfoOfLedger;)I
+     100: istore        5
+     102: aload_2
+     103: new           #368                // class java/lang/StringBuilder
+     106: dup
+     107: invokespecial #369                // Method java/lang/StringBuilder."<init>":()V
+     110: ldc_w         #381                // String Ledger :
+     113: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     116: lload         8
+     118: invokevirtual #383                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     121: ldc_w         #384                // String  has following missing entries :
+     124: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     127: invokevirtual #385                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     130: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     133: pop
+     134: iconst_0
+     135: istore        12
+     137: iload         12
+     139: aload         11
+     141: invokeinterface #386,  1          // InterfaceMethod java/util/List.size:()I
+     146: if_icmpge     284
+     149: aload         11
+     151: iload         12
+     153: invokeinterface #322,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     158: checkcast     #387                // class org/apache/bookkeeper/replication/Auditor$MissingEntriesInfo
+     161: astore        13
+     163: aload         13
+     165: invokestatic  #388                // Method org/apache/bookkeeper/replication/Auditor$MissingEntriesInfo.access$4100:(Lorg/apache/bookkeeper/replication/Auditor$MissingEntriesInfo;)Ljava/util/List;
+     168: astore        14
+     170: aload         13
+     172: invokestatic  #389                // Method org/apache/bookkeeper/replication/Auditor$MissingEntriesInfo.access$4200:(Lorg/apache/bookkeeper/replication/Auditor$MissingEntriesInfo;)Ljava/util/Map$Entry;
+     175: astore        15
+     177: aload_3
+     178: aload         14
+     180: invokevirtual #390                // Method com/google/common/collect/HashMultiset.addAll:(Ljava/util/Collection;)Z
+     183: pop
+     184: aload_2
+     185: new           #368                // class java/lang/StringBuilder
+     188: dup
+     189: invokespecial #369                // Method java/lang/StringBuilder."<init>":()V
+     192: ldc_w         #391                // String In segment starting at
+     195: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     198: aload         15
+     200: invokeinterface #375,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     205: invokevirtual #392                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     208: ldc_w         #393                // String  with ensemble
+     211: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     214: aload         15
+     216: invokeinterface #376,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     221: invokevirtual #392                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     224: ldc_w         #394                // String , following entries
+     227: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     230: aload         14
+     232: invokevirtual #392                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     235: ldc_w         #395                // String  are missing in bookie:
+     238: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     241: aload         13
+     243: invokestatic  #396                // Method org/apache/bookkeeper/replication/Auditor$MissingEntriesInfo.access$4300:(Lorg/apache/bookkeeper/replication/Auditor$MissingEntriesInfo;)Lorg/apache/bookkeeper/net/BookieId;
+     246: invokevirtual #392                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     249: invokevirtual #385                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     252: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     255: pop
+     256: iload         12
+     258: aload         11
+     260: invokeinterface #386,  1          // InterfaceMethod java/util/List.size:()I
+     265: iconst_1
+     266: isub
+     267: if_icmpge     278
+     270: aload_2
+     271: ldc_w         #397                // String ,
+     274: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     277: pop
+     278: iinc          12, 1
+     281: goto          137
+     284: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     287: aload_2
+     288: invokevirtual #385                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     291: invokeinterface #76,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+     296: aload_3
+     297: invokevirtual #398                // Method com/google/common/collect/HashMultiset.entrySet:()Ljava/util/Set;
+     300: astore        12
+     302: iconst_0
+     303: istore        13
+     305: ldc2_w        #202                // long -1l
+     308: lstore        14
+     310: aload         12
+     312: invokeinterface #344,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     317: astore        16
+     319: aload         16
+     321: invokeinterface #239,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     326: ifeq          380
+     329: aload         16
+     331: invokeinterface #240,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     336: checkcast     #399                // class com/google/common/collect/Multiset$Entry
+     339: astore        17
+     341: aload         17
+     343: invokeinterface #400,  1          // InterfaceMethod com/google/common/collect/Multiset$Entry.getCount:()I
+     348: iload         13
+     350: if_icmple     377
+     353: aload         17
+     355: invokeinterface #400,  1          // InterfaceMethod com/google/common/collect/Multiset$Entry.getCount:()I
+     360: istore        13
+     362: aload         17
+     364: invokeinterface #401,  1          // InterfaceMethod com/google/common/collect/Multiset$Entry.getElement:()Ljava/lang/Object;
+     369: checkcast     #345                // class java/lang/Long
+     372: invokevirtual #352                // Method java/lang/Long.longValue:()J
+     375: lstore        14
+     377: goto          319
+     380: iload         4
+     382: iload         13
+     384: isub
+     385: istore        16
+     387: iload         16
+     389: ifne          424
+     392: aload_0
+     393: getfield      #9                  // Field numLedgersFoundHavingNoReplicaOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+     396: invokevirtual #309                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+     399: pop
+     400: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     403: ldc_w         #402                // String Ledger : {} entryId : {} is missing all replicas
+     406: lload         8
+     408: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     411: lload         14
+     413: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     416: invokeinterface #360,  4          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     421: goto          551
+     424: iload         16
+     426: iload         5
+     428: if_icmpge     489
+     431: aload_0
+     432: getfield      #8                  // Field numLedgersFoundHavingLessThanAQReplicasOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+     435: invokevirtual #309                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+     438: pop
+     439: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     442: ldc_w         #403                // String Ledger : {} entryId : {} is having: {} replicas, less than ackQuorum num of replicas : {}
+     445: iconst_4
+     446: anewarray     #208                // class java/lang/Object
+     449: dup
+     450: iconst_0
+     451: lload         8
+     453: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     456: aastore
+     457: dup
+     458: iconst_1
+     459: lload         14
+     461: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     464: aastore
+     465: dup
+     466: iconst_2
+     467: iload         16
+     469: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     472: aastore
+     473: dup
+     474: iconst_3
+     475: iload         5
+     477: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     480: aastore
+     481: invokeinterface #404,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;[Ljava/lang/Object;)V
+     486: goto          551
+     489: iload         16
+     491: iload         4
+     493: if_icmpge     551
+     496: aload_0
+     497: getfield      #7                  // Field numLedgersFoundHavingLessThanWQReplicasOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+     500: invokevirtual #309                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+     503: pop
+     504: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     507: ldc_w         #405                // String Ledger : {} entryId : {} is having: {} replicas, less than writeQuorum num of replicas : {}
+     510: iconst_4
+     511: anewarray     #208                // class java/lang/Object
+     514: dup
+     515: iconst_0
+     516: lload         8
+     518: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     521: aastore
+     522: dup
+     523: iconst_1
+     524: lload         14
+     526: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     529: aastore
+     530: dup
+     531: iconst_2
+     532: iload         16
+     534: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     537: aastore
+     538: dup
+     539: iconst_3
+     540: iload         4
+     542: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     545: aastore
+     546: invokeinterface #404,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;[Ljava/lang/Object;)V
+     551: goto          23
+     554: return
+
+  private void reportLedgersWithUnavailableBookies(java.util.concurrent.ConcurrentHashMap<java.lang.Long, org.apache.bookkeeper.replication.Auditor$MissingEntriesInfoOfLedger>);
+    Code:
+       0: new           #368                // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #369                // Method java/lang/StringBuilder."<init>":()V
+       7: astore_2
+       8: aload_1
+       9: invokevirtual #371                // Method java/util/concurrent/ConcurrentHashMap.entrySet:()Ljava/util/Set;
+      12: invokeinterface #344,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      17: astore_3
+      18: aload_3
+      19: invokeinterface #239,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      24: ifeq          245
+      27: aload_3
+      28: invokeinterface #240,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      33: checkcast     #372                // class java/util/Map$Entry
+      36: astore        4
+      38: aload_2
+      39: iconst_0
+      40: invokevirtual #374                // Method java/lang/StringBuilder.setLength:(I)V
+      43: aload         4
+      45: invokeinterface #375,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      50: checkcast     #345                // class java/lang/Long
+      53: invokevirtual #352                // Method java/lang/Long.longValue:()J
+      56: lstore        5
+      58: aload         4
+      60: invokeinterface #376,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      65: checkcast     #377                // class org/apache/bookkeeper/replication/Auditor$MissingEntriesInfoOfLedger
+      68: invokestatic  #378                // Method org/apache/bookkeeper/replication/Auditor$MissingEntriesInfoOfLedger.access$3600:(Lorg/apache/bookkeeper/replication/Auditor$MissingEntriesInfoOfLedger;)Ljava/util/List;
+      71: astore        7
+      73: aload_2
+      74: new           #368                // class java/lang/StringBuilder
+      77: dup
+      78: invokespecial #369                // Method java/lang/StringBuilder."<init>":()V
+      81: ldc_w         #381                // String Ledger :
+      84: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      87: lload         5
+      89: invokevirtual #383                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      92: ldc_w         #406                // String  has following unavailable bookies :
+      95: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      98: invokevirtual #385                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     101: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     104: pop
+     105: iconst_0
+     106: istore        8
+     108: iload         8
+     110: aload         7
+     112: invokeinterface #386,  1          // InterfaceMethod java/util/List.size:()I
+     117: if_icmpge     230
+     120: aload         7
+     122: iload         8
+     124: invokeinterface #322,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     129: checkcast     #387                // class org/apache/bookkeeper/replication/Auditor$MissingEntriesInfo
+     132: astore        9
+     134: aload         9
+     136: invokestatic  #389                // Method org/apache/bookkeeper/replication/Auditor$MissingEntriesInfo.access$4200:(Lorg/apache/bookkeeper/replication/Auditor$MissingEntriesInfo;)Ljava/util/Map$Entry;
+     139: astore        10
+     141: aload_2
+     142: new           #368                // class java/lang/StringBuilder
+     145: dup
+     146: invokespecial #369                // Method java/lang/StringBuilder."<init>":()V
+     149: ldc_w         #391                // String In segment starting at
+     152: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     155: aload         10
+     157: invokeinterface #375,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     162: invokevirtual #392                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     165: ldc_w         #393                // String  with ensemble
+     168: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     171: aload         10
+     173: invokeinterface #376,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     178: invokevirtual #392                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     181: ldc_w         #407                // String , following bookie has not responded
+     184: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     187: aload         9
+     189: invokestatic  #396                // Method org/apache/bookkeeper/replication/Auditor$MissingEntriesInfo.access$4300:(Lorg/apache/bookkeeper/replication/Auditor$MissingEntriesInfo;)Lorg/apache/bookkeeper/net/BookieId;
+     192: invokevirtual #392                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     195: invokevirtual #385                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     198: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     201: pop
+     202: iload         8
+     204: aload         7
+     206: invokeinterface #386,  1          // InterfaceMethod java/util/List.size:()I
+     211: iconst_1
+     212: isub
+     213: if_icmpge     224
+     216: aload_2
+     217: ldc_w         #397                // String ,
+     220: invokevirtual #382                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     223: pop
+     224: iinc          8, 1
+     227: goto          108
+     230: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     233: aload_2
+     234: invokevirtual #385                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     237: invokeinterface #76,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+     242: goto          18
+     245: return
+
+  boolean checkUnderReplicationForReplicasCheck(long, org.apache.zookeeper.AsyncCallback$VoidCallback);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+       4: lload_1
+       5: invokeinterface #408,  3          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.getLedgerUnreplicationInfo:(J)Lorg/apache/bookkeeper/meta/UnderreplicatedLedger;
+      10: ifnonnull     15
+      13: iconst_0
+      14: ireturn
+      15: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      18: ldc_w         #409                // String Ledger: {} is marked underrreplicated, ignore this ledger for replicasCheck
+      21: lload_1
+      22: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      25: invokeinterface #343,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      30: aload_3
+      31: iconst_0
+      32: aconst_null
+      33: aconst_null
+      34: invokeinterface #410,  4          // InterfaceMethod org/apache/zookeeper/AsyncCallback$VoidCallback.processResult:(ILjava/lang/String;Ljava/lang/Object;)V
+      39: iconst_1
+      40: ireturn
+      41: astore        4
+      43: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      46: ldc_w         #411                // String Got exception while trying to check if ledger: {} is underreplicated
+      49: lload_1
+      50: invokestatic  #195                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      53: aload         4
+      55: invokeinterface #360,  4          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      60: aload_3
+      61: aload         4
+      63: invokestatic  #412                // Method org/apache/bookkeeper/client/BKException.getExceptionCode:(Ljava/lang/Throwable;)I
+      66: aconst_null
+      67: aconst_null
+      68: invokeinterface #410,  4          // InterfaceMethod org/apache/zookeeper/AsyncCallback$VoidCallback.processResult:(ILjava/lang/String;Ljava/lang/Object;)V
+      73: iconst_1
+      74: ireturn
+    Exception table:
+       from    to  target type
+           0    14    41   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+          15    40    41   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+
+  public void shutdown();
+    Code:
+       0: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+       3: ldc_w         #413                // String Shutting down auditor
+       6: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      11: aload_0
+      12: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      15: invokeinterface #414,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.shutdown:()V
+      20: aload_0
+      21: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      24: ldc2_w        #415                // long 30l
+      27: getstatic     #196                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      30: invokeinterface #417,  4          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.awaitTermination:(JLjava/util/concurrent/TimeUnit;)Z
+      35: ifne          62
+      38: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      41: ldc_w         #418                // String Executor not shutting down, interrupting
+      44: invokeinterface #419,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      49: aload_0
+      50: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      53: invokeinterface #420,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.shutdownNow:()Ljava/util/List;
+      58: pop
+      59: goto          20
+      62: aload_0
+      63: getfield      #134                // Field ownAdmin:Z
+      66: ifeq          76
+      69: aload_0
+      70: getfield      #3                  // Field admin:Lorg/apache/bookkeeper/client/BookKeeperAdmin;
+      73: invokevirtual #300                // Method org/apache/bookkeeper/client/BookKeeperAdmin.close:()V
+      76: aload_0
+      77: getfield      #133                // Field ownBkc:Z
+      80: ifeq          90
+      83: aload_0
+      84: getfield      #132                // Field bkc:Lorg/apache/bookkeeper/client/BookKeeper;
+      87: invokevirtual #301                // Method org/apache/bookkeeper/client/BookKeeper.close:()V
+      90: goto          128
+      93: astore_1
+      94: invokestatic  #49                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      97: invokevirtual #50                 // Method java/lang/Thread.interrupt:()V
+     100: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     103: ldc_w         #421                // String Interrupted while shutting down auditor bookie
+     106: aload_1
+     107: invokeinterface #422,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     112: goto          128
+     115: astore_1
+     116: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     119: ldc_w         #423                // String Exception while shutting down auditor bookie
+     122: aload_1
+     123: invokeinterface #422,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     128: return
+    Exception table:
+       from    to  target type
+          20    90    93   Class java/lang/InterruptedException
+          20    90   115   Class org/apache/bookkeeper/client/BKException
+
+  public void close();
+    Code:
+       0: aload_0
+       1: invokevirtual #424                // Method shutdown:()V
+       4: return
+
+  public boolean isRunning();
+    Code:
+       0: aload_0
+       1: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+       4: invokeinterface #164,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.isShutdown:()Z
+       9: ifne          16
+      12: iconst_1
+      13: goto          17
+      16: iconst_0
+      17: ireturn
+
+  int getLostBookieRecoveryDelayBeforeChange();
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field lostBookieRecoveryDelayBeforeChange:I
+       4: ireturn
+
+  java.util.concurrent.Future<?> getAuditTask();
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field auditTask:Ljava/util/concurrent/Future;
+       4: areturn
+
+  private static void lambda$checkAllLedgers$8(java.util.concurrent.CompletableFuture, int, java.lang.String, java.lang.Object);
+    Code:
+       0: iconst_0
+       1: iload_1
+       2: if_icmpne     13
+       5: aload_0
+       6: aconst_null
+       7: invokestatic  #425                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.complete:(Ljava/util/concurrent/CompletableFuture;Ljava/lang/Object;)V
+      10: goto          21
+      13: aload_0
+      14: iload_1
+      15: invokestatic  #325                // Method org/apache/bookkeeper/client/BKException.create:(I)Lorg/apache/bookkeeper/client/BKException;
+      18: invokestatic  #426                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.completeExceptionally:(Ljava/util/concurrent/CompletableFuture;Ljava/lang/Throwable;)V
+      21: return
+
+  private void lambda$checkAllLedgers$7(java.util.concurrent.CompletableFuture, org.apache.bookkeeper.client.BookKeeperAdmin, org.apache.bookkeeper.client.LedgerChecker, java.lang.Long, org.apache.zookeeper.AsyncCallback$VoidCallback);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+       4: invokeinterface #231,  1          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.isLedgerReplicationEnabled:()Z
+       9: ifne          29
+      12: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      15: ldc_w         #427                // String Ledger rereplication has been disabled, aborting periodic check
+      18: invokeinterface #156,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      23: aload_1
+      24: aconst_null
+      25: invokestatic  #425                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.complete:(Ljava/util/concurrent/CompletableFuture;Ljava/lang/Object;)V
+      28: return
+      29: goto          53
+      32: astore        6
+      34: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      37: ldc_w         #428                // String Underreplication manager unavailable running periodic check
+      40: aload         6
+      42: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      47: aload_1
+      48: aconst_null
+      49: invokestatic  #425                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.complete:(Ljava/util/concurrent/CompletableFuture;Ljava/lang/Object;)V
+      52: return
+      53: aload_0
+      54: getfield      #80                 // Field openLedgerNoRecoverySemaphore:Ljava/util/concurrent/Semaphore;
+      57: aload_0
+      58: getfield      #83                 // Field openLedgerNoRecoverySemaphoreWaitTimeoutMSec:I
+      61: i2l
+      62: getstatic     #258                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      65: invokevirtual #348                // Method java/util/concurrent/Semaphore.tryAcquire:(JLjava/util/concurrent/TimeUnit;)Z
+      68: ifne          97
+      71: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      74: ldc_w         #429                // String Failed to acquire semaphore for {} ms, ledgerId: {}
+      77: aload_0
+      78: getfield      #83                 // Field openLedgerNoRecoverySemaphoreWaitTimeoutMSec:I
+      81: invokestatic  #154                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      84: aload         4
+      86: invokeinterface #430,  4          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      91: aload_1
+      92: aconst_null
+      93: invokestatic  #425                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.complete:(Ljava/util/concurrent/CompletableFuture;Ljava/lang/Object;)V
+      96: return
+      97: goto          127
+     100: astore        6
+     102: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     105: ldc_w         #431                // String Unable to acquire open ledger operation semaphore
+     108: aload         6
+     110: invokeinterface #182,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     115: invokestatic  #49                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     118: invokevirtual #50                 // Method java/lang/Thread.interrupt:()V
+     121: aload_1
+     122: aconst_null
+     123: invokestatic  #425                // Method org/apache/bookkeeper/common/concurrent/FutureUtils.complete:(Ljava/util/concurrent/CompletableFuture;Ljava/lang/Object;)V
+     126: return
+     127: aload_2
+     128: aload         4
+     130: invokevirtual #352                // Method java/lang/Long.longValue:()J
+     133: aload_0
+     134: aload_3
+     135: aload         5
+     137: aload         4
+     139: invokedynamic #432,  0            // InvokeDynamic #7:openComplete:(Lorg/apache/bookkeeper/replication/Auditor;Lorg/apache/bookkeeper/client/LedgerChecker;Lorg/apache/zookeeper/AsyncCallback$VoidCallback;Ljava/lang/Long;)Lorg/apache/bookkeeper/client/AsyncCallback$OpenCallback;
+     144: aconst_null
+     145: invokevirtual #433                // Method org/apache/bookkeeper/client/BookKeeperAdmin.asyncOpenLedgerNoRecovery:(JLorg/apache/bookkeeper/client/AsyncCallback$OpenCallback;Ljava/lang/Object;)V
+     148: return
+    Exception table:
+       from    to  target type
+           0    28    32   Class org/apache/bookkeeper/replication/ReplicationException$UnavailableException
+          53    96   100   Class java/lang/InterruptedException
+
+  private void lambda$null$6(org.apache.bookkeeper.client.LedgerChecker, org.apache.zookeeper.AsyncCallback$VoidCallback, java.lang.Long, int, org.apache.bookkeeper.client.LedgerHandle, java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #80                 // Field openLedgerNoRecoverySemaphore:Ljava/util/concurrent/Semaphore;
+       4: invokevirtual #434                // Method java/util/concurrent/Semaphore.release:()V
+       7: iconst_0
+       8: iload         4
+      10: if_icmpne     77
+      13: aload_1
+      14: aload         5
+      16: new           #435                // class org/apache/bookkeeper/replication/Auditor$ProcessLostFragmentsCb
+      19: dup
+      20: aload_0
+      21: aload         5
+      23: aload_2
+      24: invokespecial #436                // Method org/apache/bookkeeper/replication/Auditor$ProcessLostFragmentsCb."<init>":(Lorg/apache/bookkeeper/replication/Auditor;Lorg/apache/bookkeeper/client/LedgerHandle;Lorg/apache/zookeeper/AsyncCallback$VoidCallback;)V
+      27: aload_0
+      28: getfield      #65                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+      31: invokevirtual #437                // Method org/apache/bookkeeper/conf/ServerConfiguration.getAuditorLedgerVerificationPercentage:()J
+      34: invokevirtual #438                // Method org/apache/bookkeeper/client/LedgerChecker.checkLedger:(Lorg/apache/bookkeeper/client/LedgerHandle;Lorg/apache/bookkeeper/proto/BookkeeperInternalCallbacks$GenericCallback;J)V
+      37: aload_0
+      38: getfield      #102                // Field numFragmentsPerLedger:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+      41: aload         5
+      43: invokevirtual #439                // Method org/apache/bookkeeper/client/LedgerHandle.getNumFragments:()J
+      46: invokeinterface #281,  3          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulValue:(J)V
+      51: aload_0
+      52: getfield      #104                // Field numBookiesPerLedger:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+      55: aload         5
+      57: invokevirtual #440                // Method org/apache/bookkeeper/client/LedgerHandle.getNumBookies:()J
+      60: invokeinterface #281,  3          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulValue:(J)V
+      65: aload_0
+      66: getfield      #100                // Field numLedgersChecked:Lorg/apache/bookkeeper/stats/Counter;
+      69: invokeinterface #441,  1          // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+      74: goto          146
+      77: bipush        -25
+      79: iload         4
+      81: if_icmpne     119
+      84: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      87: invokeinterface #442,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      92: ifeq          107
+      95: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+      98: ldc_w         #443                // String Ledger {} was deleted before we could check it
+     101: aload_3
+     102: invokeinterface #343,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     107: aload_2
+     108: iconst_0
+     109: aconst_null
+     110: aconst_null
+     111: invokeinterface #410,  4          // InterfaceMethod org/apache/zookeeper/AsyncCallback$VoidCallback.processResult:(ILjava/lang/String;Ljava/lang/Object;)V
+     116: goto          146
+     119: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+     122: ldc_w         #444                // String Couldn\'t open ledger {} to check : {}
+     125: aload_3
+     126: iload         4
+     128: invokestatic  #445                // Method org/apache/bookkeeper/client/BKException.getMessage:(I)Ljava/lang/String;
+     131: invokeinterface #360,  4          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     136: aload_2
+     137: iload         4
+     139: aconst_null
+     140: aconst_null
+     141: invokeinterface #410,  4          // InterfaceMethod org/apache/zookeeper/AsyncCallback$VoidCallback.processResult:(ILjava/lang/String;Ljava/lang/Object;)V
+     146: return
+
+  private java.util.concurrent.CompletableFuture lambda$publishSuspectedLedgersAsync$5(java.util.Collection, java.lang.Long);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+       4: aload_2
+       5: invokevirtual #352                // Method java/lang/Long.longValue:()J
+       8: aload_1
+       9: invokeinterface #446,  4          // InterfaceMethod org/apache/bookkeeper/meta/LedgerUnderreplicationManager.markLedgerUnderreplicatedAsync:(JLjava/util/Collection;)Ljava/util/concurrent/CompletableFuture;
+      14: areturn
+
+  private java.util.concurrent.CompletableFuture lambda$publishSuspectedLedgersAsync$4(java.util.concurrent.atomic.LongAdder, java.lang.Long);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+       4: aload_2
+       5: invokevirtual #352                // Method java/lang/Long.longValue:()J
+       8: invokeinterface #354,  3          // InterfaceMethod org/apache/bookkeeper/meta/LedgerManager.readLedgerMetadata:(J)Ljava/util/concurrent/CompletableFuture;
+      13: aload_1
+      14: invokedynamic #447,  0            // InvokeDynamic #8:accept:(Ljava/util/concurrent/atomic/LongAdder;)Ljava/util/function/BiConsumer;
+      19: invokevirtual #357                // Method java/util/concurrent/CompletableFuture.whenComplete:(Ljava/util/function/BiConsumer;)Ljava/util/concurrent/CompletableFuture;
+      22: areturn
+
+  private static void lambda$null$3(java.util.concurrent.atomic.LongAdder, org.apache.bookkeeper.versioning.Versioned, java.lang.Throwable);
+    Code:
+       0: aload_2
+       1: ifnonnull     20
+       4: aload_0
+       5: aload_1
+       6: invokevirtual #448                // Method org/apache/bookkeeper/versioning/Versioned.getValue:()Ljava/lang/Object;
+       9: checkcast     #449                // class org/apache/bookkeeper/client/api/LedgerMetadata
+      12: invokeinterface #450,  1          // InterfaceMethod org/apache/bookkeeper/client/api/LedgerMetadata.getLength:()J
+      17: invokevirtual #451                // Method java/util/concurrent/atomic/LongAdder.add:(J)V
+      20: return
+
+  private java.util.concurrent.CompletableFuture lambda$handleLostBookiesAsync$2(java.util.Map, java.lang.String);
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: anewarray     #452                // class java/lang/String
+       5: dup
+       6: iconst_0
+       7: aload_2
+       8: aastore
+       9: invokestatic  #453                // Method com/google/common/collect/Lists.newArrayList:([Ljava/lang/Object;)Ljava/util/ArrayList;
+      12: aload_1
+      13: aload_2
+      14: invokeinterface #454,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      19: checkcast     #455                // class java/util/Set
+      22: invokespecial #5                  // Method publishSuspectedLedgersAsync:(Ljava/util/Collection;Ljava/util/Set;)Ljava/util/concurrent/CompletableFuture;
+      25: areturn
+
+  private void lambda$watchBookieChanges$1(org.apache.bookkeeper.versioning.Versioned);
+    Code:
+       0: aload_0
+       1: invokevirtual #456                // Method submitAuditTask:()Ljava/util/concurrent/Future;
+       4: pop
+       5: return
+
+  private void lambda$watchBookieChanges$0(org.apache.bookkeeper.versioning.Versioned);
+    Code:
+       0: aload_0
+       1: invokevirtual #456                // Method submitAuditTask:()Ljava/util/concurrent/Future;
+       4: pop
+       5: return
+
+  static java.util.concurrent.atomic.AtomicInteger access$000(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #33                 // Field ledgersNotAdheringToPlacementPolicyGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$100(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #32                 // Field ledgersSoftlyAdheringToPlacementPolicyGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$200(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #31                 // Field numOfURLedgersElapsedRecoveryGracePeriodGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$300(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field numLedgersHavingNoReplicaOfAnEntryGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$400(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field numLedgersHavingLessThanAQReplicasOfAnEntryGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$500(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field numLedgersHavingLessThanWQReplicasOfAnEntryGuageValue:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static org.slf4j.Logger access$600();
+    Code:
+       0: getstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static java.util.concurrent.ScheduledExecutorService access$700(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #26                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+       4: areturn
+
+  static void access$800(org.apache.bookkeeper.replication.Auditor) throws org.apache.bookkeeper.replication.ReplicationException$UnavailableException, java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: invokespecial #25                 // Method waitIfLedgerReplicationDisabled:()V
+       4: return
+
+  static org.apache.bookkeeper.meta.LedgerUnderreplicationManager access$900(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field ledgerUnderreplicationManager:Lorg/apache/bookkeeper/meta/LedgerUnderreplicationManager;
+       4: areturn
+
+  static java.util.List access$1000(org.apache.bookkeeper.replication.Auditor) throws org.apache.bookkeeper.client.BKException;
+    Code:
+       0: aload_0
+       1: invokespecial #23                 // Method getAvailableBookies:()Ljava/util/List;
+       4: areturn
+
+  static java.util.List access$1100(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field knownBookies:Ljava/util/List;
+       4: areturn
+
+  static java.util.Set access$1200(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #21                 // Field bookiesToBeAudited:Ljava/util/Set;
+       4: areturn
+
+  static java.util.concurrent.Future access$1300(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field auditTask:Ljava/util/concurrent/Future;
+       4: areturn
+
+  static java.util.concurrent.Future access$1302(org.apache.bookkeeper.replication.Auditor, java.util.concurrent.Future);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: dup_x1
+       3: putfield      #20                 // Field auditTask:Ljava/util/concurrent/Future;
+       6: areturn
+
+  static org.apache.bookkeeper.stats.Counter access$1400(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field numDelayedBookieAuditsCancelled:Lorg/apache/bookkeeper/stats/Counter;
+       4: areturn
+
+  static void access$1500(org.apache.bookkeeper.replication.Auditor, boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: invokespecial #18                 // Method startAudit:(Z)V
+       5: return
+
+  static org.apache.bookkeeper.stats.Counter access$1600(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field numBookieAuditsDelayed:Lorg/apache/bookkeeper/stats/Counter;
+       4: areturn
+
+  static int access$1700(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field lostBookieRecoveryDelayBeforeChange:I
+       4: ireturn
+
+  static int access$1702(org.apache.bookkeeper.replication.Auditor, int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: dup_x1
+       3: putfield      #16                 // Field lostBookieRecoveryDelayBeforeChange:I
+       6: ireturn
+
+  static org.apache.bookkeeper.stats.OpStatsLogger access$1900(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field checkAllLedgersTime:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$2000(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field numOfLedgersFoundNotAdheringInPlacementPolicyCheck:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$2100(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #13                 // Field numOfLedgersFoundSoftlyAdheringInPlacementPolicyCheck:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$2200(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field numOfClosedLedgersAuditedInPlacementPolicyCheck:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$2300(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field numOfURLedgersElapsedRecoveryGracePeriod:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static org.apache.bookkeeper.stats.OpStatsLogger access$2400(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field placementPolicyCheckTime:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$2500(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field numLedgersFoundHavingNoReplicaOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$2600(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field numLedgersFoundHavingLessThanAQReplicasOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$2700(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field numLedgersFoundHavingLessThanWQReplicasOfAnEntry:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static org.apache.bookkeeper.stats.OpStatsLogger access$2800(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field replicasCheckTime:Lorg/apache/bookkeeper/stats/OpStatsLogger;
+       4: areturn
+
+  static java.util.concurrent.CompletableFuture access$2900(org.apache.bookkeeper.replication.Auditor, java.util.Collection, java.util.Set);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #5                  // Method publishSuspectedLedgersAsync:(Ljava/util/Collection;Ljava/util/Set;)Ljava/util/concurrent/CompletableFuture;
+       6: areturn
+
+  static org.apache.bookkeeper.meta.LedgerManager access$3000(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field ledgerManager:Lorg/apache/bookkeeper/meta/LedgerManager;
+       4: areturn
+
+  static org.apache.bookkeeper.client.BookKeeperAdmin access$3100(org.apache.bookkeeper.replication.Auditor);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field admin:Lorg/apache/bookkeeper/client/BookKeeperAdmin;
+       4: areturn
+
+  static java.util.BitSet access$3200();
+    Code:
+       0: getstatic     #2                  // Field EMPTY_BITSET:Ljava/util/BitSet;
+       3: areturn
+
+  static {};
+    Code:
+       0: ldc_w         #331                // class org/apache/bookkeeper/replication/Auditor
+       3: invokestatic  #457                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       6: putstatic     #27                 // Field LOG:Lorg/slf4j/Logger;
+       9: new           #458                // class java/util/BitSet
+      12: dup
+      13: invokespecial #459                // Method java/util/BitSet."<init>":()V
+      16: putstatic     #2                  // Field EMPTY_BITSET:Ljava/util/BitSet;
+      19: return
+}

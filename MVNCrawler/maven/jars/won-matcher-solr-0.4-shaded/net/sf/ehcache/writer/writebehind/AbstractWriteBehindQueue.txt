@@ -1,0 +1,1332 @@
+Compiled from "AbstractWriteBehindQueue.java"
+public abstract class net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue implements net.sf.ehcache.writer.writebehind.WriteBehind {
+  private static final java.util.logging.Logger LOGGER;
+
+  private static final int MS_IN_SEC;
+
+  private final java.lang.String cacheName;
+
+  private final long minWriteDelayMs;
+
+  private final long maxWriteDelayMs;
+
+  private final int rateLimitPerSecond;
+
+  private final int maxQueueSize;
+
+  private final boolean writeBatching;
+
+  private final int writeBatchSize;
+
+  private final int retryAttempts;
+
+  private final int retryAttemptDelaySeconds;
+
+  private final java.lang.Thread processingThread;
+
+  private final java.util.concurrent.locks.ReentrantReadWriteLock queueLock;
+
+  private final java.util.concurrent.locks.ReentrantReadWriteLock$ReadLock queueReadLock;
+
+  private final java.util.concurrent.locks.ReentrantReadWriteLock$WriteLock queueWriteLock;
+
+  private final java.util.concurrent.locks.Condition queueIsFull;
+
+  private final java.util.concurrent.locks.Condition queueIsEmpty;
+
+  private final java.util.concurrent.locks.Condition queueIsStopped;
+
+  private final java.util.concurrent.atomic.AtomicLong lastProcessing;
+
+  private final java.util.concurrent.atomic.AtomicLong lastWorkDone;
+
+  private final java.util.concurrent.atomic.AtomicBoolean busyProcessing;
+
+  private volatile net.sf.ehcache.writer.writebehind.OperationsFilter filter;
+
+  private net.sf.ehcache.writer.CacheWriter cacheWriter;
+
+  private boolean stopping;
+
+  private boolean stopped;
+
+  public net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue(net.sf.ehcache.config.CacheConfiguration);
+    Code:
+       0: aload_0
+       1: invokespecial #11                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #12                 // class java/util/concurrent/locks/ReentrantReadWriteLock
+       8: dup
+       9: invokespecial #13                 // Method java/util/concurrent/locks/ReentrantReadWriteLock."<init>":()V
+      12: putfield      #14                 // Field queueLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      15: aload_0
+      16: aload_0
+      17: getfield      #14                 // Field queueLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      20: invokevirtual #15                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      23: putfield      #16                 // Field queueReadLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      26: aload_0
+      27: aload_0
+      28: getfield      #14                 // Field queueLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      31: invokevirtual #17                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      34: putfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      37: aload_0
+      38: aload_0
+      39: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      42: invokevirtual #18                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.newCondition:()Ljava/util/concurrent/locks/Condition;
+      45: putfield      #3                  // Field queueIsFull:Ljava/util/concurrent/locks/Condition;
+      48: aload_0
+      49: aload_0
+      50: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      53: invokevirtual #18                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.newCondition:()Ljava/util/concurrent/locks/Condition;
+      56: putfield      #6                  // Field queueIsEmpty:Ljava/util/concurrent/locks/Condition;
+      59: aload_0
+      60: aload_0
+      61: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      64: invokevirtual #18                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.newCondition:()Ljava/util/concurrent/locks/Condition;
+      67: putfield      #1                  // Field queueIsStopped:Ljava/util/concurrent/locks/Condition;
+      70: aload_0
+      71: new           #19                 // class java/util/concurrent/atomic/AtomicLong
+      74: dup
+      75: invokestatic  #20                 // Method java/lang/System.currentTimeMillis:()J
+      78: invokespecial #21                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      81: putfield      #22                 // Field lastProcessing:Ljava/util/concurrent/atomic/AtomicLong;
+      84: aload_0
+      85: new           #19                 // class java/util/concurrent/atomic/AtomicLong
+      88: dup
+      89: invokestatic  #20                 // Method java/lang/System.currentTimeMillis:()J
+      92: invokespecial #21                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      95: putfield      #23                 // Field lastWorkDone:Ljava/util/concurrent/atomic/AtomicLong;
+      98: aload_0
+      99: new           #24                 // class java/util/concurrent/atomic/AtomicBoolean
+     102: dup
+     103: iconst_0
+     104: invokespecial #25                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+     107: putfield      #26                 // Field busyProcessing:Ljava/util/concurrent/atomic/AtomicBoolean;
+     110: aload_0
+     111: iconst_0
+     112: putfield      #4                  // Field stopping:Z
+     115: aload_0
+     116: iconst_1
+     117: putfield      #2                  // Field stopped:Z
+     120: aload_0
+     121: aload_1
+     122: invokevirtual #27                 // Method net/sf/ehcache/config/CacheConfiguration.getName:()Ljava/lang/String;
+     125: putfield      #28                 // Field cacheName:Ljava/lang/String;
+     128: aload_1
+     129: invokevirtual #29                 // Method net/sf/ehcache/config/CacheConfiguration.getCacheWriterConfiguration:()Lnet/sf/ehcache/config/CacheWriterConfiguration;
+     132: astore_2
+     133: aload_0
+     134: aload_2
+     135: invokevirtual #30                 // Method net/sf/ehcache/config/CacheWriterConfiguration.getMinWriteDelay:()I
+     138: sipush        1000
+     141: imul
+     142: i2l
+     143: putfield      #7                  // Field minWriteDelayMs:J
+     146: aload_0
+     147: aload_2
+     148: invokevirtual #31                 // Method net/sf/ehcache/config/CacheWriterConfiguration.getMaxWriteDelay:()I
+     151: sipush        1000
+     154: imul
+     155: i2l
+     156: putfield      #32                 // Field maxWriteDelayMs:J
+     159: aload_0
+     160: aload_2
+     161: invokevirtual #33                 // Method net/sf/ehcache/config/CacheWriterConfiguration.getRateLimitPerSecond:()I
+     164: putfield      #34                 // Field rateLimitPerSecond:I
+     167: aload_0
+     168: aload_2
+     169: invokevirtual #35                 // Method net/sf/ehcache/config/CacheWriterConfiguration.getWriteBehindMaxQueueSize:()I
+     172: putfield      #36                 // Field maxQueueSize:I
+     175: aload_0
+     176: aload_2
+     177: invokevirtual #37                 // Method net/sf/ehcache/config/CacheWriterConfiguration.getWriteBatching:()Z
+     180: putfield      #38                 // Field writeBatching:Z
+     183: aload_0
+     184: aload_2
+     185: invokevirtual #39                 // Method net/sf/ehcache/config/CacheWriterConfiguration.getWriteBatchSize:()I
+     188: putfield      #40                 // Field writeBatchSize:I
+     191: aload_0
+     192: aload_2
+     193: invokevirtual #41                 // Method net/sf/ehcache/config/CacheWriterConfiguration.getRetryAttempts:()I
+     196: putfield      #42                 // Field retryAttempts:I
+     199: aload_0
+     200: aload_2
+     201: invokevirtual #43                 // Method net/sf/ehcache/config/CacheWriterConfiguration.getRetryAttemptDelaySeconds:()I
+     204: putfield      #44                 // Field retryAttemptDelaySeconds:I
+     207: aload_0
+     208: new           #45                 // class java/lang/Thread
+     211: dup
+     212: new           #46                 // class net/sf/ehcache/writer/writebehind/AbstractWriteBehindQueue$ProcessingThread
+     215: dup
+     216: aload_0
+     217: aconst_null
+     218: invokespecial #47                 // Method net/sf/ehcache/writer/writebehind/AbstractWriteBehindQueue$ProcessingThread."<init>":(Lnet/sf/ehcache/writer/writebehind/AbstractWriteBehindQueue;Lnet/sf/ehcache/writer/writebehind/AbstractWriteBehindQueue$1;)V
+     221: new           #48                 // class java/lang/StringBuilder
+     224: dup
+     225: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     228: aload_0
+     229: getfield      #28                 // Field cacheName:Ljava/lang/String;
+     232: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     235: ldc           #51                 // String  write-behind
+     237: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     240: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     243: invokespecial #53                 // Method java/lang/Thread."<init>":(Ljava/lang/Runnable;Ljava/lang/String;)V
+     246: putfield      #54                 // Field processingThread:Ljava/lang/Thread;
+     249: aload_0
+     250: getfield      #54                 // Field processingThread:Ljava/lang/Thread;
+     253: iconst_1
+     254: invokevirtual #55                 // Method java/lang/Thread.setDaemon:(Z)V
+     257: return
+
+  protected abstract java.util.List<net.sf.ehcache.writer.writebehind.operations.SingleOperation> quarantineItems();
+
+  protected abstract void addItem(net.sf.ehcache.writer.writebehind.operations.SingleOperation);
+
+  protected abstract void reinsertUnprocessedItems(java.util.List<net.sf.ehcache.writer.writebehind.operations.SingleOperation>);
+
+  public void start(net.sf.ehcache.writer.CacheWriter);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #56                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+       7: aload_0
+       8: getfield      #2                  // Field stopped:Z
+      11: ifne          49
+      14: new           #57                 // class net/sf/ehcache/CacheException
+      17: dup
+      18: new           #48                 // class java/lang/StringBuilder
+      21: dup
+      22: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      25: ldc           #58                 // String The write-behind queue for cache \'
+      27: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      30: aload_0
+      31: getfield      #28                 // Field cacheName:Ljava/lang/String;
+      34: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      37: ldc           #59                 // String \' can\'t be started more than once
+      39: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      42: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      45: invokespecial #60                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;)V
+      48: athrow
+      49: aload_0
+      50: getfield      #54                 // Field processingThread:Ljava/lang/Thread;
+      53: invokevirtual #61                 // Method java/lang/Thread.isAlive:()Z
+      56: ifeq          97
+      59: new           #57                 // class net/sf/ehcache/CacheException
+      62: dup
+      63: new           #48                 // class java/lang/StringBuilder
+      66: dup
+      67: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      70: ldc           #62                 // String The thread with name
+      72: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      75: aload_0
+      76: getfield      #54                 // Field processingThread:Ljava/lang/Thread;
+      79: invokevirtual #63                 // Method java/lang/Thread.getName:()Ljava/lang/String;
+      82: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      85: ldc           #64                 // String  already exists and is still running
+      87: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      90: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      93: invokespecial #60                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;)V
+      96: athrow
+      97: aload_0
+      98: iconst_0
+      99: putfield      #4                  // Field stopping:Z
+     102: aload_0
+     103: iconst_0
+     104: putfield      #2                  // Field stopped:Z
+     107: aload_0
+     108: aload_1
+     109: putfield      #65                 // Field cacheWriter:Lnet/sf/ehcache/writer/CacheWriter;
+     112: aload_0
+     113: getfield      #54                 // Field processingThread:Ljava/lang/Thread;
+     116: invokevirtual #66                 // Method java/lang/Thread.start:()V
+     119: aload_0
+     120: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     123: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     126: goto          139
+     129: astore_2
+     130: aload_0
+     131: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     134: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     137: aload_2
+     138: athrow
+     139: return
+    Exception table:
+       from    to  target type
+           7   119   129   any
+         129   130   129   any
+
+  public void setOperationsFilter(net.sf.ehcache.writer.writebehind.OperationsFilter);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #68                 // Field filter:Lnet/sf/ehcache/writer/writebehind/OperationsFilter;
+       5: return
+
+  private long getLastProcessing();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field lastProcessing:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #69                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  private void processItems() throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_0
+       1: getfield      #26                 // Field busyProcessing:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #70                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: ifeq          45
+      10: new           #57                 // class net/sf/ehcache/CacheException
+      13: dup
+      14: new           #48                 // class java/lang/StringBuilder
+      17: dup
+      18: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      21: ldc           #71                 // String The write behind queue for cache \'
+      23: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: aload_0
+      27: getfield      #28                 // Field cacheName:Ljava/lang/String;
+      30: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      33: ldc           #72                 // String \' is already busy processing.
+      35: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      38: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      41: invokespecial #60                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;)V
+      44: athrow
+      45: aload_0
+      46: getfield      #26                 // Field busyProcessing:Ljava/util/concurrent/atomic/AtomicBoolean;
+      49: iconst_1
+      50: invokevirtual #73                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      53: aload_0
+      54: getfield      #22                 // Field lastProcessing:Ljava/util/concurrent/atomic/AtomicLong;
+      57: invokestatic  #20                 // Method java/lang/System.currentTimeMillis:()J
+      60: invokevirtual #74                 // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+      63: aload_0
+      64: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      67: invokevirtual #56                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+      70: aload_0
+      71: invokevirtual #75                 // Method getQueueSize:()J
+      74: lconst_0
+      75: lcmp
+      76: ifle          87
+      79: aload_0
+      80: invokevirtual #76                 // Method quarantineItems:()Ljava/util/List;
+      83: astore_2
+      84: goto          89
+      87: aconst_null
+      88: astore_2
+      89: aload_2
+      90: ifnull        103
+      93: aload_2
+      94: invokeinterface #77,  1           // InterfaceMethod java/util/List.size:()I
+      99: istore_1
+     100: goto          105
+     103: iconst_0
+     104: istore_1
+     105: aload_0
+     106: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     109: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     112: goto          125
+     115: astore_3
+     116: aload_0
+     117: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     120: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     123: aload_3
+     124: athrow
+     125: iconst_0
+     126: iload_1
+     127: if_icmpne     219
+     130: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     133: getstatic     #79                 // Field java/util/logging/Level.FINER:Ljava/util/logging/Level;
+     136: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+     139: ifeq          170
+     142: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     145: new           #48                 // class java/lang/StringBuilder
+     148: dup
+     149: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     152: aload_0
+     153: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+     156: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     159: ldc           #82                 // String  : processItems() : nothing to process
+     161: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     164: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     167: invokevirtual #83                 // Method java/util/logging/Logger.finer:(Ljava/lang/String;)V
+     170: aload_0
+     171: getfield      #26                 // Field busyProcessing:Ljava/util/concurrent/atomic/AtomicBoolean;
+     174: iconst_0
+     175: invokevirtual #73                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     178: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     181: getstatic     #79                 // Field java/util/logging/Level.FINER:Ljava/util/logging/Level;
+     184: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+     187: ifeq          218
+     190: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     193: new           #48                 // class java/lang/StringBuilder
+     196: dup
+     197: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     200: aload_0
+     201: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+     204: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     207: ldc           #84                 // String  : processItems() : processing finished
+     209: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     212: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     215: invokevirtual #83                 // Method java/util/logging/Logger.finer:(Ljava/lang/String;)V
+     218: return
+     219: aload_0
+     220: aload_2
+     221: invokespecial #85                 // Method filterQuarantined:(Ljava/util/List;)V
+     224: aload_0
+     225: getfield      #38                 // Field writeBatching:Z
+     228: ifeq          429
+     231: aload_0
+     232: getfield      #40                 // Field writeBatchSize:I
+     235: ifle          429
+     238: iload_1
+     239: aload_0
+     240: getfield      #40                 // Field writeBatchSize:I
+     243: if_icmpge     324
+     246: aload_0
+     247: getfield      #32                 // Field maxWriteDelayMs:J
+     250: aload_0
+     251: getfield      #22                 // Field lastProcessing:Ljava/util/concurrent/atomic/AtomicLong;
+     254: invokevirtual #69                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     257: aload_0
+     258: getfield      #23                 // Field lastWorkDone:Ljava/util/concurrent/atomic/AtomicLong;
+     261: invokevirtual #69                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     264: lsub
+     265: lcmp
+     266: ifle          324
+     269: aload_0
+     270: aload_2
+     271: iload_1
+     272: invokespecial #86                 // Method waitUntilEnoughWorkItemsAvailable:(Ljava/util/List;I)V
+     275: aload_0
+     276: getfield      #26                 // Field busyProcessing:Ljava/util/concurrent/atomic/AtomicBoolean;
+     279: iconst_0
+     280: invokevirtual #73                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     283: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     286: getstatic     #79                 // Field java/util/logging/Level.FINER:Ljava/util/logging/Level;
+     289: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+     292: ifeq          323
+     295: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     298: new           #48                 // class java/lang/StringBuilder
+     301: dup
+     302: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     305: aload_0
+     306: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+     309: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     312: ldc           #84                 // String  : processItems() : processing finished
+     314: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     317: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     320: invokevirtual #83                 // Method java/util/logging/Logger.finer:(Ljava/lang/String;)V
+     323: return
+     324: aload_0
+     325: getfield      #34                 // Field rateLimitPerSecond:I
+     328: ifle          429
+     331: invokestatic  #20                 // Method java/lang/System.currentTimeMillis:()J
+     334: aload_0
+     335: getfield      #23                 // Field lastWorkDone:Ljava/util/concurrent/atomic/AtomicLong;
+     338: invokevirtual #69                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     341: lsub
+     342: ldc2_w        #87                 // long 1000l
+     345: ldiv
+     346: lstore_3
+     347: aload_0
+     348: getfield      #34                 // Field rateLimitPerSecond:I
+     351: i2l
+     352: lload_3
+     353: lmul
+     354: lstore        5
+     356: aload_0
+     357: aload_2
+     358: invokespecial #89                 // Method determineBatchSize:(Ljava/util/List;)I
+     361: istore        7
+     363: iload         7
+     365: i2l
+     366: lload         5
+     368: lcmp
+     369: ifle          429
+     372: aload_0
+     373: aload_2
+     374: iload         7
+     376: lload_3
+     377: invokespecial #90                 // Method waitUntilEnoughTimeHasPassed:(Ljava/util/List;IJ)V
+     380: aload_0
+     381: getfield      #26                 // Field busyProcessing:Ljava/util/concurrent/atomic/AtomicBoolean;
+     384: iconst_0
+     385: invokevirtual #73                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     388: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     391: getstatic     #79                 // Field java/util/logging/Level.FINER:Ljava/util/logging/Level;
+     394: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+     397: ifeq          428
+     400: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     403: new           #48                 // class java/lang/StringBuilder
+     406: dup
+     407: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     410: aload_0
+     411: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+     414: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     417: ldc           #84                 // String  : processItems() : processing finished
+     419: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     422: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     425: invokevirtual #83                 // Method java/util/logging/Logger.finer:(Ljava/lang/String;)V
+     428: return
+     429: aload_0
+     430: getfield      #23                 // Field lastWorkDone:Ljava/util/concurrent/atomic/AtomicLong;
+     433: invokestatic  #20                 // Method java/lang/System.currentTimeMillis:()J
+     436: invokevirtual #74                 // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     439: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     442: getstatic     #79                 // Field java/util/logging/Level.FINER:Ljava/util/logging/Level;
+     445: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+     448: ifeq          479
+     451: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     454: new           #48                 // class java/lang/StringBuilder
+     457: dup
+     458: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     461: aload_0
+     462: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+     465: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     468: ldc           #91                 // String  : processItems() : processing started
+     470: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     473: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     476: invokevirtual #83                 // Method java/util/logging/Logger.finer:(Ljava/lang/String;)V
+     479: aload_0
+     480: aload_2
+     481: invokespecial #92                 // Method processQuarantinedItems:(Ljava/util/List;)V
+     484: goto          503
+     487: astore_3
+     488: aload_0
+     489: aload_2
+     490: invokespecial #94                 // Method reassemble:(Ljava/util/List;)V
+     493: aload_3
+     494: athrow
+     495: astore_3
+     496: aload_0
+     497: aload_2
+     498: invokespecial #94                 // Method reassemble:(Ljava/util/List;)V
+     501: aload_3
+     502: athrow
+     503: aload_0
+     504: getfield      #26                 // Field busyProcessing:Ljava/util/concurrent/atomic/AtomicBoolean;
+     507: iconst_0
+     508: invokevirtual #73                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     511: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     514: getstatic     #79                 // Field java/util/logging/Level.FINER:Ljava/util/logging/Level;
+     517: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+     520: ifeq          607
+     523: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     526: new           #48                 // class java/lang/StringBuilder
+     529: dup
+     530: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     533: aload_0
+     534: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+     537: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     540: ldc           #84                 // String  : processItems() : processing finished
+     542: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     545: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     548: invokevirtual #83                 // Method java/util/logging/Logger.finer:(Ljava/lang/String;)V
+     551: goto          607
+     554: astore        8
+     556: aload_0
+     557: getfield      #26                 // Field busyProcessing:Ljava/util/concurrent/atomic/AtomicBoolean;
+     560: iconst_0
+     561: invokevirtual #73                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     564: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     567: getstatic     #79                 // Field java/util/logging/Level.FINER:Ljava/util/logging/Level;
+     570: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+     573: ifeq          604
+     576: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     579: new           #48                 // class java/lang/StringBuilder
+     582: dup
+     583: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     586: aload_0
+     587: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+     590: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     593: ldc           #84                 // String  : processItems() : processing finished
+     595: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     598: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     601: invokevirtual #83                 // Method java/util/logging/Logger.finer:(Ljava/lang/String;)V
+     604: aload         8
+     606: athrow
+     607: return
+    Exception table:
+       from    to  target type
+          70   105   115   any
+         115   116   115   any
+         219   275   487   Class java/lang/RuntimeException
+         324   380   487   Class java/lang/RuntimeException
+         429   484   487   Class java/lang/RuntimeException
+         219   275   495   Class java/lang/Error
+         324   380   495   Class java/lang/Error
+         429   484   495   Class java/lang/Error
+          63   170   554   any
+         219   275   554   any
+         324   380   554   any
+         429   503   554   any
+         554   556   554   any
+
+  private void waitUntilEnoughWorkItemsAvailable(java.util.List<net.sf.ehcache.writer.writebehind.operations.SingleOperation>, int);
+    Code:
+       0: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+       3: getstatic     #79                 // Field java/util/logging/Level.FINER:Ljava/util/logging/Level;
+       6: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+       9: ifeq          61
+      12: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+      15: new           #48                 // class java/lang/StringBuilder
+      18: dup
+      19: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      22: aload_0
+      23: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+      26: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: ldc           #96                 // String  : processItems() : only
+      31: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: iload_2
+      35: invokevirtual #97                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      38: ldc           #98                 // String  work items available, waiting for
+      40: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      43: aload_0
+      44: getfield      #40                 // Field writeBatchSize:I
+      47: invokevirtual #97                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      50: ldc           #99                 // String  items to fill up a batch
+      52: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      55: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      58: invokevirtual #83                 // Method java/util/logging/Logger.finer:(Ljava/lang/String;)V
+      61: aload_0
+      62: aload_1
+      63: invokespecial #94                 // Method reassemble:(Ljava/util/List;)V
+      66: return
+
+  private void waitUntilEnoughTimeHasPassed(java.util.List<net.sf.ehcache.writer.writebehind.operations.SingleOperation>, int, long);
+    Code:
+       0: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+       3: getstatic     #79                 // Field java/util/logging/Level.FINER:Ljava/util/logging/Level;
+       6: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+       9: ifeq          70
+      12: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+      15: new           #48                 // class java/lang/StringBuilder
+      18: dup
+      19: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      22: aload_0
+      23: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+      26: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: ldc           #100                // String  : processItems() : last work was done
+      31: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: lload_3
+      35: invokevirtual #101                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      38: ldc           #102                // String  seconds ago, processing
+      40: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      43: iload_2
+      44: invokevirtual #97                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      47: ldc           #103                // String  batch items would exceed the rate limit of
+      49: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      52: aload_0
+      53: getfield      #34                 // Field rateLimitPerSecond:I
+      56: invokevirtual #97                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      59: ldc           #104                // String , waiting for a while.
+      61: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      64: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      67: invokevirtual #83                 // Method java/util/logging/Logger.finer:(Ljava/lang/String;)V
+      70: aload_0
+      71: aload_1
+      72: invokespecial #94                 // Method reassemble:(Ljava/util/List;)V
+      75: return
+
+  private int determineBatchSize(java.util.List<net.sf.ehcache.writer.writebehind.operations.SingleOperation>);
+    Code:
+       0: aload_0
+       1: getfield      #40                 // Field writeBatchSize:I
+       4: istore_2
+       5: aload_1
+       6: invokeinterface #77,  1           // InterfaceMethod java/util/List.size:()I
+      11: iload_2
+      12: if_icmpge     22
+      15: aload_1
+      16: invokeinterface #77,  1           // InterfaceMethod java/util/List.size:()I
+      21: istore_2
+      22: iload_2
+      23: ireturn
+
+  private void filterQuarantined(java.util.List<net.sf.ehcache.writer.writebehind.operations.SingleOperation>);
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field filter:Lnet/sf/ehcache/writer/writebehind/OperationsFilter;
+       4: astore_2
+       5: aload_2
+       6: ifnull        19
+       9: aload_2
+      10: aload_1
+      11: invokestatic  #105                // Method net/sf/ehcache/writer/writebehind/CastingOperationConverter.getInstance:()Lnet/sf/ehcache/writer/writebehind/CastingOperationConverter;
+      14: invokeinterface #106,  3          // InterfaceMethod net/sf/ehcache/writer/writebehind/OperationsFilter.filter:(Ljava/util/List;Lnet/sf/ehcache/writer/writebehind/OperationConverter;)V
+      19: return
+
+  private void processQuarantinedItems(java.util.List<net.sf.ehcache.writer.writebehind.operations.SingleOperation>);
+    Code:
+       0: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+       3: getstatic     #107                // Field java/util/logging/Level.CONFIG:Ljava/util/logging/Level;
+       6: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+       9: ifeq          54
+      12: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+      15: new           #48                 // class java/lang/StringBuilder
+      18: dup
+      19: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      22: aload_0
+      23: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+      26: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: ldc           #108                // String  : processItems() : processing
+      31: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: aload_1
+      35: invokeinterface #77,  1           // InterfaceMethod java/util/List.size:()I
+      40: invokevirtual #97                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      43: ldc           #109                // String  quarantined items
+      45: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      48: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      51: invokevirtual #110                // Method java/util/logging/Logger.config:(Ljava/lang/String;)V
+      54: aload_0
+      55: getfield      #38                 // Field writeBatching:Z
+      58: ifeq          76
+      61: aload_0
+      62: getfield      #40                 // Field writeBatchSize:I
+      65: ifle          76
+      68: aload_0
+      69: aload_1
+      70: invokespecial #111                // Method processBatchedOperations:(Ljava/util/List;)V
+      73: goto          81
+      76: aload_0
+      77: aload_1
+      78: invokespecial #112                // Method processSingleOperation:(Ljava/util/List;)V
+      81: return
+
+  private void processBatchedOperations(java.util.List<net.sf.ehcache.writer.writebehind.operations.SingleOperation>);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #89                 // Method determineBatchSize:(Ljava/util/List;)I
+       5: istore_2
+       6: new           #113                // class java/util/TreeMap
+       9: dup
+      10: invokespecial #114                // Method java/util/TreeMap."<init>":()V
+      13: astore_3
+      14: iconst_0
+      15: istore        4
+      17: iload         4
+      19: iload_2
+      20: if_icmpge     151
+      23: aload_1
+      24: iload         4
+      26: invokeinterface #115,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      31: checkcast     #116                // class net/sf/ehcache/writer/writebehind/operations/SingleOperation
+      34: astore        5
+      36: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+      39: getstatic     #107                // Field java/util/logging/Level.CONFIG:Ljava/util/logging/Level;
+      42: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+      45: ifeq          86
+      48: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+      51: new           #48                 // class java/lang/StringBuilder
+      54: dup
+      55: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      58: aload_0
+      59: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+      62: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      65: ldc           #117                // String  : processItems() : adding
+      67: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      70: aload         5
+      72: invokevirtual #118                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      75: ldc           #119                // String  to next batch
+      77: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      80: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      83: invokevirtual #110                // Method java/util/logging/Logger.config:(Ljava/lang/String;)V
+      86: aload_3
+      87: aload         5
+      89: invokeinterface #120,  1          // InterfaceMethod net/sf/ehcache/writer/writebehind/operations/SingleOperation.getType:()Lnet/sf/ehcache/writer/writebehind/operations/SingleOperationType;
+      94: invokeinterface #121,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      99: checkcast     #122                // class java/util/List
+     102: astore        6
+     104: aconst_null
+     105: aload         6
+     107: if_acmpne     135
+     110: new           #123                // class java/util/ArrayList
+     113: dup
+     114: invokespecial #124                // Method java/util/ArrayList."<init>":()V
+     117: astore        6
+     119: aload_3
+     120: aload         5
+     122: invokeinterface #120,  1          // InterfaceMethod net/sf/ehcache/writer/writebehind/operations/SingleOperation.getType:()Lnet/sf/ehcache/writer/writebehind/operations/SingleOperationType;
+     127: aload         6
+     129: invokeinterface #125,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     134: pop
+     135: aload         6
+     137: aload         5
+     139: invokeinterface #126,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     144: pop
+     145: iinc          4, 1
+     148: goto          17
+     151: aload_3
+     152: invokeinterface #127,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+     157: invokeinterface #128,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+     162: astore        4
+     164: aload         4
+     166: invokeinterface #129,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     171: ifeq          372
+     174: aload         4
+     176: invokeinterface #130,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     181: checkcast     #122                // class java/util/List
+     184: astore        5
+     186: aload_0
+     187: getfield      #42                 // Field retryAttempts:I
+     190: iconst_1
+     191: iadd
+     192: istore        6
+     194: iload         6
+     196: iinc          6, -1
+     199: ifle          369
+     202: aload         5
+     204: iconst_0
+     205: invokeinterface #115,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     210: checkcast     #116                // class net/sf/ehcache/writer/writebehind/operations/SingleOperation
+     213: aload         5
+     215: invokeinterface #131,  2          // InterfaceMethod net/sf/ehcache/writer/writebehind/operations/SingleOperation.createBatchOperation:(Ljava/util/List;)Lnet/sf/ehcache/writer/writebehind/operations/BatchOperation;
+     220: aload_0
+     221: getfield      #65                 // Field cacheWriter:Lnet/sf/ehcache/writer/CacheWriter;
+     224: invokeinterface #132,  2          // InterfaceMethod net/sf/ehcache/writer/writebehind/operations/BatchOperation.performBatchOperation:(Lnet/sf/ehcache/writer/CacheWriter;)V
+     229: goto          369
+     232: astore        7
+     234: iload         6
+     236: ifgt          289
+     239: aload         5
+     241: invokeinterface #133,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     246: astore        8
+     248: aload         8
+     250: invokeinterface #129,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     255: ifeq          286
+     258: aload         8
+     260: invokeinterface #130,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     265: checkcast     #116                // class net/sf/ehcache/writer/writebehind/operations/SingleOperation
+     268: astore        9
+     270: aload         9
+     272: aload_0
+     273: getfield      #65                 // Field cacheWriter:Lnet/sf/ehcache/writer/CacheWriter;
+     276: aload         7
+     278: invokeinterface #134,  3          // InterfaceMethod net/sf/ehcache/writer/writebehind/operations/SingleOperation.throwAway:(Lnet/sf/ehcache/writer/CacheWriter;Ljava/lang/RuntimeException;)V
+     283: goto          248
+     286: goto          366
+     289: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     292: new           #48                 // class java/lang/StringBuilder
+     295: dup
+     296: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     299: ldc           #135                // String Exception while processing write behind queue, retrying in
+     301: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     304: aload_0
+     305: getfield      #44                 // Field retryAttemptDelaySeconds:I
+     308: invokevirtual #97                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     311: ldc           #136                // String  seconds,
+     313: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     316: iload         6
+     318: invokevirtual #97                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     321: ldc           #137                // String  retries left :
+     323: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     326: aload         7
+     328: invokevirtual #138                // Method java/lang/RuntimeException.getMessage:()Ljava/lang/String;
+     331: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     334: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     337: invokevirtual #139                // Method java/util/logging/Logger.warning:(Ljava/lang/String;)V
+     340: aload_0
+     341: getfield      #44                 // Field retryAttemptDelaySeconds:I
+     344: sipush        1000
+     347: imul
+     348: i2l
+     349: invokestatic  #140                // Method java/lang/Thread.sleep:(J)V
+     352: goto          366
+     355: astore        8
+     357: invokestatic  #142                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     360: invokevirtual #143                // Method java/lang/Thread.interrupt:()V
+     363: aload         7
+     365: athrow
+     366: goto          194
+     369: goto          164
+     372: iconst_0
+     373: istore        4
+     375: iload         4
+     377: iload_2
+     378: if_icmpge     395
+     381: aload_1
+     382: iconst_0
+     383: invokeinterface #144,  2          // InterfaceMethod java/util/List.remove:(I)Ljava/lang/Object;
+     388: pop
+     389: iinc          4, 1
+     392: goto          375
+     395: aload_1
+     396: invokeinterface #145,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+     401: ifne          409
+     404: aload_0
+     405: aload_1
+     406: invokespecial #94                 // Method reassemble:(Ljava/util/List;)V
+     409: return
+    Exception table:
+       from    to  target type
+         202   229   232   Class java/lang/RuntimeException
+         340   352   355   Class java/lang/InterruptedException
+
+  private void processSingleOperation(java.util.List<net.sf.ehcache.writer.writebehind.operations.SingleOperation>);
+    Code:
+       0: aload_1
+       1: invokeinterface #145,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+       6: ifne          207
+       9: aload_1
+      10: iconst_0
+      11: invokeinterface #115,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      16: checkcast     #116                // class net/sf/ehcache/writer/writebehind/operations/SingleOperation
+      19: astore_2
+      20: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+      23: getstatic     #107                // Field java/util/logging/Level.CONFIG:Ljava/util/logging/Level;
+      26: invokevirtual #80                 // Method java/util/logging/Logger.isLoggable:(Ljava/util/logging/Level;)Z
+      29: ifeq          64
+      32: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+      35: new           #48                 // class java/lang/StringBuilder
+      38: dup
+      39: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      42: aload_0
+      43: invokespecial #81                 // Method getThreadName:()Ljava/lang/String;
+      46: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      49: ldc           #108                // String  : processItems() : processing
+      51: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      54: aload_2
+      55: invokevirtual #118                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      58: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      61: invokevirtual #110                // Method java/util/logging/Logger.config:(Ljava/lang/String;)V
+      64: aload_0
+      65: getfield      #42                 // Field retryAttempts:I
+      68: iconst_1
+      69: iadd
+      70: istore_3
+      71: iload_3
+      72: iinc          3, -1
+      75: ifle          196
+      78: aload_2
+      79: aload_0
+      80: getfield      #65                 // Field cacheWriter:Lnet/sf/ehcache/writer/CacheWriter;
+      83: invokeinterface #146,  2          // InterfaceMethod net/sf/ehcache/writer/writebehind/operations/SingleOperation.performSingleOperation:(Lnet/sf/ehcache/writer/CacheWriter;)V
+      88: goto          196
+      91: astore        4
+      93: iload_3
+      94: ifgt          117
+      97: aload_2
+      98: aload_0
+      99: getfield      #65                 // Field cacheWriter:Lnet/sf/ehcache/writer/CacheWriter;
+     102: aload         4
+     104: invokeinterface #134,  3          // InterfaceMethod net/sf/ehcache/writer/writebehind/operations/SingleOperation.throwAway:(Lnet/sf/ehcache/writer/CacheWriter;Ljava/lang/RuntimeException;)V
+     109: goto          193
+     112: astore        5
+     114: goto          193
+     117: getstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+     120: new           #48                 // class java/lang/StringBuilder
+     123: dup
+     124: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     127: ldc           #135                // String Exception while processing write behind queue, retrying in
+     129: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     132: aload_0
+     133: getfield      #44                 // Field retryAttemptDelaySeconds:I
+     136: invokevirtual #97                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     139: ldc           #136                // String  seconds,
+     141: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     144: iload_3
+     145: invokevirtual #97                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     148: ldc           #137                // String  retries left :
+     150: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     153: aload         4
+     155: invokevirtual #138                // Method java/lang/RuntimeException.getMessage:()Ljava/lang/String;
+     158: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     161: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     164: invokevirtual #139                // Method java/util/logging/Logger.warning:(Ljava/lang/String;)V
+     167: aload_0
+     168: getfield      #44                 // Field retryAttemptDelaySeconds:I
+     171: sipush        1000
+     174: imul
+     175: i2l
+     176: invokestatic  #140                // Method java/lang/Thread.sleep:(J)V
+     179: goto          193
+     182: astore        5
+     184: invokestatic  #142                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     187: invokevirtual #143                // Method java/lang/Thread.interrupt:()V
+     190: aload         4
+     192: athrow
+     193: goto          71
+     196: aload_1
+     197: iconst_0
+     198: invokeinterface #144,  2          // InterfaceMethod java/util/List.remove:(I)Ljava/lang/Object;
+     203: pop
+     204: goto          0
+     207: return
+    Exception table:
+       from    to  target type
+          78    88    91   Class java/lang/RuntimeException
+          97   109   112   Class java/lang/RuntimeException
+         167   179   182   Class java/lang/InterruptedException
+
+  public void write(net.sf.ehcache.Element);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #56                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+       7: aload_0
+       8: invokespecial #147                // Method waitForQueueSizeToDrop:()V
+      11: aload_0
+      12: getfield      #4                  // Field stopping:Z
+      15: ifne          25
+      18: aload_0
+      19: getfield      #2                  // Field stopped:Z
+      22: ifeq          69
+      25: new           #57                 // class net/sf/ehcache/CacheException
+      28: dup
+      29: new           #48                 // class java/lang/StringBuilder
+      32: dup
+      33: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      36: ldc           #148                // String The element \'
+      38: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      41: aload_1
+      42: invokevirtual #118                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      45: ldc           #149                // String \' couldn\'t be added through the write-behind queue for cache \'
+      47: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      50: aload_0
+      51: getfield      #28                 // Field cacheName:Ljava/lang/String;
+      54: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      57: ldc           #150                // String \' since it\'s not started.
+      59: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      62: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      65: invokespecial #60                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;)V
+      68: athrow
+      69: aload_0
+      70: new           #151                // class net/sf/ehcache/writer/writebehind/operations/WriteOperation
+      73: dup
+      74: aload_1
+      75: invokespecial #152                // Method net/sf/ehcache/writer/writebehind/operations/WriteOperation."<init>":(Lnet/sf/ehcache/Element;)V
+      78: invokevirtual #153                // Method addItem:(Lnet/sf/ehcache/writer/writebehind/operations/SingleOperation;)V
+      81: aload_0
+      82: invokevirtual #75                 // Method getQueueSize:()J
+      85: lconst_1
+      86: ladd
+      87: aload_0
+      88: getfield      #36                 // Field maxQueueSize:I
+      91: i2l
+      92: lcmp
+      93: ifge          105
+      96: aload_0
+      97: getfield      #3                  // Field queueIsFull:Ljava/util/concurrent/locks/Condition;
+     100: invokeinterface #154,  1          // InterfaceMethod java/util/concurrent/locks/Condition.signal:()V
+     105: aload_0
+     106: getfield      #6                  // Field queueIsEmpty:Ljava/util/concurrent/locks/Condition;
+     109: invokeinterface #154,  1          // InterfaceMethod java/util/concurrent/locks/Condition.signal:()V
+     114: aload_0
+     115: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     118: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     121: goto          134
+     124: astore_2
+     125: aload_0
+     126: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     129: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     132: aload_2
+     133: athrow
+     134: return
+    Exception table:
+       from    to  target type
+           7   114   124   any
+         124   125   124   any
+
+  private void waitForQueueSizeToDrop();
+    Code:
+       0: aload_0
+       1: getfield      #36                 // Field maxQueueSize:I
+       4: ifle          46
+       7: aload_0
+       8: invokevirtual #75                 // Method getQueueSize:()J
+      11: aload_0
+      12: getfield      #36                 // Field maxQueueSize:I
+      15: i2l
+      16: lcmp
+      17: iflt          46
+      20: aload_0
+      21: getfield      #3                  // Field queueIsFull:Ljava/util/concurrent/locks/Condition;
+      24: invokeinterface #155,  1          // InterfaceMethod java/util/concurrent/locks/Condition.await:()V
+      29: goto          7
+      32: astore_1
+      33: aload_0
+      34: invokevirtual #156                // Method stop:()V
+      37: invokestatic  #142                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      40: invokevirtual #143                // Method java/lang/Thread.interrupt:()V
+      43: goto          7
+      46: return
+    Exception table:
+       from    to  target type
+          20    29    32   Class java/lang/InterruptedException
+
+  public void delete(net.sf.ehcache.CacheEntry);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #56                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+       7: aload_0
+       8: invokespecial #147                // Method waitForQueueSizeToDrop:()V
+      11: aload_0
+      12: getfield      #4                  // Field stopping:Z
+      15: ifne          25
+      18: aload_0
+      19: getfield      #2                  // Field stopped:Z
+      22: ifeq          77
+      25: new           #57                 // class net/sf/ehcache/CacheException
+      28: dup
+      29: new           #48                 // class java/lang/StringBuilder
+      32: dup
+      33: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      36: ldc           #157                // String The entry for key \'
+      38: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      41: aload_1
+      42: invokevirtual #158                // Method net/sf/ehcache/CacheEntry.getKey:()Ljava/lang/Object;
+      45: invokevirtual #118                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      48: ldc           #159                // String \' couldn\'t be deleted through the write-behind
+      50: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      53: ldc           #160                // String queue for cache \'
+      55: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      58: aload_0
+      59: getfield      #28                 // Field cacheName:Ljava/lang/String;
+      62: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      65: ldc           #150                // String \' since it\'s not started.
+      67: invokevirtual #50                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      70: invokevirtual #52                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      73: invokespecial #60                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;)V
+      76: athrow
+      77: aload_0
+      78: new           #161                // class net/sf/ehcache/writer/writebehind/operations/DeleteOperation
+      81: dup
+      82: aload_1
+      83: invokespecial #162                // Method net/sf/ehcache/writer/writebehind/operations/DeleteOperation."<init>":(Lnet/sf/ehcache/CacheEntry;)V
+      86: invokevirtual #153                // Method addItem:(Lnet/sf/ehcache/writer/writebehind/operations/SingleOperation;)V
+      89: aload_0
+      90: invokevirtual #75                 // Method getQueueSize:()J
+      93: lconst_1
+      94: ladd
+      95: aload_0
+      96: getfield      #36                 // Field maxQueueSize:I
+      99: i2l
+     100: lcmp
+     101: ifge          113
+     104: aload_0
+     105: getfield      #3                  // Field queueIsFull:Ljava/util/concurrent/locks/Condition;
+     108: invokeinterface #154,  1          // InterfaceMethod java/util/concurrent/locks/Condition.signal:()V
+     113: aload_0
+     114: getfield      #6                  // Field queueIsEmpty:Ljava/util/concurrent/locks/Condition;
+     117: invokeinterface #154,  1          // InterfaceMethod java/util/concurrent/locks/Condition.signal:()V
+     122: aload_0
+     123: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     126: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     129: goto          142
+     132: astore_2
+     133: aload_0
+     134: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     137: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     140: aload_2
+     141: athrow
+     142: return
+    Exception table:
+       from    to  target type
+           7   122   132   any
+         132   133   132   any
+
+  public void stop() throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #56                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+       7: aload_0
+       8: getfield      #2                  // Field stopped:Z
+      11: ifeq          22
+      14: aload_0
+      15: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      18: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      21: return
+      22: aload_0
+      23: iconst_1
+      24: putfield      #4                  // Field stopping:Z
+      27: aload_0
+      28: getfield      #6                  // Field queueIsEmpty:Ljava/util/concurrent/locks/Condition;
+      31: invokeinterface #154,  1          // InterfaceMethod java/util/concurrent/locks/Condition.signal:()V
+      36: aload_0
+      37: getfield      #2                  // Field stopped:Z
+      40: ifne          55
+      43: aload_0
+      44: getfield      #1                  // Field queueIsStopped:Ljava/util/concurrent/locks/Condition;
+      47: invokeinterface #155,  1          // InterfaceMethod java/util/concurrent/locks/Condition.await:()V
+      52: goto          36
+      55: aload_0
+      56: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      59: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      62: goto          91
+      65: astore_1
+      66: invokestatic  #142                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      69: invokevirtual #143                // Method java/lang/Thread.interrupt:()V
+      72: new           #57                 // class net/sf/ehcache/CacheException
+      75: dup
+      76: aload_1
+      77: invokespecial #163                // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/Throwable;)V
+      80: athrow
+      81: astore_2
+      82: aload_0
+      83: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      86: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      89: aload_2
+      90: athrow
+      91: return
+    Exception table:
+       from    to  target type
+           7    14    65   Class java/lang/InterruptedException
+          22    55    65   Class java/lang/InterruptedException
+           7    14    81   any
+          22    55    81   any
+          65    82    81   any
+
+  public abstract long getQueueSize();
+
+  private boolean isStopped();
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field queueReadLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+       4: invokevirtual #164                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+       7: aload_0
+       8: getfield      #2                  // Field stopped:Z
+      11: istore_1
+      12: aload_0
+      13: getfield      #16                 // Field queueReadLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      16: invokevirtual #165                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      19: iload_1
+      20: ireturn
+      21: astore_2
+      22: aload_0
+      23: getfield      #16                 // Field queueReadLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      26: invokevirtual #165                // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      29: aload_2
+      30: athrow
+    Exception table:
+       from    to  target type
+           7    12    21   any
+          21    22    21   any
+
+  private java.lang.String getThreadName();
+    Code:
+       0: aload_0
+       1: getfield      #54                 // Field processingThread:Ljava/lang/Thread;
+       4: invokevirtual #63                 // Method java/lang/Thread.getName:()Ljava/lang/String;
+       7: areturn
+
+  private void reassemble(java.util.List<net.sf.ehcache.writer.writebehind.operations.SingleOperation>);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #56                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+       7: aconst_null
+       8: aload_1
+       9: if_acmpne     20
+      12: aload_0
+      13: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      16: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      19: return
+      20: aload_0
+      21: aload_1
+      22: invokevirtual #166                // Method reinsertUnprocessedItems:(Ljava/util/List;)V
+      25: aload_0
+      26: getfield      #6                  // Field queueIsEmpty:Ljava/util/concurrent/locks/Condition;
+      29: invokeinterface #154,  1          // InterfaceMethod java/util/concurrent/locks/Condition.signal:()V
+      34: aload_0
+      35: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      38: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      41: goto          54
+      44: astore_2
+      45: aload_0
+      46: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      49: invokevirtual #67                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      52: aload_2
+      53: athrow
+      54: return
+    Exception table:
+       from    to  target type
+           7    12    44   any
+          20    34    44   any
+          44    45    44   any
+
+  protected java.lang.Thread getProcessingThread();
+    Code:
+       0: aload_0
+       1: getfield      #54                 // Field processingThread:Ljava/lang/Thread;
+       4: areturn
+
+  static boolean access$100(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue);
+    Code:
+       0: aload_0
+       1: invokespecial #10                 // Method isStopped:()Z
+       4: ireturn
+
+  static void access$200(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue) throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method processItems:()V
+       4: return
+
+  static java.util.concurrent.locks.ReentrantReadWriteLock$WriteLock access$300(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field queueWriteLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: areturn
+
+  static long access$400(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field minWriteDelayMs:J
+       4: lreturn
+
+  static java.util.concurrent.locks.Condition access$500(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field queueIsEmpty:Ljava/util/concurrent/locks/Condition;
+       4: areturn
+
+  static long access$600(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue);
+    Code:
+       0: aload_0
+       1: invokespecial #5                  // Method getLastProcessing:()J
+       4: lreturn
+
+  static boolean access$700(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field stopping:Z
+       4: ireturn
+
+  static java.util.concurrent.locks.Condition access$800(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field queueIsFull:Ljava/util/concurrent/locks/Condition;
+       4: areturn
+
+  static boolean access$902(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue, boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: dup_x1
+       3: putfield      #2                  // Field stopped:Z
+       6: ireturn
+
+  static boolean access$702(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue, boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: dup_x1
+       3: putfield      #4                  // Field stopping:Z
+       6: ireturn
+
+  static java.util.concurrent.locks.Condition access$1000(net.sf.ehcache.writer.writebehind.AbstractWriteBehindQueue);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field queueIsStopped:Ljava/util/concurrent/locks/Condition;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc_w         #167                // class net/sf/ehcache/writer/writebehind/WriteBehindQueue
+       3: invokevirtual #168                // Method java/lang/Class.getName:()Ljava/lang/String;
+       6: invokestatic  #169                // Method java/util/logging/Logger.getLogger:(Ljava/lang/String;)Ljava/util/logging/Logger;
+       9: putstatic     #78                 // Field LOGGER:Ljava/util/logging/Logger;
+      12: return
+}

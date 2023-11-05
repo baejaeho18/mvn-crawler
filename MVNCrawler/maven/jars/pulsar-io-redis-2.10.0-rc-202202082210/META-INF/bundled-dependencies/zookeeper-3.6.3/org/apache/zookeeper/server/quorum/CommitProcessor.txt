@@ -1,0 +1,1052 @@
+Compiled from "CommitProcessor.java"
+public class org.apache.zookeeper.server.quorum.CommitProcessor extends org.apache.zookeeper.server.ZooKeeperCriticalThread implements org.apache.zookeeper.server.RequestProcessor {
+  private static final org.slf4j.Logger LOG;
+
+  public static final java.lang.String ZOOKEEPER_COMMIT_PROC_NUM_WORKER_THREADS;
+
+  public static final java.lang.String ZOOKEEPER_COMMIT_PROC_SHUTDOWN_TIMEOUT;
+
+  public static final java.lang.String ZOOKEEPER_COMMIT_PROC_MAX_READ_BATCH_SIZE;
+
+  public static final java.lang.String ZOOKEEPER_COMMIT_PROC_MAX_COMMIT_BATCH_SIZE;
+
+  protected java.util.concurrent.LinkedBlockingQueue<org.apache.zookeeper.server.Request> queuedRequests;
+
+  protected final java.util.concurrent.LinkedBlockingQueue<org.apache.zookeeper.server.Request> queuedWriteRequests;
+
+  private java.util.concurrent.atomic.AtomicInteger numReadQueuedRequests;
+
+  private java.util.concurrent.atomic.AtomicInteger numWriteQueuedRequests;
+
+  protected final java.util.concurrent.LinkedBlockingQueue<org.apache.zookeeper.server.Request> committedRequests;
+
+  protected final java.util.Map<java.lang.Long, java.util.Deque<org.apache.zookeeper.server.Request>> pendingRequests;
+
+  protected final java.util.concurrent.atomic.AtomicInteger numRequestsProcessing;
+
+  org.apache.zookeeper.server.RequestProcessor nextProcessor;
+
+  protected volatile boolean stoppedMainLoop;
+
+  protected volatile boolean stopped;
+
+  private long workerShutdownTimeoutMS;
+
+  protected org.apache.zookeeper.server.WorkerService workerPool;
+
+  private java.lang.Object emptyPoolSync;
+
+  private static volatile int maxReadBatchSize;
+
+  private static volatile int maxCommitBatchSize;
+
+  boolean matchSyncs;
+
+  public org.apache.zookeeper.server.quorum.CommitProcessor(org.apache.zookeeper.server.RequestProcessor, java.lang.String, boolean, org.apache.zookeeper.server.ZooKeeperServerListener);
+    Code:
+       0: aload_0
+       1: new           #5                  // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #6                  // Method java/lang/StringBuilder."<init>":()V
+       8: ldc           #7                  // String CommitProcessor:
+      10: invokevirtual #8                  // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      13: aload_2
+      14: invokevirtual #8                  // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: invokevirtual #9                  // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      20: aload         4
+      22: invokespecial #10                 // Method org/apache/zookeeper/server/ZooKeeperCriticalThread."<init>":(Ljava/lang/String;Lorg/apache/zookeeper/server/ZooKeeperServerListener;)V
+      25: aload_0
+      26: new           #11                 // class java/util/concurrent/LinkedBlockingQueue
+      29: dup
+      30: invokespecial #12                 // Method java/util/concurrent/LinkedBlockingQueue."<init>":()V
+      33: putfield      #13                 // Field queuedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+      36: aload_0
+      37: new           #11                 // class java/util/concurrent/LinkedBlockingQueue
+      40: dup
+      41: invokespecial #12                 // Method java/util/concurrent/LinkedBlockingQueue."<init>":()V
+      44: putfield      #14                 // Field queuedWriteRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+      47: aload_0
+      48: new           #15                 // class java/util/concurrent/atomic/AtomicInteger
+      51: dup
+      52: iconst_0
+      53: invokespecial #16                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      56: putfield      #17                 // Field numReadQueuedRequests:Ljava/util/concurrent/atomic/AtomicInteger;
+      59: aload_0
+      60: new           #15                 // class java/util/concurrent/atomic/AtomicInteger
+      63: dup
+      64: iconst_0
+      65: invokespecial #16                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      68: putfield      #18                 // Field numWriteQueuedRequests:Ljava/util/concurrent/atomic/AtomicInteger;
+      71: aload_0
+      72: new           #11                 // class java/util/concurrent/LinkedBlockingQueue
+      75: dup
+      76: invokespecial #12                 // Method java/util/concurrent/LinkedBlockingQueue."<init>":()V
+      79: putfield      #19                 // Field committedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+      82: aload_0
+      83: new           #20                 // class java/util/HashMap
+      86: dup
+      87: sipush        10000
+      90: invokespecial #21                 // Method java/util/HashMap."<init>":(I)V
+      93: putfield      #22                 // Field pendingRequests:Ljava/util/Map;
+      96: aload_0
+      97: new           #15                 // class java/util/concurrent/atomic/AtomicInteger
+     100: dup
+     101: iconst_0
+     102: invokespecial #16                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+     105: putfield      #23                 // Field numRequestsProcessing:Ljava/util/concurrent/atomic/AtomicInteger;
+     108: aload_0
+     109: iconst_1
+     110: putfield      #24                 // Field stoppedMainLoop:Z
+     113: aload_0
+     114: iconst_1
+     115: putfield      #25                 // Field stopped:Z
+     118: aload_0
+     119: new           #26                 // class java/lang/Object
+     122: dup
+     123: invokespecial #27                 // Method java/lang/Object."<init>":()V
+     126: putfield      #28                 // Field emptyPoolSync:Ljava/lang/Object;
+     129: aload_0
+     130: aload_1
+     131: putfield      #29                 // Field nextProcessor:Lorg/apache/zookeeper/server/RequestProcessor;
+     134: aload_0
+     135: iload_3
+     136: putfield      #30                 // Field matchSyncs:Z
+     139: return
+
+  private boolean isProcessingRequest();
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field numRequestsProcessing:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #31                 // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+       7: ifeq          14
+      10: iconst_1
+      11: goto          15
+      14: iconst_0
+      15: ireturn
+
+  protected boolean needCommit(org.apache.zookeeper.server.Request);
+    Code:
+       0: aload_1
+       1: getfield      #32                 // Field org/apache/zookeeper/server/Request.type:I
+       4: tableswitch   { // -11 to 21
+                   -11: 159
+                   -10: 159
+                    -9: 172
+                    -8: 172
+                    -7: 172
+                    -6: 172
+                    -5: 172
+                    -4: 172
+                    -3: 172
+                    -2: 172
+                    -1: 172
+                     0: 172
+                     1: 152
+                     2: 152
+                     3: 172
+                     4: 172
+                     5: 152
+                     6: 172
+                     7: 152
+                     8: 172
+                     9: 154
+                    10: 172
+                    11: 172
+                    12: 172
+                    13: 152
+                    14: 152
+                    15: 152
+                    16: 152
+                    17: 172
+                    18: 172
+                    19: 152
+                    20: 152
+                    21: 152
+               default: 172
+          }
+     152: iconst_1
+     153: ireturn
+     154: aload_0
+     155: getfield      #30                 // Field matchSyncs:Z
+     158: ireturn
+     159: aload_1
+     160: invokevirtual #33                 // Method org/apache/zookeeper/server/Request.isLocalSession:()Z
+     163: ifne          170
+     166: iconst_1
+     167: goto          171
+     170: iconst_0
+     171: ireturn
+     172: iconst_0
+     173: ireturn
+
+  public void run();
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: iconst_0
+       3: istore_2
+       4: aload_0
+       5: getfield      #19                 // Field committedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+       8: invokevirtual #34                 // Method java/util/concurrent/LinkedBlockingQueue.isEmpty:()Z
+      11: ifne          18
+      14: iconst_1
+      15: goto          19
+      18: iconst_0
+      19: istore_2
+      20: aload_0
+      21: getfield      #13                 // Field queuedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+      24: invokevirtual #35                 // Method java/util/concurrent/LinkedBlockingQueue.size:()I
+      27: istore_1
+      28: iload_1
+      29: ifne          98
+      32: iload_2
+      33: ifne          98
+      36: aload_0
+      37: dup
+      38: astore_3
+      39: monitorenter
+      40: aload_0
+      41: getfield      #25                 // Field stopped:Z
+      44: ifne          86
+      47: iload_1
+      48: ifne          86
+      51: iload_2
+      52: ifne          86
+      55: aload_0
+      56: invokevirtual #36                 // Method java/lang/Object.wait:()V
+      59: aload_0
+      60: getfield      #19                 // Field committedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+      63: invokevirtual #34                 // Method java/util/concurrent/LinkedBlockingQueue.isEmpty:()Z
+      66: ifne          73
+      69: iconst_1
+      70: goto          74
+      73: iconst_0
+      74: istore_2
+      75: aload_0
+      76: getfield      #13                 // Field queuedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+      79: invokevirtual #35                 // Method java/util/concurrent/LinkedBlockingQueue.size:()I
+      82: istore_1
+      83: goto          40
+      86: aload_3
+      87: monitorexit
+      88: goto          98
+      91: astore        4
+      93: aload_3
+      94: monitorexit
+      95: aload         4
+      97: athrow
+      98: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     101: getfield      #38                 // Field org/apache/zookeeper/server/ServerMetrics.READS_QUEUED_IN_COMMIT_PROCESSOR:Lorg/apache/zookeeper/metrics/Summary;
+     104: aload_0
+     105: getfield      #17                 // Field numReadQueuedRequests:Ljava/util/concurrent/atomic/AtomicInteger;
+     108: invokevirtual #31                 // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+     111: i2l
+     112: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     117: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     120: getfield      #40                 // Field org/apache/zookeeper/server/ServerMetrics.WRITES_QUEUED_IN_COMMIT_PROCESSOR:Lorg/apache/zookeeper/metrics/Summary;
+     123: aload_0
+     124: getfield      #18                 // Field numWriteQueuedRequests:Ljava/util/concurrent/atomic/AtomicInteger;
+     127: invokevirtual #31                 // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+     130: i2l
+     131: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     136: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     139: getfield      #41                 // Field org/apache/zookeeper/server/ServerMetrics.COMMITS_QUEUED_IN_COMMIT_PROCESSOR:Lorg/apache/zookeeper/metrics/Summary;
+     142: aload_0
+     143: getfield      #19                 // Field committedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     146: invokevirtual #35                 // Method java/util/concurrent/LinkedBlockingQueue.size:()I
+     149: i2l
+     150: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     155: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+     158: lstore_3
+     159: iconst_0
+     160: istore        6
+     162: aload_0
+     163: getfield      #25                 // Field stopped:Z
+     166: ifne          343
+     169: iload_1
+     170: ifle          343
+     173: getstatic     #43                 // Field maxReadBatchSize:I
+     176: iflt          187
+     179: iload         6
+     181: getstatic     #43                 // Field maxReadBatchSize:I
+     184: if_icmpgt     343
+     187: aload_0
+     188: getfield      #13                 // Field queuedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     191: invokevirtual #44                 // Method java/util/concurrent/LinkedBlockingQueue.poll:()Ljava/lang/Object;
+     194: checkcast     #45                 // class org/apache/zookeeper/server/Request
+     197: dup
+     198: astore        5
+     200: ifnull        343
+     203: iinc          1, -1
+     206: aload_0
+     207: aload         5
+     209: invokevirtual #46                 // Method needCommit:(Lorg/apache/zookeeper/server/Request;)Z
+     212: ifne          235
+     215: aload_0
+     216: getfield      #22                 // Field pendingRequests:Ljava/util/Map;
+     219: aload         5
+     221: getfield      #47                 // Field org/apache/zookeeper/server/Request.sessionId:J
+     224: invokestatic  #48                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     227: invokeinterface #49,  2           // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     232: ifeq          293
+     235: aload_0
+     236: getfield      #22                 // Field pendingRequests:Ljava/util/Map;
+     239: aload         5
+     241: getfield      #47                 // Field org/apache/zookeeper/server/Request.sessionId:J
+     244: invokestatic  #48                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     247: invokedynamic #50,  0             // InvokeDynamic #0:apply:()Ljava/util/function/Function;
+     252: invokeinterface #51,  3           // InterfaceMethod java/util/Map.computeIfAbsent:(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;
+     257: checkcast     #52                 // class java/util/Deque
+     260: astore        7
+     262: aload         7
+     264: aload         5
+     266: invokeinterface #53,  2           // InterfaceMethod java/util/Deque.addLast:(Ljava/lang/Object;)V
+     271: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     274: getfield      #54                 // Field org/apache/zookeeper/server/ServerMetrics.REQUESTS_IN_SESSION_QUEUE:Lorg/apache/zookeeper/metrics/Summary;
+     277: aload         7
+     279: invokeinterface #55,  1           // InterfaceMethod java/util/Deque.size:()I
+     284: i2l
+     285: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     290: goto          310
+     293: iinc          6, 1
+     296: aload_0
+     297: getfield      #17                 // Field numReadQueuedRequests:Ljava/util/concurrent/atomic/AtomicInteger;
+     300: invokevirtual #56                 // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+     303: pop
+     304: aload_0
+     305: aload         5
+     307: invokespecial #57                 // Method sendToNextProcessor:(Lorg/apache/zookeeper/server/Request;)V
+     310: getstatic     #43                 // Field maxReadBatchSize:I
+     313: ifge          162
+     316: aload_0
+     317: getfield      #22                 // Field pendingRequests:Ljava/util/Map;
+     320: invokeinterface #58,  1           // InterfaceMethod java/util/Map.isEmpty:()Z
+     325: ifne          162
+     328: aload_0
+     329: getfield      #19                 // Field committedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     332: invokevirtual #34                 // Method java/util/concurrent/LinkedBlockingQueue.isEmpty:()Z
+     335: ifne          162
+     338: iconst_1
+     339: istore_2
+     340: goto          343
+     343: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     346: getfield      #59                 // Field org/apache/zookeeper/server/ServerMetrics.READS_ISSUED_IN_COMMIT_PROC:Lorg/apache/zookeeper/metrics/Summary;
+     349: iload         6
+     351: i2l
+     352: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     357: iload_2
+     358: ifne          377
+     361: aload_0
+     362: getfield      #19                 // Field committedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     365: invokevirtual #34                 // Method java/util/concurrent/LinkedBlockingQueue.isEmpty:()Z
+     368: ifne          375
+     371: iconst_1
+     372: goto          376
+     375: iconst_0
+     376: istore_2
+     377: iload_2
+     378: ifeq          962
+     381: aload_0
+     382: getfield      #25                 // Field stopped:Z
+     385: ifne          962
+     388: aload_0
+     389: invokevirtual #60                 // Method waitForEmptyPool:()V
+     392: aload_0
+     393: getfield      #25                 // Field stopped:Z
+     396: ifeq          400
+     399: return
+     400: getstatic     #61                 // Field maxCommitBatchSize:I
+     403: istore        7
+     405: new           #62                 // class java/util/HashSet
+     408: dup
+     409: invokespecial #63                 // Method java/util/HashSet."<init>":()V
+     412: astore        8
+     414: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+     417: lstore        9
+     419: iconst_0
+     420: istore        11
+     422: iload_2
+     423: ifeq          737
+     426: aload_0
+     427: getfield      #25                 // Field stopped:Z
+     430: ifne          737
+     433: iload         7
+     435: ifle          737
+     438: aload_0
+     439: getfield      #19                 // Field committedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     442: invokevirtual #64                 // Method java/util/concurrent/LinkedBlockingQueue.peek:()Ljava/lang/Object;
+     445: checkcast     #45                 // class org/apache/zookeeper/server/Request
+     448: astore        5
+     450: aload_0
+     451: getfield      #14                 // Field queuedWriteRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     454: invokevirtual #34                 // Method java/util/concurrent/LinkedBlockingQueue.isEmpty:()Z
+     457: ifne          698
+     460: aload_0
+     461: getfield      #14                 // Field queuedWriteRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     464: invokevirtual #64                 // Method java/util/concurrent/LinkedBlockingQueue.peek:()Ljava/lang/Object;
+     467: checkcast     #45                 // class org/apache/zookeeper/server/Request
+     470: getfield      #47                 // Field org/apache/zookeeper/server/Request.sessionId:J
+     473: aload         5
+     475: getfield      #47                 // Field org/apache/zookeeper/server/Request.sessionId:J
+     478: lcmp
+     479: ifne          698
+     482: aload_0
+     483: getfield      #14                 // Field queuedWriteRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     486: invokevirtual #64                 // Method java/util/concurrent/LinkedBlockingQueue.peek:()Ljava/lang/Object;
+     489: checkcast     #45                 // class org/apache/zookeeper/server/Request
+     492: getfield      #65                 // Field org/apache/zookeeper/server/Request.cxid:I
+     495: aload         5
+     497: getfield      #65                 // Field org/apache/zookeeper/server/Request.cxid:I
+     500: if_icmpne     698
+     503: aload_0
+     504: getfield      #22                 // Field pendingRequests:Ljava/util/Map;
+     507: aload         5
+     509: getfield      #47                 // Field org/apache/zookeeper/server/Request.sessionId:J
+     512: invokestatic  #48                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     515: invokeinterface #66,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     520: checkcast     #52                 // class java/util/Deque
+     523: astore        12
+     525: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     528: getfield      #67                 // Field org/apache/zookeeper/server/ServerMetrics.PENDING_SESSION_QUEUE_SIZE:Lorg/apache/zookeeper/metrics/Summary;
+     531: aload_0
+     532: getfield      #22                 // Field pendingRequests:Ljava/util/Map;
+     535: invokeinterface #68,  1           // InterfaceMethod java/util/Map.size:()I
+     540: i2l
+     541: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     546: aload         12
+     548: ifnull        737
+     551: aload         12
+     553: invokeinterface #69,  1           // InterfaceMethod java/util/Deque.isEmpty:()Z
+     558: ifne          737
+     561: aload_0
+     562: aload         12
+     564: invokeinterface #70,  1           // InterfaceMethod java/util/Deque.peek:()Ljava/lang/Object;
+     569: checkcast     #45                 // class org/apache/zookeeper/server/Request
+     572: invokevirtual #46                 // Method needCommit:(Lorg/apache/zookeeper/server/Request;)Z
+     575: ifne          581
+     578: goto          737
+     581: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     584: getfield      #54                 // Field org/apache/zookeeper/server/ServerMetrics.REQUESTS_IN_SESSION_QUEUE:Lorg/apache/zookeeper/metrics/Summary;
+     587: aload         12
+     589: invokeinterface #55,  1           // InterfaceMethod java/util/Deque.size:()I
+     594: i2l
+     595: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     600: aload         12
+     602: invokeinterface #71,  1           // InterfaceMethod java/util/Deque.poll:()Ljava/lang/Object;
+     607: checkcast     #45                 // class org/apache/zookeeper/server/Request
+     610: astore        13
+     612: aload         13
+     614: aload         5
+     616: invokevirtual #72                 // Method org/apache/zookeeper/server/Request.getHdr:()Lorg/apache/zookeeper/txn/TxnHeader;
+     619: invokevirtual #73                 // Method org/apache/zookeeper/server/Request.setHdr:(Lorg/apache/zookeeper/txn/TxnHeader;)V
+     622: aload         13
+     624: aload         5
+     626: invokevirtual #74                 // Method org/apache/zookeeper/server/Request.getTxn:()Lorg/apache/jute/Record;
+     629: invokevirtual #75                 // Method org/apache/zookeeper/server/Request.setTxn:(Lorg/apache/jute/Record;)V
+     632: aload         13
+     634: aload         5
+     636: invokevirtual #76                 // Method org/apache/zookeeper/server/Request.getTxnDigest:()Lorg/apache/zookeeper/txn/TxnDigest;
+     639: invokevirtual #77                 // Method org/apache/zookeeper/server/Request.setTxnDigest:(Lorg/apache/zookeeper/txn/TxnDigest;)V
+     642: aload         13
+     644: aload         5
+     646: getfield      #78                 // Field org/apache/zookeeper/server/Request.zxid:J
+     649: putfield      #78                 // Field org/apache/zookeeper/server/Request.zxid:J
+     652: aload         13
+     654: aload         5
+     656: getfield      #79                 // Field org/apache/zookeeper/server/Request.commitRecvTime:J
+     659: putfield      #79                 // Field org/apache/zookeeper/server/Request.commitRecvTime:J
+     662: aload         13
+     664: astore        5
+     666: aload_0
+     667: getfield      #18                 // Field numWriteQueuedRequests:Ljava/util/concurrent/atomic/AtomicInteger;
+     670: invokevirtual #56                 // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+     673: pop
+     674: aload_0
+     675: getfield      #14                 // Field queuedWriteRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     678: invokevirtual #44                 // Method java/util/concurrent/LinkedBlockingQueue.poll:()Ljava/lang/Object;
+     681: pop
+     682: aload         8
+     684: aload         5
+     686: getfield      #47                 // Field org/apache/zookeeper/server/Request.sessionId:J
+     689: invokestatic  #48                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     692: invokeinterface #80,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     697: pop
+     698: aload_0
+     699: getfield      #19                 // Field committedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     702: invokevirtual #81                 // Method java/util/concurrent/LinkedBlockingQueue.remove:()Ljava/lang/Object;
+     705: pop
+     706: iinc          7, -1
+     709: iinc          11, 1
+     712: aload_0
+     713: aload         5
+     715: invokespecial #82                 // Method processWrite:(Lorg/apache/zookeeper/server/Request;)V
+     718: aload_0
+     719: getfield      #19                 // Field committedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+     722: invokevirtual #34                 // Method java/util/concurrent/LinkedBlockingQueue.isEmpty:()Z
+     725: ifne          732
+     728: iconst_1
+     729: goto          733
+     732: iconst_0
+     733: istore_2
+     734: goto          422
+     737: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     740: getfield      #83                 // Field org/apache/zookeeper/server/ServerMetrics.WRITE_BATCH_TIME_IN_COMMIT_PROCESSOR:Lorg/apache/zookeeper/metrics/Summary;
+     743: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+     746: lload         9
+     748: lsub
+     749: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     754: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     757: getfield      #84                 // Field org/apache/zookeeper/server/ServerMetrics.WRITES_ISSUED_IN_COMMIT_PROC:Lorg/apache/zookeeper/metrics/Summary;
+     760: iload         11
+     762: i2l
+     763: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     768: iconst_0
+     769: istore        6
+     771: aload         8
+     773: invokeinterface #85,  1           // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     778: astore        12
+     780: aload         12
+     782: invokeinterface #86,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+     787: ifeq          929
+     790: aload         12
+     792: invokeinterface #87,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     797: checkcast     #88                 // class java/lang/Long
+     800: astore        13
+     802: aload_0
+     803: getfield      #22                 // Field pendingRequests:Ljava/util/Map;
+     806: aload         13
+     808: invokeinterface #66,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     813: checkcast     #52                 // class java/util/Deque
+     816: astore        14
+     818: iconst_0
+     819: istore        15
+     821: aload_0
+     822: getfield      #25                 // Field stopped:Z
+     825: ifne          883
+     828: aload         14
+     830: invokeinterface #69,  1           // InterfaceMethod java/util/Deque.isEmpty:()Z
+     835: ifne          883
+     838: aload_0
+     839: aload         14
+     841: invokeinterface #70,  1           // InterfaceMethod java/util/Deque.peek:()Ljava/lang/Object;
+     846: checkcast     #45                 // class org/apache/zookeeper/server/Request
+     849: invokevirtual #46                 // Method needCommit:(Lorg/apache/zookeeper/server/Request;)Z
+     852: ifne          883
+     855: aload_0
+     856: getfield      #17                 // Field numReadQueuedRequests:Ljava/util/concurrent/atomic/AtomicInteger;
+     859: invokevirtual #56                 // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+     862: pop
+     863: aload_0
+     864: aload         14
+     866: invokeinterface #71,  1           // InterfaceMethod java/util/Deque.poll:()Ljava/lang/Object;
+     871: checkcast     #45                 // class org/apache/zookeeper/server/Request
+     874: invokespecial #57                 // Method sendToNextProcessor:(Lorg/apache/zookeeper/server/Request;)V
+     877: iinc          15, 1
+     880: goto          821
+     883: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     886: getfield      #89                 // Field org/apache/zookeeper/server/ServerMetrics.READS_AFTER_WRITE_IN_SESSION_QUEUE:Lorg/apache/zookeeper/metrics/Summary;
+     889: iload         15
+     891: i2l
+     892: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     897: iload         6
+     899: iload         15
+     901: iadd
+     902: istore        6
+     904: aload         14
+     906: invokeinterface #69,  1           // InterfaceMethod java/util/Deque.isEmpty:()Z
+     911: ifeq          926
+     914: aload_0
+     915: getfield      #22                 // Field pendingRequests:Ljava/util/Map;
+     918: aload         13
+     920: invokeinterface #90,  2           // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     925: pop
+     926: goto          780
+     929: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     932: getfield      #91                 // Field org/apache/zookeeper/server/ServerMetrics.SESSION_QUEUES_DRAINED:Lorg/apache/zookeeper/metrics/Summary;
+     935: aload         8
+     937: invokeinterface #92,  1           // InterfaceMethod java/util/Set.size:()I
+     942: i2l
+     943: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     948: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     951: getfield      #93                 // Field org/apache/zookeeper/server/ServerMetrics.READ_ISSUED_FROM_SESSION_QUEUE:Lorg/apache/zookeeper/metrics/Summary;
+     954: iload         6
+     956: i2l
+     957: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     962: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     965: getfield      #94                 // Field org/apache/zookeeper/server/ServerMetrics.COMMIT_PROCESS_TIME:Lorg/apache/zookeeper/metrics/Summary;
+     968: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+     971: lload_3
+     972: lsub
+     973: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     978: aload_0
+     979: invokevirtual #95                 // Method endOfIteration:()V
+     982: aload_0
+     983: getfield      #24                 // Field stoppedMainLoop:Z
+     986: ifeq          4
+     989: goto          1002
+     992: astore_1
+     993: aload_0
+     994: aload_0
+     995: invokevirtual #97                 // Method getName:()Ljava/lang/String;
+     998: aload_1
+     999: invokevirtual #98                 // Method handleException:(Ljava/lang/String;Ljava/lang/Throwable;)V
+    1002: getstatic     #4                  // Field LOG:Lorg/slf4j/Logger;
+    1005: ldc           #99                 // String CommitProcessor exited loop!
+    1007: invokeinterface #100,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+    1012: return
+    Exception table:
+       from    to  target type
+          40    88    91   any
+          91    95    91   any
+           0   399   992   Class java/lang/Throwable
+         400   989   992   Class java/lang/Throwable
+
+  protected void endOfIteration();
+    Code:
+       0: return
+
+  protected void waitForEmptyPool() throws java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field numRequestsProcessing:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #31                 // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+       7: istore_1
+       8: iload_1
+       9: ifeq          25
+      12: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+      15: getfield      #101                // Field org/apache/zookeeper/server/ServerMetrics.CONCURRENT_REQUEST_PROCESSING_IN_COMMIT_PROCESSOR:Lorg/apache/zookeeper/metrics/Summary;
+      18: iload_1
+      19: i2l
+      20: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+      25: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+      28: lstore_2
+      29: aload_0
+      30: getfield      #28                 // Field emptyPoolSync:Ljava/lang/Object;
+      33: dup
+      34: astore        4
+      36: monitorenter
+      37: aload_0
+      38: getfield      #25                 // Field stopped:Z
+      41: ifne          61
+      44: aload_0
+      45: invokespecial #102                // Method isProcessingRequest:()Z
+      48: ifeq          61
+      51: aload_0
+      52: getfield      #28                 // Field emptyPoolSync:Ljava/lang/Object;
+      55: invokevirtual #36                 // Method java/lang/Object.wait:()V
+      58: goto          37
+      61: aload         4
+      63: monitorexit
+      64: goto          75
+      67: astore        5
+      69: aload         4
+      71: monitorexit
+      72: aload         5
+      74: athrow
+      75: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+      78: getfield      #103                // Field org/apache/zookeeper/server/ServerMetrics.TIME_WAITING_EMPTY_POOL_IN_COMMIT_PROCESSOR_READ:Lorg/apache/zookeeper/metrics/Summary;
+      81: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+      84: lload_2
+      85: lsub
+      86: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+      91: return
+    Exception table:
+       from    to  target type
+          37    64    67   any
+          67    72    67   any
+
+  public void start();
+    Code:
+       0: invokestatic  #104                // Method java/lang/Runtime.getRuntime:()Ljava/lang/Runtime;
+       3: invokevirtual #105                // Method java/lang/Runtime.availableProcessors:()I
+       6: istore_1
+       7: ldc           #107                // String zookeeper.commitProcessor.numWorkerThreads
+       9: iload_1
+      10: invokestatic  #108                // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+      13: invokevirtual #109                // Method java/lang/Integer.intValue:()I
+      16: istore_2
+      17: aload_0
+      18: ldc           #110                // String zookeeper.commitProcessor.shutdownTimeout
+      20: ldc2_w        #111                // long 5000l
+      23: invokestatic  #113                // Method java/lang/Long.getLong:(Ljava/lang/String;J)Ljava/lang/Long;
+      26: invokevirtual #114                // Method java/lang/Long.longValue:()J
+      29: putfield      #115                // Field workerShutdownTimeoutMS:J
+      32: invokestatic  #116                // Method initBatchSizes:()V
+      35: getstatic     #4                  // Field LOG:Lorg/slf4j/Logger;
+      38: ldc           #117                // String Configuring CommitProcessor with {} worker threads.
+      40: iload_2
+      41: ifle          51
+      44: iload_2
+      45: invokestatic  #118                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      48: goto          53
+      51: ldc           #119                // String no
+      53: invokeinterface #120,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      58: aload_0
+      59: getfield      #121                // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+      62: ifnonnull     80
+      65: aload_0
+      66: new           #122                // class org/apache/zookeeper/server/WorkerService
+      69: dup
+      70: ldc           #123                // String CommitProcWork
+      72: iload_2
+      73: iconst_1
+      74: invokespecial #124                // Method org/apache/zookeeper/server/WorkerService."<init>":(Ljava/lang/String;IZ)V
+      77: putfield      #121                // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+      80: aload_0
+      81: iconst_0
+      82: putfield      #25                 // Field stopped:Z
+      85: aload_0
+      86: iconst_0
+      87: putfield      #24                 // Field stoppedMainLoop:Z
+      90: aload_0
+      91: invokespecial #125                // Method org/apache/zookeeper/server/ZooKeeperCriticalThread.start:()V
+      94: return
+
+  private void sendToNextProcessor(org.apache.zookeeper.server.Request);
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field numRequestsProcessing:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #126                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+       7: pop
+       8: aload_0
+       9: getfield      #121                // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+      12: new           #127                // class org/apache/zookeeper/server/quorum/CommitProcessor$CommitWorkRequest
+      15: dup
+      16: aload_0
+      17: aload_1
+      18: invokespecial #128                // Method org/apache/zookeeper/server/quorum/CommitProcessor$CommitWorkRequest."<init>":(Lorg/apache/zookeeper/server/quorum/CommitProcessor;Lorg/apache/zookeeper/server/Request;)V
+      21: aload_1
+      22: getfield      #47                 // Field org/apache/zookeeper/server/Request.sessionId:J
+      25: invokevirtual #129                // Method org/apache/zookeeper/server/WorkerService.schedule:(Lorg/apache/zookeeper/server/WorkerService$WorkRequest;J)V
+      28: return
+
+  private void processWrite(org.apache.zookeeper.server.Request) throws org.apache.zookeeper.server.RequestProcessor$RequestProcessorException;
+    Code:
+       0: aload_1
+       1: iconst_1
+       2: invokestatic  #2                  // Method processCommitMetrics:(Lorg/apache/zookeeper/server/Request;Z)V
+       5: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+       8: lstore_2
+       9: aload_0
+      10: getfield      #29                 // Field nextProcessor:Lorg/apache/zookeeper/server/RequestProcessor;
+      13: aload_1
+      14: invokeinterface #130,  2          // InterfaceMethod org/apache/zookeeper/server/RequestProcessor.processRequest:(Lorg/apache/zookeeper/server/Request;)V
+      19: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+      22: getfield      #131                // Field org/apache/zookeeper/server/ServerMetrics.WRITE_FINAL_PROC_TIME:Lorg/apache/zookeeper/metrics/Summary;
+      25: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+      28: lload_2
+      29: lsub
+      30: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+      35: return
+
+  private static void initBatchSizes();
+    Code:
+       0: ldc           #132                // String zookeeper.commitProcessor.maxReadBatchSize
+       2: iconst_m1
+       3: invokestatic  #108                // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+       6: invokevirtual #109                // Method java/lang/Integer.intValue:()I
+       9: putstatic     #43                 // Field maxReadBatchSize:I
+      12: ldc           #133                // String zookeeper.commitProcessor.maxCommitBatchSize
+      14: iconst_1
+      15: invokestatic  #108                // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+      18: invokevirtual #109                // Method java/lang/Integer.intValue:()I
+      21: putstatic     #61                 // Field maxCommitBatchSize:I
+      24: getstatic     #61                 // Field maxCommitBatchSize:I
+      27: ifgt          61
+      30: new           #5                  // class java/lang/StringBuilder
+      33: dup
+      34: invokespecial #6                  // Method java/lang/StringBuilder."<init>":()V
+      37: ldc           #134                // String maxCommitBatchSize must be positive, was
+      39: invokevirtual #8                  // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      42: getstatic     #61                 // Field maxCommitBatchSize:I
+      45: invokevirtual #135                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      48: invokevirtual #9                  // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      51: astore_0
+      52: new           #136                // class java/lang/IllegalArgumentException
+      55: dup
+      56: aload_0
+      57: invokespecial #137                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      60: athrow
+      61: getstatic     #4                  // Field LOG:Lorg/slf4j/Logger;
+      64: ldc           #138                // String Configuring CommitProcessor with readBatchSize {} commitBatchSize {}
+      66: getstatic     #43                 // Field maxReadBatchSize:I
+      69: invokestatic  #118                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      72: getstatic     #61                 // Field maxCommitBatchSize:I
+      75: invokestatic  #118                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      78: invokeinterface #139,  4          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      83: return
+
+  private static void processCommitMetrics(org.apache.zookeeper.server.Request, boolean);
+    Code:
+       0: iload_1
+       1: ifeq          100
+       4: aload_0
+       5: getfield      #140                // Field org/apache/zookeeper/server/Request.commitProcQueueStartTime:J
+       8: ldc2_w        #141                // long -1l
+      11: lcmp
+      12: ifeq          67
+      15: aload_0
+      16: getfield      #79                 // Field org/apache/zookeeper/server/Request.commitRecvTime:J
+      19: ldc2_w        #141                // long -1l
+      22: lcmp
+      23: ifeq          67
+      26: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+      29: lstore_2
+      30: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+      33: getfield      #143                // Field org/apache/zookeeper/server/ServerMetrics.WRITE_COMMITPROC_TIME:Lorg/apache/zookeeper/metrics/Summary;
+      36: lload_2
+      37: aload_0
+      38: getfield      #140                // Field org/apache/zookeeper/server/Request.commitProcQueueStartTime:J
+      41: lsub
+      42: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+      47: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+      50: getfield      #144                // Field org/apache/zookeeper/server/ServerMetrics.LOCAL_WRITE_COMMITTED_TIME:Lorg/apache/zookeeper/metrics/Summary;
+      53: lload_2
+      54: aload_0
+      55: getfield      #79                 // Field org/apache/zookeeper/server/Request.commitRecvTime:J
+      58: lsub
+      59: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+      64: goto          130
+      67: aload_0
+      68: getfield      #79                 // Field org/apache/zookeeper/server/Request.commitRecvTime:J
+      71: ldc2_w        #141                // long -1l
+      74: lcmp
+      75: ifeq          130
+      78: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+      81: getfield      #145                // Field org/apache/zookeeper/server/ServerMetrics.SERVER_WRITE_COMMITTED_TIME:Lorg/apache/zookeeper/metrics/Summary;
+      84: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+      87: aload_0
+      88: getfield      #79                 // Field org/apache/zookeeper/server/Request.commitRecvTime:J
+      91: lsub
+      92: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+      97: goto          130
+     100: aload_0
+     101: getfield      #140                // Field org/apache/zookeeper/server/Request.commitProcQueueStartTime:J
+     104: ldc2_w        #141                // long -1l
+     107: lcmp
+     108: ifeq          130
+     111: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     114: getfield      #146                // Field org/apache/zookeeper/server/ServerMetrics.READ_COMMITPROC_TIME:Lorg/apache/zookeeper/metrics/Summary;
+     117: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+     120: aload_0
+     121: getfield      #140                // Field org/apache/zookeeper/server/Request.commitProcQueueStartTime:J
+     124: lsub
+     125: invokeinterface #39,  3           // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     130: return
+
+  public static int getMaxReadBatchSize();
+    Code:
+       0: getstatic     #43                 // Field maxReadBatchSize:I
+       3: ireturn
+
+  public static int getMaxCommitBatchSize();
+    Code:
+       0: getstatic     #61                 // Field maxCommitBatchSize:I
+       3: ireturn
+
+  public static void setMaxReadBatchSize(int);
+    Code:
+       0: iload_0
+       1: putstatic     #43                 // Field maxReadBatchSize:I
+       4: getstatic     #4                  // Field LOG:Lorg/slf4j/Logger;
+       7: ldc           #147                // String Configuring CommitProcessor with readBatchSize {}
+       9: getstatic     #43                 // Field maxReadBatchSize:I
+      12: invokestatic  #118                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      15: invokeinterface #120,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      20: return
+
+  public static void setMaxCommitBatchSize(int);
+    Code:
+       0: iload_0
+       1: ifle          24
+       4: iload_0
+       5: putstatic     #61                 // Field maxCommitBatchSize:I
+       8: getstatic     #4                  // Field LOG:Lorg/slf4j/Logger;
+      11: ldc           #148                // String Configuring CommitProcessor with commitBatchSize {}
+      13: getstatic     #61                 // Field maxCommitBatchSize:I
+      16: invokestatic  #118                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      19: invokeinterface #120,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      24: return
+
+  private synchronized void wakeup();
+    Code:
+       0: aload_0
+       1: invokevirtual #149                // Method java/lang/Object.notifyAll:()V
+       4: return
+
+  private void wakeupOnEmpty();
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field emptyPoolSync:Ljava/lang/Object;
+       4: dup
+       5: astore_1
+       6: monitorenter
+       7: aload_0
+       8: getfield      #28                 // Field emptyPoolSync:Ljava/lang/Object;
+      11: invokevirtual #149                // Method java/lang/Object.notifyAll:()V
+      14: aload_1
+      15: monitorexit
+      16: goto          24
+      19: astore_2
+      20: aload_1
+      21: monitorexit
+      22: aload_2
+      23: athrow
+      24: return
+    Exception table:
+       from    to  target type
+           7    16    19   any
+          19    22    19   any
+
+  public void commit(org.apache.zookeeper.server.Request);
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field stopped:Z
+       4: ifne          11
+       7: aload_1
+       8: ifnonnull     12
+      11: return
+      12: getstatic     #4                  // Field LOG:Lorg/slf4j/Logger;
+      15: ldc           #150                // String Committing request:: {}
+      17: aload_1
+      18: invokeinterface #151,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      23: aload_1
+      24: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+      27: putfield      #79                 // Field org/apache/zookeeper/server/Request.commitRecvTime:J
+      30: invokestatic  #37                 // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+      33: getfield      #152                // Field org/apache/zookeeper/server/ServerMetrics.COMMITS_QUEUED:Lorg/apache/zookeeper/metrics/Counter;
+      36: lconst_1
+      37: invokeinterface #153,  3          // InterfaceMethod org/apache/zookeeper/metrics/Counter.add:(J)V
+      42: aload_0
+      43: getfield      #19                 // Field committedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+      46: aload_1
+      47: invokevirtual #154                // Method java/util/concurrent/LinkedBlockingQueue.add:(Ljava/lang/Object;)Z
+      50: pop
+      51: aload_0
+      52: invokespecial #155                // Method wakeup:()V
+      55: return
+
+  public void processRequest(org.apache.zookeeper.server.Request);
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field stopped:Z
+       4: ifeq          8
+       7: return
+       8: getstatic     #4                  // Field LOG:Lorg/slf4j/Logger;
+      11: ldc           #156                // String Processing request:: {}
+      13: aload_1
+      14: invokeinterface #151,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      19: aload_1
+      20: invokestatic  #42                 // Method org/apache/zookeeper/common/Time.currentElapsedTime:()J
+      23: putfield      #140                // Field org/apache/zookeeper/server/Request.commitProcQueueStartTime:J
+      26: aload_0
+      27: getfield      #13                 // Field queuedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+      30: aload_1
+      31: invokevirtual #154                // Method java/util/concurrent/LinkedBlockingQueue.add:(Ljava/lang/Object;)Z
+      34: pop
+      35: aload_0
+      36: aload_1
+      37: invokevirtual #46                 // Method needCommit:(Lorg/apache/zookeeper/server/Request;)Z
+      40: ifeq          63
+      43: aload_0
+      44: getfield      #14                 // Field queuedWriteRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+      47: aload_1
+      48: invokevirtual #154                // Method java/util/concurrent/LinkedBlockingQueue.add:(Ljava/lang/Object;)Z
+      51: pop
+      52: aload_0
+      53: getfield      #18                 // Field numWriteQueuedRequests:Ljava/util/concurrent/atomic/AtomicInteger;
+      56: invokevirtual #126                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+      59: pop
+      60: goto          71
+      63: aload_0
+      64: getfield      #17                 // Field numReadQueuedRequests:Ljava/util/concurrent/atomic/AtomicInteger;
+      67: invokevirtual #126                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+      70: pop
+      71: aload_0
+      72: invokespecial #155                // Method wakeup:()V
+      75: return
+
+  private void halt();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: putfield      #24                 // Field stoppedMainLoop:Z
+       5: aload_0
+       6: iconst_1
+       7: putfield      #25                 // Field stopped:Z
+      10: aload_0
+      11: invokespecial #1                  // Method wakeupOnEmpty:()V
+      14: aload_0
+      15: invokespecial #155                // Method wakeup:()V
+      18: aload_0
+      19: getfield      #13                 // Field queuedRequests:Ljava/util/concurrent/LinkedBlockingQueue;
+      22: invokevirtual #157                // Method java/util/concurrent/LinkedBlockingQueue.clear:()V
+      25: aload_0
+      26: getfield      #121                // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+      29: ifnull        39
+      32: aload_0
+      33: getfield      #121                // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+      36: invokevirtual #158                // Method org/apache/zookeeper/server/WorkerService.stop:()V
+      39: return
+
+  public void shutdown();
+    Code:
+       0: getstatic     #4                  // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #159                // String Shutting down
+       5: invokeinterface #100,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      10: aload_0
+      11: invokespecial #3                  // Method halt:()V
+      14: aload_0
+      15: getfield      #121                // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+      18: ifnull        32
+      21: aload_0
+      22: getfield      #121                // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+      25: aload_0
+      26: getfield      #115                // Field workerShutdownTimeoutMS:J
+      29: invokevirtual #160                // Method org/apache/zookeeper/server/WorkerService.join:(J)V
+      32: aload_0
+      33: getfield      #29                 // Field nextProcessor:Lorg/apache/zookeeper/server/RequestProcessor;
+      36: ifnull        48
+      39: aload_0
+      40: getfield      #29                 // Field nextProcessor:Lorg/apache/zookeeper/server/RequestProcessor;
+      43: invokeinterface #161,  1          // InterfaceMethod org/apache/zookeeper/server/RequestProcessor.shutdown:()V
+      48: return
+
+  private static java.util.Deque lambda$run$0(java.lang.Long);
+    Code:
+       0: new           #162                // class java/util/ArrayDeque
+       3: dup
+       4: invokespecial #163                // Method java/util/ArrayDeque."<init>":()V
+       7: areturn
+
+  static org.slf4j.Logger access$000();
+    Code:
+       0: getstatic     #4                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static void access$100(org.apache.zookeeper.server.quorum.CommitProcessor);
+    Code:
+       0: aload_0
+       1: invokespecial #3                  // Method halt:()V
+       4: return
+
+  static void access$200(org.apache.zookeeper.server.Request, boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: invokestatic  #2                  // Method processCommitMetrics:(Lorg/apache/zookeeper/server/Request;Z)V
+       5: return
+
+  static void access$300(org.apache.zookeeper.server.quorum.CommitProcessor);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method wakeupOnEmpty:()V
+       4: return
+
+  static {};
+    Code:
+       0: ldc           #106                // class org/apache/zookeeper/server/quorum/CommitProcessor
+       2: invokestatic  #164                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #4                  // Field LOG:Lorg/slf4j/Logger;
+       8: return
+}

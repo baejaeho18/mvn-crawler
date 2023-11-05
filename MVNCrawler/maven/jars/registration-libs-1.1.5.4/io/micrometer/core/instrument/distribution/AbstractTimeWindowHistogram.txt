@@ -1,0 +1,666 @@
+Compiled from "AbstractTimeWindowHistogram.java"
+abstract class io.micrometer.core.instrument.distribution.AbstractTimeWindowHistogram<T, U> implements io.micrometer.core.instrument.distribution.Histogram {
+  private static final java.util.concurrent.atomic.AtomicIntegerFieldUpdater<io.micrometer.core.instrument.distribution.AbstractTimeWindowHistogram> rotatingUpdater;
+
+  final io.micrometer.core.instrument.distribution.DistributionStatisticConfig distributionStatisticConfig;
+
+  private final io.micrometer.core.instrument.Clock clock;
+
+  private final boolean supportsAggregablePercentiles;
+
+  private final T[] ringBuffer;
+
+  private short currentBucket;
+
+  private final long durationBetweenRotatesMillis;
+
+  private volatile boolean accumulatedHistogramStale;
+
+  private volatile long lastRotateTimestampMillis;
+
+  private volatile int rotating;
+
+  private U accumulatedHistogram;
+
+  io.micrometer.core.instrument.distribution.AbstractTimeWindowHistogram(io.micrometer.core.instrument.Clock, io.micrometer.core.instrument.distribution.DistributionStatisticConfig, java.lang.Class<T>, boolean);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aload_1
+       6: putfield      #7                  // Field clock:Lio/micrometer/core/instrument/Clock;
+       9: aload_0
+      10: aload_2
+      11: invokestatic  #13                 // Method validateDistributionConfig:(Lio/micrometer/core/instrument/distribution/DistributionStatisticConfig;)Lio/micrometer/core/instrument/distribution/DistributionStatisticConfig;
+      14: putfield      #17                 // Field distributionStatisticConfig:Lio/micrometer/core/instrument/distribution/DistributionStatisticConfig;
+      17: aload_0
+      18: iload         4
+      20: putfield      #21                 // Field supportsAggregablePercentiles:Z
+      23: aload_2
+      24: invokevirtual #25                 // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getBufferLength:()Ljava/lang/Integer;
+      27: invokevirtual #31                 // Method java/lang/Integer.intValue:()I
+      30: istore        5
+      32: iload         5
+      34: ifgt          65
+      37: new           #37                 // class java/lang/StringBuilder
+      40: dup
+      41: invokespecial #39                 // Method java/lang/StringBuilder."<init>":()V
+      44: ldc           #40                 // String bufferLength (
+      46: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      49: iload         5
+      51: invokevirtual #46                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      54: ldc           #49                 // String ) must be greater than 0.
+      56: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      59: invokevirtual #51                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      62: invokestatic  #55                 // Method rejectHistogramConfig:(Ljava/lang/String;)V
+      65: aload_0
+      66: aload_3
+      67: iload         5
+      69: invokestatic  #59                 // Method java/lang/reflect/Array.newInstance:(Ljava/lang/Class;I)Ljava/lang/Object;
+      72: checkcast     #65                 // class "[Ljava/lang/Object;"
+      75: putfield      #67                 // Field ringBuffer:[Ljava/lang/Object;
+      78: aload_0
+      79: aload_2
+      80: invokevirtual #70                 // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getExpiry:()Ljava/time/Duration;
+      83: invokevirtual #74                 // Method java/time/Duration.toMillis:()J
+      86: iload         5
+      88: i2l
+      89: ldiv
+      90: putfield      #80                 // Field durationBetweenRotatesMillis:J
+      93: aload_0
+      94: getfield      #80                 // Field durationBetweenRotatesMillis:J
+      97: lconst_0
+      98: lcmp
+      99: ifgt          145
+     102: new           #37                 // class java/lang/StringBuilder
+     105: dup
+     106: invokespecial #39                 // Method java/lang/StringBuilder."<init>":()V
+     109: ldc           #84                 // String expiry (
+     111: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     114: aload_2
+     115: invokevirtual #70                 // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getExpiry:()Ljava/time/Duration;
+     118: invokevirtual #74                 // Method java/time/Duration.toMillis:()J
+     121: invokevirtual #86                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     124: ldc           #89                 // String ms) / bufferLength (
+     126: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     129: iload         5
+     131: invokevirtual #46                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     134: ldc           #49                 // String ) must be greater than 0.
+     136: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     139: invokevirtual #51                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     142: invokestatic  #55                 // Method rejectHistogramConfig:(Ljava/lang/String;)V
+     145: aload_0
+     146: iconst_0
+     147: putfield      #91                 // Field currentBucket:S
+     150: aload_0
+     151: aload_1
+     152: invokeinterface #95,  1           // InterfaceMethod io/micrometer/core/instrument/Clock.wallTime:()J
+     157: putfield      #100                // Field lastRotateTimestampMillis:J
+     160: return
+
+  private static io.micrometer.core.instrument.distribution.DistributionStatisticConfig validateDistributionConfig(io.micrometer.core.instrument.distribution.DistributionStatisticConfig);
+    Code:
+       0: aload_0
+       1: invokevirtual #103                // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getPercentiles:()[D
+       4: ifnull        82
+       7: aload_0
+       8: invokevirtual #103                // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getPercentiles:()[D
+      11: astore_1
+      12: aload_1
+      13: arraylength
+      14: istore_2
+      15: iconst_0
+      16: istore_3
+      17: iload_3
+      18: iload_2
+      19: if_icmpge     70
+      22: aload_1
+      23: iload_3
+      24: daload
+      25: dstore        4
+      27: dload         4
+      29: dconst_0
+      30: dcmpg
+      31: iflt          41
+      34: dload         4
+      36: dconst_1
+      37: dcmpl
+      38: ifle          64
+      41: new           #37                 // class java/lang/StringBuilder
+      44: dup
+      45: invokespecial #39                 // Method java/lang/StringBuilder."<init>":()V
+      48: ldc           #107                // String percentiles must contain only the values between 0.0 and 1.0. Found
+      50: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      53: dload         4
+      55: invokevirtual #109                // Method java/lang/StringBuilder.append:(D)Ljava/lang/StringBuilder;
+      58: invokevirtual #51                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      61: invokestatic  #55                 // Method rejectHistogramConfig:(Ljava/lang/String;)V
+      64: iinc          3, 1
+      67: goto          17
+      70: aload_0
+      71: invokevirtual #112                // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getPercentilePrecision:()Ljava/lang/Integer;
+      74: ifnonnull     82
+      77: ldc           #115                // String when publishing percentiles a precision must be specified.
+      79: invokestatic  #55                 // Method rejectHistogramConfig:(Ljava/lang/String;)V
+      82: aload_0
+      83: invokevirtual #117                // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getMinimumExpectedValueAsDouble:()Ljava/lang/Double;
+      86: astore_1
+      87: aload_0
+      88: invokevirtual #121                // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getMaximumExpectedValueAsDouble:()Ljava/lang/Double;
+      91: astore_2
+      92: aload_1
+      93: ifnull        105
+      96: aload_1
+      97: invokevirtual #124                // Method java/lang/Double.doubleValue:()D
+     100: dconst_0
+     101: dcmpg
+     102: ifgt          132
+     105: new           #37                 // class java/lang/StringBuilder
+     108: dup
+     109: invokespecial #39                 // Method java/lang/StringBuilder."<init>":()V
+     112: ldc           #130                // String minimumExpectedValue (
+     114: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     117: aload_1
+     118: invokevirtual #132                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     121: ldc           #49                 // String ) must be greater than 0.
+     123: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     126: invokevirtual #51                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     129: invokestatic  #55                 // Method rejectHistogramConfig:(Ljava/lang/String;)V
+     132: aload_2
+     133: ifnull        148
+     136: aload_2
+     137: invokevirtual #124                // Method java/lang/Double.doubleValue:()D
+     140: aload_1
+     141: invokevirtual #124                // Method java/lang/Double.doubleValue:()D
+     144: dcmpg
+     145: ifge          184
+     148: new           #37                 // class java/lang/StringBuilder
+     151: dup
+     152: invokespecial #39                 // Method java/lang/StringBuilder."<init>":()V
+     155: ldc           #135                // String maximumExpectedValue (
+     157: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     160: aload_2
+     161: invokevirtual #132                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     164: ldc           #137                // String ) must be equal to or greater than minimumExpectedValue (
+     166: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     169: aload_1
+     170: invokevirtual #132                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     173: ldc           #139                // String ).
+     175: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     178: invokevirtual #51                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     181: invokestatic  #55                 // Method rejectHistogramConfig:(Ljava/lang/String;)V
+     184: aload_0
+     185: invokevirtual #141                // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getServiceLevelObjectiveBoundaries:()[D
+     188: ifnull        252
+     191: aload_0
+     192: invokevirtual #141                // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getServiceLevelObjectiveBoundaries:()[D
+     195: astore_3
+     196: aload_3
+     197: arraylength
+     198: istore        4
+     200: iconst_0
+     201: istore        5
+     203: iload         5
+     205: iload         4
+     207: if_icmpge     252
+     210: aload_3
+     211: iload         5
+     213: daload
+     214: dstore        6
+     216: dload         6
+     218: dconst_0
+     219: dcmpg
+     220: ifgt          246
+     223: new           #37                 // class java/lang/StringBuilder
+     226: dup
+     227: invokespecial #39                 // Method java/lang/StringBuilder."<init>":()V
+     230: ldc           #144                // String slaBoundaries must contain only the values greater than 0. Found
+     232: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     235: dload         6
+     237: invokevirtual #109                // Method java/lang/StringBuilder.append:(D)Ljava/lang/StringBuilder;
+     240: invokevirtual #51                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     243: invokestatic  #55                 // Method rejectHistogramConfig:(Ljava/lang/String;)V
+     246: iinc          5, 1
+     249: goto          203
+     252: aload_0
+     253: areturn
+
+  private static void rejectHistogramConfig(java.lang.String);
+    Code:
+       0: new           #146                // class io/micrometer/core/instrument/config/InvalidConfigurationException
+       3: dup
+       4: new           #37                 // class java/lang/StringBuilder
+       7: dup
+       8: invokespecial #39                 // Method java/lang/StringBuilder."<init>":()V
+      11: ldc           #148                // String Invalid distribution configuration:
+      13: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      16: aload_0
+      17: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      20: invokevirtual #51                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      23: invokespecial #150                // Method io/micrometer/core/instrument/config/InvalidConfigurationException."<init>":(Ljava/lang/String;)V
+      26: athrow
+
+  void initRingBuffer();
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: iload_1
+       3: aload_0
+       4: getfield      #67                 // Field ringBuffer:[Ljava/lang/Object;
+       7: arraylength
+       8: if_icmpge     27
+      11: aload_0
+      12: getfield      #67                 // Field ringBuffer:[Ljava/lang/Object;
+      15: iload_1
+      16: aload_0
+      17: invokevirtual #152                // Method newBucket:()Ljava/lang/Object;
+      20: aastore
+      21: iinc          1, 1
+      24: goto          2
+      27: aload_0
+      28: aload_0
+      29: aload_0
+      30: getfield      #67                 // Field ringBuffer:[Ljava/lang/Object;
+      33: invokevirtual #156                // Method newAccumulatedHistogram:([Ljava/lang/Object;)Ljava/lang/Object;
+      36: putfield      #160                // Field accumulatedHistogram:Ljava/lang/Object;
+      39: return
+
+  abstract T newBucket();
+
+  abstract void recordLong(T, long);
+
+  abstract void recordDouble(T, double);
+
+  abstract void resetBucket(T);
+
+  abstract U newAccumulatedHistogram(T[]);
+
+  abstract void accumulate();
+
+  abstract void resetAccumulatedHistogram();
+
+  abstract double valueAtPercentile(double);
+
+  abstract double countAtValue(double);
+
+  double countAtValue(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: l2d
+       3: invokevirtual #164                // Method countAtValue:(D)D
+       6: dreturn
+
+  void outputSummary(java.io.PrintStream, double);
+    Code:
+       0: return
+
+  public final io.micrometer.core.instrument.distribution.HistogramSnapshot takeSnapshot(long, double, double);
+    Code:
+       0: aload_0
+       1: invokespecial #168                // Method rotate:()V
+       4: aload_0
+       5: dup
+       6: astore        9
+       8: monitorenter
+       9: aload_0
+      10: invokespecial #171                // Method accumulateIfStale:()V
+      13: aload_0
+      14: invokespecial #174                // Method takeValueSnapshot:()[Lio/micrometer/core/instrument/distribution/ValueAtPercentile;
+      17: astore        7
+      19: aload_0
+      20: invokespecial #178                // Method takeCountSnapshot:()[Lio/micrometer/core/instrument/distribution/CountAtBucket;
+      23: astore        8
+      25: aload         9
+      27: monitorexit
+      28: goto          39
+      31: astore        10
+      33: aload         9
+      35: monitorexit
+      36: aload         10
+      38: athrow
+      39: new           #182                // class io/micrometer/core/instrument/distribution/HistogramSnapshot
+      42: dup
+      43: lload_1
+      44: dload_3
+      45: dload         5
+      47: aload         7
+      49: aload         8
+      51: aload_0
+      52: invokedynamic #184,  0            // InvokeDynamic #0:accept:(Lio/micrometer/core/instrument/distribution/AbstractTimeWindowHistogram;)Ljava/util/function/BiConsumer;
+      57: invokespecial #188                // Method io/micrometer/core/instrument/distribution/HistogramSnapshot."<init>":(JDD[Lio/micrometer/core/instrument/distribution/ValueAtPercentile;[Lio/micrometer/core/instrument/distribution/CountAtBucket;Ljava/util/function/BiConsumer;)V
+      60: areturn
+    Exception table:
+       from    to  target type
+           9    28    31   any
+          31    36    31   any
+
+  private void accumulateIfStale();
+    Code:
+       0: aload_0
+       1: getfield      #191                // Field accumulatedHistogramStale:Z
+       4: ifeq          16
+       7: aload_0
+       8: invokevirtual #194                // Method accumulate:()V
+      11: aload_0
+      12: iconst_0
+      13: putfield      #191                // Field accumulatedHistogramStale:Z
+      16: return
+
+  private io.micrometer.core.instrument.distribution.ValueAtPercentile[] takeValueSnapshot();
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field distributionStatisticConfig:Lio/micrometer/core/instrument/distribution/DistributionStatisticConfig;
+       4: invokevirtual #103                // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getPercentiles:()[D
+       7: astore_1
+       8: aload_1
+       9: ifnull        17
+      12: aload_1
+      13: arraylength
+      14: ifne          19
+      17: aconst_null
+      18: areturn
+      19: aload_1
+      20: arraylength
+      21: anewarray     #197                // class io/micrometer/core/instrument/distribution/ValueAtPercentile
+      24: astore_2
+      25: iconst_0
+      26: istore_3
+      27: iload_3
+      28: aload_1
+      29: arraylength
+      30: if_icmpge     66
+      33: aload_1
+      34: iload_3
+      35: daload
+      36: dstore        4
+      38: aload_2
+      39: iload_3
+      40: new           #197                // class io/micrometer/core/instrument/distribution/ValueAtPercentile
+      43: dup
+      44: dload         4
+      46: aload_0
+      47: dload         4
+      49: ldc2_w        #199                // double 100.0d
+      52: dmul
+      53: invokevirtual #201                // Method valueAtPercentile:(D)D
+      56: invokespecial #204                // Method io/micrometer/core/instrument/distribution/ValueAtPercentile."<init>":(DD)V
+      59: aastore
+      60: iinc          3, 1
+      63: goto          27
+      66: aload_2
+      67: areturn
+
+  private io.micrometer.core.instrument.distribution.CountAtBucket[] takeCountSnapshot();
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field distributionStatisticConfig:Lio/micrometer/core/instrument/distribution/DistributionStatisticConfig;
+       4: invokevirtual #207                // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.isPublishingHistogram:()Z
+       7: ifne          12
+      10: aconst_null
+      11: areturn
+      12: aload_0
+      13: getfield      #17                 // Field distributionStatisticConfig:Lio/micrometer/core/instrument/distribution/DistributionStatisticConfig;
+      16: aload_0
+      17: getfield      #21                 // Field supportsAggregablePercentiles:Z
+      20: invokevirtual #211                // Method io/micrometer/core/instrument/distribution/DistributionStatisticConfig.getHistogramBuckets:(Z)Ljava/util/NavigableSet;
+      23: astore_1
+      24: aload_1
+      25: invokeinterface #215,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+      30: ifeq          35
+      33: aconst_null
+      34: areturn
+      35: aload_1
+      36: invokeinterface #220,  1          // InterfaceMethod java/util/Set.size:()I
+      41: anewarray     #223                // class io/micrometer/core/instrument/distribution/CountAtBucket
+      44: astore_2
+      45: aload_1
+      46: invokeinterface #225,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      51: astore_3
+      52: iconst_0
+      53: istore        4
+      55: iload         4
+      57: aload_2
+      58: arraylength
+      59: if_icmpge     101
+      62: aload_3
+      63: invokeinterface #229,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      68: checkcast     #125                // class java/lang/Double
+      71: invokevirtual #124                // Method java/lang/Double.doubleValue:()D
+      74: dstore        5
+      76: aload_2
+      77: iload         4
+      79: new           #223                // class io/micrometer/core/instrument/distribution/CountAtBucket
+      82: dup
+      83: dload         5
+      85: aload_0
+      86: dload         5
+      88: invokevirtual #164                // Method countAtValue:(D)D
+      91: invokespecial #234                // Method io/micrometer/core/instrument/distribution/CountAtBucket."<init>":(DD)V
+      94: aastore
+      95: iinc          4, 1
+      98: goto          55
+     101: aload_2
+     102: areturn
+
+  public void recordLong(long);
+    Code:
+       0: aload_0
+       1: invokespecial #168                // Method rotate:()V
+       4: aload_0
+       5: getfield      #67                 // Field ringBuffer:[Ljava/lang/Object;
+       8: astore_3
+       9: aload_3
+      10: arraylength
+      11: istore        4
+      13: iconst_0
+      14: istore        5
+      16: iload         5
+      18: iload         4
+      20: if_icmpge     42
+      23: aload_3
+      24: iload         5
+      26: aaload
+      27: astore        6
+      29: aload_0
+      30: aload         6
+      32: lload_1
+      33: invokevirtual #235                // Method recordLong:(Ljava/lang/Object;J)V
+      36: iinc          5, 1
+      39: goto          16
+      42: aload_0
+      43: iconst_1
+      44: putfield      #191                // Field accumulatedHistogramStale:Z
+      47: goto          69
+      50: astore_3
+      51: aload_0
+      52: iconst_1
+      53: putfield      #191                // Field accumulatedHistogramStale:Z
+      56: goto          69
+      59: astore        7
+      61: aload_0
+      62: iconst_1
+      63: putfield      #191                // Field accumulatedHistogramStale:Z
+      66: aload         7
+      68: athrow
+      69: return
+    Exception table:
+       from    to  target type
+           4    42    50   Class java/lang/IndexOutOfBoundsException
+           4    42    59   any
+          59    61    59   any
+
+  public void recordDouble(double);
+    Code:
+       0: aload_0
+       1: invokespecial #168                // Method rotate:()V
+       4: aload_0
+       5: getfield      #67                 // Field ringBuffer:[Ljava/lang/Object;
+       8: astore_3
+       9: aload_3
+      10: arraylength
+      11: istore        4
+      13: iconst_0
+      14: istore        5
+      16: iload         5
+      18: iload         4
+      20: if_icmpge     42
+      23: aload_3
+      24: iload         5
+      26: aaload
+      27: astore        6
+      29: aload_0
+      30: aload         6
+      32: dload_1
+      33: invokevirtual #241                // Method recordDouble:(Ljava/lang/Object;D)V
+      36: iinc          5, 1
+      39: goto          16
+      42: aload_0
+      43: iconst_1
+      44: putfield      #191                // Field accumulatedHistogramStale:Z
+      47: goto          69
+      50: astore_3
+      51: aload_0
+      52: iconst_1
+      53: putfield      #191                // Field accumulatedHistogramStale:Z
+      56: goto          69
+      59: astore        7
+      61: aload_0
+      62: iconst_1
+      63: putfield      #191                // Field accumulatedHistogramStale:Z
+      66: aload         7
+      68: athrow
+      69: return
+    Exception table:
+       from    to  target type
+           4    42    50   Class java/lang/IndexOutOfBoundsException
+           4    42    59   any
+          59    61    59   any
+
+  private void rotate();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field clock:Lio/micrometer/core/instrument/Clock;
+       4: invokeinterface #95,  1           // InterfaceMethod io/micrometer/core/instrument/Clock.wallTime:()J
+       9: aload_0
+      10: getfield      #100                // Field lastRotateTimestampMillis:J
+      13: lsub
+      14: lstore_1
+      15: lload_1
+      16: aload_0
+      17: getfield      #80                 // Field durationBetweenRotatesMillis:J
+      20: lcmp
+      21: ifge          25
+      24: return
+      25: getstatic     #245                // Field rotatingUpdater:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      28: aload_0
+      29: iconst_0
+      30: iconst_1
+      31: invokevirtual #249                // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.compareAndSet:(Ljava/lang/Object;II)Z
+      34: ifne          38
+      37: return
+      38: iconst_0
+      39: istore_3
+      40: aload_0
+      41: dup
+      42: astore        4
+      44: monitorenter
+      45: aload_0
+      46: aload_0
+      47: getfield      #67                 // Field ringBuffer:[Ljava/lang/Object;
+      50: aload_0
+      51: getfield      #91                 // Field currentBucket:S
+      54: aaload
+      55: invokevirtual #255                // Method resetBucket:(Ljava/lang/Object;)V
+      58: aload_0
+      59: dup
+      60: getfield      #91                 // Field currentBucket:S
+      63: iconst_1
+      64: iadd
+      65: i2s
+      66: dup_x1
+      67: putfield      #91                 // Field currentBucket:S
+      70: aload_0
+      71: getfield      #67                 // Field ringBuffer:[Ljava/lang/Object;
+      74: arraylength
+      75: if_icmplt     83
+      78: aload_0
+      79: iconst_0
+      80: putfield      #91                 // Field currentBucket:S
+      83: lload_1
+      84: aload_0
+      85: getfield      #80                 // Field durationBetweenRotatesMillis:J
+      88: lsub
+      89: lstore_1
+      90: aload_0
+      91: dup
+      92: getfield      #100                // Field lastRotateTimestampMillis:J
+      95: aload_0
+      96: getfield      #80                 // Field durationBetweenRotatesMillis:J
+      99: ladd
+     100: putfield      #100                // Field lastRotateTimestampMillis:J
+     103: lload_1
+     104: aload_0
+     105: getfield      #80                 // Field durationBetweenRotatesMillis:J
+     108: lcmp
+     109: iflt          124
+     112: iinc          3, 1
+     115: iload_3
+     116: aload_0
+     117: getfield      #67                 // Field ringBuffer:[Ljava/lang/Object;
+     120: arraylength
+     121: if_icmplt     45
+     124: aload_0
+     125: invokevirtual #259                // Method resetAccumulatedHistogram:()V
+     128: aload_0
+     129: iconst_1
+     130: putfield      #191                // Field accumulatedHistogramStale:Z
+     133: aload         4
+     135: monitorexit
+     136: goto          147
+     139: astore        5
+     141: aload         4
+     143: monitorexit
+     144: aload         5
+     146: athrow
+     147: aload_0
+     148: iconst_0
+     149: putfield      #262                // Field rotating:I
+     152: goto          165
+     155: astore        6
+     157: aload_0
+     158: iconst_0
+     159: putfield      #262                // Field rotating:I
+     162: aload         6
+     164: athrow
+     165: return
+    Exception table:
+       from    to  target type
+          45   136   139   any
+         139   144   139   any
+          38   147   155   any
+         155   157   155   any
+
+  protected U accumulatedHistogram();
+    Code:
+       0: aload_0
+       1: getfield      #160                // Field accumulatedHistogram:Ljava/lang/Object;
+       4: areturn
+
+  protected T currentHistogram();
+    Code:
+       0: aload_0
+       1: getfield      #67                 // Field ringBuffer:[Ljava/lang/Object;
+       4: aload_0
+       5: getfield      #91                 // Field currentBucket:S
+       8: aaload
+       9: areturn
+
+  static {};
+    Code:
+       0: ldc           #8                  // class io/micrometer/core/instrument/distribution/AbstractTimeWindowHistogram
+       2: ldc_w         #266                // String rotating
+       5: invokestatic  #267                // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.newUpdater:(Ljava/lang/Class;Ljava/lang/String;)Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+       8: putstatic     #245                // Field rotatingUpdater:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      11: return
+}

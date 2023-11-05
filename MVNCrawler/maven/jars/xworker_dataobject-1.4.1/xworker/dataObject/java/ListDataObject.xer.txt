@@ -1,0 +1,1301 @@
+^1449724854615
+@
+sname
+ListDataObject
+slabel
+ListDataObject
+sdescriptors
+xworker.lang.MetaDescriptor3
+sextends
+xworker.dataObject.DataObject
+smany
+true
+seditCols
+2
+sinitialization
+false
+smodifier
+public
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p>给定一个List构造出一个数据对象，ListDataObject可以是一个普通的Java List变量构造出数据对象，从而可以使用数据对象有关的操作。。</p>
+
+<p>属性的读取和设置通过Ognl。</p>
+
+<p><strong>可以重载的方法：</strong></p>
+
+<ul>
+	<li><strong>getListData</strong><br />
+	返回用于处理的ListData数据。</li>
+</ul>
+
+<p><strong>数据对象操作Java对象:</strong></p>
+
+<ul>
+	<li><strong>getData</strong><br />
+	使用getData方法获取原始Java对象。<br />
+	&nbsp;</li>
+	<li><strong>updateData</strong><br />
+	通过数据对象的值更新Java对象的值。</li>
+</ul>
+
+<p>&nbsp;</p>
+#$@text#$@
+snotXmlAttribute
+false
+sjson_isArray
+false
+sid
+ListDataObject
+@/@actions1
+sname
+actions
+sid
+actions1
+slabel
+actions
+sdescriptors
+xworker.lang.MetaDescriptor3/@actions
+@/@actions1/@load
+sname
+doLoad
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import xworker.dataObject.DataObject;
+import xworker.dataObject.DataObjectList;
+import xworker.dataObject.utils.DbUtil;
+
+import ognl.Ognl;
+import org.xmeta.util.OgnlUtil;
+
+def descriptor = theData.getMetadata().descriptor;
+def keyDatas = theData.getKeyAndDatas();
+if(keyDatas == null || keyDatas.length == 0){
+    log.warn("no keys data cannot load, listDataObjectPath=" + descriptor.metadata.path);
+    throw new Exception("No keys, data cannot laod");
+}
+
+def datas = self.doAction("getListData", actionContext);
+
+if(datas == null){
+    log.warn("no thing datas setted, listDataObjectPath=" + descriptor.metadata.path);
+    throw new Exception("No thing datas setted");
+}
+
+def data = null;
+def keyExp = Ognl.parseExpression(keyDatas[i][0].ptoprtyPath);
+for(child in datas){
+    def have = true;
+    for(int i=0; i<keyDatas.length; i++){
+        if(Ognl.getValue(keyExp, child) !=  keyDatas[i][1]){
+           have = false;
+           break;
+        }        
+    }
+    if(have){
+         data = child;
+         break;
+    }
+}
+
+if(data != null){
+    for(attribute in self.get("attribute@")){
+        def propertyPath = attribute.getString("propertyPath");
+        if(propertyPath ==null || propertyPath == ""){
+            theData.put(attribute.name, data);
+        }else{
+            theData.put(attribute.name, OgnlUtil.getValue(attribute, "propertyPath", data));
+        }
+    }
+    
+    return theData;
+}else{
+    //log.info("数据对象不存在");
+    return null;
+}
+#$@text#$@
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sid
+load
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@query
+sname
+doQuery
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+import org.xmeta.util.OgnlUtil;
+
+//获取数据实例
+def instance = self.doAction("getListData", actionContext);
+def matchedDatas = [];
+//log.info("listDataName=" + self.listData + ",instance=" + instance);
+//从实例中查询匹配的数据
+if(actionContext.get("conditionConfig") == null){
+    //没有条件，返回全部
+    for(child in instance){        
+        def dobj = child;
+        if(self.getString("extends") == null || self.getString("extends") == ""){
+            dobj = self.doAction("createDataObjectFromObject", actionContext, ["data":child, "descriptor":self]);
+        }
+        //log.info("dobj=" + dobj);
+        if(dobj != null){
+            matchedDatas.add(dobj);
+        }
+    }
+}else{
+    for(child in instance){
+        def dobj = child;
+        if(self.getString("extends") == null || self.getString("extends") == ""){
+            dobj = self.doAction("createDataObjectFromObject", actionContext, ["data":child, "descriptor":self]);
+        }
+        if(dobj != null){
+            def matched = conditionConfig.doAction("isMatch", actionContext, ["condition":conditionData, "data":dobj]);        
+            //log.info("matched=" + matched);
+            if(matched){
+                matchedDatas.add(dobj);
+            }        
+        }
+    }
+}
+
+if(actionContext.get("pageInfo") != null){
+    //是否排序
+    if(pageInfo.sort != null && pageInfo.sort != ""){
+        matchedDatas.sort(){ a,b->   
+            def av = a == null ? null : a.get(pageInfo.sort);
+            def bv = b == null ? null : b.get(pageInfo.sort);
+            if(av == null && bv == null){
+                return 0;
+            }else if(av == null && bv != null){
+                return pageInfo.dir == "DESC" ? 1 : -1;
+            }else if(av != null && bv == null){
+                return pageInfo.dir == "DESC" ? -1 : 1;
+            }else{
+                return pageInfo.dir == "DESC" ? -av.compareTo(bv) : av.compareTo(bv);
+            }            
+        }   	
+    
+    }
+    pageInfo.totalCount = matchedDatas.size();
+    if(pageInfo.limit > 0){
+        if(pageInfo.start > matchedDatas.size()){
+            pageInfo.start = matchedDatas.size();
+        }
+        def toIndex = pageInfo.start + pageInfo.limit;
+        if(toIndex > matchedDatas.size()){ 
+            toIndex = matchedDatas.size();
+        }
+        def startIndex = pageInfo.start;
+        if(startIndex < 0){
+            startIndex = 0;
+        }    
+        pageInfo.datas = matchedDatas.subList(pageInfo.start, toIndex);
+    }else{
+        pageInfo.datas = matchedDatas;
+    }
+    return pageInfo.datas;
+}else{
+    if(actionContext.get("pageInfo") != null){
+        pageInfo.totalCount = matchedDatas.size();
+        pageInfo.datas = matchedDatas;
+    }
+    return matchedDatas;
+}
+#$@text#$@
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sid
+query
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@update
+sname
+doUpdate
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+
+def datas = self.doAction("getListData", actionContext);
+def keyDatas = theData.getKeyAndDatas();
+def updated = false;
+for(child in datas){
+    def ok = true;
+    for(keyData in keyDatas){
+        if(keyData[1] != Ognl.getValue(keyData[0].propertyPath, child)){
+            ok = false;
+            break;
+        }
+    }
+
+    if(ok){
+        for(attribute in self.get("attribute@")){
+            //log.info(attribute.name + "=" + Ognl.getValue(attribute.name, theData));
+            //log.info(attribute.name + "=" + theData.get(attribute.name));
+            if(attribute.getBoolean("propertyReadOnly")){
+                continue;
+            }
+            Ognl.setValue(attribute.propertyPath, child, Ognl.getValue(attribute.name, theData));
+        }
+
+        for(attribute in self.get("attribute@")){
+            theData.put(attribute.name, Ognl.getValue(attribute.propertyPath, child));
+        }
+
+        updated = true;
+        
+        if(actionContext.get("result") != null){
+            result.success = true;
+            result.msg = "数据更新成功";
+        }
+        break;
+    }
+}
+
+if(!updated && actionContext.get("result") != null){
+    result.success = false;
+    result.msg = "没有匹配的数据，更新失败";
+}
+
+return updated;
+#$@text#$@
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sdebugLog
+false
+sid
+update
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@create
+sname
+doCreate
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import org.xmeta.Thing;
+
+import ognl.Ognl;
+
+//是否需要自动初始化
+if(self.getBoolean("autoInit")){
+    theData.doAction(self.autoInitAction, actionContext);
+}
+
+def dataObjects = self.doAction("getListData", actionContext);
+if(dataObjects == null){
+    log.warn("ListDataObject: list data not exists, name=" + self.listData);
+    return null;
+}
+
+def keyDatas = theData.getKeyAndDatas();
+if(self.autoGenerateId == "true"){
+    def id = self.doAction("generateId", actionContext);
+    theData.put(keyDatas[0][0].name, id);
+    keyDatas[0][1] = id;
+}
+def have = false;
+for(child in dataObjects){
+    def ok = true;
+    for(keyData in keyDatas){
+        if(keyData[1] != null && keyData[1] != Ognl.getValue(keyData[0].propertyPath, child)){
+            ok = false;
+            break;
+        }
+    }
+    
+    if(ok){        
+        have = true;
+        break;
+    }
+}
+
+if(!have){        
+    def child = self.doAction("createInstance", actionContext);
+    for(attribute in self.get("attribute@")){
+        Ognl.setValue(attribute.propertyPath, child, Ognl.getValue(attribute.name, theData));
+    }
+    
+    if(actionContext.get("result") != null){
+        result.success = true;
+        result.msg = "数据创建成功";
+    }
+}else{
+    if(actionContext.get("result") != null){
+        result.success = false;
+        result.msg = "数据重复，不能创建新数据";
+    }else{
+        throw new Exception("数据重复，不能创建新数据");
+    }
+}
+#$@text#$@
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sid
+create
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@delete
+sname
+doDelete
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+
+def datas = self.doAction("getListData", actionContext);
+
+def keyDatas = theData.getKeyAndDatas();
+def deleted = false;
+for(child in datas){
+    def ok = true;
+    for(keyData in keyDatas){
+        if(keyData[1] != null && keyData[1] != Ognl.getValue(keyData[0].propertyPath, child)){
+            ok = false;
+            break;
+        }
+    }
+    
+    if(ok){
+        data.remove(child);
+        deleted = true;
+        if(actionContext.get("result") != null){
+            result.success = true;
+            result.msg = "数据删除成功";
+        }
+        break;
+    }
+}
+
+if(!deleted && actionContext.get("result") != null){
+    result.success = true;
+    result.msg = "没有匹配的记录";
+}
+#$@text#$@
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sid
+delete
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@getInstances
+sname
+createInstance
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+if(actionContext.get("theData") != null && theData.get("__ListDataObject_orginal_data__") != null){
+    return theData.get("__ListDataObject_orginal_data__");
+}
+
+def cls = Class.forName(self.dataClassName);
+return cls.newInstance();
+#$@text#$@
+sid
+getInstances
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@toJavaObject
+sname
+toJavaObject
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+
+//需要有数据对象的实例theData
+if(actionContext.get("theData") == null){
+    log.warn("data object instance 'theData' not exists.");
+    return null;
+}
+
+//创建实例
+def obj = self.doAction("createInstance", actionContext);
+
+//属性赋值
+for(attribute in self.get("attribute@")){
+    if(attribute.propertyPath != null && attribute.propertyPath != ""){
+        Ognl.setValue(attribute.propertyPath, obj, Ognl.getValue(attribute.name, theData));
+    }
+}
+
+//返回对象
+reutrn obj;
+#$@text#$@
+sdescription
+<p>转换成Java对象。</p>
+sid
+toJavaObject
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@createDataObjectFromObject
+sname
+createDataObjectFromObject
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+import org.xmeta.util.OgnlUtil;
+
+import xworker.dataObject.DataObject;
+import xworker.dataObject.DataObjectList;
+import xworker.dataObject.utils.DataObjectUtil;
+
+//log.info("descriptor=" + descriptor);
+return createDataObject(data, descriptor);
+
+def createDataObject(data, descriptor){
+    def dataObj = new DataObject(descriptor);
+    for(attribute in descriptor.getChilds("attribute")){
+        def name = attribute.name;
+        if(attribute.propertyPath == null || attribute.propertyPath == ""){
+            //log.warn("ListDataObject: propertyPath is null, attribute=" + name);
+            dataObj.put(name, data);
+            continue;
+        }
+        
+        try{
+            def d = OgnlUtil.getValue(attribute, "propertyPath", data);
+            dataObj.put(name, d);
+        }catch(Exception e){
+            //log.info("ListDataObject: get value error", e);
+        }
+        //log.info(name + "=" + d);
+    }   
+    
+    //初始化多个属性列表
+    def things = dataObj.getMetadata().getThings();
+    for(int i=0; i<things.size(); i++){
+        def refThing = things[i];
+        if(things[i].getBoolean("many")){
+            def list = new DataObjectList(refThing, dataObj);
+            list.setInited(false);
+            dataObj.put(refThing.name, list);
+        }else{
+            def dchild = new DataObject(refThing.dataObjectPath);
+            dchild.put(refThing.refAttributeName, dataObj.get(refThing.localAttributeName));
+            dchild.setInited(false);
+            dataObj.put(refThing.name, dchild);
+        }
+    }      
+    
+    dataObj.put("__ListDataObject_orginal_data__", data);
+    return dataObj;
+}
+#$@text#$@
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sid
+createDataObjectFromObject
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@createDataObjectFromObject/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@/@actions1/@createDataObjectFromObject/@ins/@thing
+sname
+thing
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+thing
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions1/@createDataObjectFromObject/@ins/@descriptor
+sname
+descriptor
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+descriptor
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions1/@updateBatch
+sname
+updateBatch
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+
+def dataObjects = self.doAction("getInstances", actionContext);
+def datas = self.doAction("query", actionContext);
+int count = 0;
+if(datas != null && datas.size() > 0){
+    for(data in datas){
+        for(attrName : theData.getMetadata().getDirtyFields()){
+            def attribute = theData.getMetadata().getDefinition(attrName);
+            if(attribute != null){
+                Ognl.setValue(attribute.propertyPath, child, Ognl.getValue(attribute.name, theData));
+            }
+        }
+        count++;
+    }
+    
+    dataObjects.save();
+}
+
+return count;
+#$@text#$@
+sdescription
+<p>批量更新，根据查询条件查找并更新符合条件的记录。</p>
+sid
+updateBatch
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@updateBatch/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@/@actions1/@updateBatch/@ins/@theData
+sname
+theData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions1/@updateBatch/@ins/@conditionConfig
+sname
+conditionConfig
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionConfig
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions1/@updateBatch/@ins/@conditionData
+sname
+conditionData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions1/@deleteBatch
+sname
+deleteBatch
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import xworker.dataObject.DataObject;
+
+def theData = actionContext.get("theData");
+if(theData == null){
+    theData = new DataObject(self);
+}
+
+def datas = Ognl.getValue(self.listData, actionContext);
+def count = 0;
+if(datas != null && datas.size() > 0){
+    for(theData in datas){
+        def keyDatas = theData.getKeyAndDatas();
+        def deleted = false;
+        for(int i=0; i<datas.size(); i++){
+            def child = datas.get(i);
+            def ok = true;
+            for(keyData in keyDatas){
+                if(keyData[1] != null && keyData[1].toString() != child.getString(keyData[0].name)){
+                    ok = false;
+                    break;
+                }
+            }
+            
+            if(ok){
+                data.remove(child);
+                count++;      
+                i--;
+                break;
+            }
+        }
+    }
+}
+
+return count;
+#$@text#$@
+sdescription
+<p>批量删除，根据查询条件查找并删除符合条件的记录。</p>
+sid
+deleteBatch
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@deleteBatch/@ins
+sisValidate
+false
+sname
+ins
+sid
+ins
+slabel
+ins
+sdescriptors
+xworker.lang.actions.Inout/@ins
+@/@actions1/@deleteBatch/@ins/@theData
+sname
+theData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+theData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions1/@deleteBatch/@ins/@conditionConfig
+sname
+conditionConfig
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionConfig
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions1/@deleteBatch/@ins/@conditionData
+sname
+conditionData
+stypeCheck
+false
+soptional
+true
+scheck
+false
+scheckLevel
+exception
+sid
+conditionData
+sdescriptors
+xworker.lang.actions.Inout/@ins/@param
+@/@actions1/@getMappingAttributeName
+sname
+getMappingAttributeName
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+scode
+return "propertyPath";
+sid
+getMappingAttributeName
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@isMappingAble
+sname
+isMappingAble
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+scode
+return true;
+Sdescription
+#$@text#$@
+<p>返回属性是否可以映射，比如数据库数据对象、CSV数据对象和Excel等数据对象的属性适合表字段、CSV或Excel的列映射的。</p>
+<p>如果不能映射，直接抛出有说明文字的异常。</p>
+<p>映射用于快速编辑属性。</p>
+#$@text#$@
+sid
+isMappingAble
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@getMappingFields
+sname
+getMappingFields
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import xworker.dataObject.DataObject;
+
+def datas = [];
+if(self.dataClassName != null && self.dataClassName != ""){
+    //获取类
+    def cls = Class.forName(self.dataClassName);
+    for(field in cls.getDeclaredFields()){
+        datas.add(["colName":field.name, "colTitle":field.name]);
+    }
+}else{
+    throw new Exception("dataCalssName is null");
+}
+
+return datas;
+#$@text#$@
+sid
+getMappingFields
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@/@actions1/@getListData
+sname
+getListData
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+import org.xmeta.util.OgnlUtil;
+
+try{
+    return OgnlUtil.getValue(self, "listData", actionContext);
+}catch(Exception e){
+    log.error("get list data error, path=" + self.getMetadata().getPath(), e);
+    return [];
+}
+#$@text#$@
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sdebugLog
+false
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+sth_createIndex
+false
+sth_registMyChilds
+false
+sth_mark
+false
+@/@actions1/@getData
+sname
+getData
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+//获取原始对象
+return theData.get("__ListDataObject_orginal_data__");
+#$@text#$@
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sdebugLog
+false
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+sinheritDescription
+false
+sth_createIndex
+false
+sth_registMyChilds
+false
+sth_registDisabled
+false
+sth_mark
+false
+@/@actions1/@updateData
+sname
+updateData
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Local
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import ognl.Ognl;
+
+def obj = theData.get("__ListDataObject_orginal_data__");
+for(attribute in self.get("attribute@")){
+    //log.info(attribute.name + "=" + Ognl.getValue(attribute.name, theData));
+    //log.info(attribute.name + "=" + theData.get(attribute.name));
+    if(attribute.getBoolean("propertyReadOnly")){
+        continue;
+    }
+    Ognl.setValue(attribute.propertyPath, obj, Ognl.getValue(attribute.name, theData));
+}
+
+for(attribute in self.get("attribute@")){
+    theData.put(attribute.name, Ognl.getValue(attribute.propertyPath, obj));
+}
+#$@text#$@
+sinterpretationType
+Action
+screateLocalVarScope
+false
+ssaveReturn
+false
+sdebugLog
+false
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+sinheritDescription
+false
+sth_createIndex
+false
+sth_registMyChilds
+false
+sth_registDisabled
+false
+sth_mark
+false
+@/@name
+sname
+name
+sshowLabel
+true
+sreadOnly
+false
+sinheritDescription
+false
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+snotXmlAttribute
+false
+sid
+name
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@label
+sname
+label
+sshowLabel
+true
+sreadOnly
+false
+sinheritDescription
+false
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+snotXmlAttribute
+false
+sid
+label
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@listData
+sname
+listData
+sinputtype
+text
+sshowLabel
+true
+ssize
+60
+scolspan
+2
+sreadOnly
+false
+sinheritDescription
+false
+sdescription
+<p>Ognl表达式，从actionContext获取List。</p>
+svalidateAllowBlank
+true
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+snotXmlAttribute
+false
+sid
+listData
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@dataClassName
+sname
+dataClassName
+sshowLabel
+true
+ssize
+60
+scolspan
+2
+sreadOnly
+false
+sinheritDescription
+false
+sdescription
+<p>当创建新数据时需要实例化对象，可以通过重载createInstance方法实例化对象，默认的只能调用默认构造函数。</p>
+svalidateAllowBlank
+true
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+snotXmlAttribute
+false
+sid
+dataClassName
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@extends
+sname
+extends
+sshowLabel
+true
+ssize
+60
+scolspan
+2
+sreadOnly
+false
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p>可以继承其他数据对象，从而可以使用继承的属性，而不用设置属性了。</p>
+<p>可以使用已经存在数据对象列表为数据源，比如一个dataStore已经装载了一个数据对象列表，希望对这个列表进行再次处理，如多数据对象编辑表单时的单个数据对象分页等，此时因为已经是数据对象，所以可以直接使用原先数据对象的属性，而不需要再自行设定什么了。</p>
+#$@text#$@
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+snotXmlAttribute
+false
+sid
+extends
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@/@attribute
+sname
+attribute
+slabel
+Attribute
+sdescriptors
+xworker.lang.MetaDescriptor2/@thing
+sextends
+xworker.dataObject.Attribute
+smany
+true
+seditCols
+2
+sdescription
+<p>基本类型的属性。</p>
+sid
+attribute
+@/@attribute/@name
+sname
+name
+sgroup
+Attribute
+sid
+name
+sdescriptors
+xworker.lang.MetaDescriptor2/@attribute
+@/@attribute/@label
+sname
+label
+sgroup
+Attribute
+sid
+label
+sdescriptors
+xworker.lang.MetaDescriptor2/@attribute
+@/@attribute/@propertyPath
+sname
+propertyPath
+ssize
+60
+scolspan
+2
+sgroup
+Attribute
+Sdescription
+#$@text#$@
+<p>Ognl表达式，从数据上获取值。</p>
+
+<p>如果为空取数据本身，否则取数据对应的属性。</p>
+#$@text#$@
+sid
+propertyPath
+sdescriptors
+xworker.lang.MetaDescriptor2/@attribute
+@/@attribute/@propertyReadOnly
+sname
+propertyReadOnly
+sdefault
+false
+sinputtype
+textarea
+sdescription
+<p>如果为true，那么当DataObject相应属性变更后，也不更新Java对象对应的属性。</p>
+sdescriptors
+xworker.lang.MetaDescriptor2/@attribute
+sinheritDescription
+false
+sth_createIndex
+false
+sth_registMyChilds
+false
+sth_registDisabled
+false
+sth_mark
+false
+@/@thing
+sname
+thing
+slabel
+Thing
+sdescriptors
+xworker.lang.MetaDescriptor2/@thing
+sextends
+xworker.dataObject.RelationDataObject
+smany
+true
+seditCols
+2
+sdescription
+<p>与其他数据对象有关联的属性或属性列表。</p>
+sid
+thing
+@/@actions
+sname
+actions
+slabel
+Actions
+sdescriptors
+xworker.lang.MetaDescriptor2/@thing
+sextends
+xworker.lang.actions.Actions
+sid
+actions
+@/@actions/@name
+sname
+name
+sid
+name
+sdescriptors
+xworker.lang.MetaDescriptor2/@attribute

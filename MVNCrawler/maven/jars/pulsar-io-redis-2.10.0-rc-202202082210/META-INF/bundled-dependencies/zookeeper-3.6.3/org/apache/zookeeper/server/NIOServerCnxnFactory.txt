@@ -1,0 +1,906 @@
+Compiled from "NIOServerCnxnFactory.java"
+public class org.apache.zookeeper.server.NIOServerCnxnFactory extends org.apache.zookeeper.server.ServerCnxnFactory {
+  private static final org.slf4j.Logger LOG;
+
+  public static final java.lang.String ZOOKEEPER_NIO_SESSIONLESS_CNXN_TIMEOUT;
+
+  public static final java.lang.String ZOOKEEPER_NIO_NUM_SELECTOR_THREADS;
+
+  public static final java.lang.String ZOOKEEPER_NIO_NUM_WORKER_THREADS;
+
+  public static final java.lang.String ZOOKEEPER_NIO_DIRECT_BUFFER_BYTES;
+
+  public static final java.lang.String ZOOKEEPER_NIO_SHUTDOWN_TIMEOUT;
+
+  java.nio.channels.ServerSocketChannel ss;
+
+  private static final java.lang.ThreadLocal<java.nio.ByteBuffer> directBuffer;
+
+  private final java.util.concurrent.ConcurrentHashMap<java.net.InetAddress, java.util.Set<org.apache.zookeeper.server.NIOServerCnxn>> ipMap;
+
+  protected int maxClientCnxns;
+
+  int listenBacklog;
+
+  int sessionlessCnxnTimeout;
+
+  private org.apache.zookeeper.server.ExpiryQueue<org.apache.zookeeper.server.NIOServerCnxn> cnxnExpiryQueue;
+
+  protected org.apache.zookeeper.server.WorkerService workerPool;
+
+  private static int directBufferBytes;
+
+  private int numSelectorThreads;
+
+  private int numWorkerThreads;
+
+  private long workerShutdownTimeoutMS;
+
+  private volatile boolean stopped;
+
+  private org.apache.zookeeper.server.NIOServerCnxnFactory$ConnectionExpirerThread expirerThread;
+
+  private org.apache.zookeeper.server.NIOServerCnxnFactory$AcceptThread acceptThread;
+
+  private final java.util.Set<org.apache.zookeeper.server.NIOServerCnxnFactory$SelectorThread> selectorThreads;
+
+  public static java.nio.ByteBuffer getDirectBuffer();
+    Code:
+       0: getstatic     #1                  // Field directBufferBytes:I
+       3: ifle          18
+       6: getstatic     #7                  // Field directBuffer:Ljava/lang/ThreadLocal;
+       9: invokevirtual #8                  // Method java/lang/ThreadLocal.get:()Ljava/lang/Object;
+      12: checkcast     #9                  // class java/nio/ByteBuffer
+      15: goto          19
+      18: aconst_null
+      19: areturn
+
+  public org.apache.zookeeper.server.NIOServerCnxnFactory();
+    Code:
+       0: aload_0
+       1: invokespecial #10                 // Method org/apache/zookeeper/server/ServerCnxnFactory."<init>":()V
+       4: aload_0
+       5: new           #11                 // class java/util/concurrent/ConcurrentHashMap
+       8: dup
+       9: invokespecial #12                 // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      12: putfield      #13                 // Field ipMap:Ljava/util/concurrent/ConcurrentHashMap;
+      15: aload_0
+      16: bipush        60
+      18: putfield      #14                 // Field maxClientCnxns:I
+      21: aload_0
+      22: iconst_m1
+      23: putfield      #15                 // Field listenBacklog:I
+      26: aload_0
+      27: iconst_1
+      28: putfield      #5                  // Field stopped:Z
+      31: aload_0
+      32: new           #16                 // class java/util/HashSet
+      35: dup
+      36: invokespecial #17                 // Method java/util/HashSet."<init>":()V
+      39: putfield      #18                 // Field selectorThreads:Ljava/util/Set;
+      42: return
+
+  public void configure(java.net.InetSocketAddress, int, int, boolean) throws java.io.IOException;
+    Code:
+       0: iload         4
+       2: ifeq          15
+       5: new           #19                 // class java/lang/UnsupportedOperationException
+       8: dup
+       9: ldc           #20                 // String SSL isn\'t supported in NIOServerCnxn
+      11: invokespecial #21                 // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+      14: athrow
+      15: aload_0
+      16: invokevirtual #22                 // Method configureSaslLogin:()V
+      19: aload_0
+      20: iload_2
+      21: putfield      #14                 // Field maxClientCnxns:I
+      24: aload_0
+      25: invokevirtual #23                 // Method initMaxCnxns:()V
+      28: aload_0
+      29: ldc           #25                 // String zookeeper.nio.sessionlessCnxnTimeout
+      31: sipush        10000
+      34: invokestatic  #26                 // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+      37: invokevirtual #27                 // Method java/lang/Integer.intValue:()I
+      40: putfield      #28                 // Field sessionlessCnxnTimeout:I
+      43: aload_0
+      44: new           #29                 // class org/apache/zookeeper/server/ExpiryQueue
+      47: dup
+      48: aload_0
+      49: getfield      #28                 // Field sessionlessCnxnTimeout:I
+      52: invokespecial #30                 // Method org/apache/zookeeper/server/ExpiryQueue."<init>":(I)V
+      55: putfield      #2                  // Field cnxnExpiryQueue:Lorg/apache/zookeeper/server/ExpiryQueue;
+      58: aload_0
+      59: new           #31                 // class org/apache/zookeeper/server/NIOServerCnxnFactory$ConnectionExpirerThread
+      62: dup
+      63: aload_0
+      64: invokespecial #32                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$ConnectionExpirerThread."<init>":(Lorg/apache/zookeeper/server/NIOServerCnxnFactory;)V
+      67: putfield      #33                 // Field expirerThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$ConnectionExpirerThread;
+      70: invokestatic  #34                 // Method java/lang/Runtime.getRuntime:()Ljava/lang/Runtime;
+      73: invokevirtual #35                 // Method java/lang/Runtime.availableProcessors:()I
+      76: istore        5
+      78: aload_0
+      79: ldc           #36                 // String zookeeper.nio.numSelectorThreads
+      81: iload         5
+      83: i2f
+      84: fconst_2
+      85: fdiv
+      86: f2d
+      87: invokestatic  #37                 // Method java/lang/Math.sqrt:(D)D
+      90: d2i
+      91: iconst_1
+      92: invokestatic  #38                 // Method java/lang/Math.max:(II)I
+      95: invokestatic  #26                 // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+      98: invokevirtual #27                 // Method java/lang/Integer.intValue:()I
+     101: putfield      #39                 // Field numSelectorThreads:I
+     104: aload_0
+     105: getfield      #39                 // Field numSelectorThreads:I
+     108: iconst_1
+     109: if_icmpge     122
+     112: new           #40                 // class java/io/IOException
+     115: dup
+     116: ldc           #41                 // String numSelectorThreads must be at least 1
+     118: invokespecial #42                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     121: athrow
+     122: aload_0
+     123: ldc           #43                 // String zookeeper.nio.numWorkerThreads
+     125: iconst_2
+     126: iload         5
+     128: imul
+     129: invokestatic  #26                 // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+     132: invokevirtual #27                 // Method java/lang/Integer.intValue:()I
+     135: putfield      #44                 // Field numWorkerThreads:I
+     138: aload_0
+     139: ldc           #45                 // String zookeeper.nio.shutdownTimeout
+     141: ldc2_w        #46                 // long 5000l
+     144: invokestatic  #48                 // Method java/lang/Long.getLong:(Ljava/lang/String;J)Ljava/lang/Long;
+     147: invokevirtual #49                 // Method java/lang/Long.longValue:()J
+     150: putfield      #50                 // Field workerShutdownTimeoutMS:J
+     153: new           #51                 // class java/lang/StringBuilder
+     156: dup
+     157: invokespecial #52                 // Method java/lang/StringBuilder."<init>":()V
+     160: ldc           #53                 // String Configuring NIO connection handler with
+     162: invokevirtual #54                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     165: aload_0
+     166: getfield      #28                 // Field sessionlessCnxnTimeout:I
+     169: sipush        1000
+     172: idiv
+     173: invokevirtual #55                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     176: ldc           #56                 // String s sessionless connection timeout,
+     178: invokevirtual #54                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     181: aload_0
+     182: getfield      #39                 // Field numSelectorThreads:I
+     185: invokevirtual #55                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     188: ldc           #57                 // String  selector thread(s),
+     190: invokevirtual #54                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     193: aload_0
+     194: getfield      #44                 // Field numWorkerThreads:I
+     197: ifle          210
+     200: aload_0
+     201: getfield      #44                 // Field numWorkerThreads:I
+     204: invokestatic  #58                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     207: goto          212
+     210: ldc           #59                 // String no
+     212: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     215: ldc           #61                 // String  worker threads, and
+     217: invokevirtual #54                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     220: getstatic     #1                  // Field directBufferBytes:I
+     223: ifne          231
+     226: ldc           #62                 // String gathered writes.
+     228: goto          261
+     231: new           #51                 // class java/lang/StringBuilder
+     234: dup
+     235: invokespecial #52                 // Method java/lang/StringBuilder."<init>":()V
+     238: ldc           #63                 // String
+     240: invokevirtual #54                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     243: getstatic     #1                  // Field directBufferBytes:I
+     246: sipush        1024
+     249: idiv
+     250: invokevirtual #55                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     253: ldc           #64                 // String  kB direct buffers.
+     255: invokevirtual #54                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     258: invokevirtual #65                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     261: invokevirtual #54                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     264: invokevirtual #65                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     267: astore        6
+     269: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+     272: aload         6
+     274: invokeinterface #66,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     279: iconst_0
+     280: istore        7
+     282: iload         7
+     284: aload_0
+     285: getfield      #39                 // Field numSelectorThreads:I
+     288: if_icmpge     317
+     291: aload_0
+     292: getfield      #18                 // Field selectorThreads:Ljava/util/Set;
+     295: new           #67                 // class org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread
+     298: dup
+     299: aload_0
+     300: iload         7
+     302: invokespecial #68                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread."<init>":(Lorg/apache/zookeeper/server/NIOServerCnxnFactory;I)V
+     305: invokeinterface #69,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     310: pop
+     311: iinc          7, 1
+     314: goto          282
+     317: aload_0
+     318: iload_3
+     319: putfield      #15                 // Field listenBacklog:I
+     322: aload_0
+     323: invokestatic  #70                 // Method java/nio/channels/ServerSocketChannel.open:()Ljava/nio/channels/ServerSocketChannel;
+     326: putfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+     329: aload_0
+     330: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+     333: invokevirtual #72                 // Method java/nio/channels/ServerSocketChannel.socket:()Ljava/net/ServerSocket;
+     336: iconst_1
+     337: invokevirtual #73                 // Method java/net/ServerSocket.setReuseAddress:(Z)V
+     340: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+     343: ldc           #74                 // String binding to port {}
+     345: aload_1
+     346: invokeinterface #75,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     351: aload_0
+     352: getfield      #15                 // Field listenBacklog:I
+     355: iconst_m1
+     356: if_icmpne     373
+     359: aload_0
+     360: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+     363: invokevirtual #72                 // Method java/nio/channels/ServerSocketChannel.socket:()Ljava/net/ServerSocket;
+     366: aload_1
+     367: invokevirtual #76                 // Method java/net/ServerSocket.bind:(Ljava/net/SocketAddress;)V
+     370: goto          388
+     373: aload_0
+     374: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+     377: invokevirtual #72                 // Method java/nio/channels/ServerSocketChannel.socket:()Ljava/net/ServerSocket;
+     380: aload_1
+     381: aload_0
+     382: getfield      #15                 // Field listenBacklog:I
+     385: invokevirtual #77                 // Method java/net/ServerSocket.bind:(Ljava/net/SocketAddress;I)V
+     388: aload_0
+     389: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+     392: iconst_0
+     393: invokevirtual #78                 // Method java/nio/channels/ServerSocketChannel.configureBlocking:(Z)Ljava/nio/channels/SelectableChannel;
+     396: pop
+     397: aload_0
+     398: new           #79                 // class org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread
+     401: dup
+     402: aload_0
+     403: aload_0
+     404: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+     407: aload_1
+     408: aload_0
+     409: getfield      #18                 // Field selectorThreads:Ljava/util/Set;
+     412: invokespecial #80                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread."<init>":(Lorg/apache/zookeeper/server/NIOServerCnxnFactory;Ljava/nio/channels/ServerSocketChannel;Ljava/net/InetSocketAddress;Ljava/util/Set;)V
+     415: putfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+     418: return
+
+  private void tryClose(java.nio.channels.ServerSocketChannel);
+    Code:
+       0: aload_1
+       1: invokevirtual #82                 // Method java/nio/channels/ServerSocketChannel.close:()V
+       4: goto          19
+       7: astore_2
+       8: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+      11: ldc           #83                 // String Error while closing server socket.
+      13: aload_2
+      14: invokeinterface #84,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      19: return
+    Exception table:
+       from    to  target type
+           0     4     7   Class java/io/IOException
+
+  public void reconfigure(java.net.InetSocketAddress);
+    Code:
+       0: aload_0
+       1: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+       4: astore_2
+       5: aload_0
+       6: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+       9: invokevirtual #85                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread.setReconfiguring:()V
+      12: aload_0
+      13: aload_2
+      14: invokespecial #86                 // Method tryClose:(Ljava/nio/channels/ServerSocketChannel;)V
+      17: aload_0
+      18: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+      21: invokevirtual #87                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread.wakeupSelector:()V
+      24: aload_0
+      25: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+      28: invokevirtual #88                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread.join:()V
+      31: goto          52
+      34: astore_3
+      35: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+      38: ldc           #90                 // String Error joining old acceptThread when reconfiguring client port.
+      40: aload_3
+      41: invokeinterface #84,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      46: invokestatic  #91                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      49: invokevirtual #92                 // Method java/lang/Thread.interrupt:()V
+      52: aload_0
+      53: invokestatic  #70                 // Method java/nio/channels/ServerSocketChannel.open:()Ljava/nio/channels/ServerSocketChannel;
+      56: putfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+      59: aload_0
+      60: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+      63: invokevirtual #72                 // Method java/nio/channels/ServerSocketChannel.socket:()Ljava/net/ServerSocket;
+      66: iconst_1
+      67: invokevirtual #73                 // Method java/net/ServerSocket.setReuseAddress:(Z)V
+      70: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+      73: ldc           #74                 // String binding to port {}
+      75: aload_1
+      76: invokeinterface #75,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      81: aload_0
+      82: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+      85: invokevirtual #72                 // Method java/nio/channels/ServerSocketChannel.socket:()Ljava/net/ServerSocket;
+      88: aload_1
+      89: invokevirtual #76                 // Method java/net/ServerSocket.bind:(Ljava/net/SocketAddress;)V
+      92: aload_0
+      93: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+      96: iconst_0
+      97: invokevirtual #78                 // Method java/nio/channels/ServerSocketChannel.configureBlocking:(Z)Ljava/nio/channels/SelectableChannel;
+     100: pop
+     101: aload_0
+     102: new           #79                 // class org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread
+     105: dup
+     106: aload_0
+     107: aload_0
+     108: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+     111: aload_1
+     112: aload_0
+     113: getfield      #18                 // Field selectorThreads:Ljava/util/Set;
+     116: invokespecial #80                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread."<init>":(Lorg/apache/zookeeper/server/NIOServerCnxnFactory;Ljava/nio/channels/ServerSocketChannel;Ljava/net/InetSocketAddress;Ljava/util/Set;)V
+     119: putfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+     122: aload_0
+     123: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+     126: invokevirtual #93                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread.start:()V
+     129: goto          150
+     132: astore_3
+     133: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+     136: ldc           #94                 // String Error reconfiguring client port to {}
+     138: aload_1
+     139: aload_3
+     140: invokeinterface #95,  4           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     145: aload_0
+     146: aload_2
+     147: invokespecial #86                 // Method tryClose:(Ljava/nio/channels/ServerSocketChannel;)V
+     150: return
+    Exception table:
+       from    to  target type
+          24    31    34   Class java/lang/InterruptedException
+           5   129   132   Class java/io/IOException
+
+  public int getMaxClientCnxnsPerHost();
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field maxClientCnxns:I
+       4: ireturn
+
+  public void setMaxClientCnxnsPerHost(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #14                 // Field maxClientCnxns:I
+       5: return
+
+  public int getSocketListenBacklog();
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field listenBacklog:I
+       4: ireturn
+
+  public void start();
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: putfield      #5                  // Field stopped:Z
+       5: aload_0
+       6: getfield      #96                 // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+       9: ifnonnull     30
+      12: aload_0
+      13: new           #97                 // class org/apache/zookeeper/server/WorkerService
+      16: dup
+      17: ldc           #98                 // String NIOWorker
+      19: aload_0
+      20: getfield      #44                 // Field numWorkerThreads:I
+      23: iconst_0
+      24: invokespecial #99                 // Method org/apache/zookeeper/server/WorkerService."<init>":(Ljava/lang/String;IZ)V
+      27: putfield      #96                 // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+      30: aload_0
+      31: getfield      #18                 // Field selectorThreads:Ljava/util/Set;
+      34: invokeinterface #100,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      39: astore_1
+      40: aload_1
+      41: invokeinterface #101,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      46: ifeq          76
+      49: aload_1
+      50: invokeinterface #102,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      55: checkcast     #67                 // class org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread
+      58: astore_2
+      59: aload_2
+      60: invokevirtual #103                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread.getState:()Ljava/lang/Thread$State;
+      63: getstatic     #104                // Field java/lang/Thread$State.NEW:Ljava/lang/Thread$State;
+      66: if_acmpne     73
+      69: aload_2
+      70: invokevirtual #105                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread.start:()V
+      73: goto          40
+      76: aload_0
+      77: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+      80: invokevirtual #106                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread.getState:()Ljava/lang/Thread$State;
+      83: getstatic     #104                // Field java/lang/Thread$State.NEW:Ljava/lang/Thread$State;
+      86: if_acmpne     96
+      89: aload_0
+      90: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+      93: invokevirtual #93                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread.start:()V
+      96: aload_0
+      97: getfield      #33                 // Field expirerThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$ConnectionExpirerThread;
+     100: invokevirtual #107                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$ConnectionExpirerThread.getState:()Ljava/lang/Thread$State;
+     103: getstatic     #104                // Field java/lang/Thread$State.NEW:Ljava/lang/Thread$State;
+     106: if_acmpne     116
+     109: aload_0
+     110: getfield      #33                 // Field expirerThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$ConnectionExpirerThread;
+     113: invokevirtual #108                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$ConnectionExpirerThread.start:()V
+     116: return
+
+  public void startup(org.apache.zookeeper.server.ZooKeeperServer, boolean) throws java.io.IOException, java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: invokevirtual #109                // Method start:()V
+       4: aload_0
+       5: aload_1
+       6: invokevirtual #110                // Method setZooKeeperServer:(Lorg/apache/zookeeper/server/ZooKeeperServer;)V
+       9: iload_2
+      10: ifeq          21
+      13: aload_1
+      14: invokevirtual #111                // Method org/apache/zookeeper/server/ZooKeeperServer.startdata:()V
+      17: aload_1
+      18: invokevirtual #112                // Method org/apache/zookeeper/server/ZooKeeperServer.startup:()V
+      21: return
+
+  public java.net.InetSocketAddress getLocalAddress();
+    Code:
+       0: aload_0
+       1: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+       4: invokevirtual #72                 // Method java/nio/channels/ServerSocketChannel.socket:()Ljava/net/ServerSocket;
+       7: invokevirtual #113                // Method java/net/ServerSocket.getLocalSocketAddress:()Ljava/net/SocketAddress;
+      10: checkcast     #114                // class java/net/InetSocketAddress
+      13: areturn
+
+  public int getLocalPort();
+    Code:
+       0: aload_0
+       1: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+       4: invokevirtual #72                 // Method java/nio/channels/ServerSocketChannel.socket:()Ljava/net/ServerSocket;
+       7: invokevirtual #115                // Method java/net/ServerSocket.getLocalPort:()I
+      10: ireturn
+
+  public boolean removeCnxn(org.apache.zookeeper.server.NIOServerCnxn);
+    Code:
+       0: aload_0
+       1: getfield      #116                // Field cnxns:Ljava/util/Set;
+       4: aload_1
+       5: invokeinterface #117,  2          // InterfaceMethod java/util/Set.remove:(Ljava/lang/Object;)Z
+      10: ifne          15
+      13: iconst_0
+      14: ireturn
+      15: aload_0
+      16: getfield      #2                  // Field cnxnExpiryQueue:Lorg/apache/zookeeper/server/ExpiryQueue;
+      19: aload_1
+      20: invokevirtual #118                // Method org/apache/zookeeper/server/ExpiryQueue.remove:(Ljava/lang/Object;)Ljava/lang/Long;
+      23: pop
+      24: aload_0
+      25: aload_1
+      26: invokevirtual #119                // Method removeCnxnFromSessionMap:(Lorg/apache/zookeeper/server/ServerCnxn;)V
+      29: aload_1
+      30: invokevirtual #120                // Method org/apache/zookeeper/server/NIOServerCnxn.getSocketAddress:()Ljava/net/InetAddress;
+      33: astore_2
+      34: aload_2
+      35: ifnull        62
+      38: aload_0
+      39: getfield      #13                 // Field ipMap:Ljava/util/concurrent/ConcurrentHashMap;
+      42: aload_2
+      43: invokevirtual #121                // Method java/util/concurrent/ConcurrentHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      46: checkcast     #122                // class java/util/Set
+      49: astore_3
+      50: aload_3
+      51: ifnull        62
+      54: aload_3
+      55: aload_1
+      56: invokeinterface #117,  2          // InterfaceMethod java/util/Set.remove:(Ljava/lang/Object;)Z
+      61: pop
+      62: aload_0
+      63: aload_1
+      64: invokevirtual #123                // Method unregisterConnection:(Lorg/apache/zookeeper/server/ServerCnxn;)V
+      67: iconst_1
+      68: ireturn
+
+  public void touchCnxn(org.apache.zookeeper.server.NIOServerCnxn);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field cnxnExpiryQueue:Lorg/apache/zookeeper/server/ExpiryQueue;
+       4: aload_1
+       5: aload_1
+       6: invokevirtual #124                // Method org/apache/zookeeper/server/NIOServerCnxn.getSessionTimeout:()I
+       9: invokevirtual #125                // Method org/apache/zookeeper/server/ExpiryQueue.update:(Ljava/lang/Object;I)Ljava/lang/Long;
+      12: pop
+      13: return
+
+  private void addCnxn(org.apache.zookeeper.server.NIOServerCnxn) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokevirtual #120                // Method org/apache/zookeeper/server/NIOServerCnxn.getSocketAddress:()Ljava/net/InetAddress;
+       4: astore_2
+       5: aload_2
+       6: ifnonnull     41
+       9: new           #40                 // class java/io/IOException
+      12: dup
+      13: new           #51                 // class java/lang/StringBuilder
+      16: dup
+      17: invokespecial #52                 // Method java/lang/StringBuilder."<init>":()V
+      20: ldc           #126                // String Socket of
+      22: invokevirtual #54                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      25: aload_1
+      26: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      29: ldc           #127                // String  has been closed
+      31: invokevirtual #54                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: invokevirtual #65                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      37: invokespecial #42                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+      40: athrow
+      41: aload_0
+      42: getfield      #13                 // Field ipMap:Ljava/util/concurrent/ConcurrentHashMap;
+      45: aload_2
+      46: invokevirtual #121                // Method java/util/concurrent/ConcurrentHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      49: checkcast     #122                // class java/util/Set
+      52: astore_3
+      53: aload_3
+      54: ifnonnull     91
+      57: new           #11                 // class java/util/concurrent/ConcurrentHashMap
+      60: dup
+      61: iconst_2
+      62: invokespecial #128                // Method java/util/concurrent/ConcurrentHashMap."<init>":(I)V
+      65: invokestatic  #129                // Method java/util/Collections.newSetFromMap:(Ljava/util/Map;)Ljava/util/Set;
+      68: astore_3
+      69: aload_0
+      70: getfield      #13                 // Field ipMap:Ljava/util/concurrent/ConcurrentHashMap;
+      73: aload_2
+      74: aload_3
+      75: invokevirtual #130                // Method java/util/concurrent/ConcurrentHashMap.putIfAbsent:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      78: checkcast     #122                // class java/util/Set
+      81: astore        4
+      83: aload         4
+      85: ifnull        91
+      88: aload         4
+      90: astore_3
+      91: aload_3
+      92: aload_1
+      93: invokeinterface #69,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      98: pop
+      99: aload_0
+     100: getfield      #116                // Field cnxns:Ljava/util/Set;
+     103: aload_1
+     104: invokeinterface #69,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     109: pop
+     110: aload_0
+     111: aload_1
+     112: invokevirtual #131                // Method touchCnxn:(Lorg/apache/zookeeper/server/NIOServerCnxn;)V
+     115: return
+
+  protected org.apache.zookeeper.server.NIOServerCnxn createConnection(java.nio.channels.SocketChannel, java.nio.channels.SelectionKey, org.apache.zookeeper.server.NIOServerCnxnFactory$SelectorThread) throws java.io.IOException;
+    Code:
+       0: new           #132                // class org/apache/zookeeper/server/NIOServerCnxn
+       3: dup
+       4: aload_0
+       5: getfield      #133                // Field zkServer:Lorg/apache/zookeeper/server/ZooKeeperServer;
+       8: aload_1
+       9: aload_2
+      10: aload_0
+      11: aload_3
+      12: invokespecial #134                // Method org/apache/zookeeper/server/NIOServerCnxn."<init>":(Lorg/apache/zookeeper/server/ZooKeeperServer;Ljava/nio/channels/SocketChannel;Ljava/nio/channels/SelectionKey;Lorg/apache/zookeeper/server/NIOServerCnxnFactory;Lorg/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread;)V
+      15: areturn
+
+  private int getClientCnxnCount(java.net.InetAddress);
+    Code:
+       0: aload_0
+       1: getfield      #13                 // Field ipMap:Ljava/util/concurrent/ConcurrentHashMap;
+       4: aload_1
+       5: invokevirtual #121                // Method java/util/concurrent/ConcurrentHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+       8: checkcast     #122                // class java/util/Set
+      11: astore_2
+      12: aload_2
+      13: ifnonnull     18
+      16: iconst_0
+      17: ireturn
+      18: aload_2
+      19: invokeinterface #135,  1          // InterfaceMethod java/util/Set.size:()I
+      24: ireturn
+
+  public void closeAll(org.apache.zookeeper.server.ServerCnxn$DisconnectReason);
+    Code:
+       0: aload_0
+       1: getfield      #116                // Field cnxns:Ljava/util/Set;
+       4: invokeinterface #100,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+       9: astore_2
+      10: aload_2
+      11: invokeinterface #101,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      16: ifeq          61
+      19: aload_2
+      20: invokeinterface #102,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      25: checkcast     #136                // class org/apache/zookeeper/server/ServerCnxn
+      28: astore_3
+      29: aload_3
+      30: aload_1
+      31: invokevirtual #137                // Method org/apache/zookeeper/server/ServerCnxn.close:(Lorg/apache/zookeeper/server/ServerCnxn$DisconnectReason;)V
+      34: goto          58
+      37: astore        4
+      39: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+      42: ldc           #139                // String Ignoring exception closing cnxn session id 0x{}
+      44: aload_3
+      45: invokevirtual #140                // Method org/apache/zookeeper/server/ServerCnxn.getSessionId:()J
+      48: invokestatic  #141                // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      51: aload         4
+      53: invokeinterface #142,  4          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      58: goto          10
+      61: return
+    Exception table:
+       from    to  target type
+          29    34    37   Class java/lang/Exception
+
+  public void stop();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: putfield      #5                  // Field stopped:Z
+       5: aload_0
+       6: getfield      #71                 // Field ss:Ljava/nio/channels/ServerSocketChannel;
+       9: invokevirtual #82                 // Method java/nio/channels/ServerSocketChannel.close:()V
+      12: goto          27
+      15: astore_1
+      16: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+      19: ldc           #143                // String Error closing listen socket
+      21: aload_1
+      22: invokeinterface #144,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      27: aload_0
+      28: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+      31: ifnull        61
+      34: aload_0
+      35: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+      38: invokevirtual #145                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread.isAlive:()Z
+      41: ifeq          54
+      44: aload_0
+      45: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+      48: invokevirtual #87                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread.wakeupSelector:()V
+      51: goto          61
+      54: aload_0
+      55: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+      58: invokevirtual #146                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread.closeSelector:()V
+      61: aload_0
+      62: getfield      #33                 // Field expirerThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$ConnectionExpirerThread;
+      65: ifnull        75
+      68: aload_0
+      69: getfield      #33                 // Field expirerThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$ConnectionExpirerThread;
+      72: invokevirtual #147                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$ConnectionExpirerThread.interrupt:()V
+      75: aload_0
+      76: getfield      #18                 // Field selectorThreads:Ljava/util/Set;
+      79: invokeinterface #100,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      84: astore_1
+      85: aload_1
+      86: invokeinterface #101,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      91: ifeq          125
+      94: aload_1
+      95: invokeinterface #102,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     100: checkcast     #67                 // class org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread
+     103: astore_2
+     104: aload_2
+     105: invokevirtual #148                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread.isAlive:()Z
+     108: ifeq          118
+     111: aload_2
+     112: invokevirtual #149                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread.wakeupSelector:()V
+     115: goto          122
+     118: aload_2
+     119: invokevirtual #150                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread.closeSelector:()V
+     122: goto          85
+     125: aload_0
+     126: getfield      #96                 // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+     129: ifnull        139
+     132: aload_0
+     133: getfield      #96                 // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+     136: invokevirtual #151                // Method org/apache/zookeeper/server/WorkerService.stop:()V
+     139: return
+    Exception table:
+       from    to  target type
+           5    12    15   Class java/io/IOException
+
+  public void shutdown();
+    Code:
+       0: aload_0
+       1: invokevirtual #152                // Method stop:()V
+       4: aload_0
+       5: invokevirtual #153                // Method join:()V
+       8: aload_0
+       9: getstatic     #154                // Field org/apache/zookeeper/server/ServerCnxn$DisconnectReason.SERVER_SHUTDOWN:Lorg/apache/zookeeper/server/ServerCnxn$DisconnectReason;
+      12: invokevirtual #155                // Method closeAll:(Lorg/apache/zookeeper/server/ServerCnxn$DisconnectReason;)V
+      15: aload_0
+      16: getfield      #156                // Field login:Lorg/apache/zookeeper/Login;
+      19: ifnull        29
+      22: aload_0
+      23: getfield      #156                // Field login:Lorg/apache/zookeeper/Login;
+      26: invokevirtual #157                // Method org/apache/zookeeper/Login.shutdown:()V
+      29: goto          59
+      32: astore_1
+      33: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+      36: ldc           #158                // String Ignoring interrupted exception during shutdown
+      38: aload_1
+      39: invokeinterface #144,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      44: goto          59
+      47: astore_1
+      48: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+      51: ldc           #159                // String Ignoring unexpected exception during shutdown
+      53: aload_1
+      54: invokeinterface #144,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      59: aload_0
+      60: getfield      #133                // Field zkServer:Lorg/apache/zookeeper/server/ZooKeeperServer;
+      63: ifnull        73
+      66: aload_0
+      67: getfield      #133                // Field zkServer:Lorg/apache/zookeeper/server/ZooKeeperServer;
+      70: invokevirtual #160                // Method org/apache/zookeeper/server/ZooKeeperServer.shutdown:()V
+      73: return
+    Exception table:
+       from    to  target type
+           0    29    32   Class java/lang/InterruptedException
+           0    29    47   Class java/lang/Exception
+
+  public void join() throws java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+       4: ifnull        14
+       7: aload_0
+       8: getfield      #81                 // Field acceptThread:Lorg/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread;
+      11: invokevirtual #88                 // Method org/apache/zookeeper/server/NIOServerCnxnFactory$AcceptThread.join:()V
+      14: aload_0
+      15: getfield      #18                 // Field selectorThreads:Ljava/util/Set;
+      18: invokeinterface #100,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      23: astore_1
+      24: aload_1
+      25: invokeinterface #101,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      30: ifeq          50
+      33: aload_1
+      34: invokeinterface #102,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      39: checkcast     #67                 // class org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread
+      42: astore_2
+      43: aload_2
+      44: invokevirtual #161                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$SelectorThread.join:()V
+      47: goto          24
+      50: aload_0
+      51: getfield      #96                 // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+      54: ifnull        68
+      57: aload_0
+      58: getfield      #96                 // Field workerPool:Lorg/apache/zookeeper/server/WorkerService;
+      61: aload_0
+      62: getfield      #50                 // Field workerShutdownTimeoutMS:J
+      65: invokevirtual #162                // Method org/apache/zookeeper/server/WorkerService.join:(J)V
+      68: return
+
+  public java.lang.Iterable<org.apache.zookeeper.server.ServerCnxn> getConnections();
+    Code:
+       0: aload_0
+       1: getfield      #116                // Field cnxns:Ljava/util/Set;
+       4: areturn
+
+  public void dumpConnections(java.io.PrintWriter);
+    Code:
+       0: aload_1
+       1: ldc           #163                // String Connections
+       3: invokevirtual #164                // Method java/io/PrintWriter.print:(Ljava/lang/String;)V
+       6: aload_0
+       7: getfield      #2                  // Field cnxnExpiryQueue:Lorg/apache/zookeeper/server/ExpiryQueue;
+      10: aload_1
+      11: invokevirtual #165                // Method org/apache/zookeeper/server/ExpiryQueue.dump:(Ljava/io/PrintWriter;)V
+      14: return
+
+  public void resetAllConnectionStats();
+    Code:
+       0: aload_0
+       1: getfield      #116                // Field cnxns:Ljava/util/Set;
+       4: invokeinterface #100,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+       9: astore_1
+      10: aload_1
+      11: invokeinterface #101,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      16: ifeq          36
+      19: aload_1
+      20: invokeinterface #102,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      25: checkcast     #136                // class org/apache/zookeeper/server/ServerCnxn
+      28: astore_2
+      29: aload_2
+      30: invokevirtual #166                // Method org/apache/zookeeper/server/ServerCnxn.resetStats:()V
+      33: goto          10
+      36: return
+
+  public java.lang.Iterable<java.util.Map<java.lang.String, java.lang.Object>> getAllConnectionInfo(boolean);
+    Code:
+       0: new           #16                 // class java/util/HashSet
+       3: dup
+       4: invokespecial #17                 // Method java/util/HashSet."<init>":()V
+       7: astore_2
+       8: aload_0
+       9: getfield      #116                // Field cnxns:Ljava/util/Set;
+      12: invokeinterface #100,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      17: astore_3
+      18: aload_3
+      19: invokeinterface #101,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      24: ifeq          52
+      27: aload_3
+      28: invokeinterface #102,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      33: checkcast     #136                // class org/apache/zookeeper/server/ServerCnxn
+      36: astore        4
+      38: aload_2
+      39: aload         4
+      41: iload_1
+      42: invokevirtual #167                // Method org/apache/zookeeper/server/ServerCnxn.getConnectionInfo:(Z)Ljava/util/Map;
+      45: invokevirtual #168                // Method java/util/HashSet.add:(Ljava/lang/Object;)Z
+      48: pop
+      49: goto          18
+      52: aload_2
+      53: areturn
+
+  static org.slf4j.Logger access$000();
+    Code:
+       0: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static boolean access$100(org.apache.zookeeper.server.NIOServerCnxnFactory);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field stopped:Z
+       4: ireturn
+
+  static int access$200(org.apache.zookeeper.server.NIOServerCnxnFactory, java.net.InetAddress);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #4                  // Method getClientCnxnCount:(Ljava/net/InetAddress;)I
+       5: ireturn
+
+  static void access$300(org.apache.zookeeper.server.NIOServerCnxnFactory, org.apache.zookeeper.server.NIOServerCnxn) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #3                  // Method addCnxn:(Lorg/apache/zookeeper/server/NIOServerCnxn;)V
+       5: return
+
+  static org.apache.zookeeper.server.ExpiryQueue access$400(org.apache.zookeeper.server.NIOServerCnxnFactory);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field cnxnExpiryQueue:Lorg/apache/zookeeper/server/ExpiryQueue;
+       4: areturn
+
+  static int access$500();
+    Code:
+       0: getstatic     #1                  // Field directBufferBytes:I
+       3: ireturn
+
+  static {};
+    Code:
+       0: ldc           #24                 // class org/apache/zookeeper/server/NIOServerCnxnFactory
+       2: invokestatic  #169                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+       8: new           #170                // class org/apache/zookeeper/server/NIOServerCnxnFactory$1
+      11: dup
+      12: invokespecial #171                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$1."<init>":()V
+      15: invokestatic  #172                // Method java/lang/Thread.setDefaultUncaughtExceptionHandler:(Ljava/lang/Thread$UncaughtExceptionHandler;)V
+      18: invokestatic  #173                // Method java/nio/channels/Selector.open:()Ljava/nio/channels/Selector;
+      21: invokevirtual #174                // Method java/nio/channels/Selector.close:()V
+      24: goto          39
+      27: astore_0
+      28: getstatic     #6                  // Field LOG:Lorg/slf4j/Logger;
+      31: ldc           #175                // String Selector failed to open
+      33: aload_0
+      34: invokeinterface #84,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      39: ldc           #176                // String zookeeper.nio.directBufferBytes
+      41: ldc           #177                // int 65536
+      43: invokestatic  #26                 // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+      46: invokevirtual #27                 // Method java/lang/Integer.intValue:()I
+      49: putstatic     #1                  // Field directBufferBytes:I
+      52: new           #178                // class org/apache/zookeeper/server/NIOServerCnxnFactory$2
+      55: dup
+      56: invokespecial #179                // Method org/apache/zookeeper/server/NIOServerCnxnFactory$2."<init>":()V
+      59: putstatic     #7                  // Field directBuffer:Ljava/lang/ThreadLocal;
+      62: return
+    Exception table:
+       from    to  target type
+          18    24    27   Class java/io/IOException
+}

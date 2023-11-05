@@ -1,0 +1,1423 @@
+Compiled from "GarbageCollectorThread.java"
+public class org.apache.bookkeeper.bookie.GarbageCollectorThread extends org.apache.bookkeeper.util.SafeRunnable {
+  private static final org.slf4j.Logger LOG;
+
+  private static final int SECOND;
+
+  private java.util.Map<java.lang.Long, org.apache.bookkeeper.bookie.EntryLogMetadata> entryLogMetaMap;
+
+  private final java.util.concurrent.ScheduledExecutorService gcExecutor;
+
+  java.util.concurrent.Future<?> scheduledFuture;
+
+  final long gcWaitTime;
+
+  boolean isForceMinorCompactionAllow;
+
+  boolean enableMinorCompaction;
+
+  final double minorCompactionThreshold;
+
+  final long minorCompactionInterval;
+
+  final long minorCompactionMaxTimeMillis;
+
+  long lastMinorCompactionTime;
+
+  boolean isForceMajorCompactionAllow;
+
+  boolean enableMajorCompaction;
+
+  final double majorCompactionThreshold;
+
+  final long majorCompactionInterval;
+
+  long majorCompactionMaxTimeMillis;
+
+  long lastMajorCompactionTime;
+
+  final boolean isForceGCAllowWhenNoSpace;
+
+  final org.apache.bookkeeper.bookie.EntryLogger entryLogger;
+
+  final org.apache.bookkeeper.bookie.AbstractLogCompactor compactor;
+
+  private final org.apache.bookkeeper.bookie.stats.GarbageCollectorStats gcStats;
+
+  private volatile long totalEntryLogSize;
+
+  private volatile int numActiveEntryLogs;
+
+  final org.apache.bookkeeper.bookie.CompactableLedgerStorage ledgerStorage;
+
+  final java.util.concurrent.atomic.AtomicBoolean compacting;
+
+  final java.util.concurrent.atomic.AtomicBoolean minorCompacting;
+
+  final java.util.concurrent.atomic.AtomicBoolean majorCompacting;
+
+  volatile boolean running;
+
+  long scannedLogId;
+
+  final java.util.concurrent.atomic.AtomicBoolean forceGarbageCollection;
+
+  final java.util.concurrent.atomic.AtomicBoolean suspendMajorCompaction;
+
+  final java.util.concurrent.atomic.AtomicBoolean suspendMinorCompaction;
+
+  final org.apache.bookkeeper.bookie.ScanAndCompareGarbageCollector garbageCollector;
+
+  final org.apache.bookkeeper.bookie.GarbageCollector$GarbageCleaner garbageCleaner;
+
+  final org.apache.bookkeeper.conf.ServerConfiguration conf;
+
+  public org.apache.bookkeeper.bookie.GarbageCollectorThread(org.apache.bookkeeper.conf.ServerConfiguration, org.apache.bookkeeper.meta.LedgerManager, org.apache.bookkeeper.bookie.CompactableLedgerStorage, org.apache.bookkeeper.stats.StatsLogger) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: aload         4
+       6: new           #1                  // class io/netty/util/concurrent/DefaultThreadFactory
+       9: dup
+      10: ldc           #2                  // String GarbageCollectorThread
+      12: invokespecial #3                  // Method io/netty/util/concurrent/DefaultThreadFactory."<init>":(Ljava/lang/String;)V
+      15: invokestatic  #4                  // Method java/util/concurrent/Executors.newSingleThreadScheduledExecutor:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ScheduledExecutorService;
+      18: invokespecial #5                  // Method "<init>":(Lorg/apache/bookkeeper/conf/ServerConfiguration;Lorg/apache/bookkeeper/meta/LedgerManager;Lorg/apache/bookkeeper/bookie/CompactableLedgerStorage;Lorg/apache/bookkeeper/stats/StatsLogger;Ljava/util/concurrent/ScheduledExecutorService;)V
+      21: return
+
+  public org.apache.bookkeeper.bookie.GarbageCollectorThread(org.apache.bookkeeper.conf.ServerConfiguration, org.apache.bookkeeper.meta.LedgerManager, org.apache.bookkeeper.bookie.CompactableLedgerStorage, org.apache.bookkeeper.stats.StatsLogger, java.util.concurrent.ScheduledExecutorService) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #6                  // Method org/apache/bookkeeper/util/SafeRunnable."<init>":()V
+       4: aload_0
+       5: new           #7                  // class java/util/concurrent/ConcurrentHashMap
+       8: dup
+       9: invokespecial #8                  // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      12: putfield      #9                  // Field entryLogMetaMap:Ljava/util/Map;
+      15: aload_0
+      16: aconst_null
+      17: putfield      #10                 // Field scheduledFuture:Ljava/util/concurrent/Future;
+      20: aload_0
+      21: iconst_0
+      22: putfield      #11                 // Field isForceMinorCompactionAllow:Z
+      25: aload_0
+      26: iconst_0
+      27: putfield      #12                 // Field enableMinorCompaction:Z
+      30: aload_0
+      31: iconst_0
+      32: putfield      #13                 // Field isForceMajorCompactionAllow:Z
+      35: aload_0
+      36: iconst_0
+      37: putfield      #14                 // Field enableMajorCompaction:Z
+      40: aload_0
+      41: new           #15                 // class java/util/concurrent/atomic/AtomicBoolean
+      44: dup
+      45: iconst_0
+      46: invokespecial #16                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      49: putfield      #17                 // Field compacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+      52: aload_0
+      53: new           #15                 // class java/util/concurrent/atomic/AtomicBoolean
+      56: dup
+      57: iconst_0
+      58: invokespecial #16                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      61: putfield      #18                 // Field minorCompacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+      64: aload_0
+      65: new           #15                 // class java/util/concurrent/atomic/AtomicBoolean
+      68: dup
+      69: iconst_0
+      70: invokespecial #16                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      73: putfield      #19                 // Field majorCompacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+      76: aload_0
+      77: iconst_1
+      78: putfield      #20                 // Field running:Z
+      81: aload_0
+      82: lconst_0
+      83: putfield      #21                 // Field scannedLogId:J
+      86: aload_0
+      87: new           #15                 // class java/util/concurrent/atomic/AtomicBoolean
+      90: dup
+      91: iconst_0
+      92: invokespecial #16                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      95: putfield      #22                 // Field forceGarbageCollection:Ljava/util/concurrent/atomic/AtomicBoolean;
+      98: aload_0
+      99: new           #15                 // class java/util/concurrent/atomic/AtomicBoolean
+     102: dup
+     103: iconst_0
+     104: invokespecial #16                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+     107: putfield      #23                 // Field suspendMajorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+     110: aload_0
+     111: new           #15                 // class java/util/concurrent/atomic/AtomicBoolean
+     114: dup
+     115: iconst_0
+     116: invokespecial #16                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+     119: putfield      #24                 // Field suspendMinorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+     122: aload_0
+     123: aload         5
+     125: putfield      #25                 // Field gcExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+     128: aload_0
+     129: aload_1
+     130: putfield      #26                 // Field conf:Lorg/apache/bookkeeper/conf/ServerConfiguration;
+     133: aload_0
+     134: aload_3
+     135: invokeinterface #27,  1           // InterfaceMethod org/apache/bookkeeper/bookie/CompactableLedgerStorage.getEntryLogger:()Lorg/apache/bookkeeper/bookie/EntryLogger;
+     140: putfield      #28                 // Field entryLogger:Lorg/apache/bookkeeper/bookie/EntryLogger;
+     143: aload_0
+     144: aload_3
+     145: putfield      #29                 // Field ledgerStorage:Lorg/apache/bookkeeper/bookie/CompactableLedgerStorage;
+     148: aload_0
+     149: aload_1
+     150: invokevirtual #30                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getGcWaitTime:()J
+     153: putfield      #31                 // Field gcWaitTime:J
+     156: aload_0
+     157: iconst_0
+     158: putfield      #32                 // Field numActiveEntryLogs:I
+     161: aload_0
+     162: lconst_0
+     163: putfield      #33                 // Field totalEntryLogSize:J
+     166: aload_0
+     167: new           #34                 // class org/apache/bookkeeper/bookie/ScanAndCompareGarbageCollector
+     170: dup
+     171: aload_2
+     172: aload_3
+     173: aload_1
+     174: aload         4
+     176: invokespecial #35                 // Method org/apache/bookkeeper/bookie/ScanAndCompareGarbageCollector."<init>":(Lorg/apache/bookkeeper/meta/LedgerManager;Lorg/apache/bookkeeper/bookie/CompactableLedgerStorage;Lorg/apache/bookkeeper/conf/ServerConfiguration;Lorg/apache/bookkeeper/stats/StatsLogger;)V
+     179: putfield      #36                 // Field garbageCollector:Lorg/apache/bookkeeper/bookie/ScanAndCompareGarbageCollector;
+     182: aload_0
+     183: new           #37                 // class org/apache/bookkeeper/bookie/stats/GarbageCollectorStats
+     186: dup
+     187: aload         4
+     189: aload_0
+     190: invokedynamic #38,  0             // InvokeDynamic #0:get:(Lorg/apache/bookkeeper/bookie/GarbageCollectorThread;)Ljava/util/function/Supplier;
+     195: aload_0
+     196: invokedynamic #39,  0             // InvokeDynamic #1:get:(Lorg/apache/bookkeeper/bookie/GarbageCollectorThread;)Ljava/util/function/Supplier;
+     201: aload_0
+     202: invokedynamic #40,  0             // InvokeDynamic #2:get:(Lorg/apache/bookkeeper/bookie/GarbageCollectorThread;)Ljava/util/function/Supplier;
+     207: invokespecial #41                 // Method org/apache/bookkeeper/bookie/stats/GarbageCollectorStats."<init>":(Lorg/apache/bookkeeper/stats/StatsLogger;Ljava/util/function/Supplier;Ljava/util/function/Supplier;Ljava/util/function/Supplier;)V
+     210: putfield      #42                 // Field gcStats:Lorg/apache/bookkeeper/bookie/stats/GarbageCollectorStats;
+     213: aload_0
+     214: aload_0
+     215: aload_3
+     216: invokedynamic #43,  0             // InvokeDynamic #3:clean:(Lorg/apache/bookkeeper/bookie/GarbageCollectorThread;Lorg/apache/bookkeeper/bookie/CompactableLedgerStorage;)Lorg/apache/bookkeeper/bookie/GarbageCollector$GarbageCleaner;
+     221: putfield      #44                 // Field garbageCleaner:Lorg/apache/bookkeeper/bookie/GarbageCollector$GarbageCleaner;
+     224: aload_0
+     225: aload_1
+     226: invokevirtual #45                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMinorCompactionThreshold:()D
+     229: putfield      #46                 // Field minorCompactionThreshold:D
+     232: aload_0
+     233: aload_1
+     234: invokevirtual #47                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMinorCompactionInterval:()J
+     237: ldc2_w        #49                 // long 1000l
+     240: lmul
+     241: putfield      #51                 // Field minorCompactionInterval:J
+     244: aload_0
+     245: aload_1
+     246: invokevirtual #52                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMajorCompactionThreshold:()D
+     249: putfield      #53                 // Field majorCompactionThreshold:D
+     252: aload_0
+     253: aload_1
+     254: invokevirtual #54                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMajorCompactionInterval:()J
+     257: ldc2_w        #49                 // long 1000l
+     260: lmul
+     261: putfield      #55                 // Field majorCompactionInterval:J
+     264: aload_0
+     265: aload_1
+     266: invokevirtual #56                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getIsForceGCAllowWhenNoSpace:()Z
+     269: putfield      #57                 // Field isForceGCAllowWhenNoSpace:Z
+     272: aload_0
+     273: aload_1
+     274: invokevirtual #58                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMajorCompactionMaxTimeMillis:()J
+     277: putfield      #59                 // Field majorCompactionMaxTimeMillis:J
+     280: aload_0
+     281: aload_1
+     282: invokevirtual #60                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getMinorCompactionMaxTimeMillis:()J
+     285: putfield      #61                 // Field minorCompactionMaxTimeMillis:J
+     288: aload_1
+     289: invokevirtual #62                 // Method org/apache/bookkeeper/conf/ServerConfiguration.isForceAllowCompaction:()Z
+     292: istore        6
+     294: new           #63                 // class org/apache/bookkeeper/bookie/GarbageCollectorThread$1
+     297: dup
+     298: aload_0
+     299: invokespecial #64                 // Method org/apache/bookkeeper/bookie/GarbageCollectorThread$1."<init>":(Lorg/apache/bookkeeper/bookie/GarbageCollectorThread;)V
+     302: astore        7
+     304: aload_1
+     305: invokevirtual #65                 // Method org/apache/bookkeeper/conf/ServerConfiguration.getUseTransactionalCompaction:()Z
+     308: ifeq          333
+     311: aload_0
+     312: new           #66                 // class org/apache/bookkeeper/bookie/TransactionalEntryLogCompactor
+     315: dup
+     316: aload_1
+     317: aload_0
+     318: getfield      #28                 // Field entryLogger:Lorg/apache/bookkeeper/bookie/EntryLogger;
+     321: aload_3
+     322: aload         7
+     324: invokespecial #67                 // Method org/apache/bookkeeper/bookie/TransactionalEntryLogCompactor."<init>":(Lorg/apache/bookkeeper/conf/ServerConfiguration;Lorg/apache/bookkeeper/bookie/EntryLogger;Lorg/apache/bookkeeper/bookie/CompactableLedgerStorage;Lorg/apache/bookkeeper/bookie/AbstractLogCompactor$LogRemovalListener;)V
+     327: putfield      #68                 // Field compactor:Lorg/apache/bookkeeper/bookie/AbstractLogCompactor;
+     330: goto          352
+     333: aload_0
+     334: new           #69                 // class org/apache/bookkeeper/bookie/EntryLogCompactor
+     337: dup
+     338: aload_1
+     339: aload_0
+     340: getfield      #28                 // Field entryLogger:Lorg/apache/bookkeeper/bookie/EntryLogger;
+     343: aload_3
+     344: aload         7
+     346: invokespecial #70                 // Method org/apache/bookkeeper/bookie/EntryLogCompactor."<init>":(Lorg/apache/bookkeeper/conf/ServerConfiguration;Lorg/apache/bookkeeper/bookie/EntryLogger;Lorg/apache/bookkeeper/bookie/CompactableLedgerStorage;Lorg/apache/bookkeeper/bookie/AbstractLogCompactor$LogRemovalListener;)V
+     349: putfield      #68                 // Field compactor:Lorg/apache/bookkeeper/bookie/AbstractLogCompactor;
+     352: aload_0
+     353: getfield      #51                 // Field minorCompactionInterval:J
+     356: lconst_0
+     357: lcmp
+     358: ifle          456
+     361: aload_0
+     362: getfield      #46                 // Field minorCompactionThreshold:D
+     365: dconst_0
+     366: dcmpl
+     367: ifle          456
+     370: aload_0
+     371: getfield      #46                 // Field minorCompactionThreshold:D
+     374: dconst_1
+     375: dcmpl
+     376: ifle          409
+     379: new           #71                 // class java/io/IOException
+     382: dup
+     383: new           #72                 // class java/lang/StringBuilder
+     386: dup
+     387: invokespecial #73                 // Method java/lang/StringBuilder."<init>":()V
+     390: ldc           #74                 // String Invalid minor compaction threshold
+     392: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     395: aload_0
+     396: getfield      #46                 // Field minorCompactionThreshold:D
+     399: invokevirtual #76                 // Method java/lang/StringBuilder.append:(D)Ljava/lang/StringBuilder;
+     402: invokevirtual #77                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     405: invokespecial #78                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     408: athrow
+     409: aload_0
+     410: getfield      #51                 // Field minorCompactionInterval:J
+     413: aload_0
+     414: getfield      #31                 // Field gcWaitTime:J
+     417: lcmp
+     418: ifgt          451
+     421: new           #71                 // class java/io/IOException
+     424: dup
+     425: new           #72                 // class java/lang/StringBuilder
+     428: dup
+     429: invokespecial #73                 // Method java/lang/StringBuilder."<init>":()V
+     432: ldc           #79                 // String Too short minor compaction interval :
+     434: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     437: aload_0
+     438: getfield      #51                 // Field minorCompactionInterval:J
+     441: invokevirtual #80                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     444: invokevirtual #77                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     447: invokespecial #78                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     450: athrow
+     451: aload_0
+     452: iconst_1
+     453: putfield      #12                 // Field enableMinorCompaction:Z
+     456: iload         6
+     458: ifeq          507
+     461: aload_0
+     462: getfield      #46                 // Field minorCompactionThreshold:D
+     465: dconst_0
+     466: dcmpl
+     467: ifle          484
+     470: aload_0
+     471: getfield      #46                 // Field minorCompactionThreshold:D
+     474: dconst_1
+     475: dcmpg
+     476: ifge          484
+     479: aload_0
+     480: iconst_1
+     481: putfield      #11                 // Field isForceMinorCompactionAllow:Z
+     484: aload_0
+     485: getfield      #53                 // Field majorCompactionThreshold:D
+     488: dconst_0
+     489: dcmpl
+     490: ifle          507
+     493: aload_0
+     494: getfield      #53                 // Field majorCompactionThreshold:D
+     497: dconst_1
+     498: dcmpg
+     499: ifge          507
+     502: aload_0
+     503: iconst_1
+     504: putfield      #13                 // Field isForceMajorCompactionAllow:Z
+     507: aload_0
+     508: getfield      #55                 // Field majorCompactionInterval:J
+     511: lconst_0
+     512: lcmp
+     513: ifle          611
+     516: aload_0
+     517: getfield      #53                 // Field majorCompactionThreshold:D
+     520: dconst_0
+     521: dcmpl
+     522: ifle          611
+     525: aload_0
+     526: getfield      #53                 // Field majorCompactionThreshold:D
+     529: dconst_1
+     530: dcmpl
+     531: ifle          564
+     534: new           #71                 // class java/io/IOException
+     537: dup
+     538: new           #72                 // class java/lang/StringBuilder
+     541: dup
+     542: invokespecial #73                 // Method java/lang/StringBuilder."<init>":()V
+     545: ldc           #81                 // String Invalid major compaction threshold
+     547: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     550: aload_0
+     551: getfield      #53                 // Field majorCompactionThreshold:D
+     554: invokevirtual #76                 // Method java/lang/StringBuilder.append:(D)Ljava/lang/StringBuilder;
+     557: invokevirtual #77                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     560: invokespecial #78                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     563: athrow
+     564: aload_0
+     565: getfield      #55                 // Field majorCompactionInterval:J
+     568: aload_0
+     569: getfield      #31                 // Field gcWaitTime:J
+     572: lcmp
+     573: ifgt          606
+     576: new           #71                 // class java/io/IOException
+     579: dup
+     580: new           #72                 // class java/lang/StringBuilder
+     583: dup
+     584: invokespecial #73                 // Method java/lang/StringBuilder."<init>":()V
+     587: ldc           #82                 // String Too short major compaction interval :
+     589: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     592: aload_0
+     593: getfield      #55                 // Field majorCompactionInterval:J
+     596: invokevirtual #80                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     599: invokevirtual #77                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     602: invokespecial #78                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     605: athrow
+     606: aload_0
+     607: iconst_1
+     608: putfield      #14                 // Field enableMajorCompaction:Z
+     611: aload_0
+     612: getfield      #12                 // Field enableMinorCompaction:Z
+     615: ifeq          720
+     618: aload_0
+     619: getfield      #14                 // Field enableMajorCompaction:Z
+     622: ifeq          720
+     625: aload_0
+     626: getfield      #51                 // Field minorCompactionInterval:J
+     629: aload_0
+     630: getfield      #55                 // Field majorCompactionInterval:J
+     633: lcmp
+     634: ifge          649
+     637: aload_0
+     638: getfield      #46                 // Field minorCompactionThreshold:D
+     641: aload_0
+     642: getfield      #53                 // Field majorCompactionThreshold:D
+     645: dcmpl
+     646: iflt          720
+     649: new           #71                 // class java/io/IOException
+     652: dup
+     653: new           #72                 // class java/lang/StringBuilder
+     656: dup
+     657: invokespecial #73                 // Method java/lang/StringBuilder."<init>":()V
+     660: ldc           #83                 // String Invalid minor/major compaction settings : minor (
+     662: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     665: aload_0
+     666: getfield      #46                 // Field minorCompactionThreshold:D
+     669: invokevirtual #76                 // Method java/lang/StringBuilder.append:(D)Ljava/lang/StringBuilder;
+     672: ldc           #84                 // String ,
+     674: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     677: aload_0
+     678: getfield      #51                 // Field minorCompactionInterval:J
+     681: invokevirtual #80                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     684: ldc           #85                 // String ), major (
+     686: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     689: aload_0
+     690: getfield      #53                 // Field majorCompactionThreshold:D
+     693: invokevirtual #76                 // Method java/lang/StringBuilder.append:(D)Ljava/lang/StringBuilder;
+     696: ldc           #84                 // String ,
+     698: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     701: aload_0
+     702: getfield      #55                 // Field majorCompactionInterval:J
+     705: invokevirtual #80                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     708: ldc           #86                 // String )
+     710: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     713: invokevirtual #77                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     716: invokespecial #78                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     719: athrow
+     720: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     723: new           #72                 // class java/lang/StringBuilder
+     726: dup
+     727: invokespecial #73                 // Method java/lang/StringBuilder."<init>":()V
+     730: ldc           #88                 // String Minor Compaction : enabled=
+     732: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     735: aload_0
+     736: getfield      #12                 // Field enableMinorCompaction:Z
+     739: invokevirtual #89                 // Method java/lang/StringBuilder.append:(Z)Ljava/lang/StringBuilder;
+     742: ldc           #90                 // String , threshold=
+     744: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     747: aload_0
+     748: getfield      #46                 // Field minorCompactionThreshold:D
+     751: invokevirtual #76                 // Method java/lang/StringBuilder.append:(D)Ljava/lang/StringBuilder;
+     754: ldc           #91                 // String , interval=
+     756: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     759: aload_0
+     760: getfield      #51                 // Field minorCompactionInterval:J
+     763: invokevirtual #80                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     766: invokevirtual #77                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     769: invokeinterface #92,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     774: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     777: new           #72                 // class java/lang/StringBuilder
+     780: dup
+     781: invokespecial #73                 // Method java/lang/StringBuilder."<init>":()V
+     784: ldc           #93                 // String Major Compaction : enabled=
+     786: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     789: aload_0
+     790: getfield      #14                 // Field enableMajorCompaction:Z
+     793: invokevirtual #89                 // Method java/lang/StringBuilder.append:(Z)Ljava/lang/StringBuilder;
+     796: ldc           #90                 // String , threshold=
+     798: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     801: aload_0
+     802: getfield      #53                 // Field majorCompactionThreshold:D
+     805: invokevirtual #76                 // Method java/lang/StringBuilder.append:(D)Ljava/lang/StringBuilder;
+     808: ldc           #91                 // String , interval=
+     810: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     813: aload_0
+     814: getfield      #55                 // Field majorCompactionInterval:J
+     817: invokevirtual #80                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     820: invokevirtual #77                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     823: invokeinterface #92,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     828: aload_0
+     829: aload_0
+     830: invokestatic  #94                 // Method java/lang/System.currentTimeMillis:()J
+     833: dup2_x1
+     834: putfield      #95                 // Field lastMajorCompactionTime:J
+     837: putfield      #96                 // Field lastMinorCompactionTime:J
+     840: return
+
+  public void enableForceGC();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field forceGarbageCollection:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_0
+       5: iconst_1
+       6: invokevirtual #97                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+       9: ifeq          48
+      12: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      15: ldc           #98                 // String Forced garbage collection triggered by thread: {}
+      17: invokestatic  #99                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      20: invokevirtual #100                // Method java/lang/Thread.getName:()Ljava/lang/String;
+      23: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      28: aload_0
+      29: iconst_1
+      30: aload_0
+      31: getfield      #23                 // Field suspendMajorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+      34: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      37: aload_0
+      38: getfield      #24                 // Field suspendMinorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+      41: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      44: invokevirtual #103                // Method triggerGC:(ZZZ)Ljava/util/concurrent/Future;
+      47: pop
+      48: return
+
+  public void disableForceGC();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field forceGarbageCollection:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_1
+       5: iconst_0
+       6: invokevirtual #97                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+       9: ifeq          28
+      12: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      15: ldc           #104                // String {} disabled force garbage collection since bookie has enough space now.
+      17: invokestatic  #99                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      20: invokevirtual #100                // Method java/lang/Thread.getName:()Ljava/lang/String;
+      23: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      28: return
+
+  java.util.concurrent.Future<?> triggerGC(boolean, boolean, boolean);
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field gcExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+       4: aload_0
+       5: iload_1
+       6: iload_2
+       7: iload_3
+       8: invokedynamic #105,  0            // InvokeDynamic #4:run:(Lorg/apache/bookkeeper/bookie/GarbageCollectorThread;ZZZ)Ljava/lang/Runnable;
+      13: invokeinterface #106,  2          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+      18: areturn
+
+  java.util.concurrent.Future<?> triggerGC();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field forceGarbageCollection:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: istore_1
+       8: aload_0
+       9: getfield      #23                 // Field suspendMajorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+      12: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      15: istore_2
+      16: aload_0
+      17: getfield      #24                 // Field suspendMinorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+      20: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      23: istore_3
+      24: aload_0
+      25: getfield      #25                 // Field gcExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+      28: aload_0
+      29: iload_1
+      30: iload_2
+      31: iload_3
+      32: invokedynamic #107,  0            // InvokeDynamic #5:run:(Lorg/apache/bookkeeper/bookie/GarbageCollectorThread;ZZZ)Ljava/lang/Runnable;
+      37: invokeinterface #106,  2          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+      42: areturn
+
+  public boolean isInForceGC();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field forceGarbageCollection:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: ireturn
+
+  public void suspendMajorGC();
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field suspendMajorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_0
+       5: iconst_1
+       6: invokevirtual #97                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+       9: ifeq          28
+      12: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      15: ldc           #108                // String Suspend Major Compaction triggered by thread: {}
+      17: invokestatic  #99                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      20: invokevirtual #100                // Method java/lang/Thread.getName:()Ljava/lang/String;
+      23: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      28: return
+
+  public void resumeMajorGC();
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field suspendMajorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_1
+       5: iconst_0
+       6: invokevirtual #97                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+       9: ifeq          28
+      12: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      15: ldc           #109                // String {} Major Compaction back to normal since bookie has enough space now.
+      17: invokestatic  #99                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      20: invokevirtual #100                // Method java/lang/Thread.getName:()Ljava/lang/String;
+      23: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      28: return
+
+  public void suspendMinorGC();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field suspendMinorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_0
+       5: iconst_1
+       6: invokevirtual #97                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+       9: ifeq          28
+      12: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      15: ldc           #110                // String Suspend Minor Compaction triggered by thread: {}
+      17: invokestatic  #99                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      20: invokevirtual #100                // Method java/lang/Thread.getName:()Ljava/lang/String;
+      23: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      28: return
+
+  public void resumeMinorGC();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field suspendMinorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_1
+       5: iconst_0
+       6: invokevirtual #97                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+       9: ifeq          28
+      12: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      15: ldc           #111                // String {} Minor Compaction back to normal since bookie has enough space now.
+      17: invokestatic  #99                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      20: invokevirtual #100                // Method java/lang/Thread.getName:()Ljava/lang/String;
+      23: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      28: return
+
+  public void start();
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field scheduledFuture:Ljava/util/concurrent/Future;
+       4: ifnull        18
+       7: aload_0
+       8: getfield      #10                 // Field scheduledFuture:Ljava/util/concurrent/Future;
+      11: iconst_0
+      12: invokeinterface #112,  2          // InterfaceMethod java/util/concurrent/Future.cancel:(Z)Z
+      17: pop
+      18: aload_0
+      19: aload_0
+      20: getfield      #25                 // Field gcExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+      23: aload_0
+      24: aload_0
+      25: getfield      #31                 // Field gcWaitTime:J
+      28: aload_0
+      29: getfield      #31                 // Field gcWaitTime:J
+      32: getstatic     #113                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      35: invokeinterface #114,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+      40: putfield      #10                 // Field scheduledFuture:Ljava/util/concurrent/Future;
+      43: return
+
+  public void safeRun();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field forceGarbageCollection:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: istore_1
+       8: aload_0
+       9: getfield      #23                 // Field suspendMajorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+      12: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      15: istore_2
+      16: aload_0
+      17: getfield      #24                 // Field suspendMinorCompaction:Ljava/util/concurrent/atomic/AtomicBoolean;
+      20: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      23: istore_3
+      24: aload_0
+      25: iload_1
+      26: iload_2
+      27: iload_3
+      28: invokevirtual #115                // Method runWithFlags:(ZZZ)V
+      31: iload_1
+      32: ifeq          43
+      35: aload_0
+      36: getfield      #22                 // Field forceGarbageCollection:Ljava/util/concurrent/atomic/AtomicBoolean;
+      39: iconst_0
+      40: invokevirtual #116                // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      43: return
+
+  public void runWithFlags(boolean, boolean, boolean);
+    Code:
+       0: invokestatic  #117                // Method org/apache/bookkeeper/util/MathUtils.nowInNano:()J
+       3: lstore        4
+       5: iload_1
+       6: ifeq          19
+       9: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      12: ldc           #118                // String Garbage collector thread forced to perform GC before expiry of wait time.
+      14: invokeinterface #92,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      19: aload_0
+      20: getfield      #68                 // Field compactor:Lorg/apache/bookkeeper/bookie/AbstractLogCompactor;
+      23: invokevirtual #119                // Method org/apache/bookkeeper/bookie/AbstractLogCompactor.cleanUpAndRecover:()V
+      26: aload_0
+      27: aload_0
+      28: aload_0
+      29: getfield      #9                  // Field entryLogMetaMap:Ljava/util/Map;
+      32: invokevirtual #120                // Method extractMetaFromEntryLogs:(Ljava/util/Map;)Ljava/util/Map;
+      35: putfield      #9                  // Field entryLogMetaMap:Ljava/util/Map;
+      38: aload_0
+      39: invokespecial #121                // Method doGcLedgers:()V
+      42: aload_0
+      43: invokespecial #122                // Method doGcEntryLogs:()V
+      46: iload_2
+      47: ifeq          60
+      50: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      53: ldc           #123                // String Disk almost full, suspend major compaction to slow down filling disk.
+      55: invokeinterface #92,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      60: iload_3
+      61: ifeq          74
+      64: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      67: ldc           #124                // String Disk full, suspend minor compaction to slow down filling disk.
+      69: invokeinterface #92,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      74: invokestatic  #94                 // Method java/lang/System.currentTimeMillis:()J
+      77: lstore        6
+      79: aload_0
+      80: getfield      #13                 // Field isForceMajorCompactionAllow:Z
+      83: ifeq          90
+      86: iload_1
+      87: ifne          116
+      90: aload_0
+      91: getfield      #14                 // Field enableMajorCompaction:Z
+      94: ifeq          192
+      97: iload_1
+      98: ifne          116
+     101: lload         6
+     103: aload_0
+     104: getfield      #95                 // Field lastMajorCompactionTime:J
+     107: lsub
+     108: aload_0
+     109: getfield      #55                 // Field majorCompactionInterval:J
+     112: lcmp
+     113: ifle          192
+     116: iload_2
+     117: ifne          192
+     120: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     123: ldc           #125                // String Enter major compaction, suspendMajor {}
+     125: iload_2
+     126: invokestatic  #126                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     129: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     134: aload_0
+     135: getfield      #19                 // Field majorCompacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+     138: iconst_1
+     139: invokevirtual #116                // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     142: aload_0
+     143: aload_0
+     144: getfield      #53                 // Field majorCompactionThreshold:D
+     147: aload_0
+     148: getfield      #59                 // Field majorCompactionMaxTimeMillis:J
+     151: invokevirtual #127                // Method doCompactEntryLogs:(DJ)V
+     154: aload_0
+     155: invokestatic  #94                 // Method java/lang/System.currentTimeMillis:()J
+     158: putfield      #95                 // Field lastMajorCompactionTime:J
+     161: aload_0
+     162: aload_0
+     163: getfield      #95                 // Field lastMajorCompactionTime:J
+     166: putfield      #96                 // Field lastMinorCompactionTime:J
+     169: aload_0
+     170: getfield      #42                 // Field gcStats:Lorg/apache/bookkeeper/bookie/stats/GarbageCollectorStats;
+     173: invokevirtual #128                // Method org/apache/bookkeeper/bookie/stats/GarbageCollectorStats.getMajorCompactionCounter:()Lorg/apache/bookkeeper/stats/Counter;
+     176: invokeinterface #129,  1          // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+     181: aload_0
+     182: getfield      #19                 // Field majorCompacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+     185: iconst_0
+     186: invokevirtual #116                // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     189: goto          294
+     192: aload_0
+     193: getfield      #11                 // Field isForceMinorCompactionAllow:Z
+     196: ifeq          203
+     199: iload_1
+     200: ifne          229
+     203: aload_0
+     204: getfield      #12                 // Field enableMinorCompaction:Z
+     207: ifeq          294
+     210: iload_1
+     211: ifne          229
+     214: lload         6
+     216: aload_0
+     217: getfield      #96                 // Field lastMinorCompactionTime:J
+     220: lsub
+     221: aload_0
+     222: getfield      #51                 // Field minorCompactionInterval:J
+     225: lcmp
+     226: ifle          294
+     229: iload_3
+     230: ifne          294
+     233: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     236: ldc           #130                // String Enter minor compaction, suspendMinor {}
+     238: iload_3
+     239: invokestatic  #126                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     242: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     247: aload_0
+     248: getfield      #18                 // Field minorCompacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+     251: iconst_1
+     252: invokevirtual #116                // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     255: aload_0
+     256: aload_0
+     257: getfield      #46                 // Field minorCompactionThreshold:D
+     260: aload_0
+     261: getfield      #61                 // Field minorCompactionMaxTimeMillis:J
+     264: invokevirtual #127                // Method doCompactEntryLogs:(DJ)V
+     267: aload_0
+     268: invokestatic  #94                 // Method java/lang/System.currentTimeMillis:()J
+     271: putfield      #96                 // Field lastMinorCompactionTime:J
+     274: aload_0
+     275: getfield      #42                 // Field gcStats:Lorg/apache/bookkeeper/bookie/stats/GarbageCollectorStats;
+     278: invokevirtual #131                // Method org/apache/bookkeeper/bookie/stats/GarbageCollectorStats.getMinorCompactionCounter:()Lorg/apache/bookkeeper/stats/Counter;
+     281: invokeinterface #129,  1          // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+     286: aload_0
+     287: getfield      #18                 // Field minorCompacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+     290: iconst_0
+     291: invokevirtual #116                // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     294: iload_1
+     295: ifeq          326
+     298: aload_0
+     299: getfield      #22                 // Field forceGarbageCollection:Ljava/util/concurrent/atomic/AtomicBoolean;
+     302: iconst_1
+     303: iconst_0
+     304: invokevirtual #97                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+     307: ifeq          326
+     310: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     313: ldc           #132                // String {} Set forceGarbageCollection to false after force GC to make it forceGC-able again.
+     315: invokestatic  #99                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     318: invokevirtual #100                // Method java/lang/Thread.getName:()Ljava/lang/String;
+     321: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     326: aload_0
+     327: getfield      #42                 // Field gcStats:Lorg/apache/bookkeeper/bookie/stats/GarbageCollectorStats;
+     330: invokevirtual #133                // Method org/apache/bookkeeper/bookie/stats/GarbageCollectorStats.getGcThreadRuntime:()Lorg/apache/bookkeeper/stats/OpStatsLogger;
+     333: invokestatic  #117                // Method org/apache/bookkeeper/util/MathUtils.nowInNano:()J
+     336: lload         4
+     338: lsub
+     339: getstatic     #134                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+     342: invokeinterface #135,  4          // InterfaceMethod org/apache/bookkeeper/stats/OpStatsLogger.registerSuccessfulEvent:(JLjava/util/concurrent/TimeUnit;)V
+     347: return
+
+  private void doGcLedgers();
+    Code:
+       0: aload_0
+       1: getfield      #36                 // Field garbageCollector:Lorg/apache/bookkeeper/bookie/ScanAndCompareGarbageCollector;
+       4: aload_0
+       5: getfield      #44                 // Field garbageCleaner:Lorg/apache/bookkeeper/bookie/GarbageCollector$GarbageCleaner;
+       8: invokevirtual #136                // Method org/apache/bookkeeper/bookie/ScanAndCompareGarbageCollector.gc:(Lorg/apache/bookkeeper/bookie/GarbageCollector$GarbageCleaner;)V
+      11: return
+
+  private void doGcEntryLogs();
+    Code:
+       0: new           #137                // class java/util/concurrent/atomic/AtomicLong
+       3: dup
+       4: lconst_0
+       5: invokespecial #138                // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+       8: astore_1
+       9: aload_0
+      10: getfield      #9                  // Field entryLogMetaMap:Ljava/util/Map;
+      13: aload_0
+      14: aload_1
+      15: invokedynamic #139,  0            // InvokeDynamic #6:accept:(Lorg/apache/bookkeeper/bookie/GarbageCollectorThread;Ljava/util/concurrent/atomic/AtomicLong;)Ljava/util/function/BiConsumer;
+      20: invokeinterface #140,  2          // InterfaceMethod java/util/Map.forEach:(Ljava/util/function/BiConsumer;)V
+      25: aload_0
+      26: aload_1
+      27: invokevirtual #141                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      30: putfield      #33                 // Field totalEntryLogSize:J
+      33: aload_0
+      34: aload_0
+      35: getfield      #9                  // Field entryLogMetaMap:Ljava/util/Map;
+      38: invokeinterface #142,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+      43: invokeinterface #143,  1          // InterfaceMethod java/util/Set.size:()I
+      48: putfield      #32                 // Field numActiveEntryLogs:I
+      51: return
+
+  private void removeIfLedgerNotExists(org.apache.bookkeeper.bookie.EntryLogMetadata);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: invokedynamic #144,  0            // InvokeDynamic #7:test:(Lorg/apache/bookkeeper/bookie/GarbageCollectorThread;)Ljava/util/function/LongPredicate;
+       7: invokevirtual #145                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.removeLedgerIf:(Ljava/util/function/LongPredicate;)V
+      10: return
+
+  void doCompactEntryLogs(double, long);
+    Code:
+       0: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #146                // String Do compaction to compact those files lower than {}
+       5: dload_1
+       6: invokestatic  #147                // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+       9: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      14: new           #148                // class java/util/ArrayList
+      17: dup
+      18: invokespecial #149                // Method java/util/ArrayList."<init>":()V
+      21: astore        5
+      23: aload         5
+      25: aload_0
+      26: getfield      #9                  // Field entryLogMetaMap:Ljava/util/Map;
+      29: invokeinterface #150,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      34: invokeinterface #151,  2          // InterfaceMethod java/util/List.addAll:(Ljava/util/Collection;)Z
+      39: pop
+      40: aload         5
+      42: invokedynamic #152,  0            // InvokeDynamic #8:apply:()Ljava/util/function/Function;
+      47: invokestatic  #153                // InterfaceMethod java/util/Comparator.comparing:(Ljava/util/function/Function;)Ljava/util/Comparator;
+      50: invokeinterface #154,  2          // InterfaceMethod java/util/List.sort:(Ljava/util/Comparator;)V
+      55: bipush        10
+      57: istore        6
+      59: bipush        10
+      61: newarray       int
+      63: astore        7
+      65: bipush        10
+      67: newarray       int
+      69: astore        8
+      71: invokestatic  #94                 // Method java/lang/System.currentTimeMillis:()J
+      74: lstore        9
+      76: lload         9
+      78: lstore        11
+      80: lconst_0
+      81: lstore        13
+      83: aload         5
+      85: invokeinterface #155,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      90: astore        15
+      92: aload         15
+      94: invokeinterface #156,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      99: ifeq          287
+     102: aload         15
+     104: invokeinterface #157,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     109: checkcast     #158                // class org/apache/bookkeeper/bookie/EntryLogMetadata
+     112: astore        16
+     114: aload_0
+     115: bipush        10
+     117: aload         16
+     119: invokevirtual #159                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.getUsage:()D
+     122: invokevirtual #160                // Method calculateUsageIndex:(ID)I
+     125: istore        17
+     127: aload         7
+     129: iload         17
+     131: dup2
+     132: iaload
+     133: iconst_1
+     134: iadd
+     135: iastore
+     136: lload         13
+     138: lload_3
+     139: lcmp
+     140: ifge          155
+     143: invokestatic  #94                 // Method java/lang/System.currentTimeMillis:()J
+     146: lstore        11
+     148: lload         11
+     150: lload         9
+     152: lsub
+     153: lstore        13
+     155: aload         16
+     157: invokevirtual #159                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.getUsage:()D
+     160: dload_1
+     161: dcmpl
+     162: ifge          92
+     165: lload_3
+     166: lconst_0
+     167: lcmp
+     168: ifle          178
+     171: lload         13
+     173: lload_3
+     174: lcmp
+     175: ifgt          92
+     178: aload_0
+     179: getfield      #20                 // Field running:Z
+     182: ifne          188
+     185: goto          92
+     188: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     191: invokeinterface #161,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     196: ifeq          242
+     199: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     202: ldc           #162                // String Compacting entry log {} with usage {} below threshold {}
+     204: iconst_3
+     205: anewarray     #163                // class java/lang/Object
+     208: dup
+     209: iconst_0
+     210: aload         16
+     212: invokevirtual #164                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.getEntryLogId:()J
+     215: invokestatic  #165                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     218: aastore
+     219: dup
+     220: iconst_1
+     221: aload         16
+     223: invokevirtual #159                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.getUsage:()D
+     226: invokestatic  #147                // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+     229: aastore
+     230: dup
+     231: iconst_2
+     232: dload_1
+     233: invokestatic  #147                // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+     236: aastore
+     237: invokeinterface #166,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     242: aload         16
+     244: invokevirtual #167                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.getRemainingSize:()J
+     247: lstore        18
+     249: aload_0
+     250: aload         16
+     252: invokevirtual #168                // Method compactEntryLog:(Lorg/apache/bookkeeper/bookie/EntryLogMetadata;)V
+     255: aload_0
+     256: getfield      #42                 // Field gcStats:Lorg/apache/bookkeeper/bookie/stats/GarbageCollectorStats;
+     259: invokevirtual #169                // Method org/apache/bookkeeper/bookie/stats/GarbageCollectorStats.getReclaimedSpaceViaCompaction:()Lorg/apache/bookkeeper/stats/Counter;
+     262: aload         16
+     264: invokevirtual #170                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.getTotalSize:()J
+     267: lload         18
+     269: lsub
+     270: invokeinterface #171,  3          // InterfaceMethod org/apache/bookkeeper/stats/Counter.add:(J)V
+     275: aload         8
+     277: iload         17
+     279: dup2
+     280: iaload
+     281: iconst_1
+     282: iadd
+     283: iastore
+     284: goto          92
+     287: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     290: invokeinterface #161,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     295: ifeq          341
+     298: aload_0
+     299: getfield      #20                 // Field running:Z
+     302: ifne          315
+     305: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     308: ldc           #172                // String Compaction exited due to gc not running
+     310: invokeinterface #173,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     315: lload         13
+     317: lload_3
+     318: lcmp
+     319: ifle          341
+     322: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     325: ldc           #174                // String Compaction ran for {}ms but was limited by {}ms
+     327: lload         13
+     329: invokestatic  #165                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     332: lload_3
+     333: invokestatic  #165                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     336: invokeinterface #175,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     341: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     344: ldc           #176                // String Compaction: entry log usage buckets[10% 20% 30% 40% 50% 60% 70% 80% 90% 100%] = {}, compacted {}
+     346: aload         7
+     348: aload         8
+     350: invokeinterface #177,  4          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     355: return
+
+  int calculateUsageIndex(int, double);
+    Code:
+       0: iload_1
+       1: iconst_1
+       2: isub
+       3: dload_2
+       4: iload_1
+       5: i2d
+       6: dmul
+       7: invokestatic  #178                // Method java/lang/Math.floor:(D)D
+      10: d2i
+      11: invokestatic  #179                // Method java/lang/Math.min:(II)I
+      14: ireturn
+
+  public void shutdown() throws java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: putfield      #20                 // Field running:Z
+       5: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+       8: ldc           #180                // String Shutting down GarbageCollectorThread
+      10: invokeinterface #92,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      15: aload_0
+      16: getfield      #17                 // Field compacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+      19: iconst_0
+      20: iconst_1
+      21: invokevirtual #97                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+      24: ifne          36
+      27: ldc2_w        #181                // long 100l
+      30: invokestatic  #183                // Method java/lang/Thread.sleep:(J)V
+      33: goto          15
+      36: aload_0
+      37: getfield      #25                 // Field gcExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+      40: invokeinterface #184,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.shutdownNow:()Ljava/util/List;
+      45: pop
+      46: return
+
+  protected void removeEntryLog(long);
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field entryLogger:Lorg/apache/bookkeeper/bookie/EntryLogger;
+       4: lload_1
+       5: invokevirtual #185                // Method org/apache/bookkeeper/bookie/EntryLogger.removeEntryLog:(J)Z
+       8: ifeq          39
+      11: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      14: ldc           #186                // String Removing entry log metadata for {}
+      16: lload_1
+      17: invokestatic  #165                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      20: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      25: aload_0
+      26: getfield      #9                  // Field entryLogMetaMap:Ljava/util/Map;
+      29: lload_1
+      30: invokestatic  #165                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      33: invokeinterface #187,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      38: pop
+      39: return
+
+  protected void compactEntryLog(org.apache.bookkeeper.bookie.EntryLogMetadata);
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field compacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_0
+       5: iconst_1
+       6: invokevirtual #97                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+       9: ifne          13
+      12: return
+      13: aload_0
+      14: getfield      #68                 // Field compactor:Lorg/apache/bookkeeper/bookie/AbstractLogCompactor;
+      17: aload_1
+      18: invokevirtual #188                // Method org/apache/bookkeeper/bookie/AbstractLogCompactor.compact:(Lorg/apache/bookkeeper/bookie/EntryLogMetadata;)Z
+      21: pop
+      22: aload_0
+      23: getfield      #17                 // Field compacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+      26: iconst_0
+      27: invokevirtual #116                // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      30: goto          74
+      33: astore_2
+      34: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      37: ldc           #190                // String Failed to compact entry log {} due to unexpected error
+      39: aload_1
+      40: invokevirtual #164                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.getEntryLogId:()J
+      43: invokestatic  #165                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      46: aload_2
+      47: invokeinterface #191,  4          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      52: aload_0
+      53: getfield      #17                 // Field compacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+      56: iconst_0
+      57: invokevirtual #116                // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      60: goto          74
+      63: astore_3
+      64: aload_0
+      65: getfield      #17                 // Field compacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+      68: iconst_0
+      69: invokevirtual #116                // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      72: aload_3
+      73: athrow
+      74: return
+    Exception table:
+       from    to  target type
+          13    22    33   Class java/lang/Exception
+          13    22    63   any
+          33    52    63   any
+
+  protected java.util.Map<java.lang.Long, org.apache.bookkeeper.bookie.EntryLogMetadata> extractMetaFromEntryLogs(java.util.Map<java.lang.Long, org.apache.bookkeeper.bookie.EntryLogMetadata>);
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field entryLogger:Lorg/apache/bookkeeper/bookie/EntryLogger;
+       4: invokevirtual #192                // Method org/apache/bookkeeper/bookie/EntryLogger.getLeastUnflushedLogId:()J
+       7: lstore_2
+       8: iconst_0
+       9: istore        4
+      11: aload_0
+      12: getfield      #21                 // Field scannedLogId:J
+      15: lstore        5
+      17: lload         5
+      19: lload_2
+      20: lcmp
+      21: ifge          190
+      24: aload_1
+      25: lload         5
+      27: invokestatic  #165                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      30: invokeinterface #193,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+      35: ifeq          41
+      38: goto          181
+      41: aload_0
+      42: getfield      #28                 // Field entryLogger:Lorg/apache/bookkeeper/bookie/EntryLogger;
+      45: lload         5
+      47: invokevirtual #194                // Method org/apache/bookkeeper/bookie/EntryLogger.logExists:(J)Z
+      50: ifne          56
+      53: goto          181
+      56: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      59: ldc           #195                // String Extracting entry log meta from entryLogId: {}
+      61: lload         5
+      63: invokestatic  #165                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      66: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      71: aload_0
+      72: getfield      #28                 // Field entryLogger:Lorg/apache/bookkeeper/bookie/EntryLogger;
+      75: lload         5
+      77: invokevirtual #196                // Method org/apache/bookkeeper/bookie/EntryLogger.getEntryLogMetadata:(J)Lorg/apache/bookkeeper/bookie/EntryLogMetadata;
+      80: astore        7
+      82: aload_0
+      83: aload         7
+      85: invokespecial #197                // Method removeIfLedgerNotExists:(Lorg/apache/bookkeeper/bookie/EntryLogMetadata;)V
+      88: aload         7
+      90: invokevirtual #198                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.isEmpty:()Z
+      93: ifeq          109
+      96: aload_0
+      97: getfield      #28                 // Field entryLogger:Lorg/apache/bookkeeper/bookie/EntryLogger;
+     100: lload         5
+     102: invokevirtual #185                // Method org/apache/bookkeeper/bookie/EntryLogger.removeEntryLog:(J)Z
+     105: pop
+     106: goto          123
+     109: aload_1
+     110: lload         5
+     112: invokestatic  #165                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     115: aload         7
+     117: invokeinterface #199,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     122: pop
+     123: goto          166
+     126: astore        7
+     128: iconst_1
+     129: istore        4
+     131: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+     134: new           #72                 // class java/lang/StringBuilder
+     137: dup
+     138: invokespecial #73                 // Method java/lang/StringBuilder."<init>":()V
+     141: ldc           #200                // String Premature exception when processing
+     143: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     146: lload         5
+     148: invokevirtual #80                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     151: ldc           #201                // String  recovery will take care of the problem
+     153: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     156: invokevirtual #77                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     159: aload         7
+     161: invokeinterface #202,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     166: iload         4
+     168: ifne          181
+     171: aload_0
+     172: dup
+     173: getfield      #21                 // Field scannedLogId:J
+     176: lconst_1
+     177: ladd
+     178: putfield      #21                 // Field scannedLogId:J
+     181: lload         5
+     183: lconst_1
+     184: ladd
+     185: lstore        5
+     187: goto          17
+     190: aload_1
+     191: areturn
+    Exception table:
+       from    to  target type
+          71   123   126   Class java/io/IOException
+
+  org.apache.bookkeeper.bookie.CompactableLedgerStorage getLedgerStorage();
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field ledgerStorage:Lorg/apache/bookkeeper/bookie/CompactableLedgerStorage;
+       4: areturn
+
+  public org.apache.bookkeeper.bookie.GarbageCollectionStatus getGarbageCollectionStatus();
+    Code:
+       0: invokestatic  #203                // Method org/apache/bookkeeper/bookie/GarbageCollectionStatus.builder:()Lorg/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder;
+       3: aload_0
+       4: getfield      #22                 // Field forceGarbageCollection:Ljava/util/concurrent/atomic/AtomicBoolean;
+       7: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      10: invokevirtual #204                // Method org/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder.forceCompacting:(Z)Lorg/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder;
+      13: aload_0
+      14: getfield      #19                 // Field majorCompacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+      17: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      20: invokevirtual #205                // Method org/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder.majorCompacting:(Z)Lorg/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder;
+      23: aload_0
+      24: getfield      #18                 // Field minorCompacting:Ljava/util/concurrent/atomic/AtomicBoolean;
+      27: invokevirtual #102                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      30: invokevirtual #206                // Method org/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder.minorCompacting:(Z)Lorg/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder;
+      33: aload_0
+      34: getfield      #95                 // Field lastMajorCompactionTime:J
+      37: invokevirtual #207                // Method org/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder.lastMajorCompactionTime:(J)Lorg/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder;
+      40: aload_0
+      41: getfield      #96                 // Field lastMinorCompactionTime:J
+      44: invokevirtual #208                // Method org/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder.lastMinorCompactionTime:(J)Lorg/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder;
+      47: aload_0
+      48: getfield      #42                 // Field gcStats:Lorg/apache/bookkeeper/bookie/stats/GarbageCollectorStats;
+      51: invokevirtual #128                // Method org/apache/bookkeeper/bookie/stats/GarbageCollectorStats.getMajorCompactionCounter:()Lorg/apache/bookkeeper/stats/Counter;
+      54: invokeinterface #209,  1          // InterfaceMethod org/apache/bookkeeper/stats/Counter.get:()Ljava/lang/Long;
+      59: invokevirtual #210                // Method java/lang/Long.longValue:()J
+      62: invokevirtual #211                // Method org/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder.majorCompactionCounter:(J)Lorg/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder;
+      65: aload_0
+      66: getfield      #42                 // Field gcStats:Lorg/apache/bookkeeper/bookie/stats/GarbageCollectorStats;
+      69: invokevirtual #131                // Method org/apache/bookkeeper/bookie/stats/GarbageCollectorStats.getMinorCompactionCounter:()Lorg/apache/bookkeeper/stats/Counter;
+      72: invokeinterface #209,  1          // InterfaceMethod org/apache/bookkeeper/stats/Counter.get:()Ljava/lang/Long;
+      77: invokevirtual #210                // Method java/lang/Long.longValue:()J
+      80: invokevirtual #212                // Method org/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder.minorCompactionCounter:(J)Lorg/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder;
+      83: invokevirtual #213                // Method org/apache/bookkeeper/bookie/GarbageCollectionStatus$GarbageCollectionStatusBuilder.build:()Lorg/apache/bookkeeper/bookie/GarbageCollectionStatus;
+      86: areturn
+
+  public boolean isForceGCAllowWhenNoSpace();
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field isForceGCAllowWhenNoSpace:Z
+       4: ireturn
+
+  private boolean lambda$removeIfLedgerNotExists$7(long);
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field ledgerStorage:Lorg/apache/bookkeeper/bookie/CompactableLedgerStorage;
+       4: lload_1
+       5: invokeinterface #214,  3          // InterfaceMethod org/apache/bookkeeper/bookie/CompactableLedgerStorage.ledgerExists:(J)Z
+      10: ifne          17
+      13: iconst_1
+      14: goto          18
+      17: iconst_0
+      18: ireturn
+      19: astore_3
+      20: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      23: ldc           #215                // String Error reading from ledger storage
+      25: aload_3
+      26: invokeinterface #216,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      31: iconst_0
+      32: ireturn
+    Exception table:
+       from    to  target type
+           0    18    19   Class java/io/IOException
+
+  private void lambda$doGcEntryLogs$6(java.util.concurrent.atomic.AtomicLong, java.lang.Long, org.apache.bookkeeper.bookie.EntryLogMetadata);
+    Code:
+       0: aload_0
+       1: aload_3
+       2: invokespecial #197                // Method removeIfLedgerNotExists:(Lorg/apache/bookkeeper/bookie/EntryLogMetadata;)V
+       5: aload_3
+       6: invokevirtual #198                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.isEmpty:()Z
+       9: ifeq          68
+      12: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      15: new           #72                 // class java/lang/StringBuilder
+      18: dup
+      19: invokespecial #73                 // Method java/lang/StringBuilder."<init>":()V
+      22: ldc           #217                // String Deleting entryLogId
+      24: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      27: aload_2
+      28: invokevirtual #218                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      31: ldc           #219                // String  as it has no active ledgers!
+      33: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      36: invokevirtual #77                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      39: invokeinterface #92,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      44: aload_0
+      45: aload_2
+      46: invokevirtual #210                // Method java/lang/Long.longValue:()J
+      49: invokevirtual #220                // Method removeEntryLog:(J)V
+      52: aload_0
+      53: getfield      #42                 // Field gcStats:Lorg/apache/bookkeeper/bookie/stats/GarbageCollectorStats;
+      56: invokevirtual #221                // Method org/apache/bookkeeper/bookie/stats/GarbageCollectorStats.getReclaimedSpaceViaDeletes:()Lorg/apache/bookkeeper/stats/Counter;
+      59: aload_3
+      60: invokevirtual #170                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.getTotalSize:()J
+      63: invokeinterface #171,  3          // InterfaceMethod org/apache/bookkeeper/stats/Counter.add:(J)V
+      68: aload_1
+      69: aload_3
+      70: invokevirtual #167                // Method org/apache/bookkeeper/bookie/EntryLogMetadata.getRemainingSize:()J
+      73: invokevirtual #222                // Method java/util/concurrent/atomic/AtomicLong.getAndAdd:(J)J
+      76: pop2
+      77: return
+
+  private void lambda$triggerGC$5(boolean, boolean, boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iload_2
+       3: iload_3
+       4: invokevirtual #115                // Method runWithFlags:(ZZZ)V
+       7: return
+
+  private void lambda$triggerGC$4(boolean, boolean, boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iload_2
+       3: iload_3
+       4: invokevirtual #115                // Method runWithFlags:(ZZZ)V
+       7: return
+
+  private void lambda$new$3(org.apache.bookkeeper.bookie.CompactableLedgerStorage, long);
+    Code:
+       0: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+       3: invokeinterface #161,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          38
+      11: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      14: new           #72                 // class java/lang/StringBuilder
+      17: dup
+      18: invokespecial #73                 // Method java/lang/StringBuilder."<init>":()V
+      21: ldc           #223                // String delete ledger :
+      23: invokevirtual #75                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: lload_2
+      27: invokevirtual #80                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      30: invokevirtual #77                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      33: invokeinterface #173,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      38: aload_0
+      39: getfield      #42                 // Field gcStats:Lorg/apache/bookkeeper/bookie/stats/GarbageCollectorStats;
+      42: invokevirtual #224                // Method org/apache/bookkeeper/bookie/stats/GarbageCollectorStats.getDeletedLedgerCounter:()Lorg/apache/bookkeeper/stats/Counter;
+      45: invokeinterface #129,  1          // InterfaceMethod org/apache/bookkeeper/stats/Counter.inc:()V
+      50: aload_1
+      51: lload_2
+      52: invokeinterface #225,  3          // InterfaceMethod org/apache/bookkeeper/bookie/CompactableLedgerStorage.deleteLedger:(J)V
+      57: goto          74
+      60: astore        4
+      62: getstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+      65: ldc           #226                // String Exception when deleting the ledger index file on the Bookie:
+      67: aload         4
+      69: invokeinterface #216,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      74: return
+    Exception table:
+       from    to  target type
+           0    57    60   Class java/io/IOException
+
+  private java.lang.Integer lambda$new$2();
+    Code:
+       0: aload_0
+       1: getfield      #36                 // Field garbageCollector:Lorg/apache/bookkeeper/bookie/ScanAndCompareGarbageCollector;
+       4: invokevirtual #227                // Method org/apache/bookkeeper/bookie/ScanAndCompareGarbageCollector.getNumActiveLedgers:()I
+       7: invokestatic  #228                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      10: areturn
+
+  private java.lang.Long lambda$new$1();
+    Code:
+       0: aload_0
+       1: getfield      #33                 // Field totalEntryLogSize:J
+       4: invokestatic  #165                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+       7: areturn
+
+  private java.lang.Integer lambda$new$0();
+    Code:
+       0: aload_0
+       1: getfield      #32                 // Field numActiveEntryLogs:I
+       4: invokestatic  #228                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+       7: areturn
+
+  static {};
+    Code:
+       0: ldc           #48                 // class org/apache/bookkeeper/bookie/GarbageCollectorThread
+       2: invokestatic  #229                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #87                 // Field LOG:Lorg/slf4j/Logger;
+       8: return
+}

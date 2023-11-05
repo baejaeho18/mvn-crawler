@@ -1,0 +1,738 @@
+@xworker.dataObject.query.StatisticsQueryDataObject
+sname
+StatisticsQueryDataObject
+slabel
+StatisticsQueryDataObject
+sdescriptors
+xworker.lang.MetaDescriptor3
+sextends
+xworker.dataObject.DataObject
+smany
+true
+seditCols
+2
+sinitialization
+false
+smodifier
+public
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p>用于查询、汇总用的数据对象，一般用于非DB的小量数据的查询统计。</p>
+<p>只能用于统计，如有查询+统计使用DataObjectQueryConfig。</p>
+#$@text#$@
+sid
+QueryDataObject
+@xworker.dataObject.query.StatisticsQueryDataObject/@actions
+sname
+actions
+sid
+actions
+slabel
+actions
+sdescriptors
+xworker.lang.MetaDescriptor3/@actions
+@xworker.dataObject.query.StatisticsQueryDataObject/@actions/@query
+sname
+query
+sisSynchronized
+false
+sthrowException
+true
+suseOtherAction
+false
+svarScope
+Global
+sdisableGlobalContext
+false
+Scode
+#$@text#$@
+import org.xmeta.Thing;
+
+import xworker.dataObject.DataObject;
+
+import ognl.Ognl;
+
+//数据对象
+def dataObject = world.get(self.dataObject);
+if(dataObject == null){
+    log.info("QueryDataObject: dataObject is null, dataObject=" + self.dataObject);
+    return null;
+}
+
+def datas = [];
+try{
+    def bindings = actionContext.push(null);
+    
+    //首先数据对象查询，返回所有匹配的结果，不分页
+    bindings.put("pageInfo", null);    
+    datas = dataObject.doAction("query", actionContext);
+    //log.info("orginal datas=" + datas);
+    
+    //如果有记录，进行分组和汇总操作
+    if(datas != null && datas.size() > 0){
+        bindings.put("datas", datas);
+        
+        //分组
+        def group = new Thing("xworker.lang.actions.data.Group");
+        group.listName = "datas";
+        
+        boolean hasGroup = false;
+        for(attr in self.get("attribute@")){
+            if(attr.queryFieldType == "group"){
+                def groupField = new Thing("xworker.lang.actions.data.Group/@GroupField");
+                groupField.name = attr.name;
+                groupField.label = attr.label;
+                groupField.groupFieldName = attr.groupFieldName;
+                groupField.groupType = attr.groupType;
+                groupField.groupPattern = attr.groupPattern;
+                group.addChild(groupField);
+                
+                hasGroup = true;
+            }
+        }
+        
+        if(hasGroup){
+            datas = group.doAction("run", actionContext);
+            bindings.put("datas", datas);
+        }
+        
+        //聚合汇总
+        def aggregate = new Thing("xworker.lang.actions.data.Aggregate");
+        aggregate.listName = "datas";
+        boolean hasAggregate = false;
+        for(attr in self.get("attribute@")){
+            if(attr.queryFieldType == "aggregate"){
+                def aggregateField = new Thing("xworker.lang.actions.data.Aggregate/@AggregateField");
+                aggregateField.name = attr.name;
+                aggregateField.label = attr.label;
+                aggregateField.aggregateFunction = attr.aggregateFunction;
+                aggregateField.aggregateDistinct = attr.aggregateDistinct;
+                aggregateField.aggregateType = attr.aggregateType;
+                aggregateField.aggregateExpression = attr.aggregateExpression;
+                aggregate.addChild(aggregateField);
+                
+                hasAggregate = true;
+            }
+        }
+        
+        if(hasAggregate){
+            if(hasGroup){
+                aggregate.listName = "data._data";
+                for(data in datas){
+                    bindings.put("data", data);
+                    def agg = aggregate.doAction("run", actionContext);
+                    if(agg != null){
+                        data.putAll(agg);
+                    }else{
+                        log.warn("Aggregate returns null");
+                    }
+                }
+            }else{
+                def agg = aggregate.doAction("run", actionContext);
+                datas = [];
+                if(agg != null){
+                    datas.add(agg);
+                }
+            }
+        }
+    }else{
+        datas = [];
+        //如果没有原始数据，但是有聚合属性，此时是要返回一条记录的
+        boolean haveAggregate = false;
+        def data = [:];
+        for(attr in self.get("attribute@")){
+            if(attr.queryFieldType == "aggregate"){
+                 haveAggregate = true;
+                 data.put(attr.name, 0);
+            }
+        }
+        
+        if(haveAggregate){
+            datas.add(data);    
+        }
+    }    
+}finally{
+    actionContext.pop();    
+}
+
+if(actionContext.get("pageInfo") != null){
+    //是否排序
+    //log.info("sort");
+    if(pageInfo.sort != null && pageInfo.sort != ""){
+        actionContext.peek().put("datas", datas);
+        
+        //排序        
+        def sort = new Thing("xworker.lang.actions.data.Sort");
+        sort.listName = "datas";
+        sort.sortField = pageInfo.sort;
+        sort.dir = pageInfo.dir;
+        datas = sort.doAction("run", actionContext);
+    }
+    
+    pageInfo.totalCount = datas.size();
+    if(pageInfo.limit > 0){
+        if(pageInfo.start > datas.size()){
+            pageInfo.start = datas.size();
+        }
+        def toIndex = pageInfo.start + pageInfo.limit;
+        if(toIndex > datas.size()){ 
+            toIndex = datas.size();
+        }
+        def startIndex = pageInfo.start;
+        if(startIndex < 0){
+            startIndex = 0;
+        }    
+        pageInfo.datas = datas.subList(pageInfo.start, toIndex);
+    }else{
+        pageInfo.datas = datas;
+    }
+    
+    pageInfo.datas = toObjects(self, pageInfo.datas);
+    log.info("pageInfo.datas=" + pageInfo.datas);
+    return pageInfo.datas;
+}else{
+    if(actionContext.get("pageInfo") != null){
+        pageInfo.totalCount = datas.size();
+        pageInfo.datas = datas;
+    }    
+    
+    log.info("datas=" + datas);
+    def ds = toObjects(self, datas);
+    //log.info("ds=" + ds);
+    return ds;
+}
+
+//由于聚合和分组返回的map，需要转换成DataObject，这样才能是引用对象等正确显示
+def toObjects(self, datas){
+    def finalExpressions = [];
+    for(attr in self.get("attribute@")){
+        if(attr.queryFieldType == "finalExpression"){
+             finalExpressions.add(attr);
+        }
+    }
+        
+    def ds = [];
+    for(data in datas){
+        def dataObject = new DataObject(self);
+        for(key in data.keySet()){
+            dataObject.put(key, data.get(key));
+        }
+        for(fe in finalExpressions){
+            dataObject.put(fe.name, Ognl.getValue(fe.finalExpression, data));
+        }
+        ds.add(dataObject);
+    }                
+    return ds;
+}
+#$@text#$@
+sid
+query
+sdescriptors
+xworker.lang.actions.Actions/@GroovyAction
+@xworker.dataObject.query.StatisticsQueryDataObject/@name
+sname
+name
+sinheritDescription
+false
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+name
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@label
+sname
+label
+sinheritDescription
+false
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+label
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@dataObject
+sname
+dataObject
+sinputtype
+dataSelector
+ssize
+60
+scolspan
+2
+sreadOnly
+false
+sinheritDescription
+false
+sdescription
+<p>统计是对数据对象的查询结果进行统计，因此需要指定数据对象的路径。</p>
+svalidateAllowBlank
+true
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+dataObject
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute
+sname
+attribute
+slabel
+属性
+sdescriptors
+xworker.lang.MetaDescriptor3/@thing
+sextends
+xworker.dataObject.Attribute
+smany
+true
+seditCols
+2
+sinitialization
+false
+smodifier
+public
+sinheritDescription
+false
+sid
+attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@name
+sname
+name
+sgroup
+Attribute
+sinheritDescription
+false
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+name
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@label
+sname
+label
+sgroup
+Attribute
+sinheritDescription
+false
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+label
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@queryFieldType
+sname
+queryFieldType
+slabel
+查询字段类型
+sinputtype
+select
+sgroup
+Attribute
+sreadOnly
+false
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p>查询时的用途：</p>
+<ul>
+    <li><strong>group<br />
+    </strong>分组，按字段分组。<br />
+    &nbsp;</li>
+    <li><strong>aggregate<br />
+    </strong>聚合，如计数、累加、平均值等。 <br />
+    &nbsp;</li>
+    <li><strong>finalExpression<br />
+    </strong>在创建finalExpression类型时还不支持聚合的复合表达式，finalExpression的用途是对分析结果使用Ognl的表达式取值，以实现类似符合表达式的效果。<br />
+    finalExpression复合表达式中的聚合列一定是已经定义的聚合属性。</li>
+</ul>
+#$@text#$@
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+queryFieldType
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@queryFieldType/@group
+sname
+group
+slabel
+group
+svalue
+group
+sid
+group
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@queryFieldType/@aggregate
+sname
+aggregate
+slabel
+aggregate
+svalue
+aggregate
+sid
+aggregate
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@queryFieldType/@finalExpression
+sname
+finalExpression
+slabel
+finalExpression
+svalue
+finalExpression
+sid
+finalExpression
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@fieldName
+sname
+groupFieldName
+slabel
+fieldName
+ssize
+60
+scolspan
+2
+sgroup
+Group
+sinheritDescription
+false
+sdescription
+<p>分组字段名，从List的数据中取值的Ognl表达式。</p>
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+fieldName
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@type
+sname
+groupType
+slabel
+type
+sinputtype
+select
+sgroup
+Group
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p>数据类型。</p>
+<ul>
+    <li>date<br />
+    可以对date格式化后再分组。</li>
+</ul>
+#$@text#$@
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+type
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@type/@date
+sname
+date
+slabel
+date
+svalue
+date
+sid
+date
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@pattern
+sname
+groupPattern
+slabel
+pattern
+sgroup
+Group
+sinheritDescription
+false
+sdescription
+<p>格式</p>
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+pattern
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@function
+sname
+aggregateFunction
+slabel
+function
+sinputtype
+select
+sgroup
+Aggregate
+sdefault
+count
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p>聚合函数：</p>
+<ul>
+    <li>count<br />
+    计算个数。<br />
+    &nbsp;</li>
+    <li>sum<br />
+    汇总。<br />
+    &nbsp;</li>
+    <li>avg<br />
+    取平均数。<br />
+    &nbsp;</li>
+    <li>max<br />
+    取最大值。<br />
+    &nbsp;</li>
+    <li>min<br />
+    取最小值。</li>
+</ul>
+#$@text#$@
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+function
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@function/@count
+sname
+count
+slabel
+count
+svalue
+count
+sid
+count
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@function/@avg
+sname
+avg
+slabel
+avg
+svalue
+avg
+sid
+avg
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@function/@sum
+sname
+sum
+slabel
+sum
+svalue
+sum
+sid
+sum
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@function/@max
+sname
+max
+slabel
+max
+svalue
+max
+sid
+max
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@function/@min
+sname
+min
+slabel
+min
+svalue
+min
+sid
+min
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@distinct
+sname
+aggregateDistinct
+slabel
+distinct
+sinputtype
+truefalse
+sgroup
+Aggregate
+sdefault
+false
+sinheritDescription
+false
+sdescription
+<p>过滤重复值。</p>
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+distinct
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@type1
+sname
+aggregateType
+slabel
+type
+sinputtype
+select
+sgroup
+Aggregate
+sdefault
+int
+sinheritDescription
+false
+sdescription
+<p>聚合结果的值类型。</p>
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+type1
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@type1/@int
+sname
+int
+slabel
+int
+svalue
+int
+sid
+int
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@type1/@double
+sname
+double
+slabel
+double
+svalue
+double
+sid
+double
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute/@value
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@fieldName1
+sname
+aggregateExpression
+slabel
+expression
+ssize
+60
+scolspan
+2
+sgroup
+Aggregate
+sinheritDescription
+false
+Sdescription
+#$@text#$@
+<p>值的表达式，使用Ognl表达式。</p>
+<p>如果聚合函数是count，表达式可以是*，此时计算行数。</p>
+#$@text#$@
+LvalidateOnBlur
+false
+LallowDecimals
+false
+LallowNegative
+false
+sid
+fieldName1
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@attribute/@finalExpression
+sname
+finalExpression
+sinputtype
+textarea
+scolspan
+2
+sgroup
+FinalExpression
+sreadOnly
+false
+sinheritDescription
+false
+svalidateAllowBlank
+true
+LvalidateOnBlur
+true
+LallowDecimals
+true
+LallowNegative
+true
+sid
+finalExpression
+sdescriptors
+xworker.lang.MetaDescriptor3/@attribute
+@xworker.dataObject.query.StatisticsQueryDataObject/@thing
+sname
+thing
+slabel
+事物
+sdescriptors
+xworker.lang.MetaDescriptor3/@thing
+sextends
+xworker.dataObject.RelationDataObject
+sid
+thing

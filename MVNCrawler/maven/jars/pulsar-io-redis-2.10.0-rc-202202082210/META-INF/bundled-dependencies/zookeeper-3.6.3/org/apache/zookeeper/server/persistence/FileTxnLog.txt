@@ -1,0 +1,858 @@
+Compiled from "FileTxnLog.java"
+public class org.apache.zookeeper.server.persistence.FileTxnLog implements org.apache.zookeeper.server.persistence.TxnLog,java.io.Closeable {
+  private static final org.slf4j.Logger LOG;
+
+  public static final int TXNLOG_MAGIC;
+
+  public static final int VERSION;
+
+  public static final java.lang.String LOG_FILE_PREFIX;
+
+  static final java.lang.String FSYNC_WARNING_THRESHOLD_MS_PROPERTY;
+
+  static final java.lang.String ZOOKEEPER_FSYNC_WARNING_THRESHOLD_MS_PROPERTY;
+
+  private static final long fsyncWarningThresholdMS;
+
+  private static final java.lang.String txnLogSizeLimitSetting;
+
+  private static long txnLogSizeLimit;
+
+  long lastZxidSeen;
+
+  volatile java.io.BufferedOutputStream logStream;
+
+  volatile org.apache.jute.OutputArchive oa;
+
+  volatile java.io.FileOutputStream fos;
+
+  java.io.File logDir;
+
+  private final boolean forceSync;
+
+  long dbId;
+
+  private final java.util.Queue<java.io.FileOutputStream> streamsToFlush;
+
+  java.io.File logFileWrite;
+
+  private org.apache.zookeeper.server.persistence.FilePadding filePadding;
+
+  private org.apache.zookeeper.server.ServerStats serverStats;
+
+  private volatile long syncElapsedMS;
+
+  private long prevLogsRunningTotal;
+
+  public org.apache.zookeeper.server.persistence.FileTxnLog(java.io.File);
+    Code:
+       0: aload_0
+       1: invokespecial #3                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aconst_null
+       6: putfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+       9: aload_0
+      10: aconst_null
+      11: putfield      #5                  // Field fos:Ljava/io/FileOutputStream;
+      14: aload_0
+      15: ldc           #6                  // String zookeeper.forceSync
+      17: ldc           #7                  // String yes
+      19: invokestatic  #8                  // Method java/lang/System.getProperty:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      22: ldc           #9                  // String no
+      24: invokevirtual #10                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      27: ifne          34
+      30: iconst_1
+      31: goto          35
+      34: iconst_0
+      35: putfield      #11                 // Field forceSync:Z
+      38: aload_0
+      39: new           #12                 // class java/util/ArrayDeque
+      42: dup
+      43: invokespecial #13                 // Method java/util/ArrayDeque."<init>":()V
+      46: putfield      #14                 // Field streamsToFlush:Ljava/util/Queue;
+      49: aload_0
+      50: aconst_null
+      51: putfield      #15                 // Field logFileWrite:Ljava/io/File;
+      54: aload_0
+      55: new           #16                 // class org/apache/zookeeper/server/persistence/FilePadding
+      58: dup
+      59: invokespecial #17                 // Method org/apache/zookeeper/server/persistence/FilePadding."<init>":()V
+      62: putfield      #18                 // Field filePadding:Lorg/apache/zookeeper/server/persistence/FilePadding;
+      65: aload_0
+      66: ldc2_w        #19                 // long -1l
+      69: putfield      #21                 // Field syncElapsedMS:J
+      72: aload_0
+      73: aload_1
+      74: putfield      #22                 // Field logDir:Ljava/io/File;
+      77: return
+
+  public static void setPreallocSize(long);
+    Code:
+       0: lload_0
+       1: invokestatic  #23                 // Method org/apache/zookeeper/server/persistence/FilePadding.setPreallocSize:(J)V
+       4: return
+
+  public synchronized void setServerStats(org.apache.zookeeper.server.ServerStats);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #24                 // Field serverStats:Lorg/apache/zookeeper/server/ServerStats;
+       5: return
+
+  public static void setTxnLogSizeLimit(long);
+    Code:
+       0: lload_0
+       1: putstatic     #25                 // Field txnLogSizeLimit:J
+       4: return
+
+  public synchronized long getCurrentLogSize();
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field logFileWrite:Ljava/io/File;
+       4: ifnull        15
+       7: aload_0
+       8: getfield      #15                 // Field logFileWrite:Ljava/io/File;
+      11: invokevirtual #26                 // Method java/io/File.length:()J
+      14: lreturn
+      15: lconst_0
+      16: lreturn
+
+  public synchronized void setTotalLogSize(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: putfield      #27                 // Field prevLogsRunningTotal:J
+       5: return
+
+  public synchronized long getTotalLogSize();
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field prevLogsRunningTotal:J
+       4: aload_0
+       5: invokevirtual #28                 // Method getCurrentLogSize:()J
+       8: ladd
+       9: lreturn
+
+  protected java.util.zip.Checksum makeChecksumAlgorithm();
+    Code:
+       0: new           #29                 // class java/util/zip/Adler32
+       3: dup
+       4: invokespecial #30                 // Method java/util/zip/Adler32."<init>":()V
+       7: areturn
+
+  public synchronized void rollLog() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+       4: ifnull        37
+       7: aload_0
+       8: getfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+      11: invokevirtual #31                 // Method java/io/BufferedOutputStream.flush:()V
+      14: aload_0
+      15: dup
+      16: getfield      #27                 // Field prevLogsRunningTotal:J
+      19: aload_0
+      20: invokevirtual #28                 // Method getCurrentLogSize:()J
+      23: ladd
+      24: putfield      #27                 // Field prevLogsRunningTotal:J
+      27: aload_0
+      28: aconst_null
+      29: putfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+      32: aload_0
+      33: aconst_null
+      34: putfield      #32                 // Field oa:Lorg/apache/jute/OutputArchive;
+      37: return
+
+  public synchronized void close() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+       4: ifnull        14
+       7: aload_0
+       8: getfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+      11: invokevirtual #33                 // Method java/io/BufferedOutputStream.close:()V
+      14: aload_0
+      15: getfield      #14                 // Field streamsToFlush:Ljava/util/Queue;
+      18: invokeinterface #34,  1           // InterfaceMethod java/util/Queue.iterator:()Ljava/util/Iterator;
+      23: astore_1
+      24: aload_1
+      25: invokeinterface #35,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      30: ifeq          50
+      33: aload_1
+      34: invokeinterface #36,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      39: checkcast     #37                 // class java/io/FileOutputStream
+      42: astore_2
+      43: aload_2
+      44: invokevirtual #38                 // Method java/io/FileOutputStream.close:()V
+      47: goto          24
+      50: return
+
+  public synchronized boolean append(org.apache.zookeeper.txn.TxnHeader, org.apache.jute.Record) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aconst_null
+       4: invokevirtual #39                 // Method append:(Lorg/apache/zookeeper/txn/TxnHeader;Lorg/apache/jute/Record;Lorg/apache/zookeeper/txn/TxnDigest;)Z
+       7: ireturn
+
+  public synchronized boolean append(org.apache.zookeeper.txn.TxnHeader, org.apache.jute.Record, org.apache.zookeeper.txn.TxnDigest) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: ifnonnull     6
+       4: iconst_0
+       5: ireturn
+       6: aload_1
+       7: invokevirtual #40                 // Method org/apache/zookeeper/txn/TxnHeader.getZxid:()J
+      10: aload_0
+      11: getfield      #41                 // Field lastZxidSeen:J
+      14: lcmp
+      15: ifgt          65
+      18: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+      21: ldc           #42                 // String Current zxid {} is <= {} for {}
+      23: iconst_3
+      24: anewarray     #43                 // class java/lang/Object
+      27: dup
+      28: iconst_0
+      29: aload_1
+      30: invokevirtual #40                 // Method org/apache/zookeeper/txn/TxnHeader.getZxid:()J
+      33: invokestatic  #44                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      36: aastore
+      37: dup
+      38: iconst_1
+      39: aload_0
+      40: getfield      #41                 // Field lastZxidSeen:J
+      43: invokestatic  #44                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      46: aastore
+      47: dup
+      48: iconst_2
+      49: aload_1
+      50: invokevirtual #45                 // Method org/apache/zookeeper/txn/TxnHeader.getType:()I
+      53: invokestatic  #46                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      56: aastore
+      57: invokeinterface #47,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;[Ljava/lang/Object;)V
+      62: goto          73
+      65: aload_0
+      66: aload_1
+      67: invokevirtual #40                 // Method org/apache/zookeeper/txn/TxnHeader.getZxid:()J
+      70: putfield      #41                 // Field lastZxidSeen:J
+      73: aload_0
+      74: getfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+      77: ifnonnull     226
+      80: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+      83: ldc           #48                 // String Creating new log file: {}
+      85: aload_1
+      86: invokevirtual #40                 // Method org/apache/zookeeper/txn/TxnHeader.getZxid:()J
+      89: invokestatic  #49                 // Method org/apache/zookeeper/server/persistence/Util.makeLogName:(J)Ljava/lang/String;
+      92: invokeinterface #50,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      97: aload_0
+      98: new           #51                 // class java/io/File
+     101: dup
+     102: aload_0
+     103: getfield      #22                 // Field logDir:Ljava/io/File;
+     106: aload_1
+     107: invokevirtual #40                 // Method org/apache/zookeeper/txn/TxnHeader.getZxid:()J
+     110: invokestatic  #49                 // Method org/apache/zookeeper/server/persistence/Util.makeLogName:(J)Ljava/lang/String;
+     113: invokespecial #52                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+     116: putfield      #15                 // Field logFileWrite:Ljava/io/File;
+     119: aload_0
+     120: new           #37                 // class java/io/FileOutputStream
+     123: dup
+     124: aload_0
+     125: getfield      #15                 // Field logFileWrite:Ljava/io/File;
+     128: invokespecial #53                 // Method java/io/FileOutputStream."<init>":(Ljava/io/File;)V
+     131: putfield      #5                  // Field fos:Ljava/io/FileOutputStream;
+     134: aload_0
+     135: new           #54                 // class java/io/BufferedOutputStream
+     138: dup
+     139: aload_0
+     140: getfield      #5                  // Field fos:Ljava/io/FileOutputStream;
+     143: invokespecial #55                 // Method java/io/BufferedOutputStream."<init>":(Ljava/io/OutputStream;)V
+     146: putfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+     149: aload_0
+     150: aload_0
+     151: getfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+     154: invokestatic  #56                 // Method org/apache/jute/BinaryOutputArchive.getArchive:(Ljava/io/OutputStream;)Lorg/apache/jute/BinaryOutputArchive;
+     157: putfield      #32                 // Field oa:Lorg/apache/jute/OutputArchive;
+     160: new           #57                 // class org/apache/zookeeper/server/persistence/FileHeader
+     163: dup
+     164: getstatic     #58                 // Field TXNLOG_MAGIC:I
+     167: iconst_2
+     168: aload_0
+     169: getfield      #59                 // Field dbId:J
+     172: invokespecial #60                 // Method org/apache/zookeeper/server/persistence/FileHeader."<init>":(IIJ)V
+     175: astore        4
+     177: aload         4
+     179: aload_0
+     180: getfield      #32                 // Field oa:Lorg/apache/jute/OutputArchive;
+     183: ldc           #61                 // String fileheader
+     185: invokevirtual #62                 // Method org/apache/zookeeper/server/persistence/FileHeader.serialize:(Lorg/apache/jute/OutputArchive;Ljava/lang/String;)V
+     188: aload_0
+     189: getfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+     192: invokevirtual #31                 // Method java/io/BufferedOutputStream.flush:()V
+     195: aload_0
+     196: getfield      #18                 // Field filePadding:Lorg/apache/zookeeper/server/persistence/FilePadding;
+     199: aload_0
+     200: getfield      #5                  // Field fos:Ljava/io/FileOutputStream;
+     203: invokevirtual #63                 // Method java/io/FileOutputStream.getChannel:()Ljava/nio/channels/FileChannel;
+     206: invokevirtual #64                 // Method java/nio/channels/FileChannel.position:()J
+     209: invokevirtual #65                 // Method org/apache/zookeeper/server/persistence/FilePadding.setCurrentSize:(J)V
+     212: aload_0
+     213: getfield      #14                 // Field streamsToFlush:Ljava/util/Queue;
+     216: aload_0
+     217: getfield      #5                  // Field fos:Ljava/io/FileOutputStream;
+     220: invokeinterface #66,  2           // InterfaceMethod java/util/Queue.add:(Ljava/lang/Object;)Z
+     225: pop
+     226: aload_0
+     227: getfield      #18                 // Field filePadding:Lorg/apache/zookeeper/server/persistence/FilePadding;
+     230: aload_0
+     231: getfield      #5                  // Field fos:Ljava/io/FileOutputStream;
+     234: invokevirtual #63                 // Method java/io/FileOutputStream.getChannel:()Ljava/nio/channels/FileChannel;
+     237: invokevirtual #67                 // Method org/apache/zookeeper/server/persistence/FilePadding.padFile:(Ljava/nio/channels/FileChannel;)J
+     240: pop2
+     241: aload_1
+     242: aload_2
+     243: aload_3
+     244: invokestatic  #68                 // Method org/apache/zookeeper/server/persistence/Util.marshallTxnEntry:(Lorg/apache/zookeeper/txn/TxnHeader;Lorg/apache/jute/Record;Lorg/apache/zookeeper/txn/TxnDigest;)[B
+     247: astore        4
+     249: aload         4
+     251: ifnull        260
+     254: aload         4
+     256: arraylength
+     257: ifne          270
+     260: new           #69                 // class java/io/IOException
+     263: dup
+     264: ldc           #70                 // String Faulty serialization for header and txn
+     266: invokespecial #71                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     269: athrow
+     270: aload_0
+     271: invokevirtual #72                 // Method makeChecksumAlgorithm:()Ljava/util/zip/Checksum;
+     274: astore        5
+     276: aload         5
+     278: aload         4
+     280: iconst_0
+     281: aload         4
+     283: arraylength
+     284: invokeinterface #73,  4           // InterfaceMethod java/util/zip/Checksum.update:([BII)V
+     289: aload_0
+     290: getfield      #32                 // Field oa:Lorg/apache/jute/OutputArchive;
+     293: aload         5
+     295: invokeinterface #74,  1           // InterfaceMethod java/util/zip/Checksum.getValue:()J
+     300: ldc           #75                 // String txnEntryCRC
+     302: invokeinterface #76,  4           // InterfaceMethod org/apache/jute/OutputArchive.writeLong:(JLjava/lang/String;)V
+     307: aload_0
+     308: getfield      #32                 // Field oa:Lorg/apache/jute/OutputArchive;
+     311: aload         4
+     313: invokestatic  #77                 // Method org/apache/zookeeper/server/persistence/Util.writeTxnBytes:(Lorg/apache/jute/OutputArchive;[B)V
+     316: iconst_1
+     317: ireturn
+
+  public static java.io.File[] getLogFiles(java.io.File[], long);
+    Code:
+       0: aload_0
+       1: ldc           #78                 // String log
+       3: iconst_1
+       4: invokestatic  #79                 // Method org/apache/zookeeper/server/persistence/Util.sortDataDir:([Ljava/io/File;Ljava/lang/String;Z)Ljava/util/List;
+       7: astore_3
+       8: lconst_0
+       9: lstore        4
+      11: aload_3
+      12: invokeinterface #80,  1           // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      17: astore        6
+      19: aload         6
+      21: invokeinterface #35,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      26: ifeq          78
+      29: aload         6
+      31: invokeinterface #36,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      36: checkcast     #51                 // class java/io/File
+      39: astore        7
+      41: aload         7
+      43: invokevirtual #81                 // Method java/io/File.getName:()Ljava/lang/String;
+      46: ldc           #78                 // String log
+      48: invokestatic  #82                 // Method org/apache/zookeeper/server/persistence/Util.getZxidFromName:(Ljava/lang/String;Ljava/lang/String;)J
+      51: lstore        8
+      53: lload         8
+      55: lload_1
+      56: lcmp
+      57: ifle          63
+      60: goto          78
+      63: lload         8
+      65: lload         4
+      67: lcmp
+      68: ifle          75
+      71: lload         8
+      73: lstore        4
+      75: goto          19
+      78: new           #83                 // class java/util/ArrayList
+      81: dup
+      82: iconst_5
+      83: invokespecial #84                 // Method java/util/ArrayList."<init>":(I)V
+      86: astore        6
+      88: aload_3
+      89: invokeinterface #80,  1           // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      94: astore        7
+      96: aload         7
+      98: invokeinterface #35,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+     103: ifeq          154
+     106: aload         7
+     108: invokeinterface #36,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     113: checkcast     #51                 // class java/io/File
+     116: astore        8
+     118: aload         8
+     120: invokevirtual #81                 // Method java/io/File.getName:()Ljava/lang/String;
+     123: ldc           #78                 // String log
+     125: invokestatic  #82                 // Method org/apache/zookeeper/server/persistence/Util.getZxidFromName:(Ljava/lang/String;Ljava/lang/String;)J
+     128: lstore        9
+     130: lload         9
+     132: lload         4
+     134: lcmp
+     135: ifge          141
+     138: goto          96
+     141: aload         6
+     143: aload         8
+     145: invokeinterface #85,  2           // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     150: pop
+     151: goto          96
+     154: aload         6
+     156: iconst_0
+     157: anewarray     #51                 // class java/io/File
+     160: invokeinterface #86,  2           // InterfaceMethod java/util/List.toArray:([Ljava/lang/Object;)[Ljava/lang/Object;
+     165: checkcast     #87                 // class "[Ljava/io/File;"
+     168: areturn
+
+  public long getLastLoggedZxid();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field logDir:Ljava/io/File;
+       4: invokevirtual #88                 // Method java/io/File.listFiles:()[Ljava/io/File;
+       7: lconst_0
+       8: invokestatic  #89                 // Method getLogFiles:([Ljava/io/File;J)[Ljava/io/File;
+      11: astore_1
+      12: aload_1
+      13: arraylength
+      14: ifle          34
+      17: aload_1
+      18: aload_1
+      19: arraylength
+      20: iconst_1
+      21: isub
+      22: aaload
+      23: invokevirtual #81                 // Method java/io/File.getName:()Ljava/lang/String;
+      26: ldc           #78                 // String log
+      28: invokestatic  #82                 // Method org/apache/zookeeper/server/persistence/Util.getZxidFromName:(Ljava/lang/String;Ljava/lang/String;)J
+      31: goto          37
+      34: ldc2_w        #19                 // long -1l
+      37: lstore_2
+      38: lload_2
+      39: lstore        4
+      41: aconst_null
+      42: astore        6
+      44: new           #1                  // class org/apache/zookeeper/server/persistence/FileTxnLog
+      47: dup
+      48: aload_0
+      49: getfield      #22                 // Field logDir:Ljava/io/File;
+      52: invokespecial #90                 // Method "<init>":(Ljava/io/File;)V
+      55: astore        7
+      57: aload         7
+      59: lload_2
+      60: invokevirtual #91                 // Method read:(J)Lorg/apache/zookeeper/server/persistence/TxnLog$TxnIterator;
+      63: astore        6
+      65: aload         6
+      67: invokeinterface #92,  1           // InterfaceMethod org/apache/zookeeper/server/persistence/TxnLog$TxnIterator.next:()Z
+      72: ifne          78
+      75: goto          97
+      78: aload         6
+      80: invokeinterface #93,  1           // InterfaceMethod org/apache/zookeeper/server/persistence/TxnLog$TxnIterator.getHeader:()Lorg/apache/zookeeper/txn/TxnHeader;
+      85: astore        8
+      87: aload         8
+      89: invokevirtual #40                 // Method org/apache/zookeeper/txn/TxnHeader.getZxid:()J
+      92: lstore        4
+      94: goto          65
+      97: aload_0
+      98: aload         6
+     100: invokespecial #94                 // Method close:(Lorg/apache/zookeeper/server/persistence/TxnLog$TxnIterator;)V
+     103: goto          140
+     106: astore        7
+     108: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+     111: ldc           #95                 // String Unexpected exception
+     113: aload         7
+     115: invokeinterface #96,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     120: aload_0
+     121: aload         6
+     123: invokespecial #94                 // Method close:(Lorg/apache/zookeeper/server/persistence/TxnLog$TxnIterator;)V
+     126: goto          140
+     129: astore        9
+     131: aload_0
+     132: aload         6
+     134: invokespecial #94                 // Method close:(Lorg/apache/zookeeper/server/persistence/TxnLog$TxnIterator;)V
+     137: aload         9
+     139: athrow
+     140: lload         4
+     142: lreturn
+    Exception table:
+       from    to  target type
+          44    97   106   Class java/io/IOException
+          44    97   129   any
+         106   120   129   any
+         129   131   129   any
+
+  private void close(org.apache.zookeeper.server.persistence.TxnLog$TxnIterator);
+    Code:
+       0: aload_1
+       1: ifnull        25
+       4: aload_1
+       5: invokeinterface #97,  1           // InterfaceMethod org/apache/zookeeper/server/persistence/TxnLog$TxnIterator.close:()V
+      10: goto          25
+      13: astore_2
+      14: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+      17: ldc           #98                 // String Error closing file iterator
+      19: aload_2
+      20: invokeinterface #96,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      25: return
+    Exception table:
+       from    to  target type
+           4    10    13   Class java/io/IOException
+
+  public synchronized void commit() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+       4: ifnull        14
+       7: aload_0
+       8: getfield      #4                  // Field logStream:Ljava/io/BufferedOutputStream;
+      11: invokevirtual #31                 // Method java/io/BufferedOutputStream.flush:()V
+      14: aload_0
+      15: getfield      #14                 // Field streamsToFlush:Ljava/util/Queue;
+      18: invokeinterface #34,  1           // InterfaceMethod java/util/Queue.iterator:()Ljava/util/Iterator;
+      23: astore_1
+      24: aload_1
+      25: invokeinterface #35,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      30: ifeq          172
+      33: aload_1
+      34: invokeinterface #36,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      39: checkcast     #37                 // class java/io/FileOutputStream
+      42: astore_2
+      43: aload_2
+      44: invokevirtual #99                 // Method java/io/FileOutputStream.flush:()V
+      47: aload_0
+      48: getfield      #11                 // Field forceSync:Z
+      51: ifeq          169
+      54: invokestatic  #100                // Method java/lang/System.nanoTime:()J
+      57: lstore_3
+      58: aload_2
+      59: invokevirtual #63                 // Method java/io/FileOutputStream.getChannel:()Ljava/nio/channels/FileChannel;
+      62: astore        5
+      64: aload         5
+      66: iconst_0
+      67: invokevirtual #101                // Method java/nio/channels/FileChannel.force:(Z)V
+      70: aload_0
+      71: getstatic     #102                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+      74: invokestatic  #100                // Method java/lang/System.nanoTime:()J
+      77: lload_3
+      78: lsub
+      79: invokevirtual #103                // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+      82: putfield      #21                 // Field syncElapsedMS:J
+      85: aload_0
+      86: getfield      #21                 // Field syncElapsedMS:J
+      89: getstatic     #104                // Field fsyncWarningThresholdMS:J
+      92: lcmp
+      93: ifle          154
+      96: aload_0
+      97: getfield      #24                 // Field serverStats:Lorg/apache/zookeeper/server/ServerStats;
+     100: ifnull        110
+     103: aload_0
+     104: getfield      #24                 // Field serverStats:Lorg/apache/zookeeper/server/ServerStats;
+     107: invokevirtual #105                // Method org/apache/zookeeper/server/ServerStats.incrementFsyncThresholdExceedCount:()V
+     110: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+     113: ldc           #106                // String fsync-ing the write ahead log in {} took {}ms which will adversely effect operation latency.File size is {} bytes. See the ZooKeeper troubleshooting guide
+     115: iconst_3
+     116: anewarray     #43                 // class java/lang/Object
+     119: dup
+     120: iconst_0
+     121: invokestatic  #107                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     124: invokevirtual #108                // Method java/lang/Thread.getName:()Ljava/lang/String;
+     127: aastore
+     128: dup
+     129: iconst_1
+     130: aload_0
+     131: getfield      #21                 // Field syncElapsedMS:J
+     134: invokestatic  #44                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     137: aastore
+     138: dup
+     139: iconst_2
+     140: aload         5
+     142: invokevirtual #109                // Method java/nio/channels/FileChannel.size:()J
+     145: invokestatic  #44                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     148: aastore
+     149: invokeinterface #47,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;[Ljava/lang/Object;)V
+     154: invokestatic  #110                // Method org/apache/zookeeper/server/ServerMetrics.getMetrics:()Lorg/apache/zookeeper/server/ServerMetrics;
+     157: getfield      #111                // Field org/apache/zookeeper/server/ServerMetrics.FSYNC_TIME:Lorg/apache/zookeeper/metrics/Summary;
+     160: aload_0
+     161: getfield      #21                 // Field syncElapsedMS:J
+     164: invokeinterface #112,  3          // InterfaceMethod org/apache/zookeeper/metrics/Summary.add:(J)V
+     169: goto          24
+     172: aload_0
+     173: getfield      #14                 // Field streamsToFlush:Ljava/util/Queue;
+     176: invokeinterface #113,  1          // InterfaceMethod java/util/Queue.size:()I
+     181: iconst_1
+     182: if_icmple     203
+     185: aload_0
+     186: getfield      #14                 // Field streamsToFlush:Ljava/util/Queue;
+     189: invokeinterface #114,  1          // InterfaceMethod java/util/Queue.poll:()Ljava/lang/Object;
+     194: checkcast     #37                 // class java/io/FileOutputStream
+     197: invokevirtual #38                 // Method java/io/FileOutputStream.close:()V
+     200: goto          172
+     203: getstatic     #25                 // Field txnLogSizeLimit:J
+     206: lconst_0
+     207: lcmp
+     208: ifle          242
+     211: aload_0
+     212: invokevirtual #28                 // Method getCurrentLogSize:()J
+     215: lstore_1
+     216: lload_1
+     217: getstatic     #25                 // Field txnLogSizeLimit:J
+     220: lcmp
+     221: ifle          242
+     224: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+     227: ldc           #115                // String Log size limit reached: {}
+     229: lload_1
+     230: invokestatic  #44                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     233: invokeinterface #116,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     238: aload_0
+     239: invokevirtual #117                // Method rollLog:()V
+     242: return
+
+  public long getTxnLogSyncElapsedTime();
+    Code:
+       0: aload_0
+       1: getfield      #21                 // Field syncElapsedMS:J
+       4: lreturn
+
+  public org.apache.zookeeper.server.persistence.TxnLog$TxnIterator read(long) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: lload_1
+       2: iconst_1
+       3: invokevirtual #118                // Method read:(JZ)Lorg/apache/zookeeper/server/persistence/TxnLog$TxnIterator;
+       6: areturn
+
+  public org.apache.zookeeper.server.persistence.TxnLog$TxnIterator read(long, boolean) throws java.io.IOException;
+    Code:
+       0: new           #119                // class org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator
+       3: dup
+       4: aload_0
+       5: getfield      #22                 // Field logDir:Ljava/io/File;
+       8: lload_1
+       9: iload_3
+      10: invokespecial #120                // Method org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator."<init>":(Ljava/io/File;JZ)V
+      13: areturn
+
+  public boolean truncate(long) throws java.io.IOException;
+    Code:
+       0: aconst_null
+       1: astore_3
+       2: new           #119                // class org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator
+       5: dup
+       6: aload_0
+       7: getfield      #22                 // Field logDir:Ljava/io/File;
+      10: lload_1
+      11: invokespecial #121                // Method org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator."<init>":(Ljava/io/File;J)V
+      14: astore_3
+      15: aload_3
+      16: getfield      #122                // Field org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator.inputStream:Lorg/apache/zookeeper/server/persistence/FileTxnLog$PositionInputStream;
+      19: astore        4
+      21: aload         4
+      23: ifnonnull     36
+      26: new           #69                 // class java/io/IOException
+      29: dup
+      30: ldc           #123                // String No log files found to truncate! This could happen if you still have snapshots from an old setup or log files were deleted accidentally or dataLogDir was changed in zoo.cfg.
+      32: invokespecial #71                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+      35: athrow
+      36: aload         4
+      38: invokevirtual #124                // Method org/apache/zookeeper/server/persistence/FileTxnLog$PositionInputStream.getPosition:()J
+      41: lstore        5
+      43: new           #125                // class java/io/RandomAccessFile
+      46: dup
+      47: aload_3
+      48: getfield      #126                // Field org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator.logFile:Ljava/io/File;
+      51: ldc           #127                // String rw
+      53: invokespecial #128                // Method java/io/RandomAccessFile."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      56: astore        7
+      58: aload         7
+      60: lload         5
+      62: invokevirtual #129                // Method java/io/RandomAccessFile.setLength:(J)V
+      65: aload         7
+      67: invokevirtual #130                // Method java/io/RandomAccessFile.close:()V
+      70: aload_3
+      71: invokestatic  #131                // Method org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator.access$000:(Lorg/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator;)Z
+      74: ifeq          104
+      77: aload_3
+      78: getfield      #126                // Field org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator.logFile:Ljava/io/File;
+      81: invokevirtual #132                // Method java/io/File.delete:()Z
+      84: ifne          70
+      87: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+      90: ldc           #133                // String Unable to truncate {}
+      92: aload_3
+      93: getfield      #126                // Field org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator.logFile:Ljava/io/File;
+      96: invokeinterface #134,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;)V
+     101: goto          70
+     104: aload_0
+     105: aload_3
+     106: invokespecial #94                 // Method close:(Lorg/apache/zookeeper/server/persistence/TxnLog$TxnIterator;)V
+     109: goto          122
+     112: astore        8
+     114: aload_0
+     115: aload_3
+     116: invokespecial #94                 // Method close:(Lorg/apache/zookeeper/server/persistence/TxnLog$TxnIterator;)V
+     119: aload         8
+     121: athrow
+     122: iconst_1
+     123: ireturn
+    Exception table:
+       from    to  target type
+           2   104   112   any
+         112   114   112   any
+
+  private static org.apache.zookeeper.server.persistence.FileHeader readHeader(java.io.File) throws java.io.IOException;
+    Code:
+       0: aconst_null
+       1: astore_1
+       2: new           #135                // class java/io/BufferedInputStream
+       5: dup
+       6: new           #136                // class java/io/FileInputStream
+       9: dup
+      10: aload_0
+      11: invokespecial #137                // Method java/io/FileInputStream."<init>":(Ljava/io/File;)V
+      14: invokespecial #138                // Method java/io/BufferedInputStream."<init>":(Ljava/io/InputStream;)V
+      17: astore_1
+      18: aload_1
+      19: invokestatic  #139                // Method org/apache/jute/BinaryInputArchive.getArchive:(Ljava/io/InputStream;)Lorg/apache/jute/BinaryInputArchive;
+      22: astore_2
+      23: new           #57                 // class org/apache/zookeeper/server/persistence/FileHeader
+      26: dup
+      27: invokespecial #140                // Method org/apache/zookeeper/server/persistence/FileHeader."<init>":()V
+      30: astore_3
+      31: aload_3
+      32: aload_2
+      33: ldc           #61                 // String fileheader
+      35: invokevirtual #141                // Method org/apache/zookeeper/server/persistence/FileHeader.deserialize:(Lorg/apache/jute/InputArchive;Ljava/lang/String;)V
+      38: aload_3
+      39: astore        4
+      41: aload_1
+      42: ifnull        49
+      45: aload_1
+      46: invokevirtual #142                // Method java/io/InputStream.close:()V
+      49: goto          66
+      52: astore        5
+      54: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+      57: ldc           #143                // String Ignoring exception during close
+      59: aload         5
+      61: invokeinterface #96,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      66: aload         4
+      68: areturn
+      69: astore        6
+      71: aload_1
+      72: ifnull        79
+      75: aload_1
+      76: invokevirtual #142                // Method java/io/InputStream.close:()V
+      79: goto          96
+      82: astore        7
+      84: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+      87: ldc           #143                // String Ignoring exception during close
+      89: aload         7
+      91: invokeinterface #96,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      96: aload         6
+      98: athrow
+    Exception table:
+       from    to  target type
+          41    49    52   Class java/io/IOException
+           2    41    69   any
+          71    79    82   Class java/io/IOException
+          69    71    69   any
+
+  public long getDbId() throws java.io.IOException;
+    Code:
+       0: new           #119                // class org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator
+       3: dup
+       4: aload_0
+       5: getfield      #22                 // Field logDir:Ljava/io/File;
+       8: lconst_0
+       9: invokespecial #121                // Method org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator."<init>":(Ljava/io/File;J)V
+      12: astore_1
+      13: aload_1
+      14: getfield      #126                // Field org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator.logFile:Ljava/io/File;
+      17: invokestatic  #144                // Method readHeader:(Ljava/io/File;)Lorg/apache/zookeeper/server/persistence/FileHeader;
+      20: astore_2
+      21: aload_1
+      22: invokevirtual #145                // Method org/apache/zookeeper/server/persistence/FileTxnLog$FileTxnIterator.close:()V
+      25: aload_2
+      26: ifnonnull     39
+      29: new           #69                 // class java/io/IOException
+      32: dup
+      33: ldc           #146                // String Unsupported Format.
+      35: invokespecial #71                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+      38: athrow
+      39: aload_2
+      40: invokevirtual #147                // Method org/apache/zookeeper/server/persistence/FileHeader.getDbid:()J
+      43: lreturn
+
+  public boolean isForceSync();
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field forceSync:Z
+       4: ireturn
+
+  static org.slf4j.Logger access$100();
+    Code:
+       0: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static {};
+    Code:
+       0: ldc           #148                // String ZKLG
+       2: invokevirtual #149                // Method java/lang/String.getBytes:()[B
+       5: invokestatic  #150                // Method java/nio/ByteBuffer.wrap:([B)Ljava/nio/ByteBuffer;
+       8: invokevirtual #151                // Method java/nio/ByteBuffer.getInt:()I
+      11: putstatic     #58                 // Field TXNLOG_MAGIC:I
+      14: ldc2_w        #19                 // long -1l
+      17: putstatic     #25                 // Field txnLogSizeLimit:J
+      20: ldc           #1                  // class org/apache/zookeeper/server/persistence/FileTxnLog
+      22: invokestatic  #152                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      25: putstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+      28: ldc           #153                // String zookeeper.fsync.warningthresholdms
+      30: invokestatic  #154                // Method java/lang/Long.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+      33: dup
+      34: astore_0
+      35: ifnonnull     47
+      38: ldc           #155                // String fsync.warningthresholdms
+      40: ldc2_w        #156                // long 1000l
+      43: invokestatic  #158                // Method java/lang/Long.getLong:(Ljava/lang/String;J)Ljava/lang/Long;
+      46: astore_0
+      47: aload_0
+      48: invokevirtual #159                // Method java/lang/Long.longValue:()J
+      51: putstatic     #104                // Field fsyncWarningThresholdMS:J
+      54: ldc           #160                // String zookeeper.txnLogSizeLimitInKb
+      56: ldc2_w        #19                 // long -1l
+      59: invokestatic  #158                // Method java/lang/Long.getLong:(Ljava/lang/String;J)Ljava/lang/Long;
+      62: astore_1
+      63: aload_1
+      64: invokevirtual #159                // Method java/lang/Long.longValue:()J
+      67: lconst_0
+      68: lcmp
+      69: ifle          104
+      72: getstatic     #2                  // Field LOG:Lorg/slf4j/Logger;
+      75: ldc           #161                // String {} = {}
+      77: ldc           #160                // String zookeeper.txnLogSizeLimitInKb
+      79: aload_1
+      80: invokeinterface #162,  4          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      85: aload_1
+      86: invokevirtual #159                // Method java/lang/Long.longValue:()J
+      89: ldc2_w        #163                // long 1024l
+      92: lmul
+      93: invokestatic  #44                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      96: astore_1
+      97: aload_1
+      98: invokevirtual #159                // Method java/lang/Long.longValue:()J
+     101: putstatic     #25                 // Field txnLogSizeLimit:J
+     104: return
+}

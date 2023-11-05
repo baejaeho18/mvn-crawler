@@ -1,0 +1,1 @@
+This descriptor service returns the dynamic schema of `dependsOn` properties (present in the input schemas of other services).

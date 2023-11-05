@@ -1,0 +1,699 @@
+Compiled from "ClientCnxnSocketNetty.java"
+public class org.apache.zookeeper.ClientCnxnSocketNetty extends org.apache.zookeeper.ClientCnxnSocket {
+  private static final org.slf4j.Logger LOG;
+
+  private final io.netty.channel.EventLoopGroup eventLoopGroup;
+
+  private io.netty.channel.Channel channel;
+
+  private java.util.concurrent.CountDownLatch firstConnect;
+
+  private io.netty.channel.ChannelFuture connectFuture;
+
+  private final java.util.concurrent.locks.Lock connectLock;
+
+  private final java.util.concurrent.atomic.AtomicBoolean disconnected;
+
+  private final java.util.concurrent.atomic.AtomicBoolean needSasl;
+
+  private final java.util.concurrent.Semaphore waitSasl;
+
+  private static final java.util.concurrent.atomic.AtomicReference<io.netty.buffer.ByteBufAllocator> TEST_ALLOCATOR;
+
+  private final io.netty.util.concurrent.GenericFutureListener<io.netty.util.concurrent.Future<java.lang.Void>> onSendPktDoneListener;
+
+  org.apache.zookeeper.ClientCnxnSocketNetty(org.apache.zookeeper.client.ZKClientConfig) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #11                 // Method org/apache/zookeeper/ClientCnxnSocket."<init>":()V
+       4: aload_0
+       5: new           #12                 // class java/util/concurrent/locks/ReentrantLock
+       8: dup
+       9: invokespecial #13                 // Method java/util/concurrent/locks/ReentrantLock."<init>":()V
+      12: putfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+      15: aload_0
+      16: new           #14                 // class java/util/concurrent/atomic/AtomicBoolean
+      19: dup
+      20: invokespecial #15                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":()V
+      23: putfield      #6                  // Field disconnected:Ljava/util/concurrent/atomic/AtomicBoolean;
+      26: aload_0
+      27: new           #14                 // class java/util/concurrent/atomic/AtomicBoolean
+      30: dup
+      31: invokespecial #15                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":()V
+      34: putfield      #4                  // Field needSasl:Ljava/util/concurrent/atomic/AtomicBoolean;
+      37: aload_0
+      38: new           #16                 // class java/util/concurrent/Semaphore
+      41: dup
+      42: iconst_0
+      43: invokespecial #17                 // Method java/util/concurrent/Semaphore."<init>":(I)V
+      46: putfield      #5                  // Field waitSasl:Ljava/util/concurrent/Semaphore;
+      49: aload_0
+      50: aload_0
+      51: invokedynamic #18,  0             // InvokeDynamic #0:operationComplete:(Lorg/apache/zookeeper/ClientCnxnSocketNetty;)Lio/netty/util/concurrent/GenericFutureListener;
+      56: putfield      #19                 // Field onSendPktDoneListener:Lio/netty/util/concurrent/GenericFutureListener;
+      59: aload_0
+      60: aload_1
+      61: putfield      #20                 // Field clientConfig:Lorg/apache/zookeeper/client/ZKClientConfig;
+      64: aload_0
+      65: iconst_1
+      66: invokestatic  #21                 // Method org/apache/zookeeper/common/NettyUtils.newNioOrEpollEventLoopGroup:(I)Lio/netty/channel/EventLoopGroup;
+      69: putfield      #22                 // Field eventLoopGroup:Lio/netty/channel/EventLoopGroup;
+      72: aload_0
+      73: invokevirtual #23                 // Method initProperties:()V
+      76: return
+
+  boolean isConnected();
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+       4: invokeinterface #24,  1           // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+       9: aload_0
+      10: getfield      #7                  // Field channel:Lio/netty/channel/Channel;
+      13: ifnonnull     23
+      16: aload_0
+      17: getfield      #8                  // Field connectFuture:Lio/netty/channel/ChannelFuture;
+      20: ifnull        27
+      23: iconst_1
+      24: goto          28
+      27: iconst_0
+      28: istore_1
+      29: aload_0
+      30: getfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+      33: invokeinterface #25,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      38: iload_1
+      39: ireturn
+      40: astore_2
+      41: aload_0
+      42: getfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+      45: invokeinterface #25,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      50: aload_2
+      51: athrow
+    Exception table:
+       from    to  target type
+           9    29    40   any
+
+  private io.netty.bootstrap.Bootstrap configureBootstrapAllocator(io.netty.bootstrap.Bootstrap);
+    Code:
+       0: getstatic     #26                 // Field TEST_ALLOCATOR:Ljava/util/concurrent/atomic/AtomicReference;
+       3: invokevirtual #27                 // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+       6: checkcast     #28                 // class io/netty/buffer/ByteBufAllocator
+       9: astore_2
+      10: aload_2
+      11: ifnull        26
+      14: aload_1
+      15: getstatic     #29                 // Field io/netty/channel/ChannelOption.ALLOCATOR:Lio/netty/channel/ChannelOption;
+      18: aload_2
+      19: invokevirtual #30                 // Method io/netty/bootstrap/Bootstrap.option:(Lio/netty/channel/ChannelOption;Ljava/lang/Object;)Lio/netty/bootstrap/AbstractBootstrap;
+      22: checkcast     #31                 // class io/netty/bootstrap/Bootstrap
+      25: areturn
+      26: aload_1
+      27: areturn
+
+  void connect(java.net.InetSocketAddress) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: new           #32                 // class java/util/concurrent/CountDownLatch
+       4: dup
+       5: iconst_1
+       6: invokespecial #33                 // Method java/util/concurrent/CountDownLatch."<init>":(I)V
+       9: putfield      #1                  // Field firstConnect:Ljava/util/concurrent/CountDownLatch;
+      12: new           #31                 // class io/netty/bootstrap/Bootstrap
+      15: dup
+      16: invokespecial #34                 // Method io/netty/bootstrap/Bootstrap."<init>":()V
+      19: aload_0
+      20: getfield      #22                 // Field eventLoopGroup:Lio/netty/channel/EventLoopGroup;
+      23: invokevirtual #35                 // Method io/netty/bootstrap/Bootstrap.group:(Lio/netty/channel/EventLoopGroup;)Lio/netty/bootstrap/AbstractBootstrap;
+      26: checkcast     #31                 // class io/netty/bootstrap/Bootstrap
+      29: invokestatic  #36                 // Method org/apache/zookeeper/common/NettyUtils.nioOrEpollSocketChannel:()Ljava/lang/Class;
+      32: invokevirtual #37                 // Method io/netty/bootstrap/Bootstrap.channel:(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;
+      35: checkcast     #31                 // class io/netty/bootstrap/Bootstrap
+      38: getstatic     #38                 // Field io/netty/channel/ChannelOption.SO_LINGER:Lio/netty/channel/ChannelOption;
+      41: iconst_m1
+      42: invokestatic  #39                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      45: invokevirtual #30                 // Method io/netty/bootstrap/Bootstrap.option:(Lio/netty/channel/ChannelOption;Ljava/lang/Object;)Lio/netty/bootstrap/AbstractBootstrap;
+      48: checkcast     #31                 // class io/netty/bootstrap/Bootstrap
+      51: getstatic     #40                 // Field io/netty/channel/ChannelOption.TCP_NODELAY:Lio/netty/channel/ChannelOption;
+      54: iconst_1
+      55: invokestatic  #41                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      58: invokevirtual #30                 // Method io/netty/bootstrap/Bootstrap.option:(Lio/netty/channel/ChannelOption;Ljava/lang/Object;)Lio/netty/bootstrap/AbstractBootstrap;
+      61: checkcast     #31                 // class io/netty/bootstrap/Bootstrap
+      64: new           #42                 // class org/apache/zookeeper/ClientCnxnSocketNetty$ZKClientPipelineFactory
+      67: dup
+      68: aload_0
+      69: aload_1
+      70: invokevirtual #43                 // Method java/net/InetSocketAddress.getHostString:()Ljava/lang/String;
+      73: aload_1
+      74: invokevirtual #44                 // Method java/net/InetSocketAddress.getPort:()I
+      77: invokespecial #45                 // Method org/apache/zookeeper/ClientCnxnSocketNetty$ZKClientPipelineFactory."<init>":(Lorg/apache/zookeeper/ClientCnxnSocketNetty;Ljava/lang/String;I)V
+      80: invokevirtual #46                 // Method io/netty/bootstrap/Bootstrap.handler:(Lio/netty/channel/ChannelHandler;)Lio/netty/bootstrap/AbstractBootstrap;
+      83: checkcast     #31                 // class io/netty/bootstrap/Bootstrap
+      86: astore_2
+      87: aload_0
+      88: aload_2
+      89: invokespecial #47                 // Method configureBootstrapAllocator:(Lio/netty/bootstrap/Bootstrap;)Lio/netty/bootstrap/Bootstrap;
+      92: astore_2
+      93: aload_2
+      94: invokevirtual #48                 // Method io/netty/bootstrap/Bootstrap.validate:()Lio/netty/bootstrap/Bootstrap;
+      97: pop
+      98: aload_0
+      99: getfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+     102: invokeinterface #24,  1           // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+     107: aload_0
+     108: aload_2
+     109: aload_1
+     110: invokevirtual #49                 // Method io/netty/bootstrap/Bootstrap.connect:(Ljava/net/SocketAddress;)Lio/netty/channel/ChannelFuture;
+     113: putfield      #8                  // Field connectFuture:Lio/netty/channel/ChannelFuture;
+     116: aload_0
+     117: getfield      #8                  // Field connectFuture:Lio/netty/channel/ChannelFuture;
+     120: new           #50                 // class org/apache/zookeeper/ClientCnxnSocketNetty$1
+     123: dup
+     124: aload_0
+     125: invokespecial #51                 // Method org/apache/zookeeper/ClientCnxnSocketNetty$1."<init>":(Lorg/apache/zookeeper/ClientCnxnSocketNetty;)V
+     128: invokeinterface #52,  2           // InterfaceMethod io/netty/channel/ChannelFuture.addListener:(Lio/netty/util/concurrent/GenericFutureListener;)Lio/netty/channel/ChannelFuture;
+     133: pop
+     134: aload_0
+     135: getfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+     138: invokeinterface #25,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     143: goto          158
+     146: astore_3
+     147: aload_0
+     148: getfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+     151: invokeinterface #25,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     156: aload_3
+     157: athrow
+     158: return
+    Exception table:
+       from    to  target type
+         107   134   146   any
+
+  void cleanup();
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+       4: invokeinterface #24,  1           // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+       9: aload_0
+      10: getfield      #8                  // Field connectFuture:Lio/netty/channel/ChannelFuture;
+      13: ifnull        32
+      16: aload_0
+      17: getfield      #8                  // Field connectFuture:Lio/netty/channel/ChannelFuture;
+      20: iconst_0
+      21: invokeinterface #53,  2           // InterfaceMethod io/netty/channel/ChannelFuture.cancel:(Z)Z
+      26: pop
+      27: aload_0
+      28: aconst_null
+      29: putfield      #8                  // Field connectFuture:Lio/netty/channel/ChannelFuture;
+      32: aload_0
+      33: getfield      #7                  // Field channel:Lio/netty/channel/Channel;
+      36: ifnull        59
+      39: aload_0
+      40: getfield      #7                  // Field channel:Lio/netty/channel/Channel;
+      43: invokeinterface #54,  1           // InterfaceMethod io/netty/channel/Channel.close:()Lio/netty/channel/ChannelFuture;
+      48: invokeinterface #55,  1           // InterfaceMethod io/netty/channel/ChannelFuture.syncUninterruptibly:()Lio/netty/channel/ChannelFuture;
+      53: pop
+      54: aload_0
+      55: aconst_null
+      56: putfield      #7                  // Field channel:Lio/netty/channel/Channel;
+      59: aload_0
+      60: getfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+      63: invokeinterface #25,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      68: goto          83
+      71: astore_1
+      72: aload_0
+      73: getfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+      76: invokeinterface #25,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      81: aload_1
+      82: athrow
+      83: aload_0
+      84: getfield      #56                 // Field outgoingQueue:Ljava/util/concurrent/LinkedBlockingDeque;
+      87: invokevirtual #57                 // Method java/util/concurrent/LinkedBlockingDeque.iterator:()Ljava/util/Iterator;
+      90: astore_1
+      91: aload_1
+      92: invokeinterface #58,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      97: ifeq          126
+     100: aload_1
+     101: invokeinterface #59,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     106: checkcast     #60                 // class org/apache/zookeeper/ClientCnxn$Packet
+     109: astore_2
+     110: aload_2
+     111: invokestatic  #61                 // Method org/apache/zookeeper/ClientCnxnSocketNetty$WakeupPacket.getInstance:()Lorg/apache/zookeeper/ClientCnxn$Packet;
+     114: if_acmpne     123
+     117: aload_1
+     118: invokeinterface #62,  1           // InterfaceMethod java/util/Iterator.remove:()V
+     123: goto          91
+     126: return
+    Exception table:
+       from    to  target type
+           9    59    71   any
+
+  void close();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field eventLoopGroup:Lio/netty/channel/EventLoopGroup;
+       4: invokeinterface #63,  1           // InterfaceMethod io/netty/channel/EventLoopGroup.shutdownGracefully:()Lio/netty/util/concurrent/Future;
+       9: pop
+      10: return
+
+  void saslCompleted();
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field needSasl:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_0
+       5: invokevirtual #64                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+       8: aload_0
+       9: getfield      #5                  // Field waitSasl:Ljava/util/concurrent/Semaphore;
+      12: invokevirtual #65                 // Method java/util/concurrent/Semaphore.release:()V
+      15: return
+
+  void connectionPrimed();
+    Code:
+       0: return
+
+  void packetAdded();
+    Code:
+       0: return
+
+  void onClosing();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field firstConnect:Ljava/util/concurrent/CountDownLatch;
+       4: invokevirtual #66                 // Method java/util/concurrent/CountDownLatch.countDown:()V
+       7: aload_0
+       8: invokespecial #2                  // Method wakeupCnxn:()V
+      11: getstatic     #9                  // Field LOG:Lorg/slf4j/Logger;
+      14: ldc           #67                 // String channel is told closing
+      16: invokeinterface #68,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      21: return
+
+  private void wakeupCnxn();
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field needSasl:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #69                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: ifeq          17
+      10: aload_0
+      11: getfield      #5                  // Field waitSasl:Ljava/util/concurrent/Semaphore;
+      14: invokevirtual #65                 // Method java/util/concurrent/Semaphore.release:()V
+      17: aload_0
+      18: getfield      #56                 // Field outgoingQueue:Ljava/util/concurrent/LinkedBlockingDeque;
+      21: invokestatic  #61                 // Method org/apache/zookeeper/ClientCnxnSocketNetty$WakeupPacket.getInstance:()Lorg/apache/zookeeper/ClientCnxn$Packet;
+      24: invokevirtual #70                 // Method java/util/concurrent/LinkedBlockingDeque.add:(Ljava/lang/Object;)Z
+      27: pop
+      28: return
+
+  void doTransport(int, java.util.Queue<org.apache.zookeeper.ClientCnxn$Packet>, org.apache.zookeeper.ClientCnxn) throws java.io.IOException, java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field firstConnect:Ljava/util/concurrent/CountDownLatch;
+       4: iload_1
+       5: i2l
+       6: getstatic     #71                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+       9: invokevirtual #72                 // Method java/util/concurrent/CountDownLatch.await:(JLjava/util/concurrent/TimeUnit;)Z
+      12: ifne          20
+      15: aload_0
+      16: invokevirtual #73                 // Method updateNow:()V
+      19: return
+      20: aconst_null
+      21: astore        4
+      23: aload_0
+      24: getfield      #4                  // Field needSasl:Ljava/util/concurrent/atomic/AtomicBoolean;
+      27: invokevirtual #69                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      30: ifeq          53
+      33: aload_0
+      34: getfield      #5                  // Field waitSasl:Ljava/util/concurrent/Semaphore;
+      37: iload_1
+      38: i2l
+      39: getstatic     #71                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      42: invokevirtual #74                 // Method java/util/concurrent/Semaphore.tryAcquire:(JLjava/util/concurrent/TimeUnit;)Z
+      45: ifne          70
+      48: aload_0
+      49: invokevirtual #73                 // Method updateNow:()V
+      52: return
+      53: aload_0
+      54: getfield      #56                 // Field outgoingQueue:Ljava/util/concurrent/LinkedBlockingDeque;
+      57: iload_1
+      58: i2l
+      59: getstatic     #71                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      62: invokevirtual #75                 // Method java/util/concurrent/LinkedBlockingDeque.poll:(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;
+      65: checkcast     #60                 // class org/apache/zookeeper/ClientCnxn$Packet
+      68: astore        4
+      70: aload_0
+      71: getfield      #76                 // Field sendThread:Lorg/apache/zookeeper/ClientCnxn$SendThread;
+      74: invokevirtual #77                 // Method org/apache/zookeeper/ClientCnxn$SendThread.getZkState:()Lorg/apache/zookeeper/ZooKeeper$States;
+      77: invokevirtual #78                 // Method org/apache/zookeeper/ZooKeeper$States.isAlive:()Z
+      80: ifne          94
+      83: aload_0
+      84: aload         4
+      86: invokespecial #79                 // Method addBack:(Lorg/apache/zookeeper/ClientCnxn$Packet;)V
+      89: aload_0
+      90: invokevirtual #73                 // Method updateNow:()V
+      93: return
+      94: aload_0
+      95: getfield      #6                  // Field disconnected:Ljava/util/concurrent/atomic/AtomicBoolean;
+      98: invokevirtual #69                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+     101: ifeq          148
+     104: aload_0
+     105: aload         4
+     107: invokespecial #79                 // Method addBack:(Lorg/apache/zookeeper/ClientCnxn$Packet;)V
+     110: new           #80                 // class org/apache/zookeeper/ClientCnxn$EndOfStreamException
+     113: dup
+     114: new           #81                 // class java/lang/StringBuilder
+     117: dup
+     118: invokespecial #82                 // Method java/lang/StringBuilder."<init>":()V
+     121: ldc           #83                 // String channel for sessionid 0x
+     123: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     126: aload_0
+     127: getfield      #85                 // Field sessionId:J
+     130: invokestatic  #86                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     133: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     136: ldc           #87                 // String  is lost
+     138: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     141: invokevirtual #88                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     144: invokespecial #89                 // Method org/apache/zookeeper/ClientCnxn$EndOfStreamException."<init>":(Ljava/lang/String;)V
+     147: athrow
+     148: aload         4
+     150: ifnull        161
+     153: aload_0
+     154: aload_2
+     155: aload         4
+     157: aload_3
+     158: invokespecial #90                 // Method doWrite:(Ljava/util/Queue;Lorg/apache/zookeeper/ClientCnxn$Packet;Lorg/apache/zookeeper/ClientCnxn;)V
+     161: aload_0
+     162: invokevirtual #73                 // Method updateNow:()V
+     165: goto          177
+     168: astore        5
+     170: aload_0
+     171: invokevirtual #73                 // Method updateNow:()V
+     174: aload         5
+     176: athrow
+     177: return
+    Exception table:
+       from    to  target type
+           0    15   168   any
+          20    48   168   any
+          53    89   168   any
+          94   161   168   any
+         168   170   168   any
+
+  private void addBack(org.apache.zookeeper.ClientCnxn$Packet);
+    Code:
+       0: aload_1
+       1: ifnull        19
+       4: aload_1
+       5: invokestatic  #61                 // Method org/apache/zookeeper/ClientCnxnSocketNetty$WakeupPacket.getInstance:()Lorg/apache/zookeeper/ClientCnxn$Packet;
+       8: if_acmpeq     19
+      11: aload_0
+      12: getfield      #56                 // Field outgoingQueue:Ljava/util/concurrent/LinkedBlockingDeque;
+      15: aload_1
+      16: invokevirtual #91                 // Method java/util/concurrent/LinkedBlockingDeque.addFirst:(Ljava/lang/Object;)V
+      19: return
+
+  private io.netty.channel.ChannelFuture sendPktAndFlush(org.apache.zookeeper.ClientCnxn$Packet);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iconst_1
+       3: invokespecial #92                 // Method sendPkt:(Lorg/apache/zookeeper/ClientCnxn$Packet;Z)Lio/netty/channel/ChannelFuture;
+       6: areturn
+
+  private io.netty.channel.ChannelFuture sendPktOnly(org.apache.zookeeper.ClientCnxn$Packet);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iconst_0
+       3: invokespecial #92                 // Method sendPkt:(Lorg/apache/zookeeper/ClientCnxn$Packet;Z)Lio/netty/channel/ChannelFuture;
+       6: areturn
+
+  private io.netty.channel.ChannelFuture sendPkt(org.apache.zookeeper.ClientCnxn$Packet, boolean);
+    Code:
+       0: aload_1
+       1: invokevirtual #93                 // Method org/apache/zookeeper/ClientCnxn$Packet.createBB:()V
+       4: aload_0
+       5: invokevirtual #94                 // Method updateLastSend:()V
+       8: aload_1
+       9: getfield      #95                 // Field org/apache/zookeeper/ClientCnxn$Packet.bb:Ljava/nio/ByteBuffer;
+      12: invokestatic  #96                 // Method io/netty/buffer/Unpooled.wrappedBuffer:(Ljava/nio/ByteBuffer;)Lio/netty/buffer/ByteBuf;
+      15: astore_3
+      16: iload_2
+      17: ifeq          33
+      20: aload_0
+      21: getfield      #7                  // Field channel:Lio/netty/channel/Channel;
+      24: aload_3
+      25: invokeinterface #97,  2           // InterfaceMethod io/netty/channel/Channel.writeAndFlush:(Ljava/lang/Object;)Lio/netty/channel/ChannelFuture;
+      30: goto          43
+      33: aload_0
+      34: getfield      #7                  // Field channel:Lio/netty/channel/Channel;
+      37: aload_3
+      38: invokeinterface #98,  2           // InterfaceMethod io/netty/channel/Channel.write:(Ljava/lang/Object;)Lio/netty/channel/ChannelFuture;
+      43: astore        4
+      45: aload         4
+      47: aload_0
+      48: getfield      #19                 // Field onSendPktDoneListener:Lio/netty/util/concurrent/GenericFutureListener;
+      51: invokeinterface #52,  2           // InterfaceMethod io/netty/channel/ChannelFuture.addListener:(Lio/netty/util/concurrent/GenericFutureListener;)Lio/netty/channel/ChannelFuture;
+      56: pop
+      57: aload         4
+      59: areturn
+
+  private void sendPrimePacket();
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #56                 // Field outgoingQueue:Ljava/util/concurrent/LinkedBlockingDeque;
+       5: invokevirtual #99                 // Method java/util/concurrent/LinkedBlockingDeque.remove:()Ljava/lang/Object;
+       8: checkcast     #60                 // class org/apache/zookeeper/ClientCnxn$Packet
+      11: invokespecial #100                // Method sendPktAndFlush:(Lorg/apache/zookeeper/ClientCnxn$Packet;)Lio/netty/channel/ChannelFuture;
+      14: pop
+      15: return
+
+  private void doWrite(java.util.Queue<org.apache.zookeeper.ClientCnxn$Packet>, org.apache.zookeeper.ClientCnxn$Packet, org.apache.zookeeper.ClientCnxn);
+    Code:
+       0: aload_0
+       1: invokevirtual #73                 // Method updateNow:()V
+       4: iconst_0
+       5: istore        4
+       7: aload_2
+       8: invokestatic  #61                 // Method org/apache/zookeeper/ClientCnxnSocketNetty$WakeupPacket.getInstance:()Lorg/apache/zookeeper/ClientCnxn$Packet;
+      11: if_acmpeq     92
+      14: aload_2
+      15: getfield      #101                // Field org/apache/zookeeper/ClientCnxn$Packet.requestHeader:Lorg/apache/zookeeper/proto/RequestHeader;
+      18: ifnull        83
+      21: aload_2
+      22: getfield      #101                // Field org/apache/zookeeper/ClientCnxn$Packet.requestHeader:Lorg/apache/zookeeper/proto/RequestHeader;
+      25: invokevirtual #102                // Method org/apache/zookeeper/proto/RequestHeader.getType:()I
+      28: bipush        11
+      30: if_icmpeq     83
+      33: aload_2
+      34: getfield      #101                // Field org/apache/zookeeper/ClientCnxn$Packet.requestHeader:Lorg/apache/zookeeper/proto/RequestHeader;
+      37: invokevirtual #102                // Method org/apache/zookeeper/proto/RequestHeader.getType:()I
+      40: bipush        100
+      42: if_icmpeq     83
+      45: aload_2
+      46: getfield      #101                // Field org/apache/zookeeper/ClientCnxn$Packet.requestHeader:Lorg/apache/zookeeper/proto/RequestHeader;
+      49: aload_3
+      50: invokevirtual #104                // Method org/apache/zookeeper/ClientCnxn.getXid:()I
+      53: invokevirtual #105                // Method org/apache/zookeeper/proto/RequestHeader.setXid:(I)V
+      56: aload_1
+      57: dup
+      58: astore        5
+      60: monitorenter
+      61: aload_1
+      62: aload_2
+      63: invokeinterface #106,  2          // InterfaceMethod java/util/Queue.add:(Ljava/lang/Object;)Z
+      68: pop
+      69: aload         5
+      71: monitorexit
+      72: goto          83
+      75: astore        6
+      77: aload         5
+      79: monitorexit
+      80: aload         6
+      82: athrow
+      83: aload_0
+      84: aload_2
+      85: invokespecial #107                // Method sendPktOnly:(Lorg/apache/zookeeper/ClientCnxn$Packet;)Lio/netty/channel/ChannelFuture;
+      88: pop
+      89: iconst_1
+      90: istore        4
+      92: aload_0
+      93: getfield      #56                 // Field outgoingQueue:Ljava/util/concurrent/LinkedBlockingDeque;
+      96: invokevirtual #108                // Method java/util/concurrent/LinkedBlockingDeque.isEmpty:()Z
+      99: ifeq          105
+     102: goto          119
+     105: aload_0
+     106: getfield      #56                 // Field outgoingQueue:Ljava/util/concurrent/LinkedBlockingDeque;
+     109: invokevirtual #99                 // Method java/util/concurrent/LinkedBlockingDeque.remove:()Ljava/lang/Object;
+     112: checkcast     #60                 // class org/apache/zookeeper/ClientCnxn$Packet
+     115: astore_2
+     116: goto          7
+     119: iload         4
+     121: ifeq          134
+     124: aload_0
+     125: getfield      #7                  // Field channel:Lio/netty/channel/Channel;
+     128: invokeinterface #109,  1          // InterfaceMethod io/netty/channel/Channel.flush:()Lio/netty/channel/Channel;
+     133: pop
+     134: return
+    Exception table:
+       from    to  target type
+          61    72    75   any
+          75    80    75   any
+
+  void sendPacket(org.apache.zookeeper.ClientCnxn$Packet) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field channel:Lio/netty/channel/Channel;
+       4: ifnonnull     17
+       7: new           #110                // class java/io/IOException
+      10: dup
+      11: ldc           #111                // String channel has been closed
+      13: invokespecial #112                // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+      16: athrow
+      17: aload_0
+      18: aload_1
+      19: invokespecial #100                // Method sendPktAndFlush:(Lorg/apache/zookeeper/ClientCnxn$Packet;)Lio/netty/channel/ChannelFuture;
+      22: pop
+      23: return
+
+  java.net.SocketAddress getRemoteSocketAddress();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field channel:Lio/netty/channel/Channel;
+       4: astore_1
+       5: aload_1
+       6: ifnonnull     13
+       9: aconst_null
+      10: goto          19
+      13: aload_1
+      14: invokeinterface #113,  1          // InterfaceMethod io/netty/channel/Channel.remoteAddress:()Ljava/net/SocketAddress;
+      19: areturn
+
+  java.net.SocketAddress getLocalSocketAddress();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field channel:Lio/netty/channel/Channel;
+       4: astore_1
+       5: aload_1
+       6: ifnonnull     13
+       9: aconst_null
+      10: goto          19
+      13: aload_1
+      14: invokeinterface #114,  1          // InterfaceMethod io/netty/channel/Channel.localAddress:()Ljava/net/SocketAddress;
+      19: areturn
+
+  void testableCloseSocket() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field channel:Lio/netty/channel/Channel;
+       4: astore_1
+       5: aload_1
+       6: ifnull        21
+       9: aload_1
+      10: invokeinterface #115,  1          // InterfaceMethod io/netty/channel/Channel.disconnect:()Lio/netty/channel/ChannelFuture;
+      15: invokeinterface #116,  1          // InterfaceMethod io/netty/channel/ChannelFuture.awaitUninterruptibly:()Lio/netty/channel/ChannelFuture;
+      20: pop
+      21: return
+
+  static void setTestAllocator(io.netty.buffer.ByteBufAllocator);
+    Code:
+       0: getstatic     #26                 // Field TEST_ALLOCATOR:Ljava/util/concurrent/atomic/AtomicReference;
+       3: aload_0
+       4: invokevirtual #117                // Method java/util/concurrent/atomic/AtomicReference.set:(Ljava/lang/Object;)V
+       7: return
+
+  static void clearTestAllocator();
+    Code:
+       0: getstatic     #26                 // Field TEST_ALLOCATOR:Ljava/util/concurrent/atomic/AtomicReference;
+       3: aconst_null
+       4: invokevirtual #117                // Method java/util/concurrent/atomic/AtomicReference.set:(Ljava/lang/Object;)V
+       7: return
+
+  private void lambda$new$0(io.netty.util.concurrent.Future) throws java.lang.Exception;
+    Code:
+       0: aload_1
+       1: invokeinterface #118,  1          // InterfaceMethod io/netty/util/concurrent/Future.isSuccess:()Z
+       6: ifeq          17
+       9: aload_0
+      10: getfield      #119                // Field sentCount:Ljava/util/concurrent/atomic/AtomicLong;
+      13: invokevirtual #120                // Method java/util/concurrent/atomic/AtomicLong.getAndIncrement:()J
+      16: pop2
+      17: return
+
+  static java.util.concurrent.locks.Lock access$000(org.apache.zookeeper.ClientCnxnSocketNetty);
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field connectLock:Ljava/util/concurrent/locks/Lock;
+       4: areturn
+
+  static org.slf4j.Logger access$100();
+    Code:
+       0: getstatic     #9                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static io.netty.channel.ChannelFuture access$200(org.apache.zookeeper.ClientCnxnSocketNetty);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field connectFuture:Lio/netty/channel/ChannelFuture;
+       4: areturn
+
+  static io.netty.channel.Channel access$302(org.apache.zookeeper.ClientCnxnSocketNetty, io.netty.channel.Channel);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: dup_x1
+       3: putfield      #7                  // Field channel:Lio/netty/channel/Channel;
+       6: areturn
+
+  static java.util.concurrent.atomic.AtomicBoolean access$400(org.apache.zookeeper.ClientCnxnSocketNetty);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field disconnected:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: areturn
+
+  static java.util.concurrent.Semaphore access$500(org.apache.zookeeper.ClientCnxnSocketNetty);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field waitSasl:Ljava/util/concurrent/Semaphore;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicBoolean access$600(org.apache.zookeeper.ClientCnxnSocketNetty);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field needSasl:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: areturn
+
+  static void access$700(org.apache.zookeeper.ClientCnxnSocketNetty);
+    Code:
+       0: aload_0
+       1: invokespecial #3                  // Method sendPrimePacket:()V
+       4: return
+
+  static io.netty.channel.ChannelFuture access$202(org.apache.zookeeper.ClientCnxnSocketNetty, io.netty.channel.ChannelFuture);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: dup_x1
+       3: putfield      #8                  // Field connectFuture:Lio/netty/channel/ChannelFuture;
+       6: areturn
+
+  static void access$800(org.apache.zookeeper.ClientCnxnSocketNetty);
+    Code:
+       0: aload_0
+       1: invokespecial #2                  // Method wakeupCnxn:()V
+       4: return
+
+  static java.util.concurrent.CountDownLatch access$900(org.apache.zookeeper.ClientCnxnSocketNetty);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field firstConnect:Ljava/util/concurrent/CountDownLatch;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc           #121                // class org/apache/zookeeper/ClientCnxnSocketNetty
+       2: invokestatic  #122                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #9                  // Field LOG:Lorg/slf4j/Logger;
+       8: new           #123                // class java/util/concurrent/atomic/AtomicReference
+      11: dup
+      12: aconst_null
+      13: invokespecial #124                // Method java/util/concurrent/atomic/AtomicReference."<init>":(Ljava/lang/Object;)V
+      16: putstatic     #26                 // Field TEST_ALLOCATOR:Ljava/util/concurrent/atomic/AtomicReference;
+      19: return
+}

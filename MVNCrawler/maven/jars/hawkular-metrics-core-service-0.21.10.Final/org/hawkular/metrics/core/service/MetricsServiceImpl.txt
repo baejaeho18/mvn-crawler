@@ -1,0 +1,2780 @@
+Compiled from "MetricsServiceImpl.java"
+public class org.hawkular.metrics.core.service.MetricsServiceImpl implements org.hawkular.metrics.core.service.MetricsService {
+  private static final org.hawkular.metrics.core.service.log.CoreLogger log;
+
+  public static final java.lang.String SYSTEM_TENANT_ID;
+
+  private final java.util.Map<org.hawkular.metrics.core.service.MetricsServiceImpl$DataRetentionKey, java.lang.Integer> dataRetentions;
+
+  private final rx.subjects.PublishSubject<org.hawkular.metrics.model.Metric<?>> insertedDataPointEvents;
+
+  private com.google.common.util.concurrent.ListeningExecutorService metricsTasks;
+
+  private org.hawkular.metrics.core.service.DataAccess dataAccess;
+
+  private org.hawkular.metrics.sysconfig.ConfigurationService configurationService;
+
+  private com.codahale.metrics.MetricRegistry metricRegistry;
+
+  private java.util.Map<org.hawkular.metrics.model.MetricType<?>, rx.functions.Func2<? extends org.hawkular.metrics.model.Metric<?>, java.lang.Integer, rx.Observable<java.lang.Integer>>> dataPointInserters;
+
+  private java.util.Map<org.hawkular.metrics.model.MetricType<?>, com.codahale.metrics.Meter> dataPointInsertMeters;
+
+  private java.util.Map<org.hawkular.metrics.model.MetricType<?>, com.codahale.metrics.Timer> dataPointReadTimers;
+
+  private java.util.Map<org.hawkular.metrics.model.MetricType<?>, rx.functions.Func6<? extends org.hawkular.metrics.model.MetricId<?>, java.lang.Long, java.lang.Long, java.lang.Integer, org.hawkular.metrics.core.service.Order, java.lang.Integer, rx.Observable<com.datastax.driver.core.Row>>> dataPointFinders;
+
+  private java.util.Map<org.hawkular.metrics.model.MetricType<?>, rx.functions.Func1<com.datastax.driver.core.Row, ? extends org.hawkular.metrics.model.DataPoint<?>>> dataPointMappers;
+
+  private org.hawkular.metrics.core.service.TagQueryParser tagQueryParser;
+
+  private int defaultTTL;
+
+  private int maxStringSize;
+
+  private long insertRetryMaxDelay;
+
+  private int insertMaxRetries;
+
+  private int defaultPageSize;
+
+  public org.hawkular.metrics.core.service.MetricsServiceImpl();
+    Code:
+       0: aload_0
+       1: invokespecial #3                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #4                  // class java/util/concurrent/ConcurrentHashMap
+       8: dup
+       9: invokespecial #5                  // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      12: putfield      #2                  // Field dataRetentions:Ljava/util/Map;
+      15: aload_0
+      16: invokestatic  #6                  // Method rx/subjects/PublishSubject.create:()Lrx/subjects/PublishSubject;
+      19: putfield      #7                  // Field insertedDataPointEvents:Lrx/subjects/PublishSubject;
+      22: aload_0
+      23: ldc2_w        #8                  // long 7l
+      26: invokestatic  #10                 // Method org/joda/time/Duration.standardDays:(J)Lorg/joda/time/Duration;
+      29: invokevirtual #11                 // Method org/joda/time/Duration.toStandardSeconds:()Lorg/joda/time/Seconds;
+      32: invokevirtual #12                 // Method org/joda/time/Seconds.getSeconds:()I
+      35: putfield      #13                 // Field defaultTTL:I
+      38: return
+
+  public void startUp(com.datastax.driver.core.Session, java.lang.String, boolean, com.codahale.metrics.MetricRegistry);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: iload_3
+       4: iconst_1
+       5: aload         4
+       7: invokevirtual #14                 // Method startUp:(Lcom/datastax/driver/core/Session;Ljava/lang/String;ZZLcom/codahale/metrics/MetricRegistry;)V
+      10: return
+
+  public void startUp(com.datastax.driver.core.Session, java.lang.String, boolean, boolean, com.codahale.metrics.MetricRegistry);
+    Code:
+       0: aload_1
+       1: new           #15                 // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+       8: ldc           #17                 // String USE
+      10: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      13: aload_2
+      14: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: invokevirtual #19                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      20: invokeinterface #20,  2           // InterfaceMethod com/datastax/driver/core/Session.execute:(Ljava/lang/String;)Lcom/datastax/driver/core/ResultSet;
+      25: pop
+      26: getstatic     #1                  // Field log:Lorg/hawkular/metrics/core/service/log/CoreLogger;
+      29: aload_2
+      30: invokeinterface #21,  2           // InterfaceMethod org/hawkular/metrics/core/service/log/CoreLogger.infoKeyspaceUsed:(Ljava/lang/String;)V
+      35: aload_0
+      36: iconst_4
+      37: new           #22                 // class org/hawkular/metrics/core/service/MetricsThreadFactory
+      40: dup
+      41: invokespecial #23                 // Method org/hawkular/metrics/core/service/MetricsThreadFactory."<init>":()V
+      44: invokestatic  #24                 // Method java/util/concurrent/Executors.newFixedThreadPool:(ILjava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+      47: invokestatic  #25                 // Method com/google/common/util/concurrent/MoreExecutors.listeningDecorator:(Ljava/util/concurrent/ExecutorService;)Lcom/google/common/util/concurrent/ListeningExecutorService;
+      50: putfield      #26                 // Field metricsTasks:Lcom/google/common/util/concurrent/ListeningExecutorService;
+      53: aload_0
+      54: invokevirtual #27                 // Method loadDataRetentions:()V
+      57: aload_0
+      58: aload         5
+      60: putfield      #28                 // Field metricRegistry:Lcom/codahale/metrics/MetricRegistry;
+      63: aload_0
+      64: invokestatic  #29                 // Method com/google/common/collect/ImmutableMap.builder:()Lcom/google/common/collect/ImmutableMap$Builder;
+      67: getstatic     #30                 // Field org/hawkular/metrics/model/MetricType.GAUGE:Lorg/hawkular/metrics/model/MetricType;
+      70: aload_0
+      71: invokedynamic #31,  0             // InvokeDynamic #0:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;)Lrx/functions/Func2;
+      76: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+      79: getstatic     #33                 // Field org/hawkular/metrics/model/MetricType.AVAILABILITY:Lorg/hawkular/metrics/model/MetricType;
+      82: aload_0
+      83: invokedynamic #34,  0             // InvokeDynamic #1:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;)Lrx/functions/Func2;
+      88: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+      91: getstatic     #35                 // Field org/hawkular/metrics/model/MetricType.COUNTER:Lorg/hawkular/metrics/model/MetricType;
+      94: aload_0
+      95: invokedynamic #36,  0             // InvokeDynamic #2:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;)Lrx/functions/Func2;
+     100: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     103: getstatic     #37                 // Field org/hawkular/metrics/model/MetricType.STRING:Lorg/hawkular/metrics/model/MetricType;
+     106: aload_0
+     107: invokedynamic #38,  0             // InvokeDynamic #3:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;)Lrx/functions/Func2;
+     112: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     115: invokevirtual #39                 // Method com/google/common/collect/ImmutableMap$Builder.build:()Lcom/google/common/collect/ImmutableMap;
+     118: putfield      #40                 // Field dataPointInserters:Ljava/util/Map;
+     121: aload_0
+     122: invokestatic  #29                 // Method com/google/common/collect/ImmutableMap.builder:()Lcom/google/common/collect/ImmutableMap$Builder;
+     125: getstatic     #30                 // Field org/hawkular/metrics/model/MetricType.GAUGE:Lorg/hawkular/metrics/model/MetricType;
+     128: aload_0
+     129: invokedynamic #41,  0             // InvokeDynamic #4:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;)Lrx/functions/Func6;
+     134: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     137: getstatic     #33                 // Field org/hawkular/metrics/model/MetricType.AVAILABILITY:Lorg/hawkular/metrics/model/MetricType;
+     140: aload_0
+     141: invokedynamic #42,  0             // InvokeDynamic #5:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;)Lrx/functions/Func6;
+     146: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     149: getstatic     #35                 // Field org/hawkular/metrics/model/MetricType.COUNTER:Lorg/hawkular/metrics/model/MetricType;
+     152: aload_0
+     153: invokedynamic #43,  0             // InvokeDynamic #6:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;)Lrx/functions/Func6;
+     158: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     161: getstatic     #37                 // Field org/hawkular/metrics/model/MetricType.STRING:Lorg/hawkular/metrics/model/MetricType;
+     164: aload_0
+     165: invokedynamic #44,  0             // InvokeDynamic #7:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;)Lrx/functions/Func6;
+     170: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     173: invokevirtual #39                 // Method com/google/common/collect/ImmutableMap$Builder.build:()Lcom/google/common/collect/ImmutableMap;
+     176: putfield      #45                 // Field dataPointFinders:Ljava/util/Map;
+     179: aload_0
+     180: invokestatic  #29                 // Method com/google/common/collect/ImmutableMap.builder:()Lcom/google/common/collect/ImmutableMap$Builder;
+     183: getstatic     #30                 // Field org/hawkular/metrics/model/MetricType.GAUGE:Lorg/hawkular/metrics/model/MetricType;
+     186: invokedynamic #46,  0             // InvokeDynamic #8:call:()Lrx/functions/Func1;
+     191: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     194: getstatic     #33                 // Field org/hawkular/metrics/model/MetricType.AVAILABILITY:Lorg/hawkular/metrics/model/MetricType;
+     197: invokedynamic #47,  0             // InvokeDynamic #9:call:()Lrx/functions/Func1;
+     202: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     205: getstatic     #35                 // Field org/hawkular/metrics/model/MetricType.COUNTER:Lorg/hawkular/metrics/model/MetricType;
+     208: invokedynamic #48,  0             // InvokeDynamic #10:call:()Lrx/functions/Func1;
+     213: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     216: getstatic     #37                 // Field org/hawkular/metrics/model/MetricType.STRING:Lorg/hawkular/metrics/model/MetricType;
+     219: invokedynamic #49,  0             // InvokeDynamic #11:call:()Lrx/functions/Func1;
+     224: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     227: invokevirtual #39                 // Method com/google/common/collect/ImmutableMap$Builder.build:()Lcom/google/common/collect/ImmutableMap;
+     230: putfield      #50                 // Field dataPointMappers:Ljava/util/Map;
+     233: aload_0
+     234: aload_1
+     235: invokespecial #51                 // Method initConfiguration:(Lcom/datastax/driver/core/Session;)V
+     238: aload_0
+     239: aload_1
+     240: aload_2
+     241: invokespecial #52                 // Method setDefaultTTL:(Lcom/datastax/driver/core/Session;Ljava/lang/String;)V
+     244: aload_0
+     245: invokespecial #53                 // Method initMetrics:()V
+     248: aload_0
+     249: new           #54                 // class org/hawkular/metrics/core/service/TagQueryParser
+     252: dup
+     253: aload_0
+     254: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+     257: aload_0
+     258: invokespecial #56                 // Method org/hawkular/metrics/core/service/TagQueryParser."<init>":(Lorg/hawkular/metrics/core/service/DataAccess;Lorg/hawkular/metrics/core/service/MetricsService;)V
+     261: putfield      #57                 // Field tagQueryParser:Lorg/hawkular/metrics/core/service/TagQueryParser;
+     264: return
+
+  void loadDataRetentions();
+    Code:
+       0: aload_0
+       1: invokespecial #58                 // Method loadTenantIds:()Ljava/util/List;
+       4: astore_1
+       5: new           #59                 // class java/util/concurrent/CountDownLatch
+       8: dup
+       9: aload_1
+      10: invokeinterface #60,  1           // InterfaceMethod java/util/List.size:()I
+      15: iconst_2
+      16: imul
+      17: invokespecial #61                 // Method java/util/concurrent/CountDownLatch."<init>":(I)V
+      20: astore_2
+      21: aload_1
+      22: invokeinterface #62,  1           // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      27: astore_3
+      28: aload_3
+      29: invokeinterface #63,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      34: ifeq          175
+      37: aload_3
+      38: invokeinterface #64,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      43: checkcast     #65                 // class java/lang/String
+      46: astore        4
+      48: new           #66                 // class org/hawkular/metrics/core/service/DataRetentionsMapper
+      51: dup
+      52: aload         4
+      54: getstatic     #30                 // Field org/hawkular/metrics/model/MetricType.GAUGE:Lorg/hawkular/metrics/model/MetricType;
+      57: invokespecial #67                 // Method org/hawkular/metrics/core/service/DataRetentionsMapper."<init>":(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;)V
+      60: astore        5
+      62: new           #66                 // class org/hawkular/metrics/core/service/DataRetentionsMapper
+      65: dup
+      66: aload         4
+      68: getstatic     #33                 // Field org/hawkular/metrics/model/MetricType.AVAILABILITY:Lorg/hawkular/metrics/model/MetricType;
+      71: invokespecial #67                 // Method org/hawkular/metrics/core/service/DataRetentionsMapper."<init>":(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;)V
+      74: astore        6
+      76: aload_0
+      77: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      80: aload         4
+      82: getstatic     #30                 // Field org/hawkular/metrics/model/MetricType.GAUGE:Lorg/hawkular/metrics/model/MetricType;
+      85: invokeinterface #68,  3           // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findDataRetentions:(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;)Lcom/datastax/driver/core/ResultSetFuture;
+      90: astore        7
+      92: aload_0
+      93: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      96: aload         4
+      98: getstatic     #33                 // Field org/hawkular/metrics/model/MetricType.AVAILABILITY:Lorg/hawkular/metrics/model/MetricType;
+     101: invokeinterface #68,  3           // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findDataRetentions:(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;)Lcom/datastax/driver/core/ResultSetFuture;
+     106: astore        8
+     108: aload         7
+     110: aload         5
+     112: aload_0
+     113: getfield      #26                 // Field metricsTasks:Lcom/google/common/util/concurrent/ListeningExecutorService;
+     116: invokestatic  #69                 // Method com/google/common/util/concurrent/Futures.transform:(Lcom/google/common/util/concurrent/ListenableFuture;Lcom/google/common/base/Function;Ljava/util/concurrent/Executor;)Lcom/google/common/util/concurrent/ListenableFuture;
+     119: astore        9
+     121: aload         8
+     123: aload         6
+     125: aload_0
+     126: getfield      #26                 // Field metricsTasks:Lcom/google/common/util/concurrent/ListeningExecutorService;
+     129: invokestatic  #69                 // Method com/google/common/util/concurrent/Futures.transform:(Lcom/google/common/util/concurrent/ListenableFuture;Lcom/google/common/base/Function;Ljava/util/concurrent/Executor;)Lcom/google/common/util/concurrent/ListenableFuture;
+     132: astore        10
+     134: aload         9
+     136: new           #70                 // class org/hawkular/metrics/core/service/MetricsServiceImpl$DataRetentionsLoadedCallback
+     139: dup
+     140: aload_0
+     141: aload         4
+     143: getstatic     #30                 // Field org/hawkular/metrics/model/MetricType.GAUGE:Lorg/hawkular/metrics/model/MetricType;
+     146: aload_2
+     147: invokespecial #71                 // Method org/hawkular/metrics/core/service/MetricsServiceImpl$DataRetentionsLoadedCallback."<init>":(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;Ljava/util/concurrent/CountDownLatch;)V
+     150: invokestatic  #72                 // Method com/google/common/util/concurrent/Futures.addCallback:(Lcom/google/common/util/concurrent/ListenableFuture;Lcom/google/common/util/concurrent/FutureCallback;)V
+     153: aload         10
+     155: new           #70                 // class org/hawkular/metrics/core/service/MetricsServiceImpl$DataRetentionsLoadedCallback
+     158: dup
+     159: aload_0
+     160: aload         4
+     162: getstatic     #33                 // Field org/hawkular/metrics/model/MetricType.AVAILABILITY:Lorg/hawkular/metrics/model/MetricType;
+     165: aload_2
+     166: invokespecial #71                 // Method org/hawkular/metrics/core/service/MetricsServiceImpl$DataRetentionsLoadedCallback."<init>":(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;Ljava/util/concurrent/CountDownLatch;)V
+     169: invokestatic  #72                 // Method com/google/common/util/concurrent/Futures.addCallback:(Lcom/google/common/util/concurrent/ListenableFuture;Lcom/google/common/util/concurrent/FutureCallback;)V
+     172: goto          28
+     175: aload_2
+     176: invokevirtual #73                 // Method java/util/concurrent/CountDownLatch.await:()V
+     179: goto          192
+     182: astore_3
+     183: new           #75                 // class java/lang/RuntimeException
+     186: dup
+     187: aload_3
+     188: invokespecial #76                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/Throwable;)V
+     191: athrow
+     192: return
+    Exception table:
+       from    to  target type
+         175   179   182   Class java/lang/InterruptedException
+
+  void unloadDataRetentions();
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field dataRetentions:Ljava/util/Map;
+       4: invokeinterface #77,  1           // InterfaceMethod java/util/Map.clear:()V
+       9: return
+
+  private void initMetrics();
+    Code:
+       0: aload_0
+       1: invokestatic  #29                 // Method com/google/common/collect/ImmutableMap.builder:()Lcom/google/common/collect/ImmutableMap$Builder;
+       4: getstatic     #30                 // Field org/hawkular/metrics/model/MetricType.GAUGE:Lorg/hawkular/metrics/model/MetricType;
+       7: aload_0
+       8: getfield      #28                 // Field metricRegistry:Lcom/codahale/metrics/MetricRegistry;
+      11: ldc           #78                 // String gauge-inserts
+      13: invokevirtual #79                 // Method com/codahale/metrics/MetricRegistry.meter:(Ljava/lang/String;)Lcom/codahale/metrics/Meter;
+      16: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+      19: getstatic     #33                 // Field org/hawkular/metrics/model/MetricType.AVAILABILITY:Lorg/hawkular/metrics/model/MetricType;
+      22: aload_0
+      23: getfield      #28                 // Field metricRegistry:Lcom/codahale/metrics/MetricRegistry;
+      26: ldc           #80                 // String availability-inserts
+      28: invokevirtual #79                 // Method com/codahale/metrics/MetricRegistry.meter:(Ljava/lang/String;)Lcom/codahale/metrics/Meter;
+      31: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+      34: getstatic     #35                 // Field org/hawkular/metrics/model/MetricType.COUNTER:Lorg/hawkular/metrics/model/MetricType;
+      37: aload_0
+      38: getfield      #28                 // Field metricRegistry:Lcom/codahale/metrics/MetricRegistry;
+      41: ldc           #81                 // String counter-inserts
+      43: invokevirtual #79                 // Method com/codahale/metrics/MetricRegistry.meter:(Ljava/lang/String;)Lcom/codahale/metrics/Meter;
+      46: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+      49: getstatic     #82                 // Field org/hawkular/metrics/model/MetricType.COUNTER_RATE:Lorg/hawkular/metrics/model/MetricType;
+      52: aload_0
+      53: getfield      #28                 // Field metricRegistry:Lcom/codahale/metrics/MetricRegistry;
+      56: ldc           #78                 // String gauge-inserts
+      58: invokevirtual #79                 // Method com/codahale/metrics/MetricRegistry.meter:(Ljava/lang/String;)Lcom/codahale/metrics/Meter;
+      61: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+      64: getstatic     #37                 // Field org/hawkular/metrics/model/MetricType.STRING:Lorg/hawkular/metrics/model/MetricType;
+      67: aload_0
+      68: getfield      #28                 // Field metricRegistry:Lcom/codahale/metrics/MetricRegistry;
+      71: ldc           #83                 // String string-inserts
+      73: invokevirtual #79                 // Method com/codahale/metrics/MetricRegistry.meter:(Ljava/lang/String;)Lcom/codahale/metrics/Meter;
+      76: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+      79: invokevirtual #39                 // Method com/google/common/collect/ImmutableMap$Builder.build:()Lcom/google/common/collect/ImmutableMap;
+      82: putfield      #84                 // Field dataPointInsertMeters:Ljava/util/Map;
+      85: aload_0
+      86: invokestatic  #29                 // Method com/google/common/collect/ImmutableMap.builder:()Lcom/google/common/collect/ImmutableMap$Builder;
+      89: getstatic     #30                 // Field org/hawkular/metrics/model/MetricType.GAUGE:Lorg/hawkular/metrics/model/MetricType;
+      92: aload_0
+      93: getfield      #28                 // Field metricRegistry:Lcom/codahale/metrics/MetricRegistry;
+      96: ldc           #85                 // String gauge-read-latency
+      98: invokevirtual #86                 // Method com/codahale/metrics/MetricRegistry.timer:(Ljava/lang/String;)Lcom/codahale/metrics/Timer;
+     101: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     104: getstatic     #33                 // Field org/hawkular/metrics/model/MetricType.AVAILABILITY:Lorg/hawkular/metrics/model/MetricType;
+     107: aload_0
+     108: getfield      #28                 // Field metricRegistry:Lcom/codahale/metrics/MetricRegistry;
+     111: ldc           #87                 // String availability-read-latency
+     113: invokevirtual #86                 // Method com/codahale/metrics/MetricRegistry.timer:(Ljava/lang/String;)Lcom/codahale/metrics/Timer;
+     116: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     119: getstatic     #35                 // Field org/hawkular/metrics/model/MetricType.COUNTER:Lorg/hawkular/metrics/model/MetricType;
+     122: aload_0
+     123: getfield      #28                 // Field metricRegistry:Lcom/codahale/metrics/MetricRegistry;
+     126: ldc           #88                 // String counter-read-latency
+     128: invokevirtual #86                 // Method com/codahale/metrics/MetricRegistry.timer:(Ljava/lang/String;)Lcom/codahale/metrics/Timer;
+     131: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     134: getstatic     #37                 // Field org/hawkular/metrics/model/MetricType.STRING:Lorg/hawkular/metrics/model/MetricType;
+     137: aload_0
+     138: getfield      #28                 // Field metricRegistry:Lcom/codahale/metrics/MetricRegistry;
+     141: ldc           #89                 // String string-read-latency
+     143: invokevirtual #86                 // Method com/codahale/metrics/MetricRegistry.timer:(Ljava/lang/String;)Lcom/codahale/metrics/Timer;
+     146: invokevirtual #32                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     149: invokevirtual #39                 // Method com/google/common/collect/ImmutableMap$Builder.build:()Lcom/google/common/collect/ImmutableMap;
+     152: putfield      #90                 // Field dataPointReadTimers:Ljava/util/Map;
+     155: return
+
+  private void initConfiguration(com.datastax.driver.core.Session);
+    Code:
+       0: aload_0
+       1: getfield      #91                 // Field configurationService:Lorg/hawkular/metrics/sysconfig/ConfigurationService;
+       4: ldc           #92                 // String org.hawkular.metrics
+       6: invokevirtual #93                 // Method org/hawkular/metrics/sysconfig/ConfigurationService.load:(Ljava/lang/String;)Lrx/Observable;
+       9: invokevirtual #94                 // Method rx/Observable.toBlocking:()Lrx/observables/BlockingObservable;
+      12: aconst_null
+      13: invokevirtual #95                 // Method rx/observables/BlockingObservable.lastOrDefault:(Ljava/lang/Object;)Ljava/lang/Object;
+      16: checkcast     #96                 // class org/hawkular/metrics/sysconfig/Configuration
+      19: astore_2
+      20: aload_2
+      21: ldc           #97                 // String string-size
+      23: invokevirtual #98                 // Method org/hawkular/metrics/sysconfig/Configuration.get:(Ljava/lang/String;)Ljava/lang/String;
+      26: astore_3
+      27: aload_3
+      28: ifnonnull     39
+      31: aload_0
+      32: iconst_m1
+      33: putfield      #99                 // Field maxStringSize:I
+      36: goto          47
+      39: aload_0
+      40: aload_3
+      41: invokestatic  #100                // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+      44: putfield      #99                 // Field maxStringSize:I
+      47: getstatic     #1                  // Field log:Lorg/hawkular/metrics/core/service/log/CoreLogger;
+      50: aload_0
+      51: getfield      #99                 // Field maxStringSize:I
+      54: invokeinterface #101,  2          // InterfaceMethod org/hawkular/metrics/core/service/log/CoreLogger.infoMaxSizeStringMetrics:(I)V
+      59: aload_0
+      60: aload_2
+      61: ldc           #102                // String ingestion.retry.max-delay
+      63: ldc           #103                // String 30000
+      65: invokevirtual #104                // Method org/hawkular/metrics/sysconfig/Configuration.get:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      68: invokestatic  #105                // Method java/lang/Long.parseLong:(Ljava/lang/String;)J
+      71: putfield      #106                // Field insertRetryMaxDelay:J
+      74: aload_0
+      75: aload_2
+      76: ldc           #107                // String ingestion.retry.max-retries
+      78: ldc           #108                // String 5
+      80: invokevirtual #104                // Method org/hawkular/metrics/sysconfig/Configuration.get:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      83: invokestatic  #100                // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+      86: putfield      #109                // Field insertMaxRetries:I
+      89: getstatic     #1                  // Field log:Lorg/hawkular/metrics/core/service/log/CoreLogger;
+      92: aload_0
+      93: getfield      #109                // Field insertMaxRetries:I
+      96: aload_0
+      97: getfield      #106                // Field insertRetryMaxDelay:J
+     100: invokeinterface #110,  4          // InterfaceMethod org/hawkular/metrics/core/service/log/CoreLogger.infoInsertRetryConfig:(IJ)V
+     105: aload_0
+     106: aload_2
+     107: ldc           #111                // String page-size
+     109: ldc           #112                // String 5000
+     111: invokevirtual #104                // Method org/hawkular/metrics/sysconfig/Configuration.get:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+     114: invokestatic  #100                // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+     117: putfield      #113                // Field defaultPageSize:I
+     120: return
+
+  private void setDefaultTTL(com.datastax.driver.core.Session, java.lang.String);
+    Code:
+       0: aload_1
+       1: new           #15                 // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+       8: ldc           #114                // String select default_time_to_live from system_schema.tables where keyspace_name = \'
+      10: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      13: aload_2
+      14: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: ldc           #115                // String \' and table_name = \'data\'
+      19: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: invokevirtual #19                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      25: invokeinterface #20,  2           // InterfaceMethod com/datastax/driver/core/Session.execute:(Ljava/lang/String;)Lcom/datastax/driver/core/ResultSet;
+      30: astore_3
+      31: aload_3
+      32: invokeinterface #116,  1          // InterfaceMethod com/datastax/driver/core/ResultSet.all:()Ljava/util/List;
+      37: astore        4
+      39: aload         4
+      41: invokeinterface #117,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+      46: ifeq          81
+      49: new           #118                // class java/lang/IllegalStateException
+      52: dup
+      53: new           #15                 // class java/lang/StringBuilder
+      56: dup
+      57: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+      60: ldc           #119                // String Failed to find
+      62: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      65: aload_2
+      66: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      69: ldc           #120                // String .data in system_schema.tables. Default data retention cannot be configured.
+      71: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      74: invokevirtual #19                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      77: invokespecial #121                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      80: athrow
+      81: aload         4
+      83: iconst_0
+      84: invokeinterface #122,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      89: checkcast     #123                // class com/datastax/driver/core/Row
+      92: iconst_0
+      93: invokeinterface #124,  2          // InterfaceMethod com/datastax/driver/core/Row.getInt:(I)I
+      98: istore        5
+     100: iload         5
+     102: aload_0
+     103: getfield      #13                 // Field defaultTTL:I
+     106: if_icmpeq     147
+     109: aload_1
+     110: new           #15                 // class java/lang/StringBuilder
+     113: dup
+     114: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+     117: ldc           #125                // String alter table
+     119: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     122: aload_2
+     123: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     126: ldc           #126                // String .data with default_time_to_live =
+     128: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     131: aload_0
+     132: getfield      #13                 // Field defaultTTL:I
+     135: invokevirtual #127                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     138: invokevirtual #19                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     141: invokeinterface #20,  2           // InterfaceMethod com/datastax/driver/core/Session.execute:(Ljava/lang/String;)Lcom/datastax/driver/core/ResultSet;
+     146: pop
+     147: getstatic     #1                  // Field log:Lorg/hawkular/metrics/core/service/log/CoreLogger;
+     150: aload_0
+     151: getfield      #13                 // Field defaultTTL:I
+     154: invokeinterface #128,  2          // InterfaceMethod org/hawkular/metrics/core/service/log/CoreLogger.infoDefaultDataRetention:(I)V
+     159: return
+
+  org.hawkular.metrics.core.service.DataAccess getDataAccess();
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: areturn
+
+  public void setDataAccess(org.hawkular.metrics.core.service.DataAccess);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       5: return
+
+  public void setConfigurationService(org.hawkular.metrics.sysconfig.ConfigurationService);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #91                 // Field configurationService:Lorg/hawkular/metrics/sysconfig/ConfigurationService;
+       5: return
+
+  public void setDefaultTTL(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: i2l
+       3: invokestatic  #10                 // Method org/joda/time/Duration.standardDays:(J)Lorg/joda/time/Duration;
+       6: invokevirtual #11                 // Method org/joda/time/Duration.toStandardSeconds:()Lorg/joda/time/Seconds;
+       9: invokevirtual #12                 // Method org/joda/time/Seconds.getSeconds:()I
+      12: putfield      #13                 // Field defaultTTL:I
+      15: return
+
+  public rx.Observable<java.lang.Void> createTenant(org.hawkular.metrics.model.Tenant, boolean);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: invokedynamic #129,  0            // InvokeDynamic #12:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lorg/hawkular/metrics/model/Tenant;Z)Lrx/Observable$OnSubscribe;
+       8: invokestatic  #130                // Method rx/Observable.create:(Lrx/Observable$OnSubscribe;)Lrx/Observable;
+      11: areturn
+
+  public rx.Observable<org.hawkular.metrics.model.Tenant> getTenants();
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: invokeinterface #131,  1          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findAllTenantIds:()Lrx/Observable;
+       9: invokedynamic #132,  0            // InvokeDynamic #13:call:()Lrx/functions/Func1;
+      14: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      17: invokevirtual #134                // Method rx/Observable.distinct:()Lrx/Observable;
+      20: aload_0
+      21: invokedynamic #135,  0            // InvokeDynamic #14:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;)Lrx/functions/Func1;
+      26: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      29: areturn
+
+  private java.util.List<java.lang.String> loadTenantIds();
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: invokeinterface #131,  1          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findAllTenantIds:()Lrx/Observable;
+       9: invokedynamic #137,  0            // InvokeDynamic #15:call:()Lrx/functions/Func1;
+      14: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      17: invokevirtual #134                // Method rx/Observable.distinct:()Lrx/Observable;
+      20: invokevirtual #94                 // Method rx/Observable.toBlocking:()Lrx/observables/BlockingObservable;
+      23: invokevirtual #138                // Method rx/observables/BlockingObservable.toIterable:()Ljava/lang/Iterable;
+      26: astore_1
+      27: aload_1
+      28: invokestatic  #139                // Method com/google/common/collect/ImmutableList.copyOf:(Ljava/lang/Iterable;)Lcom/google/common/collect/ImmutableList;
+      31: areturn
+
+  public rx.Observable<java.lang.Void> createMetric(org.hawkular.metrics.model.Metric<?>, boolean);
+    Code:
+       0: aload_1
+       1: invokevirtual #140                // Method org/hawkular/metrics/model/Metric.getMetricId:()Lorg/hawkular/metrics/model/MetricId;
+       4: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+       7: astore_3
+       8: aload_3
+       9: invokevirtual #142                // Method org/hawkular/metrics/model/MetricType.isUserType:()Z
+      12: ifne          51
+      15: new           #143                // class java/lang/IllegalArgumentException
+      18: dup
+      19: new           #15                 // class java/lang/StringBuilder
+      22: dup
+      23: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+      26: aload_1
+      27: invokevirtual #144                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      30: ldc           #145                // String  cannot be created.
+      32: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      35: aload_3
+      36: invokevirtual #144                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      39: ldc           #146                // String  metrics are internally generated metrics and cannot be created by clients.
+      41: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      44: invokevirtual #19                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      47: invokespecial #147                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      50: athrow
+      51: aload_0
+      52: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      55: aload_1
+      56: iload_2
+      57: invokeinterface #148,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertMetricInMetricsIndex:(Lorg/hawkular/metrics/model/Metric;Z)Lcom/datastax/driver/core/ResultSetFuture;
+      62: astore        4
+      64: aload         4
+      66: aload_0
+      67: getfield      #26                 // Field metricsTasks:Lcom/google/common/util/concurrent/ListeningExecutorService;
+      70: invokestatic  #149                // Method rx/observable/ListenableFutureObservable.from:(Lcom/google/common/util/concurrent/ListenableFuture;Ljava/util/concurrent/Executor;)Lrx/Observable;
+      73: astore        5
+      75: aload_0
+      76: aload         5
+      78: iload_2
+      79: aload_1
+      80: invokedynamic #150,  0            // InvokeDynamic #16:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lrx/Observable;ZLorg/hawkular/metrics/model/Metric;)Lrx/Observable$OnSubscribe;
+      85: invokestatic  #130                // Method rx/Observable.create:(Lrx/Observable$OnSubscribe;)Lrx/Observable;
+      88: areturn
+
+  private rx.Observable<com.datastax.driver.core.ResultSet> updateRetentionsIndex(org.hawkular.metrics.model.Metric<?>);
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: aload_1
+       5: invokeinterface #151,  2          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.updateRetentionsIndex:(Lorg/hawkular/metrics/model/Metric;)Lcom/datastax/driver/core/ResultSetFuture;
+      10: aload_0
+      11: getfield      #26                 // Field metricsTasks:Lcom/google/common/util/concurrent/ListeningExecutorService;
+      14: invokestatic  #149                // Method rx/observable/ListenableFutureObservable.from:(Lcom/google/common/util/concurrent/ListenableFuture;Ljava/util/concurrent/Executor;)Lrx/Observable;
+      17: aload_0
+      18: aload_1
+      19: invokedynamic #152,  0            // InvokeDynamic #17:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lorg/hawkular/metrics/model/Metric;)Lrx/functions/Action0;
+      24: invokevirtual #153                // Method rx/Observable.doOnCompleted:(Lrx/functions/Action0;)Lrx/Observable;
+      27: areturn
+
+  public rx.Observable<org.hawkular.metrics.model.Metric<?>> findAllMetrics();
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: invokeinterface #154,  1          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findAllMetricsInData:()Lrx/Observable;
+       9: new           #155                // class org/hawkular/metrics/core/service/transformers/MetricFromFullDataRowTransformer
+      12: dup
+      13: aload_0
+      14: getfield      #13                 // Field defaultTTL:I
+      17: invokespecial #156                // Method org/hawkular/metrics/core/service/transformers/MetricFromFullDataRowTransformer."<init>":(I)V
+      20: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      23: invokevirtual #134                // Method rx/Observable.distinct:()Lrx/Observable;
+      26: areturn
+
+  public <T> rx.Observable<org.hawkular.metrics.model.Metric<T>> findMetric(org.hawkular.metrics.model.MetricId<T>);
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: aload_1
+       5: invokeinterface #158,  2          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findMetricInMetricsIndex:(Lorg/hawkular/metrics/model/MetricId;)Lrx/Observable;
+      10: new           #159                // class org/hawkular/metrics/core/service/transformers/MetricsIndexRowTransformer
+      13: dup
+      14: aload_1
+      15: invokevirtual #160                // Method org/hawkular/metrics/model/MetricId.getTenantId:()Ljava/lang/String;
+      18: aload_1
+      19: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+      22: aload_0
+      23: getfield      #13                 // Field defaultTTL:I
+      26: invokespecial #161                // Method org/hawkular/metrics/core/service/transformers/MetricsIndexRowTransformer."<init>":(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;I)V
+      29: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      32: aload_0
+      33: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      36: aload_1
+      37: invokeinterface #162,  2          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findMetricInData:(Lorg/hawkular/metrics/model/MetricId;)Lrx/Observable;
+      42: new           #163                // class org/hawkular/metrics/core/service/transformers/MetricFromDataRowTransformer
+      45: dup
+      46: aload_1
+      47: invokevirtual #160                // Method org/hawkular/metrics/model/MetricId.getTenantId:()Ljava/lang/String;
+      50: aload_1
+      51: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+      54: aload_0
+      55: getfield      #13                 // Field defaultTTL:I
+      58: invokespecial #164                // Method org/hawkular/metrics/core/service/transformers/MetricFromDataRowTransformer."<init>":(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;I)V
+      61: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      64: invokevirtual #165                // Method rx/Observable.switchIfEmpty:(Lrx/Observable;)Lrx/Observable;
+      67: areturn
+
+  public <T> rx.Observable<org.hawkular.metrics.model.Metric<T>> findMetrics(java.lang.String, org.hawkular.metrics.model.MetricType<T>);
+    Code:
+       0: aconst_null
+       1: astore_3
+       2: aload_0
+       3: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       6: invokeinterface #154,  1          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findAllMetricsInData:()Lrx/Observable;
+      11: invokevirtual #134                // Method rx/Observable.distinct:()Lrx/Observable;
+      14: aload_1
+      15: invokedynamic #166,  0            // InvokeDynamic #18:call:(Ljava/lang/String;)Lrx/functions/Func1;
+      20: invokevirtual #167                // Method rx/Observable.filter:(Lrx/functions/Func1;)Lrx/Observable;
+      23: new           #155                // class org/hawkular/metrics/core/service/transformers/MetricFromFullDataRowTransformer
+      26: dup
+      27: aload_0
+      28: getfield      #13                 // Field defaultTTL:I
+      31: invokespecial #156                // Method org/hawkular/metrics/core/service/transformers/MetricFromFullDataRowTransformer."<init>":(I)V
+      34: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      37: invokedynamic #168,  0            // InvokeDynamic #19:call:()Lrx/functions/Func1;
+      42: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      45: astore        4
+      47: aload_2
+      48: ifnonnull     79
+      51: invokestatic  #169                // Method org/hawkular/metrics/model/MetricType.userTypes:()Ljava/util/Set;
+      54: invokestatic  #170                // Method rx/Observable.from:(Ljava/lang/Iterable;)Lrx/Observable;
+      57: invokedynamic #171,  0            // InvokeDynamic #20:call:()Lrx/functions/Func1;
+      62: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      65: aload_0
+      66: aload_1
+      67: invokedynamic #172,  0            // InvokeDynamic #21:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Ljava/lang/String;)Lrx/functions/Func1;
+      72: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      75: astore_3
+      76: goto          120
+      79: aload_0
+      80: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      83: aload_1
+      84: aload_2
+      85: invokeinterface #173,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findMetricsInMetricsIndex:(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;)Lrx/Observable;
+      90: new           #159                // class org/hawkular/metrics/core/service/transformers/MetricsIndexRowTransformer
+      93: dup
+      94: aload_1
+      95: aload_2
+      96: aload_0
+      97: getfield      #13                 // Field defaultTTL:I
+     100: invokespecial #161                // Method org/hawkular/metrics/core/service/transformers/MetricsIndexRowTransformer."<init>":(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;I)V
+     103: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+     106: astore_3
+     107: aload         4
+     109: aload_2
+     110: invokedynamic #174,  0            // InvokeDynamic #22:call:(Lorg/hawkular/metrics/model/MetricType;)Lrx/functions/Func1;
+     115: invokevirtual #167                // Method rx/Observable.filter:(Lrx/functions/Func1;)Lrx/Observable;
+     118: astore        4
+     120: aload_3
+     121: aload         4
+     123: invokevirtual #175                // Method rx/Observable.concatWith:(Lrx/Observable;)Lrx/Observable;
+     126: invokedynamic #176,  0            // InvokeDynamic #23:call:()Lrx/functions/Func1;
+     131: invokevirtual #177                // Method rx/Observable.distinct:(Lrx/functions/Func1;)Lrx/Observable;
+     134: areturn
+
+  public <T> rx.Observable<org.hawkular.metrics.model.Metric<T>> findMetricsWithFilters(java.lang.String, org.hawkular.metrics.model.MetricType<T>, java.util.Map<java.lang.String, java.lang.String>);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field tagQueryParser:Lorg/hawkular/metrics/core/service/TagQueryParser;
+       4: aload_1
+       5: aload_2
+       6: aload_3
+       7: invokevirtual #178                // Method org/hawkular/metrics/core/service/TagQueryParser.findMetricsWithFilters:(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;Ljava/util/Map;)Lrx/Observable;
+      10: invokedynamic #179,  0            // InvokeDynamic #24:call:()Lrx/functions/Func1;
+      15: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      18: areturn
+
+  public <T> rx.functions.Func1<org.hawkular.metrics.model.Metric<T>, java.lang.Boolean> idFilter(java.lang.String);
+    Code:
+       0: aload_1
+       1: ldc           #180                // String !
+       3: invokevirtual #181                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+       6: ifne          13
+       9: iconst_1
+      10: goto          14
+      13: iconst_0
+      14: istore_2
+      15: aload_1
+      16: invokestatic  #182                // Method org/hawkular/metrics/core/service/PatternUtil.filterPattern:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+      19: astore_3
+      20: iload_2
+      21: aload_3
+      22: invokedynamic #183,  0            // InvokeDynamic #25:call:(ZLjava/util/regex/Pattern;)Lrx/functions/Func1;
+      27: areturn
+
+  public rx.Observable<java.util.Map<java.lang.String, java.util.Set<java.lang.String>>> getTagValues(java.lang.String, org.hawkular.metrics.model.MetricType<?>, java.util.Map<java.lang.String, java.lang.String>);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field tagQueryParser:Lorg/hawkular/metrics/core/service/TagQueryParser;
+       4: aload_1
+       5: aload_2
+       6: aload_3
+       7: invokevirtual #184                // Method org/hawkular/metrics/core/service/TagQueryParser.getTagValues:(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;Ljava/util/Map;)Lrx/Observable;
+      10: areturn
+
+  public rx.Observable<java.util.Map<java.lang.String, java.lang.String>> getMetricTags(org.hawkular.metrics.model.MetricId<?>);
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: aload_1
+       5: invokeinterface #185,  2          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.getMetricTags:(Lorg/hawkular/metrics/model/MetricId;)Lrx/Observable;
+      10: iconst_1
+      11: invokevirtual #186                // Method rx/Observable.take:(I)Lrx/Observable;
+      14: invokedynamic #187,  0            // InvokeDynamic #26:call:()Lrx/functions/Func1;
+      19: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      22: new           #188                // class java/util/HashMap
+      25: dup
+      26: invokespecial #189                // Method java/util/HashMap."<init>":()V
+      29: invokevirtual #190                // Method rx/Observable.defaultIfEmpty:(Ljava/lang/Object;)Lrx/Observable;
+      32: areturn
+
+  public rx.Observable<java.lang.Void> addTags(org.hawkular.metrics.model.Metric<?>, java.util.Map<java.lang.String, java.lang.String>);
+    Code:
+       0: aload_2
+       1: ifnull        8
+       4: iconst_1
+       5: goto          9
+       8: iconst_0
+       9: ldc           #191                // String Missing tags
+      11: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      14: aload_2
+      15: invokestatic  #193                // Method org/hawkular/metrics/core/service/Functions.isValidTagMap:(Ljava/util/Map;)Z
+      18: ldc           #194                // String Invalid tags; tag key is required
+      20: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      23: goto          32
+      26: astore_3
+      27: aload_3
+      28: invokestatic  #196                // Method rx/Observable.error:(Ljava/lang/Throwable;)Lrx/Observable;
+      31: areturn
+      32: aload_0
+      33: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      36: aload_1
+      37: aload_2
+      38: invokeinterface #197,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertIntoMetricsTagsIndex:(Lorg/hawkular/metrics/model/Metric;Ljava/util/Map;)Lrx/Observable;
+      43: aload_0
+      44: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      47: aload_1
+      48: aload_2
+      49: invokeinterface #198,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.addTags:(Lorg/hawkular/metrics/model/Metric;Ljava/util/Map;)Lrx/Observable;
+      54: invokevirtual #175                // Method rx/Observable.concatWith:(Lrx/Observable;)Lrx/Observable;
+      57: invokevirtual #199                // Method rx/Observable.toList:()Lrx/Observable;
+      60: invokedynamic #200,  0            // InvokeDynamic #27:call:()Lrx/functions/Func1;
+      65: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      68: areturn
+    Exception table:
+       from    to  target type
+           0    23    26   Class java/lang/Exception
+
+  public rx.Observable<java.lang.Void> deleteTags(org.hawkular.metrics.model.Metric<?>, java.util.Set<java.lang.String>);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #140                // Method org/hawkular/metrics/model/Metric.getMetricId:()Lorg/hawkular/metrics/model/MetricId;
+       5: invokevirtual #201                // Method getMetricTags:(Lorg/hawkular/metrics/model/MetricId;)Lrx/Observable;
+       8: aload_2
+       9: invokedynamic #202,  0            // InvokeDynamic #28:call:(Ljava/util/Set;)Lrx/functions/Func1;
+      14: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      17: aload_0
+      18: aload_1
+      19: invokedynamic #203,  0            // InvokeDynamic #29:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lorg/hawkular/metrics/model/Metric;)Lrx/functions/Func1;
+      24: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      27: areturn
+
+  public <T> rx.Observable<java.lang.Void> addDataPoints(org.hawkular.metrics.model.MetricType<T>, rx.Observable<org.hawkular.metrics.model.Metric<T>>);
+    Code:
+       0: aload_1
+       1: ifnull        8
+       4: iconst_1
+       5: goto          9
+       8: iconst_0
+       9: ldc           #204                // String metricType is null
+      11: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      14: aload_0
+      15: aload_1
+      16: invokespecial #205                // Method getInsertMeter:(Lorg/hawkular/metrics/model/MetricType;)Lcom/codahale/metrics/Meter;
+      19: astore_3
+      20: aload_0
+      21: aload_1
+      22: invokespecial #206                // Method getInserter:(Lorg/hawkular/metrics/model/MetricType;)Lrx/functions/Func2;
+      25: astore        4
+      27: aload_2
+      28: invokedynamic #207,  0            // InvokeDynamic #30:call:()Lrx/functions/Func1;
+      33: invokevirtual #167                // Method rx/Observable.filter:(Lrx/functions/Func1;)Lrx/Observable;
+      36: aload_0
+      37: aload         4
+      39: invokedynamic #208,  0            // InvokeDynamic #31:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lrx/functions/Func2;)Lrx/functions/Func1;
+      44: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      47: aload_3
+      48: dup
+      49: invokevirtual #209                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      52: pop
+      53: invokedynamic #210,  0            // InvokeDynamic #32:call:(Lcom/codahale/metrics/Meter;)Lrx/functions/Action1;
+      58: invokevirtual #211                // Method rx/Observable.doOnNext:(Lrx/functions/Action1;)Lrx/Observable;
+      61: astore        5
+      63: aload         5
+      65: invokedynamic #212,  0            // InvokeDynamic #33:call:()Lrx/functions/Func1;
+      70: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      73: areturn
+
+  private <T> com.codahale.metrics.Meter getInsertMeter(org.hawkular.metrics.model.MetricType<T>);
+    Code:
+       0: aload_0
+       1: getfield      #84                 // Field dataPointInsertMeters:Ljava/util/Map;
+       4: aload_1
+       5: invokeinterface #213,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #214                // class com/codahale/metrics/Meter
+      13: astore_2
+      14: aload_2
+      15: ifnonnull     30
+      18: new           #215                // class java/lang/UnsupportedOperationException
+      21: dup
+      22: aload_1
+      23: invokevirtual #216                // Method org/hawkular/metrics/model/MetricType.getText:()Ljava/lang/String;
+      26: invokespecial #217                // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+      29: athrow
+      30: aload_2
+      31: areturn
+
+  private <T> rx.functions.Func2<org.hawkular.metrics.model.Metric<T>, java.lang.Integer, rx.Observable<java.lang.Integer>> getInserter(org.hawkular.metrics.model.MetricType<T>);
+    Code:
+       0: aload_0
+       1: getfield      #40                 // Field dataPointInserters:Ljava/util/Map;
+       4: aload_1
+       5: invokeinterface #213,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #218                // class rx/functions/Func2
+      13: astore_2
+      14: aload_2
+      15: ifnonnull     30
+      18: new           #215                // class java/lang/UnsupportedOperationException
+      21: dup
+      22: aload_1
+      23: invokevirtual #216                // Method org/hawkular/metrics/model/MetricType.getText:()Ljava/lang/String;
+      26: invokespecial #217                // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+      29: athrow
+      30: aload_2
+      31: areturn
+
+  public <T> rx.Observable<org.hawkular.metrics.model.DataPoint<T>> findDataPoints(org.hawkular.metrics.model.MetricId<T>, long, long, int, org.hawkular.metrics.core.service.Order);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_2
+       3: lload         4
+       5: iload         6
+       7: aload         7
+       9: aload_0
+      10: getfield      #113                // Field defaultPageSize:I
+      13: invokevirtual #219                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;I)Lrx/Observable;
+      16: areturn
+
+  public <T> rx.Observable<org.hawkular.metrics.model.DataPoint<T>> findDataPoints(org.hawkular.metrics.model.MetricId<T>, long, long, int, org.hawkular.metrics.core.service.Order, int);
+    Code:
+       0: lload_2
+       1: lload         4
+       3: invokestatic  #220                // Method org/hawkular/metrics/model/Utils.isValidTimeRange:(JJ)Z
+       6: ldc           #221                // String Invalid time range
+       8: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      11: aconst_null
+      12: aload         7
+      14: if_acmpne     23
+      17: getstatic     #222                // Field org/hawkular/metrics/core/service/Order.ASC:Lorg/hawkular/metrics/core/service/Order;
+      20: goto          25
+      23: aload         7
+      25: astore        9
+      27: aload_1
+      28: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+      31: astore        10
+      33: aload_0
+      34: aload         10
+      36: invokespecial #223                // Method getDataPointFindTimer:(Lorg/hawkular/metrics/model/MetricType;)Lcom/codahale/metrics/Timer;
+      39: astore        11
+      41: aload_0
+      42: aload         10
+      44: invokespecial #224                // Method getDataPointMapper:(Lorg/hawkular/metrics/model/MetricType;)Lrx/functions/Func1;
+      47: astore        12
+      49: aload_0
+      50: aload         10
+      52: invokespecial #225                // Method getDataPointFinder:(Lorg/hawkular/metrics/model/MetricType;)Lrx/functions/Func6;
+      55: astore        13
+      57: aload         10
+      59: getstatic     #30                 // Field org/hawkular/metrics/model/MetricType.GAUGE:Lorg/hawkular/metrics/model/MetricType;
+      62: if_acmpeq     81
+      65: aload         10
+      67: getstatic     #33                 // Field org/hawkular/metrics/model/MetricType.AVAILABILITY:Lorg/hawkular/metrics/model/MetricType;
+      70: if_acmpeq     81
+      73: aload         10
+      75: getstatic     #35                 // Field org/hawkular/metrics/model/MetricType.COUNTER:Lorg/hawkular/metrics/model/MetricType;
+      78: if_acmpne     302
+      81: lload_2
+      82: ldc2_w        #226                // long 2l
+      85: invokestatic  #228                // Method org/joda/time/Duration.standardHours:(J)Lorg/joda/time/Duration;
+      88: invokestatic  #229                // Method org/hawkular/metrics/datetime/DateTimeService.getTimeSlice:(JLorg/joda/time/Duration;)J
+      91: lstore        14
+      93: aload         13
+      95: aload_1
+      96: lload_2
+      97: invokestatic  #230                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     100: lload         4
+     102: invokestatic  #230                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     105: iload         6
+     107: invokestatic  #231                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     110: aload         9
+     112: iload         8
+     114: invokestatic  #231                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     117: invokeinterface #232,  7          // InterfaceMethod rx/functions/Func6.call:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     122: checkcast     #233                // class rx/Observable
+     125: aload         12
+     127: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+     130: astore        16
+     132: aload_0
+     133: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+     136: aload_1
+     137: lload         14
+     139: lload         4
+     141: iload         6
+     143: aload         9
+     145: invokeinterface #234,  8          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findCompressedData:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+     150: new           #235                // class org/hawkular/metrics/core/service/transformers/DataPointDecompressTransformer
+     153: dup
+     154: aload         10
+     156: aload         9
+     158: iload         6
+     160: lload_2
+     161: lload         4
+     163: invokespecial #236                // Method org/hawkular/metrics/core/service/transformers/DataPointDecompressTransformer."<init>":(Lorg/hawkular/metrics/model/MetricType;Lorg/hawkular/metrics/core/service/Order;IJJ)V
+     166: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+     169: astore        17
+     171: getstatic     #237                // Field org/hawkular/metrics/core/service/MetricsServiceImpl$1.$SwitchMap$org$hawkular$metrics$core$service$Order:[I
+     174: aload         9
+     176: invokevirtual #238                // Method org/hawkular/metrics/core/service/Order.ordinal:()I
+     179: iaload
+     180: lookupswitch  { // 2
+                     1: 208
+                     2: 218
+               default: 228
+          }
+     208: invokedynamic #239,  0            // InvokeDynamic #34:compare:()Ljava/util/Comparator;
+     213: astore        18
+     215: goto          259
+     218: invokedynamic #240,  0            // InvokeDynamic #35:compare:()Ljava/util/Comparator;
+     223: astore        18
+     225: goto          259
+     228: new           #75                 // class java/lang/RuntimeException
+     231: dup
+     232: new           #15                 // class java/lang/StringBuilder
+     235: dup
+     236: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+     239: aload         9
+     241: invokevirtual #241                // Method org/hawkular/metrics/core/service/Order.toString:()Ljava/lang/String;
+     244: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     247: ldc           #242                // String  is not correct sorting order
+     249: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     252: invokevirtual #19                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     255: invokespecial #243                // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;)V
+     258: athrow
+     259: iconst_2
+     260: anewarray     #233                // class rx/Observable
+     263: dup
+     264: iconst_0
+     265: aload         16
+     267: aastore
+     268: dup
+     269: iconst_1
+     270: aload         17
+     272: aastore
+     273: invokestatic  #244                // Method java/util/Arrays.asList:([Ljava/lang/Object;)Ljava/util/List;
+     276: aload         18
+     278: iconst_0
+     279: iconst_1
+     280: invokestatic  #245                // Method org/hawkular/metrics/core/service/transformers/SortedMerge.create:(Ljava/util/Collection;Ljava/util/Comparator;ZZ)Lrx/Observable;
+     283: astore        19
+     285: iload         6
+     287: ifle          299
+     290: aload         19
+     292: iload         6
+     294: invokevirtual #186                // Method rx/Observable.take:(I)Lrx/Observable;
+     297: astore        19
+     299: aload         19
+     301: areturn
+     302: aload_0
+     303: aload         11
+     305: aload         13
+     307: aload_1
+     308: lload_2
+     309: lload         4
+     311: iload         6
+     313: aload         9
+     315: iload         8
+     317: aload         12
+     319: invokedynamic #246,  0            // InvokeDynamic #36:call:(Lrx/functions/Func6;Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;ILrx/functions/Func1;)Ljava/util/concurrent/Callable;
+     324: invokespecial #247                // Method time:(Lcom/codahale/metrics/Timer;Ljava/util/concurrent/Callable;)Ljava/lang/Object;
+     327: checkcast     #233                // class rx/Observable
+     330: areturn
+
+  private <T> rx.Observable$Transformer<T, T> applyRetryPolicy();
+    Code:
+       0: invokedynamic #248,  0            // InvokeDynamic #37:call:()Lrx/Observable$Transformer;
+       5: areturn
+
+  public rx.Observable<java.lang.Void> compressBlock(rx.Observable<? extends org.hawkular.metrics.model.MetricId<?>>, long, int);
+    Code:
+       0: new           #249                // class org/joda/time/DateTime
+       3: dup
+       4: lload_2
+       5: invokespecial #250                // Method org/joda/time/DateTime."<init>":(J)V
+       8: getstatic     #251                // Field org/hawkular/metrics/core/jobs/CompressData.DEFAULT_BLOCK_SIZE:Lorg/joda/time/Duration;
+      11: invokevirtual #252                // Method org/joda/time/DateTime.plus:(Lorg/joda/time/ReadableDuration;)Lorg/joda/time/DateTime;
+      14: invokevirtual #253                // Method org/joda/time/DateTime.getMillis:()J
+      17: lconst_1
+      18: lsub
+      19: lstore        5
+      21: aload_1
+      22: aload_0
+      23: invokespecial #254                // Method applyRetryPolicy:()Lrx/Observable$Transformer;
+      26: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      29: aload_0
+      30: lload_2
+      31: lload         5
+      33: iload         4
+      35: invokedynamic #255,  0            // InvokeDynamic #38:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;JJI)Lrx/functions/Func1;
+      40: invokevirtual #256                // Method rx/Observable.concatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      43: invokedynamic #257,  0            // InvokeDynamic #39:call:()Lrx/functions/Func1;
+      48: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      51: areturn
+
+  public <T> rx.Observable<org.hawkular.metrics.model.NamedDataPoint<T>> findDataPoints(java.util.List<org.hawkular.metrics.model.MetricId<T>>, long, long, int, org.hawkular.metrics.core.service.Order);
+    Code:
+       0: aload_1
+       1: invokestatic  #170                // Method rx/Observable.from:(Ljava/lang/Iterable;)Lrx/Observable;
+       4: aload_0
+       5: lload_2
+       6: lload         4
+       8: iload         6
+      10: aload         7
+      12: invokedynamic #258,  0            // InvokeDynamic #40:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;JJILorg/hawkular/metrics/core/service/Order;)Lrx/functions/Func1;
+      17: invokevirtual #256                // Method rx/Observable.concatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      20: areturn
+
+  public <T> rx.Observable<org.hawkular.metrics.model.NamedDataPoint<T>> findDataPoints(java.lang.String, org.hawkular.metrics.model.MetricType<T>, java.util.Map<java.lang.String, java.lang.String>, long, long, int, org.hawkular.metrics.core.service.Order);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: invokevirtual #259                // Method findMetricsWithFilters:(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;Ljava/util/Map;)Lrx/Observable;
+       7: invokedynamic #260,  0            // InvokeDynamic #41:call:()Lrx/functions/Func1;
+      12: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      15: aload_0
+      16: lload         4
+      18: lload         6
+      20: iload         8
+      22: aload         9
+      24: invokedynamic #261,  0            // InvokeDynamic #42:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;JJILorg/hawkular/metrics/core/service/Order;)Lrx/functions/Func1;
+      29: invokevirtual #256                // Method rx/Observable.concatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      32: areturn
+
+  private <T> com.codahale.metrics.Timer getDataPointFindTimer(org.hawkular.metrics.model.MetricType<T>);
+    Code:
+       0: aload_0
+       1: getfield      #90                 // Field dataPointReadTimers:Ljava/util/Map;
+       4: aload_1
+       5: invokeinterface #213,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #262                // class com/codahale/metrics/Timer
+      13: astore_2
+      14: aload_2
+      15: ifnonnull     30
+      18: new           #215                // class java/lang/UnsupportedOperationException
+      21: dup
+      22: aload_1
+      23: invokevirtual #216                // Method org/hawkular/metrics/model/MetricType.getText:()Ljava/lang/String;
+      26: invokespecial #217                // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+      29: athrow
+      30: aload_2
+      31: areturn
+
+  private <T> rx.functions.Func6<org.hawkular.metrics.model.MetricId<T>, java.lang.Long, java.lang.Long, java.lang.Integer, org.hawkular.metrics.core.service.Order, java.lang.Integer, rx.Observable<com.datastax.driver.core.Row>> getDataPointFinder(org.hawkular.metrics.model.MetricType<T>);
+    Code:
+       0: aload_0
+       1: getfield      #45                 // Field dataPointFinders:Ljava/util/Map;
+       4: aload_1
+       5: invokeinterface #213,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #263                // class rx/functions/Func6
+      13: astore_2
+      14: aload_2
+      15: ifnonnull     30
+      18: new           #215                // class java/lang/UnsupportedOperationException
+      21: dup
+      22: aload_1
+      23: invokevirtual #216                // Method org/hawkular/metrics/model/MetricType.getText:()Ljava/lang/String;
+      26: invokespecial #217                // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+      29: athrow
+      30: aload_2
+      31: areturn
+
+  private <T> rx.functions.Func1<com.datastax.driver.core.Row, org.hawkular.metrics.model.DataPoint<T>> getDataPointMapper(org.hawkular.metrics.model.MetricType<T>);
+    Code:
+       0: aload_0
+       1: getfield      #50                 // Field dataPointMappers:Ljava/util/Map;
+       4: aload_1
+       5: invokeinterface #213,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #264                // class rx/functions/Func1
+      13: astore_2
+      14: aload_2
+      15: ifnonnull     30
+      18: new           #215                // class java/lang/UnsupportedOperationException
+      21: dup
+      22: aload_1
+      23: invokevirtual #216                // Method org/hawkular/metrics/model/MetricType.getText:()Ljava/lang/String;
+      26: invokespecial #217                // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+      29: athrow
+      30: aload_2
+      31: areturn
+
+  public rx.Observable<org.hawkular.metrics.model.DataPoint<java.lang.Double>> findRateData(org.hawkular.metrics.model.MetricId<? extends java.lang.Number>, long, long, int, org.hawkular.metrics.core.service.Order);
+    Code:
+       0: lload_2
+       1: lload         4
+       3: invokestatic  #220                // Method org/hawkular/metrics/model/Utils.isValidTimeRange:(JJ)Z
+       6: ldc           #221                // String Invalid time range
+       8: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      11: aload_1
+      12: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+      15: getstatic     #35                 // Field org/hawkular/metrics/model/MetricType.COUNTER:Lorg/hawkular/metrics/model/MetricType;
+      18: if_acmpeq     31
+      21: aload_1
+      22: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+      25: getstatic     #30                 // Field org/hawkular/metrics/model/MetricType.GAUGE:Lorg/hawkular/metrics/model/MetricType;
+      28: if_acmpne     35
+      31: iconst_1
+      32: goto          36
+      35: iconst_0
+      36: ldc_w         #265                // String Unsupported metric type: %s
+      39: iconst_1
+      40: anewarray     #266                // class java/lang/Object
+      43: dup
+      44: iconst_0
+      45: aload_1
+      46: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+      49: aastore
+      50: invokestatic  #267                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/String;[Ljava/lang/Object;)V
+      53: aload_0
+      54: aload_1
+      55: lload_2
+      56: lload         4
+      58: iconst_0
+      59: aload         7
+      61: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      64: iconst_2
+      65: iconst_1
+      66: invokevirtual #269                // Method rx/Observable.buffer:(II)Lrx/Observable;
+      69: aload         7
+      71: invokedynamic #270,  0            // InvokeDynamic #43:call:(Lorg/hawkular/metrics/core/service/Order;)Lrx/functions/Func1;
+      76: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      79: invokedynamic #271,  0            // InvokeDynamic #44:call:()Lrx/functions/Func1;
+      84: invokevirtual #167                // Method rx/Observable.filter:(Lrx/functions/Func1;)Lrx/Observable;
+      87: aload_1
+      88: invokedynamic #272,  0            // InvokeDynamic #45:call:(Lorg/hawkular/metrics/model/MetricId;)Lrx/functions/Func1;
+      93: invokevirtual #167                // Method rx/Observable.filter:(Lrx/functions/Func1;)Lrx/Observable;
+      96: invokedynamic #273,  0            // InvokeDynamic #46:call:()Lrx/functions/Func1;
+     101: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+     104: astore        8
+     106: iload         6
+     108: ifgt          116
+     111: aload         8
+     113: goto          123
+     116: aload         8
+     118: iload         6
+     120: invokevirtual #186                // Method rx/Observable.take:(I)Lrx/Observable;
+     123: areturn
+
+  public <T extends java.lang.Number> rx.Observable<org.hawkular.metrics.model.NamedDataPoint<java.lang.Double>> findRateData(java.util.List<org.hawkular.metrics.model.MetricId<T>>, long, long, int, org.hawkular.metrics.core.service.Order);
+    Code:
+       0: aload_1
+       1: invokestatic  #170                // Method rx/Observable.from:(Ljava/lang/Iterable;)Lrx/Observable;
+       4: aload_0
+       5: lload_2
+       6: lload         4
+       8: iload         6
+      10: aload         7
+      12: invokedynamic #274,  0            // InvokeDynamic #47:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;JJILorg/hawkular/metrics/core/service/Order;)Lrx/functions/Func1;
+      17: invokevirtual #256                // Method rx/Observable.concatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      20: areturn
+
+  public rx.Observable<java.util.List<org.hawkular.metrics.model.NumericBucketPoint>> findRateStats(org.hawkular.metrics.model.MetricId<? extends java.lang.Number>, org.hawkular.metrics.model.param.BucketConfig, java.util.List<org.hawkular.metrics.model.Percentile>);
+    Code:
+       0: aload_2
+       1: invokevirtual #275                // Method org/hawkular/metrics/model/param/BucketConfig.getTimeRange:()Lorg/hawkular/metrics/model/param/TimeRange;
+       4: astore        4
+       6: aload         4
+       8: invokevirtual #276                // Method org/hawkular/metrics/model/param/TimeRange.getStart:()J
+      11: aload         4
+      13: invokevirtual #277                // Method org/hawkular/metrics/model/param/TimeRange.getEnd:()J
+      16: invokestatic  #220                // Method org/hawkular/metrics/model/Utils.isValidTimeRange:(JJ)Z
+      19: ldc           #221                // String Invalid time range
+      21: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      24: aload_0
+      25: aload_1
+      26: aload         4
+      28: invokevirtual #276                // Method org/hawkular/metrics/model/param/TimeRange.getStart:()J
+      31: aload         4
+      33: invokevirtual #277                // Method org/hawkular/metrics/model/param/TimeRange.getEnd:()J
+      36: iconst_0
+      37: getstatic     #222                // Field org/hawkular/metrics/core/service/Order.ASC:Lorg/hawkular/metrics/core/service/Order;
+      40: invokevirtual #278                // Method findRateData:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      43: new           #279                // class org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer
+      46: dup
+      47: aload_2
+      48: invokevirtual #280                // Method org/hawkular/metrics/model/param/BucketConfig.getBuckets:()Lorg/hawkular/metrics/model/Buckets;
+      51: aload_3
+      52: invokespecial #281                // Method org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer."<init>":(Lorg/hawkular/metrics/model/Buckets;Ljava/util/List;)V
+      55: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      58: areturn
+
+  public <T> rx.Observable<T> findGaugeData(org.hawkular.metrics.model.MetricId<java.lang.Double>, long, long, rx.functions.Func1<rx.Observable<org.hawkular.metrics.model.DataPoint<java.lang.Double>>, rx.Observable<T>>...);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_2
+       3: lload         4
+       5: iconst_0
+       6: getstatic     #282                // Field org/hawkular/metrics/core/service/Order.DESC:Lorg/hawkular/metrics/core/service/Order;
+       9: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      12: invokevirtual #283                // Method rx/Observable.cache:()Lrx/Observable;
+      15: astore        7
+      17: aload         6
+      19: invokestatic  #284                // Method rx/Observable.from:([Ljava/lang/Object;)Lrx/Observable;
+      22: aload         7
+      24: invokedynamic #285,  0            // InvokeDynamic #48:call:(Lrx/Observable;)Lrx/functions/Func1;
+      29: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      32: areturn
+
+  public rx.Observable<java.util.List<org.hawkular.metrics.model.NumericBucketPoint>> findGaugeStats(org.hawkular.metrics.model.MetricId<java.lang.Double>, org.hawkular.metrics.model.param.BucketConfig, java.util.List<org.hawkular.metrics.model.Percentile>);
+    Code:
+       0: aload_2
+       1: invokevirtual #275                // Method org/hawkular/metrics/model/param/BucketConfig.getTimeRange:()Lorg/hawkular/metrics/model/param/TimeRange;
+       4: astore        4
+       6: aload         4
+       8: invokevirtual #276                // Method org/hawkular/metrics/model/param/TimeRange.getStart:()J
+      11: aload         4
+      13: invokevirtual #277                // Method org/hawkular/metrics/model/param/TimeRange.getEnd:()J
+      16: invokestatic  #220                // Method org/hawkular/metrics/model/Utils.isValidTimeRange:(JJ)Z
+      19: ldc           #221                // String Invalid time range
+      21: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      24: aload_0
+      25: aload_1
+      26: aload         4
+      28: invokevirtual #276                // Method org/hawkular/metrics/model/param/TimeRange.getStart:()J
+      31: aload         4
+      33: invokevirtual #277                // Method org/hawkular/metrics/model/param/TimeRange.getEnd:()J
+      36: iconst_0
+      37: getstatic     #282                // Field org/hawkular/metrics/core/service/Order.DESC:Lorg/hawkular/metrics/core/service/Order;
+      40: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      43: new           #279                // class org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer
+      46: dup
+      47: aload_2
+      48: invokevirtual #280                // Method org/hawkular/metrics/model/param/BucketConfig.getBuckets:()Lorg/hawkular/metrics/model/Buckets;
+      51: aload_3
+      52: invokespecial #281                // Method org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer."<init>":(Lorg/hawkular/metrics/model/Buckets;Ljava/util/List;)V
+      55: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      58: areturn
+
+  public rx.Observable<java.util.Map<java.lang.String, org.hawkular.metrics.model.TaggedBucketPoint>> findGaugeStats(org.hawkular.metrics.model.MetricId<java.lang.Double>, java.util.Map<java.lang.String, java.lang.String>, long, long, java.util.List<org.hawkular.metrics.model.Percentile>);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_3
+       3: lload         5
+       5: iconst_0
+       6: getstatic     #282                // Field org/hawkular/metrics/core/service/Order.DESC:Lorg/hawkular/metrics/core/service/Order;
+       9: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      12: new           #286                // class org/hawkular/metrics/core/service/transformers/TaggedBucketPointTransformer
+      15: dup
+      16: aload_2
+      17: aload         7
+      19: invokespecial #287                // Method org/hawkular/metrics/core/service/transformers/TaggedBucketPointTransformer."<init>":(Ljava/util/Map;Ljava/util/List;)V
+      22: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      25: areturn
+
+  public <T extends java.lang.Number> rx.Observable<java.util.List<org.hawkular.metrics.model.NumericBucketPoint>> findNumericStats(java.util.List<org.hawkular.metrics.model.MetricId<T>>, long, long, org.hawkular.metrics.model.Buckets, java.util.List<org.hawkular.metrics.model.Percentile>, boolean, boolean);
+    Code:
+       0: lload_2
+       1: lload         4
+       3: invokestatic  #220                // Method org/hawkular/metrics/model/Utils.isValidTimeRange:(JJ)Z
+       6: ldc           #221                // String Invalid time range
+       8: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      11: iload         8
+      13: ifne          83
+      16: iload         9
+      18: ifne          52
+      21: aload_1
+      22: invokestatic  #170                // Method rx/Observable.from:(Ljava/lang/Iterable;)Lrx/Observable;
+      25: aload_0
+      26: lload_2
+      27: lload         4
+      29: invokedynamic #288,  0            // InvokeDynamic #49:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;JJ)Lrx/functions/Func1;
+      34: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      37: new           #279                // class org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer
+      40: dup
+      41: aload         6
+      43: aload         7
+      45: invokespecial #281                // Method org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer."<init>":(Lorg/hawkular/metrics/model/Buckets;Ljava/util/List;)V
+      48: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      51: areturn
+      52: aload_1
+      53: invokestatic  #170                // Method rx/Observable.from:(Ljava/lang/Iterable;)Lrx/Observable;
+      56: aload_0
+      57: lload_2
+      58: lload         4
+      60: invokedynamic #289,  0            // InvokeDynamic #50:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;JJ)Lrx/functions/Func1;
+      65: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      68: new           #279                // class org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer
+      71: dup
+      72: aload         6
+      74: aload         7
+      76: invokespecial #281                // Method org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer."<init>":(Lorg/hawkular/metrics/model/Buckets;Ljava/util/List;)V
+      79: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      82: areturn
+      83: iload         9
+      85: ifne          113
+      88: aload_1
+      89: invokestatic  #170                // Method rx/Observable.from:(Ljava/lang/Iterable;)Lrx/Observable;
+      92: aload_0
+      93: lload_2
+      94: lload         4
+      96: aload         6
+      98: aload         7
+     100: invokedynamic #290,  0            // InvokeDynamic #51:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;JJLorg/hawkular/metrics/model/Buckets;Ljava/util/List;)Lrx/functions/Func1;
+     105: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+     108: astore        10
+     110: goto          135
+     113: aload_1
+     114: invokestatic  #170                // Method rx/Observable.from:(Ljava/lang/Iterable;)Lrx/Observable;
+     117: aload_0
+     118: lload_2
+     119: lload         4
+     121: aload         6
+     123: aload         7
+     125: invokedynamic #291,  0            // InvokeDynamic #52:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;JJLorg/hawkular/metrics/model/Buckets;Ljava/util/List;)Lrx/functions/Func1;
+     130: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+     133: astore        10
+     135: aload         10
+     137: invokestatic  #292                // Method rx/Observable.merge:(Lrx/Observable;)Lrx/Observable;
+     140: invokedynamic #293,  0            // InvokeDynamic #53:call:()Lrx/functions/Func1;
+     145: invokevirtual #294                // Method rx/Observable.groupBy:(Lrx/functions/Func1;)Lrx/Observable;
+     148: invokedynamic #295,  0            // InvokeDynamic #54:call:()Lrx/functions/Func1;
+     153: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+     156: invokedynamic #296,  0            // InvokeDynamic #55:call:()Lrx/functions/Func1;
+     161: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+     164: invokedynamic #293,  0            // InvokeDynamic #53:call:()Lrx/functions/Func1;
+     169: invokevirtual #297                // Method rx/Observable.toMap:(Lrx/functions/Func1;)Lrx/Observable;
+     172: aload         6
+     174: invokedynamic #298,  0            // InvokeDynamic #56:call:(Lorg/hawkular/metrics/model/Buckets;)Lrx/functions/Func1;
+     179: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+     182: areturn
+
+  public rx.Observable<org.hawkular.metrics.model.DataPoint<org.hawkular.metrics.model.AvailabilityType>> findAvailabilityData(org.hawkular.metrics.model.MetricId<org.hawkular.metrics.model.AvailabilityType>, long, long, boolean, int, org.hawkular.metrics.core.service.Order);
+    Code:
+       0: lload_2
+       1: lload         4
+       3: invokestatic  #220                // Method org/hawkular/metrics/model/Utils.isValidTimeRange:(JJ)Z
+       6: ldc           #221                // String Invalid time range
+       8: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      11: iload         6
+      13: ifeq          53
+      16: aload_0
+      17: aload_1
+      18: lload_2
+      19: lload         4
+      21: iconst_0
+      22: aload         8
+      24: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      27: invokedynamic #299,  0            // InvokeDynamic #57:call:()Lrx/functions/Func1;
+      32: invokevirtual #300                // Method rx/Observable.distinctUntilChanged:(Lrx/functions/Func1;)Lrx/Observable;
+      35: astore        9
+      37: iload         7
+      39: ifgt          45
+      42: aload         9
+      44: areturn
+      45: aload         9
+      47: iload         7
+      49: invokevirtual #301                // Method rx/Observable.limit:(I)Lrx/Observable;
+      52: areturn
+      53: aload_0
+      54: aload_1
+      55: lload_2
+      56: lload         4
+      58: iload         7
+      60: aload         8
+      62: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      65: areturn
+
+  public rx.Observable<java.util.List<org.hawkular.metrics.model.AvailabilityBucketPoint>> findAvailabilityStats(org.hawkular.metrics.model.MetricId<org.hawkular.metrics.model.AvailabilityType>, long, long, org.hawkular.metrics.model.Buckets);
+    Code:
+       0: lload_2
+       1: lload         4
+       3: invokestatic  #220                // Method org/hawkular/metrics/model/Utils.isValidTimeRange:(JJ)Z
+       6: ldc           #221                // String Invalid time range
+       8: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      11: aload_0
+      12: aload_1
+      13: lload_2
+      14: lload         4
+      16: iconst_0
+      17: getstatic     #222                // Field org/hawkular/metrics/core/service/Order.ASC:Lorg/hawkular/metrics/core/service/Order;
+      20: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      23: aload         6
+      25: invokedynamic #302,  0            // InvokeDynamic #58:call:(Lorg/hawkular/metrics/model/Buckets;)Lrx/functions/Func1;
+      30: invokevirtual #294                // Method rx/Observable.groupBy:(Lrx/functions/Func1;)Lrx/Observable;
+      33: aload         6
+      35: invokedynamic #303,  0            // InvokeDynamic #59:call:(Lorg/hawkular/metrics/model/Buckets;)Lrx/functions/Func1;
+      40: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      43: invokedynamic #304,  0            // InvokeDynamic #60:call:()Lrx/functions/Func1;
+      48: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      51: invokedynamic #305,  0            // InvokeDynamic #61:call:()Lrx/functions/Func1;
+      56: invokevirtual #297                // Method rx/Observable.toMap:(Lrx/functions/Func1;)Lrx/Observable;
+      59: aload         6
+      61: invokedynamic #306,  0            // InvokeDynamic #62:call:(Lorg/hawkular/metrics/model/Buckets;)Lrx/functions/Func1;
+      66: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      69: areturn
+
+  public rx.Observable<org.hawkular.metrics.model.DataPoint<java.lang.String>> findStringData(org.hawkular.metrics.model.MetricId<java.lang.String>, long, long, boolean, int, org.hawkular.metrics.core.service.Order);
+    Code:
+       0: lload_2
+       1: lload         4
+       3: invokestatic  #220                // Method org/hawkular/metrics/model/Utils.isValidTimeRange:(JJ)Z
+       6: invokestatic  #307                // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+       9: iload         6
+      11: ifeq          35
+      14: aload_0
+      15: aload_1
+      16: lload_2
+      17: lload         4
+      19: iload         7
+      21: aload         8
+      23: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      26: invokedynamic #308,  0            // InvokeDynamic #63:call:()Lrx/functions/Func1;
+      31: invokevirtual #300                // Method rx/Observable.distinctUntilChanged:(Lrx/functions/Func1;)Lrx/Observable;
+      34: areturn
+      35: aload_0
+      36: aload_1
+      37: lload_2
+      38: lload         4
+      40: iload         7
+      42: aload         8
+      44: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      47: areturn
+
+  public rx.Observable<java.util.List<org.hawkular.metrics.model.NumericBucketPoint>> findCounterStats(org.hawkular.metrics.model.MetricId<java.lang.Long>, org.hawkular.metrics.model.param.BucketConfig, java.util.List<org.hawkular.metrics.model.Percentile>);
+    Code:
+       0: aload_2
+       1: invokevirtual #275                // Method org/hawkular/metrics/model/param/BucketConfig.getTimeRange:()Lorg/hawkular/metrics/model/param/TimeRange;
+       4: astore        4
+       6: aload         4
+       8: invokevirtual #276                // Method org/hawkular/metrics/model/param/TimeRange.getStart:()J
+      11: aload         4
+      13: invokevirtual #277                // Method org/hawkular/metrics/model/param/TimeRange.getEnd:()J
+      16: invokestatic  #220                // Method org/hawkular/metrics/model/Utils.isValidTimeRange:(JJ)Z
+      19: ldc           #221                // String Invalid time range
+      21: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      24: aload_0
+      25: aload_1
+      26: aload         4
+      28: invokevirtual #276                // Method org/hawkular/metrics/model/param/TimeRange.getStart:()J
+      31: aload         4
+      33: invokevirtual #277                // Method org/hawkular/metrics/model/param/TimeRange.getEnd:()J
+      36: iconst_0
+      37: getstatic     #222                // Field org/hawkular/metrics/core/service/Order.ASC:Lorg/hawkular/metrics/core/service/Order;
+      40: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      43: new           #279                // class org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer
+      46: dup
+      47: aload_2
+      48: invokevirtual #280                // Method org/hawkular/metrics/model/param/BucketConfig.getBuckets:()Lorg/hawkular/metrics/model/Buckets;
+      51: aload_3
+      52: invokespecial #281                // Method org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer."<init>":(Lorg/hawkular/metrics/model/Buckets;Ljava/util/List;)V
+      55: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      58: areturn
+
+  public rx.Observable<java.util.Map<java.lang.String, org.hawkular.metrics.model.TaggedBucketPoint>> findCounterStats(org.hawkular.metrics.model.MetricId<java.lang.Long>, java.util.Map<java.lang.String, java.lang.String>, long, long, java.util.List<org.hawkular.metrics.model.Percentile>);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_3
+       3: lload         5
+       5: iconst_0
+       6: getstatic     #222                // Field org/hawkular/metrics/core/service/Order.ASC:Lorg/hawkular/metrics/core/service/Order;
+       9: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      12: new           #286                // class org/hawkular/metrics/core/service/transformers/TaggedBucketPointTransformer
+      15: dup
+      16: aload_2
+      17: aload         7
+      19: invokespecial #287                // Method org/hawkular/metrics/core/service/transformers/TaggedBucketPointTransformer."<init>":(Ljava/util/Map;Ljava/util/List;)V
+      22: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      25: areturn
+
+  public rx.Observable<java.util.List<long[]>> getPeriods(org.hawkular.metrics.model.MetricId<java.lang.Double>, java.util.function.Predicate<java.lang.Double>, long, long);
+    Code:
+       0: lload_3
+       1: lload         5
+       3: invokestatic  #220                // Method org/hawkular/metrics/model/Utils.isValidTimeRange:(JJ)Z
+       6: ldc           #221                // String Invalid time range
+       8: invokestatic  #192                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      11: aload_0
+      12: aload_1
+      13: lload_3
+      14: lload         5
+      16: iconst_0
+      17: getstatic     #222                // Field org/hawkular/metrics/core/service/Order.ASC:Lorg/hawkular/metrics/core/service/Order;
+      20: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      23: invokevirtual #199                // Method rx/Observable.toList:()Lrx/Observable;
+      26: aload_2
+      27: invokedynamic #309,  0            // InvokeDynamic #64:call:(Ljava/util/function/Predicate;)Lrx/functions/Func1;
+      32: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      35: areturn
+
+  public rx.Observable<org.hawkular.metrics.model.Metric<?>> insertedDataEvents();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field insertedDataPointEvents:Lrx/subjects/PublishSubject;
+       4: areturn
+
+  private int getTTL(org.hawkular.metrics.model.MetricId<?>);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field dataRetentions:Ljava/util/Map;
+       4: new           #310                // class org/hawkular/metrics/core/service/MetricsServiceImpl$DataRetentionKey
+       7: dup
+       8: aload_1
+       9: invokespecial #311                // Method org/hawkular/metrics/core/service/MetricsServiceImpl$DataRetentionKey."<init>":(Lorg/hawkular/metrics/model/MetricId;)V
+      12: invokeinterface #213,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      17: checkcast     #312                // class java/lang/Integer
+      20: astore_2
+      21: aload_2
+      22: ifnonnull     63
+      25: aload_0
+      26: getfield      #2                  // Field dataRetentions:Ljava/util/Map;
+      29: new           #310                // class org/hawkular/metrics/core/service/MetricsServiceImpl$DataRetentionKey
+      32: dup
+      33: aload_1
+      34: invokevirtual #160                // Method org/hawkular/metrics/model/MetricId.getTenantId:()Ljava/lang/String;
+      37: aload_1
+      38: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+      41: invokespecial #313                // Method org/hawkular/metrics/core/service/MetricsServiceImpl$DataRetentionKey."<init>":(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;)V
+      44: aload_0
+      45: getfield      #13                 // Field defaultTTL:I
+      48: invokestatic  #231                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      51: invokeinterface #314,  3          // InterfaceMethod java/util/Map.getOrDefault:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      56: checkcast     #312                // class java/lang/Integer
+      59: astore_2
+      60: goto          81
+      63: aload_2
+      64: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      67: i2l
+      68: invokestatic  #10                 // Method org/joda/time/Duration.standardDays:(J)Lorg/joda/time/Duration;
+      71: invokevirtual #11                 // Method org/joda/time/Duration.toStandardSeconds:()Lorg/joda/time/Seconds;
+      74: invokevirtual #12                 // Method org/joda/time/Seconds.getSeconds:()I
+      77: invokestatic  #231                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      80: astore_2
+      81: aload_2
+      82: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      85: ireturn
+
+  public void shutdown();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field insertedDataPointEvents:Lrx/subjects/PublishSubject;
+       4: invokevirtual #316                // Method rx/subjects/PublishSubject.onCompleted:()V
+       7: aload_0
+       8: getfield      #26                 // Field metricsTasks:Lcom/google/common/util/concurrent/ListeningExecutorService;
+      11: invokeinterface #317,  1          // InterfaceMethod com/google/common/util/concurrent/ListeningExecutorService.shutdown:()V
+      16: aload_0
+      17: invokevirtual #318                // Method unloadDataRetentions:()V
+      20: return
+
+  private <T> T time(com.codahale.metrics.Timer, java.util.concurrent.Callable<T>);
+    Code:
+       0: aload_1
+       1: aload_2
+       2: invokevirtual #319                // Method com/codahale/metrics/Timer.time:(Ljava/util/concurrent/Callable;)Ljava/lang/Object;
+       5: areturn
+       6: astore_3
+       7: new           #75                 // class java/lang/RuntimeException
+      10: dup
+      11: ldc_w         #320                // String There was an error during a timed event
+      14: aload_3
+      15: invokespecial #321                // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      18: athrow
+    Exception table:
+       from    to  target type
+           0     5     6   Class java/lang/Exception
+
+  private static java.util.List lambda$getPeriods$71(java.util.function.Predicate, java.util.List);
+    Code:
+       0: new           #322                // class java/util/ArrayList
+       3: dup
+       4: aload_1
+       5: invokeinterface #60,  1           // InterfaceMethod java/util/List.size:()I
+      10: invokespecial #323                // Method java/util/ArrayList."<init>":(I)V
+      13: astore_2
+      14: aconst_null
+      15: astore_3
+      16: aconst_null
+      17: astore        4
+      19: aload_1
+      20: invokeinterface #62,  1           // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      25: astore        5
+      27: aload         5
+      29: invokeinterface #63,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      34: ifeq          114
+      37: aload         5
+      39: invokeinterface #64,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      44: checkcast     #324                // class org/hawkular/metrics/model/DataPoint
+      47: astore        6
+      49: aload_0
+      50: aload         6
+      52: invokevirtual #325                // Method org/hawkular/metrics/model/DataPoint.getValue:()Ljava/lang/Object;
+      55: invokeinterface #326,  2          // InterfaceMethod java/util/function/Predicate.test:(Ljava/lang/Object;)Z
+      60: ifeq          86
+      63: aload_3
+      64: ifnonnull     79
+      67: iconst_2
+      68: newarray       long
+      70: astore_3
+      71: aload_3
+      72: iconst_0
+      73: aload         6
+      75: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+      78: lastore
+      79: aload         6
+      81: astore        4
+      83: goto          111
+      86: aload_3
+      87: ifnull        111
+      90: aload_3
+      91: iconst_1
+      92: aload         4
+      94: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+      97: lastore
+      98: aload_2
+      99: aload_3
+     100: invokeinterface #328,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     105: pop
+     106: aconst_null
+     107: astore_3
+     108: aconst_null
+     109: astore        4
+     111: goto          27
+     114: aload_3
+     115: ifnull        134
+     118: aload_3
+     119: iconst_1
+     120: aload         4
+     122: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+     125: lastore
+     126: aload_2
+     127: aload_3
+     128: invokeinterface #328,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     133: pop
+     134: aload_2
+     135: areturn
+
+  private static java.util.List lambda$findAvailabilityStats$70(org.hawkular.metrics.model.Buckets, java.util.Map);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: invokestatic  #329                // Method org/hawkular/metrics/model/AvailabilityBucketPoint.toList:(Ljava/util/Map;Lorg/hawkular/metrics/model/Buckets;)Ljava/util/List;
+       5: areturn
+
+  private static rx.Observable lambda$findAvailabilityStats$69(org.hawkular.metrics.model.Buckets, rx.observables.GroupedObservable);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: aload_1
+       3: invokedynamic #330,  0            // InvokeDynamic #65:call:(Lorg/hawkular/metrics/model/Buckets;Lrx/observables/GroupedObservable;)Lrx/functions/Func0;
+       8: invokedynamic #331,  0            // InvokeDynamic #66:call:()Lrx/functions/Action2;
+      13: invokevirtual #332                // Method rx/observables/GroupedObservable.collect:(Lrx/functions/Func0;Lrx/functions/Action2;)Lrx/Observable;
+      16: areturn
+
+  private static org.hawkular.metrics.core.service.AvailabilityDataPointCollector lambda$null$68(org.hawkular.metrics.model.Buckets, rx.observables.GroupedObservable);
+    Code:
+       0: new           #333                // class org/hawkular/metrics/core/service/AvailabilityDataPointCollector
+       3: dup
+       4: aload_0
+       5: aload_1
+       6: invokevirtual #334                // Method rx/observables/GroupedObservable.getKey:()Ljava/lang/Object;
+       9: checkcast     #312                // class java/lang/Integer
+      12: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      15: invokespecial #335                // Method org/hawkular/metrics/core/service/AvailabilityDataPointCollector."<init>":(Lorg/hawkular/metrics/model/Buckets;I)V
+      18: areturn
+
+  private static java.lang.Integer lambda$findAvailabilityStats$67(org.hawkular.metrics.model.Buckets, org.hawkular.metrics.model.DataPoint);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+       5: invokevirtual #336                // Method org/hawkular/metrics/model/Buckets.getIndex:(J)I
+       8: invokestatic  #231                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      11: areturn
+
+  private static java.util.List lambda$findNumericStats$66(org.hawkular.metrics.model.Buckets, java.util.Map);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: invokestatic  #337                // Method org/hawkular/metrics/model/NumericBucketPoint.toList:(Ljava/util/Map;Lorg/hawkular/metrics/model/Buckets;)Ljava/util/List;
+       5: areturn
+
+  private static rx.Observable lambda$findNumericStats$65(rx.observables.GroupedObservable);
+    Code:
+       0: aload_0
+       1: invokedynamic #338,  0            // InvokeDynamic #67:call:()Lrx/functions/Func0;
+       6: invokedynamic #339,  0            // InvokeDynamic #68:call:()Lrx/functions/Action2;
+      11: invokevirtual #332                // Method rx/observables/GroupedObservable.collect:(Lrx/functions/Func0;Lrx/functions/Action2;)Lrx/Observable;
+      14: areturn
+
+  private rx.Observable lambda$findNumericStats$64(long, long, org.hawkular.metrics.model.Buckets, java.util.List, org.hawkular.metrics.model.MetricId);
+    Code:
+       0: aload_0
+       1: aload         7
+       3: lload_1
+       4: lload_3
+       5: iconst_0
+       6: getstatic     #222                // Field org/hawkular/metrics/core/service/Order.ASC:Lorg/hawkular/metrics/core/service/Order;
+       9: invokevirtual #278                // Method findRateData:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      12: new           #279                // class org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer
+      15: dup
+      16: aload         5
+      18: aload         6
+      20: invokespecial #281                // Method org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer."<init>":(Lorg/hawkular/metrics/model/Buckets;Ljava/util/List;)V
+      23: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      26: invokedynamic #340,  0            // InvokeDynamic #69:call:()Lrx/functions/Func1;
+      31: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      34: areturn
+
+  private rx.Observable lambda$findNumericStats$63(long, long, org.hawkular.metrics.model.Buckets, java.util.List, org.hawkular.metrics.model.MetricId);
+    Code:
+       0: aload_0
+       1: aload         7
+       3: lload_1
+       4: lload_3
+       5: iconst_0
+       6: getstatic     #282                // Field org/hawkular/metrics/core/service/Order.DESC:Lorg/hawkular/metrics/core/service/Order;
+       9: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      12: new           #279                // class org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer
+      15: dup
+      16: aload         5
+      18: aload         6
+      20: invokespecial #281                // Method org/hawkular/metrics/core/service/transformers/NumericBucketPointTransformer."<init>":(Lorg/hawkular/metrics/model/Buckets;Ljava/util/List;)V
+      23: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      26: invokedynamic #340,  0            // InvokeDynamic #69:call:()Lrx/functions/Func1;
+      31: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      34: areturn
+
+  private rx.Observable lambda$findNumericStats$62(long, long, org.hawkular.metrics.model.MetricId);
+    Code:
+       0: aload_0
+       1: aload         5
+       3: lload_1
+       4: lload_3
+       5: iconst_0
+       6: getstatic     #222                // Field org/hawkular/metrics/core/service/Order.ASC:Lorg/hawkular/metrics/core/service/Order;
+       9: invokevirtual #278                // Method findRateData:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      12: areturn
+
+  private rx.Observable lambda$findNumericStats$61(long, long, org.hawkular.metrics.model.MetricId);
+    Code:
+       0: aload_0
+       1: aload         5
+       3: lload_1
+       4: lload_3
+       5: iconst_0
+       6: getstatic     #282                // Field org/hawkular/metrics/core/service/Order.DESC:Lorg/hawkular/metrics/core/service/Order;
+       9: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      12: areturn
+
+  private static rx.Observable lambda$findGaugeData$60(rx.Observable, rx.functions.Func1);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: invokeinterface #341,  2          // InterfaceMethod rx/functions/Func1.call:(Ljava/lang/Object;)Ljava/lang/Object;
+       7: checkcast     #233                // class rx/Observable
+      10: areturn
+
+  private rx.Observable lambda$findRateData$59(long, long, int, org.hawkular.metrics.core.service.Order, org.hawkular.metrics.model.MetricId);
+    Code:
+       0: aload_0
+       1: aload         7
+       3: lload_1
+       4: lload_3
+       5: iload         5
+       7: aload         6
+       9: invokevirtual #278                // Method findRateData:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      12: aload         7
+      14: invokedynamic #342,  0            // InvokeDynamic #70:call:(Lorg/hawkular/metrics/model/MetricId;)Lrx/functions/Func1;
+      19: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      22: areturn
+
+  private static org.hawkular.metrics.model.NamedDataPoint lambda$null$58(org.hawkular.metrics.model.MetricId, org.hawkular.metrics.model.DataPoint);
+    Code:
+       0: new           #343                // class org/hawkular/metrics/model/NamedDataPoint
+       3: dup
+       4: aload_0
+       5: invokevirtual #344                // Method org/hawkular/metrics/model/MetricId.getName:()Ljava/lang/String;
+       8: aload_1
+       9: invokespecial #345                // Method org/hawkular/metrics/model/NamedDataPoint."<init>":(Ljava/lang/String;Lorg/hawkular/metrics/model/DataPoint;)V
+      12: areturn
+
+  private static org.hawkular.metrics.model.DataPoint lambda$findRateData$57(java.util.List);
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: invokeinterface #122,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+       7: checkcast     #324                // class org/hawkular/metrics/model/DataPoint
+      10: astore_1
+      11: aload_0
+      12: iconst_1
+      13: invokeinterface #122,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      18: checkcast     #324                // class org/hawkular/metrics/model/DataPoint
+      21: astore_2
+      22: aload_2
+      23: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+      26: lstore_3
+      27: aload_2
+      28: invokevirtual #325                // Method org/hawkular/metrics/model/DataPoint.getValue:()Ljava/lang/Object;
+      31: checkcast     #346                // class java/lang/Number
+      34: invokevirtual #347                // Method java/lang/Number.doubleValue:()D
+      37: aload_1
+      38: invokevirtual #325                // Method org/hawkular/metrics/model/DataPoint.getValue:()Ljava/lang/Object;
+      41: checkcast     #346                // class java/lang/Number
+      44: invokevirtual #347                // Method java/lang/Number.doubleValue:()D
+      47: dsub
+      48: dstore        5
+      50: aload_2
+      51: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+      54: aload_1
+      55: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+      58: lsub
+      59: l2d
+      60: dstore        7
+      62: ldc2_w        #348                // double 60000.0d
+      65: dload         5
+      67: dmul
+      68: dload         7
+      70: ddiv
+      71: dstore        9
+      73: new           #324                // class org/hawkular/metrics/model/DataPoint
+      76: dup
+      77: lload_3
+      78: invokestatic  #230                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      81: dload         9
+      83: invokestatic  #350                // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+      86: invokespecial #351                // Method org/hawkular/metrics/model/DataPoint."<init>":(Ljava/lang/Long;Ljava/lang/Object;)V
+      89: areturn
+
+  private static java.lang.Boolean lambda$findRateData$56(org.hawkular.metrics.model.MetricId, java.util.List);
+    Code:
+       0: aload_0
+       1: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+       4: getstatic     #35                 // Field org/hawkular/metrics/model/MetricType.COUNTER:Lorg/hawkular/metrics/model/MetricType;
+       7: if_acmpne     52
+      10: aload_1
+      11: iconst_1
+      12: invokeinterface #122,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      17: checkcast     #324                // class org/hawkular/metrics/model/DataPoint
+      20: invokevirtual #325                // Method org/hawkular/metrics/model/DataPoint.getValue:()Ljava/lang/Object;
+      23: checkcast     #346                // class java/lang/Number
+      26: invokevirtual #352                // Method java/lang/Number.longValue:()J
+      29: aload_1
+      30: iconst_0
+      31: invokeinterface #122,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      36: checkcast     #324                // class org/hawkular/metrics/model/DataPoint
+      39: invokevirtual #325                // Method org/hawkular/metrics/model/DataPoint.getValue:()Ljava/lang/Object;
+      42: checkcast     #346                // class java/lang/Number
+      45: invokevirtual #352                // Method java/lang/Number.longValue:()J
+      48: lcmp
+      49: iflt          56
+      52: iconst_1
+      53: goto          57
+      56: iconst_0
+      57: invokestatic  #353                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      60: areturn
+
+  private static java.lang.Boolean lambda$findRateData$55(java.util.List);
+    Code:
+       0: aload_0
+       1: invokeinterface #60,  1           // InterfaceMethod java/util/List.size:()I
+       6: iconst_2
+       7: if_icmpne     14
+      10: iconst_1
+      11: goto          15
+      14: iconst_0
+      15: invokestatic  #353                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      18: areturn
+
+  private static java.util.List lambda$findRateData$54(org.hawkular.metrics.core.service.Order, java.util.List);
+    Code:
+       0: aload_0
+       1: getstatic     #222                // Field org/hawkular/metrics/core/service/Order.ASC:Lorg/hawkular/metrics/core/service/Order;
+       4: if_acmpne     11
+       7: aload_1
+       8: goto          15
+      11: aload_1
+      12: invokestatic  #354                // Method com/google/common/collect/Lists.reverse:(Ljava/util/List;)Ljava/util/List;
+      15: areturn
+
+  private rx.Observable lambda$findDataPoints$53(long, long, int, org.hawkular.metrics.core.service.Order, org.hawkular.metrics.model.MetricId);
+    Code:
+       0: aload_0
+       1: aload         7
+       3: lload_1
+       4: lload_3
+       5: iload         5
+       7: aload         6
+       9: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      12: aload         7
+      14: invokedynamic #355,  0            // InvokeDynamic #71:call:(Lorg/hawkular/metrics/model/MetricId;)Lrx/functions/Func1;
+      19: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      22: areturn
+
+  private static org.hawkular.metrics.model.NamedDataPoint lambda$null$52(org.hawkular.metrics.model.MetricId, org.hawkular.metrics.model.DataPoint);
+    Code:
+       0: new           #343                // class org/hawkular/metrics/model/NamedDataPoint
+       3: dup
+       4: aload_0
+       5: invokevirtual #344                // Method org/hawkular/metrics/model/MetricId.getName:()Ljava/lang/String;
+       8: aload_1
+       9: invokespecial #345                // Method org/hawkular/metrics/model/NamedDataPoint."<init>":(Ljava/lang/String;Lorg/hawkular/metrics/model/DataPoint;)V
+      12: areturn
+
+  private rx.Observable lambda$findDataPoints$51(long, long, int, org.hawkular.metrics.core.service.Order, org.hawkular.metrics.model.MetricId);
+    Code:
+       0: aload_0
+       1: aload         7
+       3: lload_1
+       4: lload_3
+       5: iload         5
+       7: aload         6
+       9: invokevirtual #268                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;)Lrx/Observable;
+      12: aload         7
+      14: invokedynamic #356,  0            // InvokeDynamic #72:call:(Lorg/hawkular/metrics/model/MetricId;)Lrx/functions/Func1;
+      19: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      22: areturn
+
+  private static org.hawkular.metrics.model.NamedDataPoint lambda$null$50(org.hawkular.metrics.model.MetricId, org.hawkular.metrics.model.DataPoint);
+    Code:
+       0: new           #343                // class org/hawkular/metrics/model/NamedDataPoint
+       3: dup
+       4: aload_0
+       5: invokevirtual #344                // Method org/hawkular/metrics/model/MetricId.getName:()Ljava/lang/String;
+       8: aload_1
+       9: invokespecial #345                // Method org/hawkular/metrics/model/NamedDataPoint."<init>":(Ljava/lang/String;Lorg/hawkular/metrics/model/DataPoint;)V
+      12: areturn
+
+  private static java.lang.Object lambda$compressBlock$49(java.lang.Object);
+    Code:
+       0: aconst_null
+       1: areturn
+
+  private rx.Observable lambda$compressBlock$48(long, long, int, org.hawkular.metrics.model.MetricId);
+    Code:
+       0: aload_0
+       1: aload         6
+       3: lload_1
+       4: lload_3
+       5: iconst_0
+       6: getstatic     #222                // Field org/hawkular/metrics/core/service/Order.ASC:Lorg/hawkular/metrics/core/service/Order;
+       9: iload         5
+      11: invokevirtual #219                // Method findDataPoints:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;I)Lrx/Observable;
+      14: aload_0
+      15: invokespecial #254                // Method applyRetryPolicy:()Lrx/Observable$Transformer;
+      18: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      21: new           #357                // class org/hawkular/metrics/core/service/transformers/DataPointCompressTransformer
+      24: dup
+      25: aload         6
+      27: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+      30: lload_1
+      31: invokespecial #358                // Method org/hawkular/metrics/core/service/transformers/DataPointCompressTransformer."<init>":(Lorg/hawkular/metrics/model/MetricType;J)V
+      34: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      37: aload_0
+      38: aload         6
+      40: lload_1
+      41: lload_3
+      42: invokedynamic #359,  0            // InvokeDynamic #73:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lorg/hawkular/metrics/model/MetricId;JJ)Lrx/functions/Func1;
+      47: invokevirtual #256                // Method rx/Observable.concatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      50: areturn
+
+  private java.lang.Object lambda$null$47(org.hawkular.metrics.model.MetricId, long, long, java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: aload_1
+       5: lload_2
+       6: aload         6
+       8: checkcast     #360                // class org/hawkular/metrics/core/service/compress/CompressedPointContainer
+      11: lload_2
+      12: lload         4
+      14: aload_0
+      15: aload_1
+      16: invokespecial #361                // Method getTTL:(Lorg/hawkular/metrics/model/MetricId;)I
+      19: invokeinterface #362,  10         // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.deleteAndInsertCompressedGauge:(Lorg/hawkular/metrics/model/MetricId;JLorg/hawkular/metrics/core/service/compress/CompressedPointContainer;JJI)Lrx/Observable;
+      24: aload_0
+      25: invokespecial #254                // Method applyRetryPolicy:()Lrx/Observable$Transformer;
+      28: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      31: areturn
+
+  private static rx.Observable lambda$applyRetryPolicy$46(rx.Observable);
+    Code:
+       0: aload_0
+       1: invokedynamic #363,  0            // InvokeDynamic #74:call:()Lrx/functions/Func1;
+       6: invokevirtual #364                // Method rx/Observable.retryWhen:(Lrx/functions/Func1;)Lrx/Observable;
+       9: invokedynamic #365,  0            // InvokeDynamic #75:call:()Lrx/functions/Action1;
+      14: invokevirtual #366                // Method rx/Observable.doOnError:(Lrx/functions/Action1;)Lrx/Observable;
+      17: invokestatic  #367                // Method rx/Observable.empty:()Lrx/Observable;
+      20: invokevirtual #368                // Method rx/Observable.onErrorResumeNext:(Lrx/Observable;)Lrx/Observable;
+      23: areturn
+
+  private static void lambda$null$45(java.lang.Throwable);
+    Code:
+       0: getstatic     #1                  // Field log:Lorg/hawkular/metrics/core/service/log/CoreLogger;
+       3: ldc_w         #369                // String Failure while trying to apply compression, skipping block
+       6: aload_0
+       7: invokeinterface #370,  3          // InterfaceMethod org/hawkular/metrics/core/service/log/CoreLogger.error:(Ljava/lang/Object;Ljava/lang/Throwable;)V
+      12: return
+
+  private static rx.Observable lambda$null$44(rx.Observable);
+    Code:
+       0: iconst_1
+       1: ldc_w         #371                // int 2147483647
+       4: invokestatic  #372                // Method rx/Observable.range:(II)Lrx/Observable;
+       7: astore_1
+       8: aload_0
+       9: aload_1
+      10: invokedynamic #373,  0            // InvokeDynamic #76:call:()Lrx/functions/Func2;
+      15: invokevirtual #374                // Method rx/Observable.zipWith:(Lrx/Observable;Lrx/functions/Func2;)Lrx/Observable;
+      18: astore_2
+      19: aload_2
+      20: invokestatic  #292                // Method rx/Observable.merge:(Lrx/Observable;)Lrx/Observable;
+      23: areturn
+
+  private static rx.Observable lambda$null$43(java.lang.Throwable, java.lang.Integer);
+    Code:
+       0: getstatic     #1                  // Field log:Lorg/hawkular/metrics/core/service/log/CoreLogger;
+       3: new           #15                 // class java/lang/StringBuilder
+       6: dup
+       7: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+      10: ldc_w         #375                // String Attempt #
+      13: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      16: aload_1
+      17: invokevirtual #144                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      20: ldc_w         #376                // String  to retry the operation after Cassandra client exception
+      23: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: invokevirtual #19                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      29: invokeinterface #377,  2          // InterfaceMethod org/hawkular/metrics/core/service/log/CoreLogger.debug:(Ljava/lang/Object;)V
+      34: aload_0
+      35: instanceof    #378                // class com/datastax/driver/core/exceptions/DriverException
+      38: ifeq          56
+      41: aload_1
+      42: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      45: i2l
+      46: getstatic     #379                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      49: invokestatic  #380                // Method rx/Observable.timer:(JLjava/util/concurrent/TimeUnit;)Lrx/Observable;
+      52: invokevirtual #381                // Method rx/Observable.onBackpressureDrop:()Lrx/Observable;
+      55: areturn
+      56: aload_0
+      57: invokestatic  #196                // Method rx/Observable.error:(Ljava/lang/Throwable;)Lrx/Observable;
+      60: areturn
+
+  private static rx.Observable lambda$findDataPoints$42(rx.functions.Func6, org.hawkular.metrics.model.MetricId, long, long, int, org.hawkular.metrics.core.service.Order, int, rx.functions.Func1) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_2
+       3: invokestatic  #230                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+       6: lload         4
+       8: invokestatic  #230                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      11: iload         6
+      13: invokestatic  #231                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      16: aload         7
+      18: iload         8
+      20: invokestatic  #231                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      23: invokeinterface #232,  7          // InterfaceMethod rx/functions/Func6.call:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      28: checkcast     #233                // class rx/Observable
+      31: aload         9
+      33: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      36: areturn
+
+  private static int lambda$findDataPoints$41(org.hawkular.metrics.model.DataPoint, org.hawkular.metrics.model.DataPoint);
+    Code:
+       0: aload_1
+       1: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+       4: aload_0
+       5: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+       8: lsub
+       9: l2i
+      10: ireturn
+
+  private static int lambda$findDataPoints$40(org.hawkular.metrics.model.DataPoint, org.hawkular.metrics.model.DataPoint);
+    Code:
+       0: aload_0
+       1: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+       4: aload_1
+       5: invokevirtual #327                // Method org/hawkular/metrics/model/DataPoint.getTimestamp:()J
+       8: lsub
+       9: l2i
+      10: ireturn
+
+  private static java.lang.Void lambda$addDataPoints$39(java.lang.Integer);
+    Code:
+       0: aconst_null
+       1: areturn
+
+  private rx.Observable lambda$addDataPoints$38(rx.functions.Func2, org.hawkular.metrics.model.Metric);
+    Code:
+       0: aload_1
+       1: aload_2
+       2: aload_0
+       3: aload_2
+       4: invokevirtual #140                // Method org/hawkular/metrics/model/Metric.getMetricId:()Lorg/hawkular/metrics/model/MetricId;
+       7: invokespecial #361                // Method getTTL:(Lorg/hawkular/metrics/model/MetricId;)I
+      10: invokestatic  #231                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      13: invokeinterface #382,  3          // InterfaceMethod rx/functions/Func2.call:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      18: checkcast     #233                // class rx/Observable
+      21: aload_0
+      22: aload_2
+      23: invokedynamic #383,  0            // InvokeDynamic #77:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lorg/hawkular/metrics/model/Metric;)Lrx/functions/Func1;
+      28: invokevirtual #364                // Method rx/Observable.retryWhen:(Lrx/functions/Func1;)Lrx/Observable;
+      31: aload_2
+      32: invokedynamic #384,  0            // InvokeDynamic #78:call:(Lorg/hawkular/metrics/model/Metric;)Lrx/functions/Action1;
+      37: invokevirtual #366                // Method rx/Observable.doOnError:(Lrx/functions/Action1;)Lrx/Observable;
+      40: aload_0
+      41: aload_2
+      42: invokedynamic #385,  0            // InvokeDynamic #79:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lorg/hawkular/metrics/model/Metric;)Lrx/functions/Action1;
+      47: invokevirtual #211                // Method rx/Observable.doOnNext:(Lrx/functions/Action1;)Lrx/Observable;
+      50: areturn
+
+  private void lambda$null$37(org.hawkular.metrics.model.Metric, java.lang.Integer);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field insertedDataPointEvents:Lrx/subjects/PublishSubject;
+       4: aload_1
+       5: invokevirtual #386                // Method rx/subjects/PublishSubject.onNext:(Ljava/lang/Object;)V
+       8: return
+
+  private static void lambda$null$36(org.hawkular.metrics.model.Metric, java.lang.Throwable);
+    Code:
+       0: getstatic     #1                  // Field log:Lorg/hawkular/metrics/core/service/log/CoreLogger;
+       3: new           #15                 // class java/lang/StringBuilder
+       6: dup
+       7: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+      10: ldc_w         #387                // String Failed to insert data points for
+      13: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      16: aload_0
+      17: invokevirtual #140                // Method org/hawkular/metrics/model/Metric.getMetricId:()Lorg/hawkular/metrics/model/MetricId;
+      20: invokevirtual #144                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      23: invokevirtual #19                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      26: invokeinterface #377,  2          // InterfaceMethod org/hawkular/metrics/core/service/log/CoreLogger.debug:(Ljava/lang/Object;)V
+      31: return
+
+  private rx.Observable lambda$null$35(org.hawkular.metrics.model.Metric, rx.Observable);
+    Code:
+       0: iconst_1
+       1: aload_0
+       2: getfield      #109                // Field insertMaxRetries:I
+       5: invokestatic  #372                // Method rx/Observable.range:(II)Lrx/Observable;
+       8: astore_3
+       9: aload_2
+      10: aload_3
+      11: invokedynamic #388,  0            // InvokeDynamic #80:call:()Lrx/functions/Func2;
+      16: invokevirtual #374                // Method rx/Observable.zipWith:(Lrx/Observable;Lrx/functions/Func2;)Lrx/Observable;
+      19: aload_0
+      20: aload_1
+      21: invokedynamic #389,  0            // InvokeDynamic #81:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lorg/hawkular/metrics/model/Metric;)Lrx/functions/Func1;
+      26: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      29: areturn
+
+  private rx.Observable lambda$null$34(org.hawkular.metrics.model.Metric, java.lang.Integer);
+    Code:
+       0: ldc2_w        #390                // double 2.0d
+       3: aload_2
+       4: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+       7: i2d
+       8: invokestatic  #392                // Method java/lang/Math.pow:(DD)D
+      11: ldc2_w        #393                // double 1000.0d
+      14: dmul
+      15: aload_0
+      16: getfield      #106                // Field insertRetryMaxDelay:J
+      19: l2d
+      20: invokestatic  #395                // Method java/lang/Math.min:(DD)D
+      23: d2l
+      24: lstore_3
+      25: getstatic     #1                  // Field log:Lorg/hawkular/metrics/core/service/log/CoreLogger;
+      28: new           #15                 // class java/lang/StringBuilder
+      31: dup
+      32: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+      35: ldc_w         #396                // String Retrying insert for
+      38: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      41: aload_1
+      42: invokevirtual #140                // Method org/hawkular/metrics/model/Metric.getMetricId:()Lorg/hawkular/metrics/model/MetricId;
+      45: invokevirtual #144                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      48: ldc_w         #397                // String  in
+      51: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      54: lload_3
+      55: invokevirtual #398                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      58: ldc_w         #399                // String  ms
+      61: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      64: invokevirtual #19                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      67: invokeinterface #377,  2          // InterfaceMethod org/hawkular/metrics/core/service/log/CoreLogger.debug:(Ljava/lang/Object;)V
+      72: ldc2_w        #390                // double 2.0d
+      75: aload_2
+      76: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      79: i2d
+      80: invokestatic  #392                // Method java/lang/Math.pow:(DD)D
+      83: ldc2_w        #393                // double 1000.0d
+      86: dmul
+      87: ldc2_w        #400                // double 30000.0d
+      90: invokestatic  #395                // Method java/lang/Math.min:(DD)D
+      93: d2l
+      94: getstatic     #379                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      97: invokestatic  #380                // Method rx/Observable.timer:(JLjava/util/concurrent/TimeUnit;)Lrx/Observable;
+     100: areturn
+
+  private static java.lang.Integer lambda$null$33(java.lang.Throwable, java.lang.Integer);
+    Code:
+       0: aload_0
+       1: instanceof    #378                // class com/datastax/driver/core/exceptions/DriverException
+       4: ifeq          9
+       7: aload_1
+       8: areturn
+       9: aload_0
+      10: invokestatic  #402                // Method rx/exceptions/Exceptions.propagate:(Ljava/lang/Throwable;)Ljava/lang/RuntimeException;
+      13: athrow
+
+  private static java.lang.Boolean lambda$addDataPoints$32(org.hawkular.metrics.model.Metric);
+    Code:
+       0: aload_0
+       1: invokevirtual #403                // Method org/hawkular/metrics/model/Metric.getDataPoints:()Ljava/util/List;
+       4: invokeinterface #117,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+       9: ifne          16
+      12: iconst_1
+      13: goto          17
+      16: iconst_0
+      17: invokestatic  #353                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      20: areturn
+
+  private rx.Observable lambda$deleteTags$31(org.hawkular.metrics.model.Metric, java.util.Map);
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: aload_1
+       5: aload_2
+       6: invokeinterface #404,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+      11: invokeinterface #405,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.deleteTags:(Lorg/hawkular/metrics/model/Metric;Ljava/util/Set;)Lrx/Observable;
+      16: aload_0
+      17: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      20: aload_1
+      21: aload_2
+      22: invokeinterface #406,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.deleteFromMetricsTagsIndex:(Lorg/hawkular/metrics/model/Metric;Ljava/util/Map;)Lrx/Observable;
+      27: invokevirtual #407                // Method rx/Observable.mergeWith:(Lrx/Observable;)Lrx/Observable;
+      30: invokevirtual #199                // Method rx/Observable.toList:()Lrx/Observable;
+      33: invokedynamic #408,  0            // InvokeDynamic #82:call:()Lrx/functions/Func1;
+      38: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      41: areturn
+
+  private static java.lang.Void lambda$null$30(java.util.List);
+    Code:
+       0: aconst_null
+       1: areturn
+
+  private static java.util.Map lambda$deleteTags$29(java.util.Set, java.util.Map);
+    Code:
+       0: aload_1
+       1: invokeinterface #404,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+       6: aload_0
+       7: invokeinterface #409,  2          // InterfaceMethod java/util/Set.retainAll:(Ljava/util/Collection;)Z
+      12: pop
+      13: aload_1
+      14: areturn
+
+  private static java.lang.Void lambda$addTags$28(java.util.List);
+    Code:
+       0: aconst_null
+       1: areturn
+
+  private static java.util.Map lambda$getMetricTags$27(com.datastax.driver.core.Row);
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: ldc           #65                 // class java/lang/String
+       4: ldc           #65                 // class java/lang/String
+       6: invokeinterface #410,  4          // InterfaceMethod com/datastax/driver/core/Row.getMap:(ILjava/lang/Class;Ljava/lang/Class;)Ljava/util/Map;
+      11: areturn
+
+  private static java.lang.Boolean lambda$idFilter$26(boolean, java.util.regex.Pattern, org.hawkular.metrics.model.Metric);
+    Code:
+       0: iload_0
+       1: aload_1
+       2: aload_2
+       3: invokevirtual #411                // Method org/hawkular/metrics/model/Metric.getId:()Ljava/lang/String;
+       6: invokevirtual #412                // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+       9: invokevirtual #413                // Method java/util/regex/Matcher.matches:()Z
+      12: if_icmpne     19
+      15: iconst_1
+      16: goto          20
+      19: iconst_0
+      20: invokestatic  #353                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      23: areturn
+
+  private static org.hawkular.metrics.model.Metric lambda$findMetricsWithFilters$25(org.hawkular.metrics.model.Metric);
+    Code:
+       0: aload_0
+       1: areturn
+
+  private static org.hawkular.metrics.model.MetricId lambda$findMetrics$24(org.hawkular.metrics.model.Metric);
+    Code:
+       0: aload_0
+       1: invokevirtual #140                // Method org/hawkular/metrics/model/Metric.getMetricId:()Lorg/hawkular/metrics/model/MetricId;
+       4: areturn
+
+  private static java.lang.Boolean lambda$findMetrics$23(org.hawkular.metrics.model.MetricType, org.hawkular.metrics.model.Metric);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #140                // Method org/hawkular/metrics/model/Metric.getMetricId:()Lorg/hawkular/metrics/model/MetricId;
+       5: invokevirtual #141                // Method org/hawkular/metrics/model/MetricId.getType:()Lorg/hawkular/metrics/model/MetricType;
+       8: invokevirtual #414                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      11: invokestatic  #353                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      14: areturn
+
+  private rx.Observable lambda$findMetrics$22(java.lang.String, org.hawkular.metrics.model.MetricType);
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: aload_1
+       5: aload_2
+       6: invokeinterface #173,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findMetricsInMetricsIndex:(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;)Lrx/Observable;
+      11: new           #159                // class org/hawkular/metrics/core/service/transformers/MetricsIndexRowTransformer
+      14: dup
+      15: aload_1
+      16: aload_2
+      17: aload_0
+      18: getfield      #13                 // Field defaultTTL:I
+      21: invokespecial #161                // Method org/hawkular/metrics/core/service/transformers/MetricsIndexRowTransformer."<init>":(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;I)V
+      24: invokevirtual #157                // Method rx/Observable.compose:(Lrx/Observable$Transformer;)Lrx/Observable;
+      27: areturn
+
+  private static org.hawkular.metrics.model.MetricType lambda$findMetrics$21(org.hawkular.metrics.model.MetricType);
+    Code:
+       0: aload_0
+       1: areturn
+
+  private static org.hawkular.metrics.model.Metric lambda$findMetrics$20(org.hawkular.metrics.model.Metric);
+    Code:
+       0: aload_0
+       1: areturn
+
+  private static java.lang.Boolean lambda$findMetrics$19(java.lang.String, com.datastax.driver.core.Row);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iconst_0
+       3: invokeinterface #415,  2          // InterfaceMethod com/datastax/driver/core/Row.getString:(I)Ljava/lang/String;
+       8: invokevirtual #416                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      11: invokestatic  #353                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      14: areturn
+
+  private void lambda$updateRetentionsIndex$18(org.hawkular.metrics.model.Metric);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field dataRetentions:Ljava/util/Map;
+       4: new           #310                // class org/hawkular/metrics/core/service/MetricsServiceImpl$DataRetentionKey
+       7: dup
+       8: aload_1
+       9: invokespecial #417                // Method org/hawkular/metrics/core/service/MetricsServiceImpl$DataRetentionKey."<init>":(Lorg/hawkular/metrics/model/Metric;)V
+      12: aload_1
+      13: invokevirtual #418                // Method org/hawkular/metrics/model/Metric.getDataRetention:()Ljava/lang/Integer;
+      16: invokeinterface #419,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      21: checkcast     #312                // class java/lang/Integer
+      24: pop
+      25: return
+
+  private void lambda$createMetric$17(rx.Observable, boolean, org.hawkular.metrics.model.Metric, rx.Subscriber);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: iload_2
+       3: aload         4
+       5: aload_3
+       6: invokedynamic #420,  0            // InvokeDynamic #83:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;ZLrx/Subscriber;Lorg/hawkular/metrics/model/Metric;)Lrx/functions/Action1;
+      11: invokevirtual #421                // Method rx/Observable.subscribe:(Lrx/functions/Action1;)Lrx/Subscription;
+      14: pop
+      15: return
+
+  private void lambda$null$16(boolean, rx.Subscriber, org.hawkular.metrics.model.Metric, com.datastax.driver.core.ResultSet);
+    Code:
+       0: iload_1
+       1: ifne          29
+       4: aload         4
+       6: invokeinterface #422,  1          // InterfaceMethod com/datastax/driver/core/ResultSet.wasApplied:()Z
+      11: ifne          29
+      14: aload_2
+      15: new           #423                // class org/hawkular/metrics/model/exception/MetricAlreadyExistsException
+      18: dup
+      19: aload_3
+      20: invokespecial #424                // Method org/hawkular/metrics/model/exception/MetricAlreadyExistsException."<init>":(Lorg/hawkular/metrics/model/Metric;)V
+      23: invokevirtual #425                // Method rx/Subscriber.onError:(Ljava/lang/Throwable;)V
+      26: goto          97
+      29: new           #322                // class java/util/ArrayList
+      32: dup
+      33: invokespecial #426                // Method java/util/ArrayList."<init>":()V
+      36: astore        5
+      38: aload         5
+      40: aload_0
+      41: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      44: aload_3
+      45: aload_3
+      46: invokevirtual #427                // Method org/hawkular/metrics/model/Metric.getTags:()Ljava/util/Map;
+      49: invokeinterface #197,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertIntoMetricsTagsIndex:(Lorg/hawkular/metrics/model/Metric;Ljava/util/Map;)Lrx/Observable;
+      54: invokeinterface #328,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      59: pop
+      60: aload_3
+      61: invokevirtual #418                // Method org/hawkular/metrics/model/Metric.getDataRetention:()Ljava/lang/Integer;
+      64: ifnull        80
+      67: aload         5
+      69: aload_0
+      70: aload_3
+      71: invokespecial #428                // Method updateRetentionsIndex:(Lorg/hawkular/metrics/model/Metric;)Lrx/Observable;
+      74: invokeinterface #328,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      79: pop
+      80: aload         5
+      82: invokestatic  #429                // Method rx/Observable.merge:(Ljava/lang/Iterable;)Lrx/Observable;
+      85: new           #430                // class org/hawkular/metrics/core/service/VoidSubscriber
+      88: dup
+      89: aload_2
+      90: invokespecial #431                // Method org/hawkular/metrics/core/service/VoidSubscriber."<init>":(Lrx/Subscriber;)V
+      93: invokevirtual #432                // Method rx/Observable.subscribe:(Lrx/Subscriber;)Lrx/Subscription;
+      96: pop
+      97: return
+
+  private static java.lang.String lambda$loadTenantIds$15(com.datastax.driver.core.Row);
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: invokeinterface #415,  2          // InterfaceMethod com/datastax/driver/core/Row.getString:(I)Ljava/lang/String;
+       7: areturn
+
+  private rx.Observable lambda$getTenants$14(java.lang.String);
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: aload_1
+       5: invokeinterface #433,  2          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findTenant:(Ljava/lang/String;)Lrx/Observable;
+      10: invokedynamic #434,  0            // InvokeDynamic #84:call:()Lrx/functions/Func1;
+      15: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      18: new           #435                // class org/hawkular/metrics/model/Tenant
+      21: dup
+      22: aload_1
+      23: invokespecial #436                // Method org/hawkular/metrics/model/Tenant."<init>":(Ljava/lang/String;)V
+      26: invokestatic  #437                // Method rx/Observable.just:(Ljava/lang/Object;)Lrx/Observable;
+      29: invokevirtual #165                // Method rx/Observable.switchIfEmpty:(Lrx/Observable;)Lrx/Observable;
+      32: areturn
+
+  private static java.lang.String lambda$getTenants$13(com.datastax.driver.core.Row);
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: invokeinterface #415,  2          // InterfaceMethod com/datastax/driver/core/Row.getString:(I)Ljava/lang/String;
+       7: areturn
+
+  private void lambda$createTenant$12(org.hawkular.metrics.model.Tenant, boolean, rx.Subscriber);
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: aload_1
+       5: iload_2
+       6: invokeinterface #438,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertTenant:(Lorg/hawkular/metrics/model/Tenant;Z)Lrx/Observable;
+      11: aload_0
+      12: aload_1
+      13: invokedynamic #439,  0            // InvokeDynamic #85:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lorg/hawkular/metrics/model/Tenant;)Lrx/functions/Func1;
+      18: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      21: astore        4
+      23: aload         4
+      25: invokedynamic #440,  0            // InvokeDynamic #86:call:()Lrx/functions/Action1;
+      30: aload_3
+      31: dup
+      32: invokevirtual #209                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      35: pop
+      36: invokedynamic #441,  0            // InvokeDynamic #87:call:(Lrx/Subscriber;)Lrx/functions/Action1;
+      41: aload_3
+      42: dup
+      43: invokevirtual #209                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      46: pop
+      47: invokedynamic #442,  0            // InvokeDynamic #88:call:(Lrx/Subscriber;)Lrx/functions/Action0;
+      52: invokevirtual #443                // Method rx/Observable.subscribe:(Lrx/functions/Action1;Lrx/functions/Action1;Lrx/functions/Action0;)Lrx/Subscription;
+      55: pop
+      56: return
+
+  private static void lambda$null$11(java.lang.Void);
+    Code:
+       0: return
+
+  private rx.Observable lambda$null$10(org.hawkular.metrics.model.Tenant, com.datastax.driver.core.ResultSet);
+    Code:
+       0: aload_2
+       1: invokeinterface #422,  1          // InterfaceMethod com/datastax/driver/core/ResultSet.wasApplied:()Z
+       6: ifne          21
+       9: new           #444                // class org/hawkular/metrics/model/exception/TenantAlreadyExistsException
+      12: dup
+      13: aload_1
+      14: invokevirtual #445                // Method org/hawkular/metrics/model/Tenant.getId:()Ljava/lang/String;
+      17: invokespecial #446                // Method org/hawkular/metrics/model/exception/TenantAlreadyExistsException."<init>":(Ljava/lang/String;)V
+      20: athrow
+      21: aload_1
+      22: invokevirtual #447                // Method org/hawkular/metrics/model/Tenant.getRetentionSettings:()Ljava/util/Map;
+      25: invokeinterface #448,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+      30: invokestatic  #170                // Method rx/Observable.from:(Ljava/lang/Iterable;)Lrx/Observable;
+      33: aload_0
+      34: aload_1
+      35: invokedynamic #449,  0            // InvokeDynamic #89:call:(Lorg/hawkular/metrics/core/service/MetricsServiceImpl;Lorg/hawkular/metrics/model/Tenant;)Lrx/functions/Func1;
+      40: invokevirtual #136                // Method rx/Observable.flatMap:(Lrx/functions/Func1;)Lrx/Observable;
+      43: invokedynamic #450,  0            // InvokeDynamic #90:call:()Lrx/functions/Func1;
+      48: invokevirtual #133                // Method rx/Observable.map:(Lrx/functions/Func1;)Lrx/Observable;
+      51: astore_3
+      52: aload_3
+      53: areturn
+
+  private static java.lang.Void lambda$null$9(com.datastax.driver.core.ResultSet);
+    Code:
+       0: aconst_null
+       1: areturn
+
+  private rx.Observable lambda$null$8(org.hawkular.metrics.model.Tenant, java.util.Map$Entry);
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       4: aload_1
+       5: invokevirtual #445                // Method org/hawkular/metrics/model/Tenant.getId:()Ljava/lang/String;
+       8: aload_2
+       9: invokeinterface #451,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      14: checkcast     #452                // class org/hawkular/metrics/model/MetricType
+      17: aload_2
+      18: invokeinterface #451,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      23: checkcast     #452                // class org/hawkular/metrics/model/MetricType
+      26: invokevirtual #216                // Method org/hawkular/metrics/model/MetricType.getText:()Ljava/lang/String;
+      29: invokestatic  #453                // Method org/hawkular/metrics/core/service/Functions.makeSafe:(Ljava/lang/String;)Ljava/lang/String;
+      32: aload_2
+      33: invokeinterface #454,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      38: invokestatic  #455                // Method com/google/common/collect/ImmutableMap.of:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap;
+      41: invokeinterface #456,  4          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.updateRetentionsIndex:(Ljava/lang/String;Lorg/hawkular/metrics/model/MetricType;Ljava/util/Map;)Lrx/Observable;
+      46: areturn
+
+  private rx.Observable lambda$startUp$7(org.hawkular.metrics.model.MetricId, java.lang.Long, java.lang.Long, java.lang.Integer, org.hawkular.metrics.core.service.Order, java.lang.Integer);
+    Code:
+       0: aload_1
+       1: astore        7
+       3: aload_0
+       4: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       7: aload         7
+       9: aload_2
+      10: invokevirtual #457                // Method java/lang/Long.longValue:()J
+      13: aload_3
+      14: invokevirtual #457                // Method java/lang/Long.longValue:()J
+      17: aload         4
+      19: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      22: aload         5
+      24: aload         6
+      26: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      29: invokeinterface #458,  9          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findStringData:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;I)Lrx/Observable;
+      34: areturn
+
+  private rx.Observable lambda$startUp$6(org.hawkular.metrics.model.MetricId, java.lang.Long, java.lang.Long, java.lang.Integer, org.hawkular.metrics.core.service.Order, java.lang.Integer);
+    Code:
+       0: aload_1
+       1: astore        7
+       3: aload_0
+       4: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       7: aload         7
+       9: aload_2
+      10: invokevirtual #457                // Method java/lang/Long.longValue:()J
+      13: aload_3
+      14: invokevirtual #457                // Method java/lang/Long.longValue:()J
+      17: aload         4
+      19: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      22: aload         5
+      24: aload         6
+      26: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      29: invokeinterface #459,  9          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findCounterData:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;I)Lrx/Observable;
+      34: areturn
+
+  private rx.Observable lambda$startUp$5(org.hawkular.metrics.model.MetricId, java.lang.Long, java.lang.Long, java.lang.Integer, org.hawkular.metrics.core.service.Order, java.lang.Integer);
+    Code:
+       0: aload_1
+       1: astore        7
+       3: aload_0
+       4: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       7: aload         7
+       9: aload_2
+      10: invokevirtual #457                // Method java/lang/Long.longValue:()J
+      13: aload_3
+      14: invokevirtual #457                // Method java/lang/Long.longValue:()J
+      17: aload         4
+      19: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      22: aload         5
+      24: aload         6
+      26: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      29: invokeinterface #460,  9          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findAvailabilityData:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;I)Lrx/Observable;
+      34: areturn
+
+  private rx.Observable lambda$startUp$4(org.hawkular.metrics.model.MetricId, java.lang.Long, java.lang.Long, java.lang.Integer, org.hawkular.metrics.core.service.Order, java.lang.Integer);
+    Code:
+       0: aload_1
+       1: astore        7
+       3: aload_0
+       4: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+       7: aload         7
+       9: aload_2
+      10: invokevirtual #457                // Method java/lang/Long.longValue:()J
+      13: aload_3
+      14: invokevirtual #457                // Method java/lang/Long.longValue:()J
+      17: aload         4
+      19: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      22: aload         5
+      24: aload         6
+      26: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      29: invokeinterface #461,  9          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.findGaugeData:(Lorg/hawkular/metrics/model/MetricId;JJILorg/hawkular/metrics/core/service/Order;I)Lrx/Observable;
+      34: areturn
+
+  private rx.Observable lambda$startUp$3(org.hawkular.metrics.model.Metric, java.lang.Integer);
+    Code:
+       0: aload_1
+       1: astore_3
+       2: aload_2
+       3: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+       6: aload_0
+       7: getfield      #13                 // Field defaultTTL:I
+      10: if_icmpne     28
+      13: aload_0
+      14: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      17: aload_3
+      18: aload_0
+      19: getfield      #99                 // Field maxStringSize:I
+      22: invokeinterface #462,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertStringData:(Lorg/hawkular/metrics/model/Metric;I)Lrx/Observable;
+      27: areturn
+      28: aload_0
+      29: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      32: aload_3
+      33: aload_2
+      34: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      37: aload_0
+      38: getfield      #99                 // Field maxStringSize:I
+      41: invokeinterface #463,  4          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertStringData:(Lorg/hawkular/metrics/model/Metric;II)Lrx/Observable;
+      46: areturn
+
+  private rx.Observable lambda$startUp$2(org.hawkular.metrics.model.Metric, java.lang.Integer);
+    Code:
+       0: aload_1
+       1: astore_3
+       2: aload_2
+       3: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+       6: aload_0
+       7: getfield      #13                 // Field defaultTTL:I
+      10: if_icmpne     24
+      13: aload_0
+      14: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      17: aload_3
+      18: invokeinterface #464,  2          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertCounterData:(Lorg/hawkular/metrics/model/Metric;)Lrx/Observable;
+      23: areturn
+      24: aload_0
+      25: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      28: aload_3
+      29: aload_2
+      30: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      33: invokeinterface #465,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertCounterData:(Lorg/hawkular/metrics/model/Metric;I)Lrx/Observable;
+      38: areturn
+
+  private rx.Observable lambda$startUp$1(org.hawkular.metrics.model.Metric, java.lang.Integer);
+    Code:
+       0: aload_1
+       1: astore_3
+       2: aload_2
+       3: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+       6: aload_0
+       7: getfield      #13                 // Field defaultTTL:I
+      10: if_icmpne     24
+      13: aload_0
+      14: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      17: aload_3
+      18: invokeinterface #466,  2          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertAvailabilityData:(Lorg/hawkular/metrics/model/Metric;)Lrx/Observable;
+      23: areturn
+      24: aload_0
+      25: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      28: aload_3
+      29: aload_2
+      30: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      33: invokeinterface #467,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertAvailabilityData:(Lorg/hawkular/metrics/model/Metric;I)Lrx/Observable;
+      38: areturn
+
+  private rx.Observable lambda$startUp$0(org.hawkular.metrics.model.Metric, java.lang.Integer);
+    Code:
+       0: aload_1
+       1: astore_3
+       2: aload_2
+       3: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+       6: aload_0
+       7: getfield      #13                 // Field defaultTTL:I
+      10: if_icmpne     24
+      13: aload_0
+      14: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      17: aload_3
+      18: invokeinterface #468,  2          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertGaugeData:(Lorg/hawkular/metrics/model/Metric;)Lrx/Observable;
+      23: areturn
+      24: aload_0
+      25: getfield      #55                 // Field dataAccess:Lorg/hawkular/metrics/core/service/DataAccess;
+      28: aload_3
+      29: aload_2
+      30: invokevirtual #315                // Method java/lang/Integer.intValue:()I
+      33: invokeinterface #469,  3          // InterfaceMethod org/hawkular/metrics/core/service/DataAccess.insertGaugeData:(Lorg/hawkular/metrics/model/Metric;I)Lrx/Observable;
+      38: areturn
+
+  static java.util.Map access$000(org.hawkular.metrics.core.service.MetricsServiceImpl);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field dataRetentions:Ljava/util/Map;
+       4: areturn
+
+  static org.hawkular.metrics.core.service.log.CoreLogger access$100();
+    Code:
+       0: getstatic     #1                  // Field log:Lorg/hawkular/metrics/core/service/log/CoreLogger;
+       3: areturn
+
+  static {};
+    Code:
+       0: ldc_w         #470                // class org/hawkular/metrics/core/service/MetricsServiceImpl
+       3: invokestatic  #471                // Method org/hawkular/metrics/core/service/log/CoreLogging.getCoreLogger:(Ljava/lang/Class;)Lorg/hawkular/metrics/core/service/log/CoreLogger;
+       6: putstatic     #1                  // Field log:Lorg/hawkular/metrics/core/service/log/CoreLogger;
+       9: ldc_w         #472                // String sysconfig
+      12: invokestatic  #453                // Method org/hawkular/metrics/core/service/Functions.makeSafe:(Ljava/lang/String;)Ljava/lang/String;
+      15: putstatic     #473                // Field SYSTEM_TENANT_ID:Ljava/lang/String;
+      18: return
+}

@@ -1,0 +1,1628 @@
+Compiled from "MemoryStore.java"
+public class net.sf.ehcache.store.MemoryStore extends net.sf.ehcache.store.AbstractStore implements net.sf.ehcache.store.TierableStore,net.sf.ehcache.pool.PoolableStore,net.sf.ehcache.config.CacheConfigurationListener {
+  static final float DEFAULT_LOAD_FACTOR;
+
+  private static final int CONCURRENCY_LEVEL;
+
+  private static final int MAX_EVICTION_RATIO;
+
+  private static final org.slf4j.Logger LOG;
+
+  private final boolean alwaysPutOnHeap;
+
+  private final net.sf.ehcache.Ehcache cache;
+
+  private final net.sf.ehcache.store.chm.SelectableConcurrentHashMap map;
+
+  private final net.sf.ehcache.pool.PoolAccessor poolAccessor;
+
+  private final net.sf.ehcache.util.ratestatistics.RateStatistic hitRate;
+
+  private final net.sf.ehcache.util.ratestatistics.RateStatistic missRate;
+
+  private final boolean storePinned;
+
+  private final boolean elementPinningEnabled;
+
+  private volatile int maximumSize;
+
+  private volatile net.sf.ehcache.Status status;
+
+  private volatile net.sf.ehcache.store.Policy policy;
+
+  private volatile net.sf.ehcache.concurrent.CacheLockProvider lockProvider;
+
+  protected net.sf.ehcache.store.MemoryStore(net.sf.ehcache.Ehcache, net.sf.ehcache.pool.Pool, boolean, net.sf.ehcache.store.MemoryStore$BackingFactory);
+    Code:
+       0: aload_0
+       1: invokespecial #2                  // Method net/sf/ehcache/store/AbstractStore."<init>":()V
+       4: aload_0
+       5: new           #3                  // class net/sf/ehcache/util/ratestatistics/AtomicRateStatistic
+       8: dup
+       9: ldc2_w        #4                  // long 1000l
+      12: getstatic     #6                  // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      15: invokespecial #7                  // Method net/sf/ehcache/util/ratestatistics/AtomicRateStatistic."<init>":(JLjava/util/concurrent/TimeUnit;)V
+      18: putfield      #8                  // Field hitRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+      21: aload_0
+      22: new           #3                  // class net/sf/ehcache/util/ratestatistics/AtomicRateStatistic
+      25: dup
+      26: ldc2_w        #4                  // long 1000l
+      29: getstatic     #6                  // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      32: invokespecial #7                  // Method net/sf/ehcache/util/ratestatistics/AtomicRateStatistic."<init>":(JLjava/util/concurrent/TimeUnit;)V
+      35: putfield      #9                  // Field missRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+      38: aload_0
+      39: getstatic     #10                 // Field net/sf/ehcache/Status.STATUS_UNINITIALISED:Lnet/sf/ehcache/Status;
+      42: putfield      #11                 // Field status:Lnet/sf/ehcache/Status;
+      45: aload_0
+      46: aload_1
+      47: putfield      #12                 // Field cache:Lnet/sf/ehcache/Ehcache;
+      50: aload_0
+      51: aload_1
+      52: invokeinterface #13,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheConfiguration:()Lnet/sf/ehcache/config/CacheConfiguration;
+      57: invokevirtual #14                 // Method net/sf/ehcache/config/CacheConfiguration.getMaxEntriesLocalHeap:()J
+      60: l2i
+      61: putfield      #15                 // Field maximumSize:I
+      64: aload_0
+      65: aload_1
+      66: invokestatic  #16                 // Method determineEvictionPolicy:(Lnet/sf/ehcache/Ehcache;)Lnet/sf/ehcache/store/Policy;
+      69: putfield      #17                 // Field policy:Lnet/sf/ehcache/store/Policy;
+      72: aload_0
+      73: aload_2
+      74: aload_0
+      75: aload_1
+      76: invokestatic  #18                 // Method net/sf/ehcache/config/SizeOfPolicyConfiguration.resolveMaxDepth:(Lnet/sf/ehcache/Ehcache;)I
+      79: aload_1
+      80: invokestatic  #19                 // Method net/sf/ehcache/config/SizeOfPolicyConfiguration.resolveBehavior:(Lnet/sf/ehcache/Ehcache;)Lnet/sf/ehcache/config/SizeOfPolicyConfiguration$MaxDepthExceededBehavior;
+      83: getstatic     #20                 // Field net/sf/ehcache/config/SizeOfPolicyConfiguration$MaxDepthExceededBehavior.ABORT:Lnet/sf/ehcache/config/SizeOfPolicyConfiguration$MaxDepthExceededBehavior;
+      86: invokevirtual #21                 // Method net/sf/ehcache/config/SizeOfPolicyConfiguration$MaxDepthExceededBehavior.equals:(Ljava/lang/Object;)Z
+      89: invokeinterface #22,  4           // InterfaceMethod net/sf/ehcache/pool/Pool.createPoolAccessor:(Ljava/lang/Object;IZ)Lnet/sf/ehcache/pool/PoolAccessor;
+      94: putfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      97: aload_0
+      98: ldc           #24                 // String alwaysPutOnHeap
+     100: aload_1
+     101: invokeinterface #13,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheConfiguration:()Lnet/sf/ehcache/config/CacheConfiguration;
+     106: invokevirtual #25                 // Method net/sf/ehcache/config/CacheConfiguration.getName:()Ljava/lang/String;
+     109: iconst_0
+     110: invokestatic  #26                 // Method getAdvancedBooleanConfigProperty:(Ljava/lang/String;Ljava/lang/String;Z)Z
+     113: putfield      #27                 // Field alwaysPutOnHeap:Z
+     116: aload_0
+     117: aload_0
+     118: aload_1
+     119: invokeinterface #13,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheConfiguration:()Lnet/sf/ehcache/config/CacheConfiguration;
+     124: invokespecial #28                 // Method determineStorePinned:(Lnet/sf/ehcache/config/CacheConfiguration;)Z
+     127: putfield      #29                 // Field storePinned:Z
+     130: aload_0
+     131: aload_1
+     132: invokeinterface #13,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheConfiguration:()Lnet/sf/ehcache/config/CacheConfiguration;
+     137: invokevirtual #30                 // Method net/sf/ehcache/config/CacheConfiguration.isOverflowToOffHeap:()Z
+     140: ifne          147
+     143: iconst_1
+     144: goto          148
+     147: iconst_0
+     148: putfield      #31                 // Field elementPinningEnabled:Z
+     151: aload_0
+     152: invokespecial #32                 // Method isClockEviction:()Z
+     155: ifeq          172
+     158: aload_0
+     159: getfield      #29                 // Field storePinned:Z
+     162: ifne          172
+     165: aload_0
+     166: getfield      #15                 // Field maximumSize:I
+     169: goto          173
+     172: iconst_0
+     173: istore        5
+     175: iload_3
+     176: ifeq          188
+     179: aload_1
+     180: invokeinterface #33,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheEventNotificationService:()Lnet/sf/ehcache/event/RegisteredEventListeners;
+     185: goto          189
+     188: aconst_null
+     189: astore        6
+     191: new           #34                 // class java/lang/StringBuilder
+     194: dup
+     195: invokespecial #35                 // Method java/lang/StringBuilder."<init>":()V
+     198: ldc_w         #36                 // class net/sf/ehcache/store/MemoryStore
+     201: invokevirtual #37                 // Method java/lang/Class.getName:()Ljava/lang/String;
+     204: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     207: ldc           #39                 // String .presize
+     209: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     212: invokevirtual #40                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     215: invokestatic  #41                 // Method java/lang/Boolean.getBoolean:(Ljava/lang/String;)Z
+     218: ifeq          280
+     221: aload_0
+     222: getfield      #15                 // Field maximumSize:I
+     225: iconst_1
+     226: if_icmpne     233
+     229: fconst_1
+     230: goto          235
+     233: ldc           #42                 // float 0.75f
+     235: fstore        7
+     237: aload_0
+     238: getfield      #15                 // Field maximumSize:I
+     241: fload         7
+     243: invokestatic  #43                 // Method getInitialCapacityForLoadFactor:(IF)I
+     246: istore        8
+     248: aload_0
+     249: aload         4
+     251: aload_0
+     252: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     255: aload_0
+     256: getfield      #31                 // Field elementPinningEnabled:Z
+     259: iload         8
+     261: fload         7
+     263: bipush        100
+     265: iload         5
+     267: aload         6
+     269: invokeinterface #44,  8           // InterfaceMethod net/sf/ehcache/store/MemoryStore$BackingFactory.newBackingMap:(Lnet/sf/ehcache/pool/PoolAccessor;ZIFIILnet/sf/ehcache/event/RegisteredEventListeners;)Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+     274: putfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+     277: goto          305
+     280: aload_0
+     281: aload         4
+     283: aload_0
+     284: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     287: aload_0
+     288: getfield      #31                 // Field elementPinningEnabled:Z
+     291: bipush        100
+     293: iload         5
+     295: aload         6
+     297: invokeinterface #45,  6           // InterfaceMethod net/sf/ehcache/store/MemoryStore$BackingFactory.newBackingMap:(Lnet/sf/ehcache/pool/PoolAccessor;ZIILnet/sf/ehcache/event/RegisteredEventListeners;)Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+     302: putfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+     305: aload_0
+     306: getstatic     #46                 // Field net/sf/ehcache/Status.STATUS_ALIVE:Lnet/sf/ehcache/Status;
+     309: putfield      #11                 // Field status:Lnet/sf/ehcache/Status;
+     312: getstatic     #47                 // Field LOG:Lorg/slf4j/Logger;
+     315: invokeinterface #48,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     320: ifeq          370
+     323: getstatic     #47                 // Field LOG:Lorg/slf4j/Logger;
+     326: new           #34                 // class java/lang/StringBuilder
+     329: dup
+     330: invokespecial #35                 // Method java/lang/StringBuilder."<init>":()V
+     333: ldc           #49                 // String Initialized
+     335: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     338: aload_0
+     339: invokevirtual #50                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     342: invokevirtual #37                 // Method java/lang/Class.getName:()Ljava/lang/String;
+     345: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     348: ldc           #51                 // String  for
+     350: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     353: aload_1
+     354: invokeinterface #52,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getName:()Ljava/lang/String;
+     359: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     362: invokevirtual #40                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     365: invokeinterface #53,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     370: return
+
+  private boolean determineStorePinned(net.sf.ehcache.config.CacheConfiguration);
+    Code:
+       0: aload_1
+       1: invokevirtual #54                 // Method net/sf/ehcache/config/CacheConfiguration.getPinningConfiguration:()Lnet/sf/ehcache/config/PinningConfiguration;
+       4: astore_2
+       5: aload_2
+       6: ifnonnull     11
+       9: iconst_0
+      10: ireturn
+      11: getstatic     #55                 // Field net/sf/ehcache/store/MemoryStore$1.$SwitchMap$net$sf$ehcache$config$PinningConfiguration$Store:[I
+      14: aload_2
+      15: invokevirtual #56                 // Method net/sf/ehcache/config/PinningConfiguration.getStore:()Lnet/sf/ehcache/config/PinningConfiguration$Store;
+      18: invokevirtual #57                 // Method net/sf/ehcache/config/PinningConfiguration$Store.ordinal:()I
+      21: iaload
+      22: tableswitch   { // 1 to 3
+                     1: 48
+                     2: 50
+                     3: 63
+               default: 83
+          }
+      48: iconst_1
+      49: ireturn
+      50: aload_1
+      51: invokevirtual #30                 // Method net/sf/ehcache/config/CacheConfiguration.isOverflowToOffHeap:()Z
+      54: ifne          61
+      57: iconst_1
+      58: goto          62
+      61: iconst_0
+      62: ireturn
+      63: aload_1
+      64: invokevirtual #30                 // Method net/sf/ehcache/config/CacheConfiguration.isOverflowToOffHeap:()Z
+      67: ifne          81
+      70: aload_1
+      71: invokevirtual #58                 // Method net/sf/ehcache/config/CacheConfiguration.isOverflowToDisk:()Z
+      74: ifne          81
+      77: iconst_1
+      78: goto          82
+      81: iconst_0
+      82: ireturn
+      83: new           #59                 // class java/lang/IllegalArgumentException
+      86: dup
+      87: invokespecial #60                 // Method java/lang/IllegalArgumentException."<init>":()V
+      90: athrow
+
+  protected static int getInitialCapacityForLoadFactor(int, float);
+    Code:
+       0: iload_0
+       1: i2f
+       2: fload_1
+       3: fdiv
+       4: f2d
+       5: invokestatic  #61                 // Method java/lang/Math.ceil:(D)D
+       8: dstore_2
+       9: iconst_0
+      10: dload_2
+      11: ldc2_w        #62                 // double 2.147483647E9d
+      14: dcmpl
+      15: iflt          23
+      18: ldc           #64                 // int 2147483647
+      20: goto          25
+      23: dload_2
+      24: d2i
+      25: invokestatic  #65                 // Method java/lang/Math.max:(II)I
+      28: ireturn
+
+  public static net.sf.ehcache.store.MemoryStore create(net.sf.ehcache.Ehcache, net.sf.ehcache.pool.Pool);
+    Code:
+       0: new           #36                 // class net/sf/ehcache/store/MemoryStore
+       3: dup
+       4: aload_0
+       5: aload_1
+       6: iconst_0
+       7: new           #66                 // class net/sf/ehcache/store/MemoryStore$BasicBackingFactory
+      10: dup
+      11: invokespecial #67                 // Method net/sf/ehcache/store/MemoryStore$BasicBackingFactory."<init>":()V
+      14: invokespecial #68                 // Method "<init>":(Lnet/sf/ehcache/Ehcache;Lnet/sf/ehcache/pool/Pool;ZLnet/sf/ehcache/store/MemoryStore$BackingFactory;)V
+      17: astore_2
+      18: aload_0
+      19: invokeinterface #13,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheConfiguration:()Lnet/sf/ehcache/config/CacheConfiguration;
+      24: aload_2
+      25: invokevirtual #69                 // Method net/sf/ehcache/config/CacheConfiguration.addConfigurationListener:(Lnet/sf/ehcache/config/CacheConfigurationListener;)Z
+      28: pop
+      29: aload_2
+      30: areturn
+
+  public void unpinAll();
+    Code:
+       0: aload_0
+       1: getfield      #31                 // Field elementPinningEnabled:Z
+       4: ifeq          14
+       7: aload_0
+       8: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      11: invokevirtual #70                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.unpinAll:()V
+      14: return
+
+  public void setPinned(java.lang.Object, boolean);
+    Code:
+       0: aload_0
+       1: getfield      #31                 // Field elementPinningEnabled:Z
+       4: ifeq          16
+       7: aload_0
+       8: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      11: aload_1
+      12: iload_2
+      13: invokevirtual #71                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.setPinned:(Ljava/lang/Object;Z)V
+      16: return
+
+  public boolean isPinned(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #31                 // Field elementPinningEnabled:Z
+       4: ifeq          22
+       7: aload_0
+       8: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      11: aload_1
+      12: invokevirtual #72                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.isPinned:(Ljava/lang/Object;)Z
+      15: ifeq          22
+      18: iconst_1
+      19: goto          23
+      22: iconst_0
+      23: ireturn
+
+  private boolean isPinningEnabled(net.sf.ehcache.Element);
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field storePinned:Z
+       4: ifne          18
+       7: aload_0
+       8: aload_1
+       9: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      12: invokevirtual #74                 // Method isPinned:(Ljava/lang/Object;)Z
+      15: ifeq          22
+      18: iconst_1
+      19: goto          23
+      22: iconst_0
+      23: ireturn
+
+  public void fill(net.sf.ehcache.Element);
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field alwaysPutOnHeap:Z
+       4: ifne          34
+       7: aload_0
+       8: aload_1
+       9: invokespecial #75                 // Method isPinningEnabled:(Lnet/sf/ehcache/Element;)Z
+      12: ifne          34
+      15: aload_0
+      16: aload_1
+      17: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      20: invokevirtual #76                 // Method remove:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      23: ifnonnull     34
+      26: aload_0
+      27: aload_1
+      28: invokevirtual #77                 // Method canPutWithoutEvicting:(Lnet/sf/ehcache/Element;)Z
+      31: ifeq          40
+      34: aload_0
+      35: aload_1
+      36: invokevirtual #78                 // Method put:(Lnet/sf/ehcache/Element;)Z
+      39: pop
+      40: return
+
+  public boolean removeIfNotPinned(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field storePinned:Z
+       4: ifne          27
+       7: aload_0
+       8: aload_1
+       9: invokevirtual #74                 // Method isPinned:(Ljava/lang/Object;)Z
+      12: ifne          27
+      15: aload_0
+      16: aload_1
+      17: invokevirtual #76                 // Method remove:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      20: ifnull        27
+      23: iconst_1
+      24: goto          28
+      27: iconst_0
+      28: ireturn
+
+  public boolean put(net.sf.ehcache.Element) throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_1
+       1: ifnonnull     6
+       4: iconst_0
+       5: ireturn
+       6: aload_0
+       7: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      10: aload_1
+      11: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      14: aload_1
+      15: invokevirtual #79                 // Method net/sf/ehcache/Element.getObjectValue:()Ljava/lang/Object;
+      18: aload_0
+      19: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      22: aload_1
+      23: invokevirtual #80                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.storedObject:(Lnet/sf/ehcache/Element;)Ljava/lang/Object;
+      26: aload_0
+      27: aload_1
+      28: invokespecial #75                 // Method isPinningEnabled:(Lnet/sf/ehcache/Element;)Z
+      31: invokeinterface #81,  5           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.add:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+      36: lstore_2
+      37: lload_2
+      38: ldc2_w        #82                 // long -1l
+      41: lcmp
+      42: ifle          76
+      45: aload_0
+      46: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      49: aload_1
+      50: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      53: aload_1
+      54: lload_2
+      55: invokevirtual #84                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.put:(Ljava/lang/Object;Lnet/sf/ehcache/Element;J)Lnet/sf/ehcache/Element;
+      58: astore        4
+      60: aload_0
+      61: aload_1
+      62: invokespecial #85                 // Method checkCapacity:(Lnet/sf/ehcache/Element;)V
+      65: aload         4
+      67: ifnonnull     74
+      70: iconst_1
+      71: goto          75
+      74: iconst_0
+      75: ireturn
+      76: aload_0
+      77: aload_1
+      78: invokevirtual #86                 // Method notifyDirectEviction:(Lnet/sf/ehcache/Element;)V
+      81: iconst_1
+      82: ireturn
+
+  public boolean putWithWriter(net.sf.ehcache.Element, net.sf.ehcache.writer.CacheWriterManager) throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+       4: aload_1
+       5: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+       8: aload_1
+       9: invokevirtual #79                 // Method net/sf/ehcache/Element.getObjectValue:()Ljava/lang/Object;
+      12: aload_0
+      13: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      16: aload_1
+      17: invokevirtual #80                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.storedObject:(Lnet/sf/ehcache/Element;)Ljava/lang/Object;
+      20: aload_0
+      21: aload_1
+      22: invokespecial #75                 // Method isPinningEnabled:(Lnet/sf/ehcache/Element;)Z
+      25: invokeinterface #81,  5           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.add:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+      30: lstore_3
+      31: lload_3
+      32: ldc2_w        #82                 // long -1l
+      35: lcmp
+      36: ifle          106
+      39: aload_0
+      40: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      43: aload_1
+      44: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      47: aload_1
+      48: lload_3
+      49: invokevirtual #84                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.put:(Ljava/lang/Object;Lnet/sf/ehcache/Element;J)Lnet/sf/ehcache/Element;
+      52: astore        5
+      54: aload_2
+      55: ifnull        90
+      58: aload_2
+      59: aload_1
+      60: invokeinterface #87,  2           // InterfaceMethod net/sf/ehcache/writer/CacheWriterManager.put:(Lnet/sf/ehcache/Element;)V
+      65: goto          90
+      68: astore        6
+      70: new           #89                 // class net/sf/ehcache/store/disk/StoreUpdateException
+      73: dup
+      74: aload         6
+      76: aload         5
+      78: ifnull        85
+      81: iconst_1
+      82: goto          86
+      85: iconst_0
+      86: invokespecial #90                 // Method net/sf/ehcache/store/disk/StoreUpdateException."<init>":(Ljava/lang/RuntimeException;Z)V
+      89: athrow
+      90: aload_0
+      91: aload_1
+      92: invokespecial #85                 // Method checkCapacity:(Lnet/sf/ehcache/Element;)V
+      95: aload         5
+      97: ifnonnull     104
+     100: iconst_1
+     101: goto          105
+     104: iconst_0
+     105: ireturn
+     106: aload_0
+     107: aload_1
+     108: invokevirtual #86                 // Method notifyDirectEviction:(Lnet/sf/ehcache/Element;)V
+     111: iconst_1
+     112: ireturn
+    Exception table:
+       from    to  target type
+          58    65    68   Class java/lang/RuntimeException
+
+  public final net.sf.ehcache.Element get(java.lang.Object);
+    Code:
+       0: aload_1
+       1: ifnonnull     6
+       4: aconst_null
+       5: areturn
+       6: aload_0
+       7: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      10: aload_1
+      11: invokevirtual #91                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.get:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      14: astore_2
+      15: aload_2
+      16: ifnonnull     31
+      19: aload_0
+      20: getfield      #9                  // Field missRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+      23: invokeinterface #92,  1           // InterfaceMethod net/sf/ehcache/util/ratestatistics/RateStatistic.event:()V
+      28: goto          40
+      31: aload_0
+      32: getfield      #8                  // Field hitRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+      35: invokeinterface #92,  1           // InterfaceMethod net/sf/ehcache/util/ratestatistics/RateStatistic.event:()V
+      40: aload_2
+      41: areturn
+
+  public final net.sf.ehcache.Element getQuiet(java.lang.Object);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #93                 // Method get:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+       5: areturn
+
+  public net.sf.ehcache.Element remove(java.lang.Object);
+    Code:
+       0: aload_1
+       1: ifnonnull     6
+       4: aconst_null
+       5: areturn
+       6: aload_0
+       7: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      10: aload_1
+      11: invokevirtual #94                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.remove:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      14: areturn
+
+  public void removeNoReturn(java.lang.Object);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #76                 // Method remove:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+       5: pop
+       6: return
+
+  public boolean isTierPinned();
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field storePinned:Z
+       4: ireturn
+
+  public java.util.Set getPresentPinnedKeys();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: invokevirtual #95                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.pinnedKeySet:()Ljava/util/Set;
+       7: areturn
+
+  public boolean isPersistent();
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  public final net.sf.ehcache.Element removeWithWriter(java.lang.Object, net.sf.ehcache.writer.CacheWriterManager) throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_1
+       1: ifnonnull     6
+       4: aconst_null
+       5: areturn
+       6: aload_0
+       7: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      10: aload_1
+      11: invokevirtual #94                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.remove:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      14: astore_3
+      15: aload_2
+      16: ifnull        34
+      19: aload_2
+      20: new           #96                 // class net/sf/ehcache/CacheEntry
+      23: dup
+      24: aload_1
+      25: aload_3
+      26: invokespecial #97                 // Method net/sf/ehcache/CacheEntry."<init>":(Ljava/lang/Object;Lnet/sf/ehcache/Element;)V
+      29: invokeinterface #98,  2           // InterfaceMethod net/sf/ehcache/writer/CacheWriterManager.remove:(Lnet/sf/ehcache/CacheEntry;)V
+      34: aload_3
+      35: ifnonnull     93
+      38: getstatic     #47                 // Field LOG:Lorg/slf4j/Logger;
+      41: invokeinterface #48,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      46: ifeq          93
+      49: getstatic     #47                 // Field LOG:Lorg/slf4j/Logger;
+      52: new           #34                 // class java/lang/StringBuilder
+      55: dup
+      56: invokespecial #35                 // Method java/lang/StringBuilder."<init>":()V
+      59: aload_0
+      60: getfield      #12                 // Field cache:Lnet/sf/ehcache/Ehcache;
+      63: invokeinterface #52,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getName:()Ljava/lang/String;
+      68: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      71: ldc           #99                 // String Cache: Cannot remove entry as key
+      73: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      76: aload_1
+      77: invokevirtual #100                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      80: ldc           #101                // String  was not found
+      82: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      85: invokevirtual #40                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      88: invokeinterface #53,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      93: aload_3
+      94: areturn
+
+  public final boolean bufferFull();
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  public void expireElements();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: invokevirtual #102                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.keySet:()Ljava/util/Set;
+       7: invokeinterface #103,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      12: astore_1
+      13: aload_1
+      14: invokeinterface #104,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      19: ifeq          38
+      22: aload_1
+      23: invokeinterface #105,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      28: astore_2
+      29: aload_0
+      30: aload_2
+      31: invokevirtual #106                // Method expireElement:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      34: pop
+      35: goto          13
+      38: return
+
+  protected net.sf.ehcache.Element expireElement(java.lang.Object);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #93                 // Method get:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+       5: astore_2
+       6: aload_2
+       7: ifnull        33
+      10: aload_2
+      11: invokevirtual #107                // Method net/sf/ehcache/Element.isExpired:()Z
+      14: ifeq          33
+      17: aload_0
+      18: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      21: aload_1
+      22: aload_2
+      23: invokevirtual #108                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.remove:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      26: ifeq          33
+      29: aload_2
+      30: goto          34
+      33: aconst_null
+      34: areturn
+
+  private static net.sf.ehcache.store.Policy determineEvictionPolicy(net.sf.ehcache.Ehcache);
+    Code:
+       0: aload_0
+       1: invokeinterface #13,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheConfiguration:()Lnet/sf/ehcache/config/CacheConfiguration;
+       6: invokevirtual #109                // Method net/sf/ehcache/config/CacheConfiguration.getMemoryStoreEvictionPolicy:()Lnet/sf/ehcache/store/MemoryStoreEvictionPolicy;
+       9: astore_1
+      10: aload_1
+      11: getstatic     #110                // Field net/sf/ehcache/store/MemoryStoreEvictionPolicy.LRU:Lnet/sf/ehcache/store/MemoryStoreEvictionPolicy;
+      14: invokevirtual #111                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      17: ifeq          28
+      20: new           #112                // class net/sf/ehcache/store/LruPolicy
+      23: dup
+      24: invokespecial #113                // Method net/sf/ehcache/store/LruPolicy."<init>":()V
+      27: areturn
+      28: aload_1
+      29: getstatic     #114                // Field net/sf/ehcache/store/MemoryStoreEvictionPolicy.FIFO:Lnet/sf/ehcache/store/MemoryStoreEvictionPolicy;
+      32: invokevirtual #111                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      35: ifeq          46
+      38: new           #115                // class net/sf/ehcache/store/FifoPolicy
+      41: dup
+      42: invokespecial #116                // Method net/sf/ehcache/store/FifoPolicy."<init>":()V
+      45: areturn
+      46: aload_1
+      47: getstatic     #117                // Field net/sf/ehcache/store/MemoryStoreEvictionPolicy.LFU:Lnet/sf/ehcache/store/MemoryStoreEvictionPolicy;
+      50: invokevirtual #111                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      53: ifeq          64
+      56: new           #118                // class net/sf/ehcache/store/LfuPolicy
+      59: dup
+      60: invokespecial #119                // Method net/sf/ehcache/store/LfuPolicy."<init>":()V
+      63: areturn
+      64: aload_1
+      65: getstatic     #120                // Field net/sf/ehcache/store/MemoryStoreEvictionPolicy.CLOCK:Lnet/sf/ehcache/store/MemoryStoreEvictionPolicy;
+      68: invokevirtual #111                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      71: ifeq          76
+      74: aconst_null
+      75: areturn
+      76: new           #59                 // class java/lang/IllegalArgumentException
+      79: dup
+      80: new           #34                 // class java/lang/StringBuilder
+      83: dup
+      84: invokespecial #35                 // Method java/lang/StringBuilder."<init>":()V
+      87: aload_1
+      88: invokevirtual #100                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      91: ldc           #121                // String  isn\'t a valid eviction policy
+      93: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      96: invokevirtual #40                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      99: invokespecial #122                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     102: athrow
+
+  public final void removeAll() throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: invokevirtual #102                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.keySet:()Ljava/util/Set;
+       7: invokeinterface #103,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      12: astore_1
+      13: aload_1
+      14: invokeinterface #104,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      19: ifeq          38
+      22: aload_1
+      23: invokeinterface #105,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      28: astore_2
+      29: aload_0
+      30: aload_2
+      31: invokevirtual #76                 // Method remove:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      34: pop
+      35: goto          13
+      38: return
+
+  public synchronized void dispose();
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field status:Lnet/sf/ehcache/Status;
+       4: getstatic     #123                // Field net/sf/ehcache/Status.STATUS_SHUTDOWN:Lnet/sf/ehcache/Status;
+       7: invokevirtual #124                // Method net/sf/ehcache/Status.equals:(Lnet/sf/ehcache/Status;)Z
+      10: ifeq          14
+      13: return
+      14: aload_0
+      15: getstatic     #123                // Field net/sf/ehcache/Status.STATUS_SHUTDOWN:Lnet/sf/ehcache/Status;
+      18: putfield      #11                 // Field status:Lnet/sf/ehcache/Status;
+      21: aload_0
+      22: invokevirtual #125                // Method flush:()V
+      25: aload_0
+      26: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      29: invokeinterface #126,  1          // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.unlink:()V
+      34: return
+
+  public void flush();
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field cache:Lnet/sf/ehcache/Ehcache;
+       4: invokeinterface #13,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheConfiguration:()Lnet/sf/ehcache/config/CacheConfiguration;
+       9: invokevirtual #127                // Method net/sf/ehcache/config/CacheConfiguration.isClearOnFlush:()Z
+      12: ifeq          19
+      15: aload_0
+      16: invokevirtual #128                // Method removeAll:()V
+      19: return
+
+  public final java.util.List<?> getKeys();
+    Code:
+       0: new           #129                // class java/util/ArrayList
+       3: dup
+       4: aload_0
+       5: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       8: invokevirtual #102                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.keySet:()Ljava/util/Set;
+      11: invokespecial #130                // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+      14: areturn
+
+  protected java.util.Set<?> keySet();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: invokevirtual #102                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.keySet:()Ljava/util/Set;
+       7: areturn
+
+  public final int getSize();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: invokevirtual #131                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.size:()I
+       7: ireturn
+
+  public final int getTerracottaClusteredSize();
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  public final boolean containsKey(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: aload_1
+       5: invokevirtual #132                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.containsKey:(Ljava/lang/Object;)Z
+       8: ireturn
+
+  private void notifyExpiry(net.sf.ehcache.Element);
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field cache:Lnet/sf/ehcache/Ehcache;
+       4: invokeinterface #33,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheEventNotificationService:()Lnet/sf/ehcache/event/RegisteredEventListeners;
+       9: aload_1
+      10: iconst_0
+      11: invokevirtual #133                // Method net/sf/ehcache/event/RegisteredEventListeners.notifyElementExpiry:(Lnet/sf/ehcache/Element;Z)V
+      14: return
+
+  protected void notifyDirectEviction(net.sf.ehcache.Element);
+    Code:
+       0: return
+
+  public final boolean isFull();
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field maximumSize:I
+       4: ifle          25
+       7: aload_0
+       8: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      11: invokevirtual #134                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.quickSize:()I
+      14: aload_0
+      15: getfield      #15                 // Field maximumSize:I
+      18: if_icmplt     25
+      21: iconst_1
+      22: goto          26
+      25: iconst_0
+      26: ireturn
+
+  public final boolean canPutWithoutEvicting(net.sf.ehcache.Element);
+    Code:
+       0: aload_1
+       1: ifnonnull     6
+       4: iconst_1
+       5: ireturn
+       6: aload_0
+       7: invokevirtual #135                // Method isFull:()Z
+      10: ifne          45
+      13: aload_0
+      14: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      17: aload_1
+      18: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      21: aload_1
+      22: invokevirtual #79                 // Method net/sf/ehcache/Element.getObjectValue:()Ljava/lang/Object;
+      25: aload_0
+      26: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      29: aload_1
+      30: invokevirtual #80                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.storedObject:(Lnet/sf/ehcache/Element;)Ljava/lang/Object;
+      33: invokeinterface #136,  4          // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.canAddWithoutEvicting:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Z
+      38: ifeq          45
+      41: iconst_1
+      42: goto          46
+      45: iconst_0
+      46: ireturn
+
+  private void checkCapacity(net.sf.ehcache.Element);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field maximumSize:I
+       4: ifle          50
+       7: aload_0
+       8: invokespecial #32                 // Method isClockEviction:()Z
+      11: ifne          50
+      14: aload_0
+      15: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      18: invokevirtual #134                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.quickSize:()I
+      21: aload_0
+      22: getfield      #15                 // Field maximumSize:I
+      25: isub
+      26: iconst_5
+      27: invokestatic  #137                // Method java/lang/Math.min:(II)I
+      30: istore_2
+      31: iconst_0
+      32: istore_3
+      33: iload_3
+      34: iload_2
+      35: if_icmpge     50
+      38: aload_0
+      39: aload_1
+      40: invokespecial #138                // Method removeElementChosenByEvictionPolicy:(Lnet/sf/ehcache/Element;)Z
+      43: pop
+      44: iinc          3, 1
+      47: goto          33
+      50: return
+
+  private boolean removeElementChosenByEvictionPolicy(net.sf.ehcache.Element);
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field policy:Lnet/sf/ehcache/store/Policy;
+       4: ifnonnull     15
+       7: aload_0
+       8: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      11: invokevirtual #139                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.evict:()Z
+      14: ireturn
+      15: aload_0
+      16: aload_1
+      17: invokespecial #140                // Method findEvictionCandidate:(Lnet/sf/ehcache/Element;)Lnet/sf/ehcache/Element;
+      20: astore_2
+      21: aload_2
+      22: ifnonnull     37
+      25: getstatic     #47                 // Field LOG:Lorg/slf4j/Logger;
+      28: ldc           #141                // String Eviction selection miss. Selected element is null
+      30: invokeinterface #53,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      35: iconst_0
+      36: ireturn
+      37: aload_2
+      38: invokevirtual #107                // Method net/sf/ehcache/Element.isExpired:()Z
+      41: ifeq          60
+      44: aload_0
+      45: aload_2
+      46: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      49: invokevirtual #76                 // Method remove:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      52: pop
+      53: aload_0
+      54: aload_2
+      55: invokespecial #142                // Method notifyExpiry:(Lnet/sf/ehcache/Element;)V
+      58: iconst_1
+      59: ireturn
+      60: aload_0
+      61: aload_2
+      62: invokespecial #75                 // Method isPinningEnabled:(Lnet/sf/ehcache/Element;)Z
+      65: ifeq          70
+      68: iconst_0
+      69: ireturn
+      70: aload_0
+      71: aload_2
+      72: invokevirtual #143                // Method evict:(Lnet/sf/ehcache/Element;)Z
+      75: ireturn
+
+  private net.sf.ehcache.Element findEvictionCandidate(net.sf.ehcache.Element);
+    Code:
+       0: aload_1
+       1: ifnull        11
+       4: aload_1
+       5: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+       8: goto          12
+      11: aconst_null
+      12: astore_2
+      13: aload_0
+      14: aload_2
+      15: invokespecial #144                // Method sampleElements:(Ljava/lang/Object;)[Lnet/sf/ehcache/Element;
+      18: astore_3
+      19: aload_0
+      20: getfield      #17                 // Field policy:Lnet/sf/ehcache/store/Policy;
+      23: aload_3
+      24: aload_1
+      25: invokeinterface #145,  3          // InterfaceMethod net/sf/ehcache/store/Policy.selectedBasedOnPolicy:([Lnet/sf/ehcache/Element;Lnet/sf/ehcache/Element;)Lnet/sf/ehcache/Element;
+      30: areturn
+
+  private net.sf.ehcache.Element[] sampleElements(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: invokevirtual #134                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.quickSize:()I
+       7: invokestatic  #146                // Method net/sf/ehcache/store/AbstractPolicy.calculateSampleSize:(I)I
+      10: istore_2
+      11: aload_0
+      12: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      15: iload_2
+      16: aload_1
+      17: invokevirtual #147                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.getRandomValues:(ILjava/lang/Object;)[Lnet/sf/ehcache/Element;
+      20: areturn
+
+  public java.lang.Object getInternalContext();
+    Code:
+       0: aload_0
+       1: getfield      #148                // Field lockProvider:Lnet/sf/ehcache/concurrent/CacheLockProvider;
+       4: ifnull        12
+       7: aload_0
+       8: getfield      #148                // Field lockProvider:Lnet/sf/ehcache/concurrent/CacheLockProvider;
+      11: areturn
+      12: aload_0
+      13: new           #149                // class net/sf/ehcache/store/MemoryStore$LockProvider
+      16: dup
+      17: aload_0
+      18: aconst_null
+      19: invokespecial #150                // Method net/sf/ehcache/store/MemoryStore$LockProvider."<init>":(Lnet/sf/ehcache/store/MemoryStore;Lnet/sf/ehcache/store/MemoryStore$1;)V
+      22: putfield      #148                // Field lockProvider:Lnet/sf/ehcache/concurrent/CacheLockProvider;
+      25: aload_0
+      26: getfield      #148                // Field lockProvider:Lnet/sf/ehcache/concurrent/CacheLockProvider;
+      29: areturn
+
+  public final net.sf.ehcache.Status getStatus();
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field status:Lnet/sf/ehcache/Status;
+       4: areturn
+
+  public void timeToIdleChanged(long, long);
+    Code:
+       0: return
+
+  public void timeToLiveChanged(long, long);
+    Code:
+       0: return
+
+  public void diskCapacityChanged(int, int);
+    Code:
+       0: return
+
+  public void loggingChanged(boolean, boolean);
+    Code:
+       0: return
+
+  public void memoryCapacityChanged(int, int);
+    Code:
+       0: aload_0
+       1: iload_2
+       2: putfield      #15                 // Field maximumSize:I
+       5: aload_0
+       6: invokespecial #32                 // Method isClockEviction:()Z
+       9: ifeq          31
+      12: aload_0
+      13: getfield      #29                 // Field storePinned:Z
+      16: ifne          31
+      19: aload_0
+      20: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      23: aload_0
+      24: getfield      #15                 // Field maximumSize:I
+      27: i2l
+      28: invokevirtual #151                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.setMaxSize:(J)V
+      31: return
+
+  private boolean isClockEviction();
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field policy:Lnet/sf/ehcache/store/Policy;
+       4: ifnonnull     11
+       7: iconst_1
+       8: goto          12
+      11: iconst_0
+      12: ireturn
+
+  public void registered(net.sf.ehcache.config.CacheConfiguration);
+    Code:
+       0: return
+
+  public void deregistered(net.sf.ehcache.config.CacheConfiguration);
+    Code:
+       0: return
+
+  public void maxBytesLocalHeapChanged(long, long);
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+       4: lload_3
+       5: invokeinterface #152,  3          // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.setMaxSize:(J)V
+      10: return
+
+  public void maxBytesLocalDiskChanged(long, long);
+    Code:
+       0: return
+
+  public boolean containsKeyInMemory(java.lang.Object);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #153                // Method containsKey:(Ljava/lang/Object;)Z
+       5: ireturn
+
+  public boolean containsKeyOffHeap(java.lang.Object);
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  public boolean containsKeyOnDisk(java.lang.Object);
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  public net.sf.ehcache.store.Policy getInMemoryEvictionPolicy();
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field policy:Lnet/sf/ehcache/store/Policy;
+       4: areturn
+
+  public int getInMemorySize();
+    Code:
+       0: aload_0
+       1: invokevirtual #154                // Method getSize:()I
+       4: ireturn
+
+  public long getInMemorySizeInBytes();
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+       4: invokeinterface #155,  1          // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.getSize:()J
+       9: lconst_0
+      10: lcmp
+      11: ifge          124
+      14: new           #156                // class net/sf/ehcache/pool/impl/DefaultSizeOfEngine
+      17: dup
+      18: aload_0
+      19: getfield      #12                 // Field cache:Lnet/sf/ehcache/Ehcache;
+      22: invokestatic  #18                 // Method net/sf/ehcache/config/SizeOfPolicyConfiguration.resolveMaxDepth:(Lnet/sf/ehcache/Ehcache;)I
+      25: aload_0
+      26: getfield      #12                 // Field cache:Lnet/sf/ehcache/Ehcache;
+      29: invokestatic  #19                 // Method net/sf/ehcache/config/SizeOfPolicyConfiguration.resolveBehavior:(Lnet/sf/ehcache/Ehcache;)Lnet/sf/ehcache/config/SizeOfPolicyConfiguration$MaxDepthExceededBehavior;
+      32: getstatic     #20                 // Field net/sf/ehcache/config/SizeOfPolicyConfiguration$MaxDepthExceededBehavior.ABORT:Lnet/sf/ehcache/config/SizeOfPolicyConfiguration$MaxDepthExceededBehavior;
+      35: invokevirtual #21                 // Method net/sf/ehcache/config/SizeOfPolicyConfiguration$MaxDepthExceededBehavior.equals:(Ljava/lang/Object;)Z
+      38: invokespecial #157                // Method net/sf/ehcache/pool/impl/DefaultSizeOfEngine."<init>":(IZ)V
+      41: astore_1
+      42: lconst_0
+      43: lstore_2
+      44: aload_0
+      45: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      48: invokevirtual #158                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.values:()Ljava/util/Collection;
+      51: invokeinterface #159,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      56: astore        4
+      58: aload         4
+      60: invokeinterface #104,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      65: ifeq          122
+      68: aload         4
+      70: invokeinterface #105,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      75: astore        5
+      77: aload         5
+      79: checkcast     #160                // class net/sf/ehcache/Element
+      82: astore        6
+      84: aload         6
+      86: ifnull        119
+      89: aload_1
+      90: aload         6
+      92: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      95: aload         6
+      97: aload_0
+      98: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+     101: aload         6
+     103: invokevirtual #80                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.storedObject:(Lnet/sf/ehcache/Element;)Ljava/lang/Object;
+     106: invokevirtual #161                // Method net/sf/ehcache/pool/impl/DefaultSizeOfEngine.sizeOf:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Lnet/sf/ehcache/pool/Size;
+     109: astore        7
+     111: lload_2
+     112: aload         7
+     114: invokevirtual #162                // Method net/sf/ehcache/pool/Size.getCalculated:()J
+     117: ladd
+     118: lstore_2
+     119: goto          58
+     122: lload_2
+     123: lreturn
+     124: aload_0
+     125: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     128: invokeinterface #155,  1          // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.getSize:()J
+     133: lreturn
+
+  public int getOffHeapSize();
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  public long getOffHeapSizeInBytes();
+    Code:
+       0: lconst_0
+       1: lreturn
+
+  public int getOnDiskSize();
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  public long getOnDiskSizeInBytes();
+    Code:
+       0: lconst_0
+       1: lreturn
+
+  public boolean hasAbortedSizeOf();
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+       4: invokeinterface #163,  1          // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.hasAbortedSizeOf:()Z
+       9: ireturn
+
+  public void setInMemoryEvictionPolicy(net.sf.ehcache.store.Policy);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #17                 // Field policy:Lnet/sf/ehcache/store/Policy;
+       5: return
+
+  public net.sf.ehcache.Element putIfAbsent(net.sf.ehcache.Element) throws java.lang.NullPointerException;
+    Code:
+       0: aload_1
+       1: ifnonnull     6
+       4: aconst_null
+       5: areturn
+       6: aload_0
+       7: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      10: aload_1
+      11: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      14: aload_1
+      15: invokevirtual #79                 // Method net/sf/ehcache/Element.getObjectValue:()Ljava/lang/Object;
+      18: aload_0
+      19: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      22: aload_1
+      23: invokevirtual #80                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.storedObject:(Lnet/sf/ehcache/Element;)Ljava/lang/Object;
+      26: aload_0
+      27: aload_1
+      28: invokespecial #75                 // Method isPinningEnabled:(Lnet/sf/ehcache/Element;)Z
+      31: invokeinterface #81,  5           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.add:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+      36: lstore_2
+      37: lload_2
+      38: ldc2_w        #82                 // long -1l
+      41: lcmp
+      42: ifle          87
+      45: aload_0
+      46: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      49: aload_1
+      50: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      53: aload_1
+      54: lload_2
+      55: invokevirtual #164                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.putIfAbsent:(Ljava/lang/Object;Lnet/sf/ehcache/Element;J)Lnet/sf/ehcache/Element;
+      58: astore        4
+      60: aload         4
+      62: ifnonnull     73
+      65: aload_0
+      66: aload_1
+      67: invokespecial #85                 // Method checkCapacity:(Lnet/sf/ehcache/Element;)V
+      70: goto          84
+      73: aload_0
+      74: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      77: lload_2
+      78: invokeinterface #165,  3          // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+      83: pop2
+      84: aload         4
+      86: areturn
+      87: aload_0
+      88: aload_1
+      89: invokevirtual #86                 // Method notifyDirectEviction:(Lnet/sf/ehcache/Element;)V
+      92: aconst_null
+      93: areturn
+
+  protected boolean evict(net.sf.ehcache.Element);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+       5: invokevirtual #76                 // Method remove:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+       8: astore_2
+       9: aload_0
+      10: getfield      #12                 // Field cache:Lnet/sf/ehcache/Ehcache;
+      13: invokeinterface #33,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheEventNotificationService:()Lnet/sf/ehcache/event/RegisteredEventListeners;
+      18: astore_3
+      19: aload_3
+      20: invokevirtual #166                // Method net/sf/ehcache/event/RegisteredEventListeners.getFrontEndCacheTier:()Lnet/sf/ehcache/store/FrontEndCacheTier;
+      23: astore        4
+      25: aload_2
+      26: ifnull        52
+      29: aload         4
+      31: ifnull        52
+      34: aload         4
+      36: aload_2
+      37: invokevirtual #167                // Method net/sf/ehcache/Element.getKey:()Ljava/io/Serializable;
+      40: invokevirtual #168                // Method net/sf/ehcache/store/FrontEndCacheTier.notifyEvictionFromCache:(Ljava/io/Serializable;)Z
+      43: ifeq          52
+      46: aload_3
+      47: aload_2
+      48: iconst_0
+      49: invokevirtual #169                // Method net/sf/ehcache/event/RegisteredEventListeners.notifyElementEvicted:(Lnet/sf/ehcache/Element;Z)V
+      52: aload_2
+      53: ifnull        60
+      56: iconst_1
+      57: goto          61
+      60: iconst_0
+      61: ireturn
+
+  public net.sf.ehcache.Element removeElement(net.sf.ehcache.Element, net.sf.ehcache.store.ElementValueComparator) throws java.lang.NullPointerException;
+    Code:
+       0: aload_1
+       1: ifnull        11
+       4: aload_1
+       5: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+       8: ifnonnull     13
+      11: aconst_null
+      12: areturn
+      13: aload_1
+      14: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      17: astore_3
+      18: aload_0
+      19: aload_3
+      20: invokespecial #170                // Method getWriteLock:(Ljava/lang/Object;)Ljava/util/concurrent/locks/Lock;
+      23: astore        4
+      25: aload         4
+      27: invokeinterface #171,  1          // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      32: aload_0
+      33: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      36: aload_3
+      37: invokevirtual #91                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.get:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      40: astore        5
+      42: aload_2
+      43: aload_1
+      44: aload         5
+      46: invokeinterface #172,  3          // InterfaceMethod net/sf/ehcache/store/ElementValueComparator.equals:(Lnet/sf/ehcache/Element;Lnet/sf/ehcache/Element;)Z
+      51: ifeq          77
+      54: aload_0
+      55: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      58: aload_3
+      59: invokevirtual #94                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.remove:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      62: pop
+      63: aload         5
+      65: astore        6
+      67: aload         4
+      69: invokeinterface #173,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      74: aload         6
+      76: areturn
+      77: aconst_null
+      78: astore        6
+      80: aload         4
+      82: invokeinterface #173,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      87: aload         6
+      89: areturn
+      90: astore        7
+      92: aload         4
+      94: invokeinterface #173,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      99: aload         7
+     101: athrow
+    Exception table:
+       from    to  target type
+          32    67    90   any
+          77    80    90   any
+          90    92    90   any
+
+  public boolean replace(net.sf.ehcache.Element, net.sf.ehcache.Element, net.sf.ehcache.store.ElementValueComparator) throws java.lang.NullPointerException, java.lang.IllegalArgumentException;
+    Code:
+       0: aload_2
+       1: ifnull        11
+       4: aload_2
+       5: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+       8: ifnonnull     13
+      11: iconst_0
+      12: ireturn
+      13: aload_2
+      14: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      17: astore        4
+      19: aload_0
+      20: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      23: aload_2
+      24: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      27: aload_2
+      28: invokevirtual #79                 // Method net/sf/ehcache/Element.getObjectValue:()Ljava/lang/Object;
+      31: aload_0
+      32: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      35: aload_2
+      36: invokevirtual #80                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.storedObject:(Lnet/sf/ehcache/Element;)Ljava/lang/Object;
+      39: aload_0
+      40: aload_2
+      41: invokespecial #75                 // Method isPinningEnabled:(Lnet/sf/ehcache/Element;)Z
+      44: invokeinterface #81,  5           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.add:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+      49: lstore        5
+      51: lload         5
+      53: ldc2_w        #82                 // long -1l
+      56: lcmp
+      57: ifle          161
+      60: aload_0
+      61: aload         4
+      63: invokespecial #170                // Method getWriteLock:(Ljava/lang/Object;)Ljava/util/concurrent/locks/Lock;
+      66: astore        7
+      68: aload         7
+      70: invokeinterface #171,  1          // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      75: aload_0
+      76: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      79: aload         4
+      81: invokevirtual #91                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.get:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      84: astore        8
+      86: aload_3
+      87: aload_1
+      88: aload         8
+      90: invokeinterface #172,  3          // InterfaceMethod net/sf/ehcache/store/ElementValueComparator.equals:(Lnet/sf/ehcache/Element;Lnet/sf/ehcache/Element;)Z
+      95: ifeq          124
+      98: aload_0
+      99: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+     102: aload         4
+     104: aload_2
+     105: lload         5
+     107: invokevirtual #84                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.put:(Ljava/lang/Object;Lnet/sf/ehcache/Element;J)Lnet/sf/ehcache/Element;
+     110: pop
+     111: iconst_1
+     112: istore        9
+     114: aload         7
+     116: invokeinterface #173,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     121: iload         9
+     123: ireturn
+     124: aload_0
+     125: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     128: lload         5
+     130: invokeinterface #165,  3          // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     135: pop2
+     136: iconst_0
+     137: istore        9
+     139: aload         7
+     141: invokeinterface #173,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     146: iload         9
+     148: ireturn
+     149: astore        10
+     151: aload         7
+     153: invokeinterface #173,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     158: aload         10
+     160: athrow
+     161: aload_0
+     162: aload_2
+     163: invokevirtual #86                 // Method notifyDirectEviction:(Lnet/sf/ehcache/Element;)V
+     166: iconst_0
+     167: ireturn
+    Exception table:
+       from    to  target type
+          75   114   149   any
+         124   139   149   any
+         149   151   149   any
+
+  public net.sf.ehcache.Element replace(net.sf.ehcache.Element) throws java.lang.NullPointerException;
+    Code:
+       0: aload_1
+       1: ifnull        11
+       4: aload_1
+       5: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+       8: ifnonnull     13
+      11: aconst_null
+      12: areturn
+      13: aload_1
+      14: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      17: astore_2
+      18: aload_0
+      19: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      22: aload_1
+      23: invokevirtual #73                 // Method net/sf/ehcache/Element.getObjectKey:()Ljava/lang/Object;
+      26: aload_1
+      27: invokevirtual #79                 // Method net/sf/ehcache/Element.getObjectValue:()Ljava/lang/Object;
+      30: aload_0
+      31: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      34: aload_1
+      35: invokevirtual #80                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.storedObject:(Lnet/sf/ehcache/Element;)Ljava/lang/Object;
+      38: aload_0
+      39: aload_1
+      40: invokespecial #75                 // Method isPinningEnabled:(Lnet/sf/ehcache/Element;)Z
+      43: invokeinterface #81,  5           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.add:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+      48: lstore_3
+      49: lload_3
+      50: ldc2_w        #82                 // long -1l
+      53: lcmp
+      54: ifle          147
+      57: aload_0
+      58: aload_2
+      59: invokespecial #170                // Method getWriteLock:(Ljava/lang/Object;)Ljava/util/concurrent/locks/Lock;
+      62: astore        5
+      64: aload         5
+      66: invokeinterface #171,  1          // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      71: aload_0
+      72: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      75: aload_2
+      76: invokevirtual #91                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.get:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      79: astore        6
+      81: aload         6
+      83: ifnull        111
+      86: aload_0
+      87: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+      90: aload_2
+      91: aload_1
+      92: lload_3
+      93: invokevirtual #84                 // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.put:(Ljava/lang/Object;Lnet/sf/ehcache/Element;J)Lnet/sf/ehcache/Element;
+      96: pop
+      97: aload         6
+      99: astore        7
+     101: aload         5
+     103: invokeinterface #173,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     108: aload         7
+     110: areturn
+     111: aload_0
+     112: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     115: lload_3
+     116: invokeinterface #165,  3          // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     121: pop2
+     122: aconst_null
+     123: astore        7
+     125: aload         5
+     127: invokeinterface #173,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     132: aload         7
+     134: areturn
+     135: astore        8
+     137: aload         5
+     139: invokeinterface #173,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     144: aload         8
+     146: athrow
+     147: aload_0
+     148: aload_1
+     149: invokevirtual #86                 // Method notifyDirectEviction:(Lnet/sf/ehcache/Element;)V
+     152: aconst_null
+     153: areturn
+    Exception table:
+       from    to  target type
+          71   101   135   any
+         111   125   135   any
+         135   137   135   any
+
+  public java.lang.Object getMBean();
+    Code:
+       0: aconst_null
+       1: areturn
+
+  public boolean evictFromOnHeap(int, long);
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field storePinned:Z
+       4: ifeq          9
+       7: iconst_0
+       8: ireturn
+       9: iconst_0
+      10: istore        4
+      12: iload         4
+      14: iload_1
+      15: if_icmpge     38
+      18: aload_0
+      19: aconst_null
+      20: invokespecial #138                // Method removeElementChosenByEvictionPolicy:(Lnet/sf/ehcache/Element;)Z
+      23: istore        5
+      25: iload         5
+      27: ifne          32
+      30: iconst_0
+      31: ireturn
+      32: iinc          4, 1
+      35: goto          12
+      38: iconst_1
+      39: ireturn
+
+  public boolean evictFromOnDisk(int, long);
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  public float getApproximateDiskHitRate();
+    Code:
+       0: fconst_0
+       1: freturn
+
+  public float getApproximateDiskMissRate();
+    Code:
+       0: fconst_0
+       1: freturn
+
+  public long getApproximateDiskCountSize();
+    Code:
+       0: lconst_0
+       1: lreturn
+
+  public long getApproximateDiskByteSize();
+    Code:
+       0: lconst_0
+       1: lreturn
+
+  public float getApproximateHeapHitRate();
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field hitRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+       4: invokeinterface #174,  1          // InterfaceMethod net/sf/ehcache/util/ratestatistics/RateStatistic.getRate:()F
+       9: freturn
+
+  public float getApproximateHeapMissRate();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field missRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+       4: invokeinterface #174,  1          // InterfaceMethod net/sf/ehcache/util/ratestatistics/RateStatistic.getRate:()F
+       9: freturn
+
+  public long getApproximateHeapCountSize();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: invokevirtual #134                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.quickSize:()I
+       7: i2l
+       8: lreturn
+
+  public long getApproximateHeapByteSize();
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field poolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+       4: invokeinterface #155,  1          // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.getSize:()J
+       9: lreturn
+
+  private java.util.concurrent.locks.Lock getWriteLock(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: aload_1
+       5: invokevirtual #175                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.lockFor:(Ljava/lang/Object;)Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+       8: invokevirtual #176                // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      11: areturn
+
+  public java.util.Collection<net.sf.ehcache.Element> elementSet();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: invokevirtual #158                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.values:()Ljava/util/Collection;
+       7: areturn
+
+  private static boolean getAdvancedBooleanConfigProperty(java.lang.String, java.lang.String, boolean);
+    Code:
+       0: new           #34                 // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #35                 // Method java/lang/StringBuilder."<init>":()V
+       7: ldc           #177                // String net.sf.ehcache.store.config.
+       9: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: aload_0
+      13: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      16: invokevirtual #40                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      19: astore_3
+      20: new           #34                 // class java/lang/StringBuilder
+      23: dup
+      24: invokespecial #35                 // Method java/lang/StringBuilder."<init>":()V
+      27: ldc           #178                // String net.sf.ehcache.store.
+      29: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      32: aload_1
+      33: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      36: ldc           #179                // String .config.
+      38: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      41: aload_0
+      42: invokevirtual #38                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      45: invokevirtual #40                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      48: astore        4
+      50: aload         4
+      52: aload_3
+      53: iload_2
+      54: invokestatic  #180                // Method java/lang/Boolean.toString:(Z)Ljava/lang/String;
+      57: invokestatic  #181                // Method java/lang/System.getProperty:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      60: invokestatic  #181                // Method java/lang/System.getProperty:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      63: invokestatic  #182                // Method java/lang/Boolean.parseBoolean:(Ljava/lang/String;)Z
+      66: ireturn
+
+  public void recalculateSize(java.lang.Object);
+    Code:
+       0: aload_1
+       1: ifnonnull     5
+       4: return
+       5: aload_0
+       6: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       9: aload_1
+      10: invokevirtual #183                // Method net/sf/ehcache/store/chm/SelectableConcurrentHashMap.recalculateSize:(Ljava/lang/Object;)V
+      13: return
+
+  static net.sf.ehcache.store.chm.SelectableConcurrentHashMap access$100(net.sf.ehcache.store.MemoryStore);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field map:Lnet/sf/ehcache/store/chm/SelectableConcurrentHashMap;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc_w         #36                 // class net/sf/ehcache/store/MemoryStore
+       3: invokevirtual #37                 // Method java/lang/Class.getName:()Ljava/lang/String;
+       6: invokestatic  #184                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/String;)Lorg/slf4j/Logger;
+       9: putstatic     #47                 // Field LOG:Lorg/slf4j/Logger;
+      12: return
+}

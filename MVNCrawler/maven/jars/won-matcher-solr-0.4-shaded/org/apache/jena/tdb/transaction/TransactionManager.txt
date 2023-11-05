@@ -1,0 +1,1645 @@
+Compiled from "TransactionManager.java"
+public class org.apache.jena.tdb.transaction.TransactionManager {
+  private static boolean checking;
+
+  private static org.slf4j.Logger log;
+
+  private java.util.Set<org.apache.jena.tdb.transaction.Transaction> activeTransactions;
+
+  private boolean recordHistory;
+
+  public static int QueueBatchSize;
+
+  public static int JournalThresholdSize;
+
+  public static int MaxQueueThreshold;
+
+  private java.util.List<org.apache.jena.atlas.lib.Pair<org.apache.jena.tdb.transaction.Transaction, org.apache.jena.tdb.transaction.TransactionManager$TxnPoint>> transactionStateTransition;
+
+  int maxQueue;
+
+  java.util.List<org.apache.jena.tdb.transaction.Transaction> commitedAwaitingFlush;
+
+  static java.util.concurrent.atomic.AtomicLong transactionId;
+
+  private java.util.concurrent.atomic.AtomicLong version;
+
+  java.util.concurrent.atomic.AtomicLong activeReaders;
+
+  java.util.concurrent.atomic.AtomicLong activeWriters;
+
+  java.util.concurrent.atomic.AtomicLong finishedReaders;
+
+  java.util.concurrent.atomic.AtomicLong committedWriters;
+
+  java.util.concurrent.atomic.AtomicLong abortedWriters;
+
+  private java.util.concurrent.atomic.AtomicReference<org.apache.jena.tdb.store.DatasetGraphTDB> currentReaderView;
+
+  private java.util.concurrent.Semaphore writerPermits;
+
+  private java.util.concurrent.locks.ReadWriteLock exclusivitylock;
+
+  private java.util.concurrent.BlockingQueue<org.apache.jena.tdb.transaction.Transaction> queue;
+
+  private org.apache.jena.tdb.store.DatasetGraphTDB baseDataset;
+
+  private org.apache.jena.tdb.transaction.Journal journal;
+
+  private org.apache.jena.tdb.transaction.TransactionManager$TSM[] actions;
+
+  public static final boolean DEBUG;
+
+  private final boolean logstate;
+
+  public synchronized boolean activeTransactions();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field activeTransactions:Ljava/util/Set;
+       4: invokeinterface #10,  1           // InterfaceMethod java/util/Set.isEmpty:()Z
+       9: ifne          16
+      12: iconst_1
+      13: goto          17
+      16: iconst_0
+      17: ireturn
+
+  private static int setQueueBatchSize();
+    Code:
+       0: getstatic     #11                 // Field org/apache/jena/tdb/sys/SystemTDB.is64bitSystem:Z
+       3: ifeq          9
+       6: bipush        10
+       8: ireturn
+       9: iconst_0
+      10: ireturn
+
+  private void record(org.apache.jena.tdb.transaction.Transaction, org.apache.jena.tdb.transaction.TransactionManager$TxnPoint);
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field recordHistory:Z
+       4: ifne          8
+       7: return
+       8: aload_0
+       9: invokespecial #13                 // Method initRecordingState:()V
+      12: aload_0
+      13: getfield      #14                 // Field transactionStateTransition:Ljava/util/List;
+      16: new           #15                 // class org/apache/jena/atlas/lib/Pair
+      19: dup
+      20: aload_1
+      21: aload_2
+      22: invokespecial #16                 // Method org/apache/jena/atlas/lib/Pair."<init>":(Ljava/lang/Object;Ljava/lang/Object;)V
+      25: invokeinterface #17,  2           // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      30: pop
+      31: return
+
+  public long getCountActiveReaders();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field activeReaders:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  public long getCountActiveWriters();
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field activeWriters:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  public long getQueueLength();
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field queue:Ljava/util/concurrent/BlockingQueue;
+       4: invokeinterface #21,  1           // InterfaceMethod java/util/concurrent/BlockingQueue.size:()I
+       9: i2l
+      10: lreturn
+
+  static long inc(java.util.concurrent.atomic.AtomicLong);
+    Code:
+       0: aload_0
+       1: invokevirtual #22                 // Method java/util/concurrent/atomic/AtomicLong.getAndIncrement:()J
+       4: lreturn
+
+  static long dec(java.util.concurrent.atomic.AtomicLong);
+    Code:
+       0: aload_0
+       1: invokevirtual #23                 // Method java/util/concurrent/atomic/AtomicLong.decrementAndGet:()J
+       4: lreturn
+
+  public org.apache.jena.tdb.transaction.TransactionManager(org.apache.jena.tdb.store.DatasetGraphTDB);
+    Code:
+       0: aload_0
+       1: invokespecial #24                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #25                 // class java/util/HashSet
+       8: dup
+       9: invokespecial #26                 // Method java/util/HashSet."<init>":()V
+      12: putfield      #7                  // Field activeTransactions:Ljava/util/Set;
+      15: aload_0
+      16: iconst_0
+      17: putfield      #12                 // Field recordHistory:Z
+      20: aload_0
+      21: iconst_0
+      22: putfield      #27                 // Field maxQueue:I
+      25: aload_0
+      26: new           #28                 // class java/util/ArrayList
+      29: dup
+      30: invokespecial #29                 // Method java/util/ArrayList."<init>":()V
+      33: putfield      #30                 // Field commitedAwaitingFlush:Ljava/util/List;
+      36: aload_0
+      37: new           #31                 // class java/util/concurrent/atomic/AtomicLong
+      40: dup
+      41: lconst_0
+      42: invokespecial #32                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      45: putfield      #33                 // Field version:Ljava/util/concurrent/atomic/AtomicLong;
+      48: aload_0
+      49: new           #31                 // class java/util/concurrent/atomic/AtomicLong
+      52: dup
+      53: lconst_0
+      54: invokespecial #32                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      57: putfield      #18                 // Field activeReaders:Ljava/util/concurrent/atomic/AtomicLong;
+      60: aload_0
+      61: new           #31                 // class java/util/concurrent/atomic/AtomicLong
+      64: dup
+      65: lconst_0
+      66: invokespecial #32                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      69: putfield      #20                 // Field activeWriters:Ljava/util/concurrent/atomic/AtomicLong;
+      72: aload_0
+      73: new           #31                 // class java/util/concurrent/atomic/AtomicLong
+      76: dup
+      77: lconst_0
+      78: invokespecial #32                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      81: putfield      #34                 // Field finishedReaders:Ljava/util/concurrent/atomic/AtomicLong;
+      84: aload_0
+      85: new           #31                 // class java/util/concurrent/atomic/AtomicLong
+      88: dup
+      89: lconst_0
+      90: invokespecial #32                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      93: putfield      #35                 // Field committedWriters:Ljava/util/concurrent/atomic/AtomicLong;
+      96: aload_0
+      97: new           #31                 // class java/util/concurrent/atomic/AtomicLong
+     100: dup
+     101: lconst_0
+     102: invokespecial #32                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+     105: putfield      #36                 // Field abortedWriters:Ljava/util/concurrent/atomic/AtomicLong;
+     108: aload_0
+     109: new           #37                 // class java/util/concurrent/atomic/AtomicReference
+     112: dup
+     113: aconst_null
+     114: invokespecial #38                 // Method java/util/concurrent/atomic/AtomicReference."<init>":(Ljava/lang/Object;)V
+     117: putfield      #39                 // Field currentReaderView:Ljava/util/concurrent/atomic/AtomicReference;
+     120: aload_0
+     121: new           #40                 // class java/util/concurrent/Semaphore
+     124: dup
+     125: iconst_1
+     126: iconst_1
+     127: invokespecial #41                 // Method java/util/concurrent/Semaphore."<init>":(IZ)V
+     130: putfield      #42                 // Field writerPermits:Ljava/util/concurrent/Semaphore;
+     133: aload_0
+     134: new           #43                 // class java/util/concurrent/locks/ReentrantReadWriteLock
+     137: dup
+     138: iconst_1
+     139: invokespecial #44                 // Method java/util/concurrent/locks/ReentrantReadWriteLock."<init>":(Z)V
+     142: putfield      #45                 // Field exclusivitylock:Ljava/util/concurrent/locks/ReadWriteLock;
+     145: aload_0
+     146: new           #46                 // class java/util/concurrent/LinkedBlockingDeque
+     149: dup
+     150: invokespecial #47                 // Method java/util/concurrent/LinkedBlockingDeque."<init>":()V
+     153: putfield      #2                  // Field queue:Ljava/util/concurrent/BlockingQueue;
+     156: aload_0
+     157: iconst_4
+     158: anewarray     #48                 // class org/apache/jena/tdb/transaction/TransactionManager$TSM
+     161: dup
+     162: iconst_0
+     163: new           #49                 // class org/apache/jena/tdb/transaction/TransactionManager$TSM_Counters
+     166: dup
+     167: aload_0
+     168: invokespecial #50                 // Method org/apache/jena/tdb/transaction/TransactionManager$TSM_Counters."<init>":(Lorg/apache/jena/tdb/transaction/TransactionManager;)V
+     171: aastore
+     172: dup
+     173: iconst_1
+     174: new           #51                 // class org/apache/jena/tdb/transaction/TransactionManager$TSM_Logger
+     177: dup
+     178: aload_0
+     179: invokespecial #52                 // Method org/apache/jena/tdb/transaction/TransactionManager$TSM_Logger."<init>":(Lorg/apache/jena/tdb/transaction/TransactionManager;)V
+     182: aastore
+     183: dup
+     184: iconst_2
+     185: aload_0
+     186: getfield      #12                 // Field recordHistory:Z
+     189: ifeq          203
+     192: new           #53                 // class org/apache/jena/tdb/transaction/TransactionManager$TSM_Record
+     195: dup
+     196: aload_0
+     197: invokespecial #54                 // Method org/apache/jena/tdb/transaction/TransactionManager$TSM_Record."<init>":(Lorg/apache/jena/tdb/transaction/TransactionManager;)V
+     200: goto          204
+     203: aconst_null
+     204: aastore
+     205: dup
+     206: iconst_3
+     207: new           #55                 // class org/apache/jena/tdb/transaction/TransactionManager$TSM_WriteBackEndTxn
+     210: dup
+     211: aload_0
+     212: invokespecial #56                 // Method org/apache/jena/tdb/transaction/TransactionManager$TSM_WriteBackEndTxn."<init>":(Lorg/apache/jena/tdb/transaction/TransactionManager;)V
+     215: aastore
+     216: putfield      #57                 // Field actions:[Lorg/apache/jena/tdb/transaction/TransactionManager$TSM;
+     219: aload_0
+     220: getstatic     #58                 // Field org/apache/jena/tdb/sys/SystemTDB.syslog:Lorg/slf4j/Logger;
+     223: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     228: ifne          242
+     231: getstatic     #60                 // Field log:Lorg/slf4j/Logger;
+     234: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     239: ifeq          246
+     242: iconst_1
+     243: goto          247
+     246: iconst_0
+     247: putfield      #61                 // Field logstate:Z
+     250: aload_0
+     251: aload_1
+     252: putfield      #62                 // Field baseDataset:Lorg/apache/jena/tdb/store/DatasetGraphTDB;
+     255: aload_0
+     256: aload_1
+     257: invokevirtual #63                 // Method org/apache/jena/tdb/store/DatasetGraphTDB.getLocation:()Lorg/apache/jena/tdb/base/file/Location;
+     260: invokestatic  #64                 // Method org/apache/jena/tdb/transaction/Journal.create:(Lorg/apache/jena/tdb/base/file/Location;)Lorg/apache/jena/tdb/transaction/Journal;
+     263: putfield      #65                 // Field journal:Lorg/apache/jena/tdb/transaction/Journal;
+     266: return
+
+  public void closedown();
+    Code:
+       0: aload_0
+       1: aconst_null
+       2: invokespecial #66                 // Method processDelayedReplayQueue:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+       5: aload_0
+       6: getfield      #65                 // Field journal:Lorg/apache/jena/tdb/transaction/Journal;
+       9: invokevirtual #67                 // Method org/apache/jena/tdb/transaction/Journal.close:()V
+      12: return
+
+  public org.apache.jena.tdb.transaction.DatasetGraphTxn begin(org.apache.jena.query.ReadWrite);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aconst_null
+       3: invokevirtual #68                 // Method begin:(Lorg/apache/jena/query/ReadWrite;Ljava/lang/String;)Lorg/apache/jena/tdb/transaction/DatasetGraphTxn;
+       6: areturn
+
+  public org.apache.jena.tdb.transaction.DatasetGraphTxn begin(org.apache.jena.query.ReadWrite, java.lang.String);
+    Code:
+       0: aload_0
+       1: invokespecial #69                 // Method startNonExclusive:()V
+       4: aload_1
+       5: getstatic     #70                 // Field org/apache/jena/query/ReadWrite.WRITE:Lorg/apache/jena/query/ReadWrite;
+       8: if_acmpne     17
+      11: aload_0
+      12: iconst_1
+      13: invokespecial #71                 // Method acquireWriterLock:(Z)Z
+      16: pop
+      17: aload_0
+      18: aload_1
+      19: aload_2
+      20: invokespecial #72                 // Method begin$:(Lorg/apache/jena/query/ReadWrite;Ljava/lang/String;)Lorg/apache/jena/tdb/transaction/DatasetGraphTxn;
+      23: areturn
+
+  org.apache.jena.tdb.transaction.DatasetGraphTxn promote(org.apache.jena.tdb.transaction.DatasetGraphTxn, boolean) throws org.apache.jena.tdb.transaction.TDBTransactionException;
+    Code:
+       0: aload_1
+       1: invokevirtual #73                 // Method org/apache/jena/tdb/transaction/DatasetGraphTxn.getTransaction:()Lorg/apache/jena/tdb/transaction/Transaction;
+       4: astore_3
+       5: aload_3
+       6: invokevirtual #74                 // Method org/apache/jena/tdb/transaction/Transaction.getState:()Lorg/apache/jena/tdb/transaction/TxnState;
+       9: getstatic     #75                 // Field org/apache/jena/tdb/transaction/TxnState.ACTIVE:Lorg/apache/jena/tdb/transaction/TxnState;
+      12: if_acmpeq     25
+      15: new           #76                 // class org/apache/jena/tdb/transaction/TDBTransactionException
+      18: dup
+      19: ldc           #77                 // String promote: transaction is not active
+      21: invokespecial #78                 // Method org/apache/jena/tdb/transaction/TDBTransactionException."<init>":(Ljava/lang/String;)V
+      24: athrow
+      25: aload_3
+      26: invokevirtual #79                 // Method org/apache/jena/tdb/transaction/Transaction.getMode:()Lorg/apache/jena/query/ReadWrite;
+      29: getstatic     #70                 // Field org/apache/jena/query/ReadWrite.WRITE:Lorg/apache/jena/query/ReadWrite;
+      32: if_acmpne     37
+      35: aload_1
+      36: areturn
+      37: iload_2
+      38: ifeq          57
+      41: aload_0
+      42: getstatic     #70                 // Field org/apache/jena/query/ReadWrite.WRITE:Lorg/apache/jena/query/ReadWrite;
+      45: aload_3
+      46: invokevirtual #80                 // Method org/apache/jena/tdb/transaction/Transaction.getLabel:()Ljava/lang/String;
+      49: invokevirtual #68                 // Method begin:(Lorg/apache/jena/query/ReadWrite;Ljava/lang/String;)Lorg/apache/jena/tdb/transaction/DatasetGraphTxn;
+      52: astore        4
+      54: aload         4
+      56: areturn
+      57: aload_3
+      58: invokevirtual #81                 // Method org/apache/jena/tdb/transaction/Transaction.getVersion:()J
+      61: aload_0
+      62: getfield      #33                 // Field version:Ljava/util/concurrent/atomic/AtomicLong;
+      65: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      68: lcmp
+      69: ifeq          82
+      72: new           #76                 // class org/apache/jena/tdb/transaction/TDBTransactionException
+      75: dup
+      76: ldc           #82                 // String Dataset changed - can\'t promote
+      78: invokespecial #78                 // Method org/apache/jena/tdb/transaction/TDBTransactionException."<init>":(Ljava/lang/String;)V
+      81: athrow
+      82: aload_0
+      83: iconst_1
+      84: invokespecial #71                 // Method acquireWriterLock:(Z)Z
+      87: pop
+      88: aload_0
+      89: aload_1
+      90: iload_2
+      91: invokespecial #83                 // Method promote2$:(Lorg/apache/jena/tdb/transaction/DatasetGraphTxn;Z)Lorg/apache/jena/tdb/transaction/DatasetGraphTxn;
+      94: areturn
+
+  private synchronized org.apache.jena.tdb.transaction.DatasetGraphTxn promote2$(org.apache.jena.tdb.transaction.DatasetGraphTxn, boolean);
+    Code:
+       0: aload_1
+       1: invokevirtual #73                 // Method org/apache/jena/tdb/transaction/DatasetGraphTxn.getTransaction:()Lorg/apache/jena/tdb/transaction/Transaction;
+       4: astore_3
+       5: aload_3
+       6: invokevirtual #81                 // Method org/apache/jena/tdb/transaction/Transaction.getVersion:()J
+       9: aload_0
+      10: getfield      #33                 // Field version:Ljava/util/concurrent/atomic/AtomicLong;
+      13: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      16: lcmp
+      17: ifeq          34
+      20: aload_0
+      21: invokespecial #84                 // Method releaseWriterLock:()V
+      24: new           #76                 // class org/apache/jena/tdb/transaction/TDBTransactionException
+      27: dup
+      28: ldc           #85                 // String Active writer changed the dataset - can\'t promote
+      30: invokespecial #78                 // Method org/apache/jena/tdb/transaction/TDBTransactionException."<init>":(Ljava/lang/String;)V
+      33: athrow
+      34: aload_0
+      35: getstatic     #70                 // Field org/apache/jena/query/ReadWrite.WRITE:Lorg/apache/jena/query/ReadWrite;
+      38: aload_3
+      39: invokevirtual #80                 // Method org/apache/jena/tdb/transaction/Transaction.getLabel:()Ljava/lang/String;
+      42: invokespecial #72                 // Method begin$:(Lorg/apache/jena/query/ReadWrite;Ljava/lang/String;)Lorg/apache/jena/tdb/transaction/DatasetGraphTxn;
+      45: astore        4
+      47: aload         4
+      49: areturn
+
+  private synchronized org.apache.jena.tdb.transaction.DatasetGraphTxn begin$(org.apache.jena.query.ReadWrite, java.lang.String);
+    Code:
+       0: aload_1
+       1: getstatic     #70                 // Field org/apache/jena/query/ReadWrite.WRITE:Lorg/apache/jena/query/ReadWrite;
+       4: if_acmpne     29
+       7: aload_0
+       8: getfield      #20                 // Field activeWriters:Ljava/util/concurrent/atomic/AtomicLong;
+      11: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      14: lconst_0
+      15: lcmp
+      16: ifle          29
+      19: new           #76                 // class org/apache/jena/tdb/transaction/TDBTransactionException
+      22: dup
+      23: ldc           #86                 // String Existing active write transaction
+      25: invokespecial #78                 // Method org/apache/jena/tdb/transaction/TDBTransactionException."<init>":(Ljava/lang/String;)V
+      28: athrow
+      29: aload_0
+      30: invokespecial #87                 // Method determineBaseDataset:()Lorg/apache/jena/tdb/store/DatasetGraphTDB;
+      33: astore_3
+      34: aload_0
+      35: aload_3
+      36: aload_1
+      37: aload_2
+      38: invokespecial #88                 // Method createTransaction:(Lorg/apache/jena/tdb/store/DatasetGraphTDB;Lorg/apache/jena/query/ReadWrite;Ljava/lang/String;)Lorg/apache/jena/tdb/transaction/Transaction;
+      41: astore        4
+      43: aload_0
+      44: ldc           #89                 // String begin$
+      46: aload         4
+      48: invokespecial #9                  // Method log:(Ljava/lang/String;Lorg/apache/jena/tdb/transaction/Transaction;)V
+      51: aload_0
+      52: aload_3
+      53: aload         4
+      55: aload_1
+      56: invokespecial #90                 // Method createDSGTxn:(Lorg/apache/jena/tdb/store/DatasetGraphTDB;Lorg/apache/jena/tdb/transaction/Transaction;Lorg/apache/jena/query/ReadWrite;)Lorg/apache/jena/tdb/transaction/DatasetGraphTxn;
+      59: astore        5
+      61: aload         4
+      63: aload         5
+      65: invokevirtual #91                 // Method org/apache/jena/tdb/transaction/Transaction.setActiveDataset:(Lorg/apache/jena/tdb/transaction/DatasetGraphTxn;)V
+      68: aload         5
+      70: invokevirtual #73                 // Method org/apache/jena/tdb/transaction/DatasetGraphTxn.getTransaction:()Lorg/apache/jena/tdb/transaction/Transaction;
+      73: invokevirtual #92                 // Method org/apache/jena/tdb/transaction/Transaction.lifecycleComponents:()Ljava/util/List;
+      76: astore        6
+      78: aload_1
+      79: getstatic     #93                 // Field org/apache/jena/query/ReadWrite.READ:Lorg/apache/jena/query/ReadWrite;
+      82: if_acmpne     105
+      85: aload         6
+      87: invokeinterface #94,  1           // InterfaceMethod java/util/List.size:()I
+      92: ifeq          105
+      95: getstatic     #60                 // Field log:Lorg/slf4j/Logger;
+      98: ldc           #95                 // String read transaction, non-empty lifecycleComponents list
+     100: invokeinterface #96,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     105: aload         6
+     107: invokeinterface #97,  1           // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     112: astore        7
+     114: aload         7
+     116: invokeinterface #98,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+     121: ifeq          151
+     124: aload         7
+     126: invokeinterface #99,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     131: checkcast     #100                // class org/apache/jena/tdb/transaction/TransactionLifecycle
+     134: astore        8
+     136: aload         8
+     138: aload         5
+     140: invokevirtual #73                 // Method org/apache/jena/tdb/transaction/DatasetGraphTxn.getTransaction:()Lorg/apache/jena/tdb/transaction/Transaction;
+     143: invokeinterface #101,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionLifecycle.begin:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+     148: goto          114
+     151: aload_0
+     152: aload         4
+     154: invokespecial #102                // Method noteStartTxn:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+     157: aload         5
+     159: areturn
+
+  private org.apache.jena.tdb.store.DatasetGraphTDB determineBaseDataset();
+    Code:
+       0: aload_0
+       1: getfield      #62                 // Field baseDataset:Lorg/apache/jena/tdb/store/DatasetGraphTDB;
+       4: astore_1
+       5: aload_0
+       6: getfield      #30                 // Field commitedAwaitingFlush:Ljava/util/List;
+       9: invokeinterface #103,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+      14: ifne          47
+      17: aload_0
+      18: getfield      #30                 // Field commitedAwaitingFlush:Ljava/util/List;
+      21: aload_0
+      22: getfield      #30                 // Field commitedAwaitingFlush:Ljava/util/List;
+      25: invokeinterface #94,  1           // InterfaceMethod java/util/List.size:()I
+      30: iconst_1
+      31: isub
+      32: invokeinterface #104,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      37: checkcast     #105                // class org/apache/jena/tdb/transaction/Transaction
+      40: invokevirtual #106                // Method org/apache/jena/tdb/transaction/Transaction.getActiveDataset:()Lorg/apache/jena/tdb/transaction/DatasetGraphTxn;
+      43: invokevirtual #107                // Method org/apache/jena/tdb/transaction/DatasetGraphTxn.getView:()Lorg/apache/jena/tdb/store/DatasetGraphTDB;
+      46: astore_1
+      47: aload_1
+      48: areturn
+
+  private org.apache.jena.tdb.transaction.Transaction createTransaction(org.apache.jena.tdb.store.DatasetGraphTDB, org.apache.jena.query.ReadWrite, java.lang.String);
+    Code:
+       0: new           #105                // class org/apache/jena/tdb/transaction/Transaction
+       3: dup
+       4: aload_1
+       5: aload_0
+       6: getfield      #33                 // Field version:Ljava/util/concurrent/atomic/AtomicLong;
+       9: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      12: aload_2
+      13: getstatic     #108                // Field transactionId:Ljava/util/concurrent/atomic/AtomicLong;
+      16: invokevirtual #22                 // Method java/util/concurrent/atomic/AtomicLong.getAndIncrement:()J
+      19: aload_3
+      20: aload_0
+      21: invokespecial #109                // Method org/apache/jena/tdb/transaction/Transaction."<init>":(Lorg/apache/jena/tdb/store/DatasetGraphTDB;JLorg/apache/jena/query/ReadWrite;JLjava/lang/String;Lorg/apache/jena/tdb/transaction/TransactionManager;)V
+      24: astore        4
+      26: aload         4
+      28: areturn
+
+  private org.apache.jena.tdb.transaction.DatasetGraphTxn createDSGTxn(org.apache.jena.tdb.store.DatasetGraphTDB, org.apache.jena.tdb.transaction.Transaction, org.apache.jena.query.ReadWrite);
+    Code:
+       0: aload_3
+       1: getstatic     #93                 // Field org/apache/jena/query/ReadWrite.READ:Lorg/apache/jena/query/ReadWrite;
+       4: if_acmpne     35
+       7: aload_0
+       8: getfield      #39                 // Field currentReaderView:Ljava/util/concurrent/atomic/AtomicReference;
+      11: invokevirtual #110                // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+      14: checkcast     #111                // class org/apache/jena/tdb/store/DatasetGraphTDB
+      17: astore        4
+      19: aload         4
+      21: ifnull        35
+      24: new           #112                // class org/apache/jena/tdb/transaction/DatasetGraphTxn
+      27: dup
+      28: aload         4
+      30: aload_2
+      31: invokespecial #113                // Method org/apache/jena/tdb/transaction/DatasetGraphTxn."<init>":(Lorg/apache/jena/tdb/store/DatasetGraphTDB;Lorg/apache/jena/tdb/transaction/Transaction;)V
+      34: areturn
+      35: new           #114                // class org/apache/jena/tdb/transaction/DatasetBuilderTxn
+      38: dup
+      39: aload_0
+      40: aload_1
+      41: invokespecial #115                // Method org/apache/jena/tdb/transaction/DatasetBuilderTxn."<init>":(Lorg/apache/jena/tdb/transaction/TransactionManager;Lorg/apache/jena/tdb/store/DatasetGraphTDB;)V
+      44: aload_2
+      45: aload_3
+      46: invokevirtual #116                // Method org/apache/jena/tdb/transaction/DatasetBuilderTxn.build:(Lorg/apache/jena/tdb/transaction/Transaction;Lorg/apache/jena/query/ReadWrite;)Lorg/apache/jena/tdb/transaction/DatasetGraphTxn;
+      49: astore        4
+      51: aload_3
+      52: getstatic     #93                 // Field org/apache/jena/query/ReadWrite.READ:Lorg/apache/jena/query/ReadWrite;
+      55: if_acmpne     70
+      58: aload_0
+      59: getfield      #39                 // Field currentReaderView:Ljava/util/concurrent/atomic/AtomicReference;
+      62: aload         4
+      64: invokevirtual #107                // Method org/apache/jena/tdb/transaction/DatasetGraphTxn.getView:()Lorg/apache/jena/tdb/store/DatasetGraphTDB;
+      67: invokevirtual #117                // Method java/util/concurrent/atomic/AtomicReference.set:(Ljava/lang/Object;)V
+      70: aload         4
+      72: areturn
+
+  void notifyCommit(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: iconst_0
+       1: istore_2
+       2: aload_0
+       3: dup
+       4: astore_3
+       5: monitorenter
+       6: aload_0
+       7: getfield      #7                  // Field activeTransactions:Ljava/util/Set;
+      10: aload_1
+      11: invokeinterface #118,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+      16: ifne          49
+      19: getstatic     #119                // Field org/apache/jena/tdb/sys/SystemTDB.errlog:Lorg/slf4j/Logger;
+      22: new           #120                // class java/lang/StringBuilder
+      25: dup
+      26: invokespecial #121                // Method java/lang/StringBuilder."<init>":()V
+      29: ldc           #122                // String Transaction not active:
+      31: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: aload_1
+      35: invokevirtual #124                // Method org/apache/jena/tdb/transaction/Transaction.getTxnId:()J
+      38: invokevirtual #125                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      41: invokevirtual #126                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      44: invokeinterface #96,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      49: aload_0
+      50: aload_1
+      51: invokespecial #127                // Method noteTxnCommit:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      54: getstatic     #128                // Field org/apache/jena/tdb/transaction/TransactionManager$1.$SwitchMap$org$apache$jena$query$ReadWrite:[I
+      57: aload_1
+      58: invokevirtual #79                 // Method org/apache/jena/tdb/transaction/Transaction.getMode:()Lorg/apache/jena/query/ReadWrite;
+      61: invokevirtual #129                // Method org/apache/jena/query/ReadWrite.ordinal:()I
+      64: iaload
+      65: lookupswitch  { // 2
+                     1: 92
+                     2: 95
+               default: 142
+          }
+      92: goto          142
+      95: aload_0
+      96: getfield      #33                 // Field version:Ljava/util/concurrent/atomic/AtomicLong;
+      99: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.incrementAndGet:()J
+     102: pop2
+     103: aload_0
+     104: getfield      #39                 // Field currentReaderView:Ljava/util/concurrent/atomic/AtomicReference;
+     107: aconst_null
+     108: invokevirtual #117                // Method java/util/concurrent/atomic/AtomicReference.set:(Ljava/lang/Object;)V
+     111: getstatic     #131                // Field MaxQueueThreshold:I
+     114: iflt          136
+     117: aload_0
+     118: getfield      #2                  // Field queue:Ljava/util/concurrent/BlockingQueue;
+     121: invokeinterface #21,  1           // InterfaceMethod java/util/concurrent/BlockingQueue.size:()I
+     126: getstatic     #131                // Field MaxQueueThreshold:I
+     129: if_icmple     136
+     132: iconst_1
+     133: goto          137
+     136: iconst_0
+     137: istore_2
+     138: aload_0
+     139: invokespecial #84                 // Method releaseWriterLock:()V
+     142: aload_0
+     143: invokespecial #132                // Method finishNonExclusive:()V
+     146: aload_3
+     147: monitorexit
+     148: goto          158
+     151: astore        4
+     153: aload_3
+     154: monitorexit
+     155: aload         4
+     157: athrow
+     158: iload_2
+     159: ifeq          166
+     162: aload_0
+     163: invokespecial #133                // Method exclusiveFlushQueue:()V
+     166: return
+    Exception table:
+       from    to  target type
+           6   148   151   any
+         151   155   151   any
+
+  synchronized void notifyAbort(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field activeTransactions:Ljava/util/Set;
+       4: aload_1
+       5: invokeinterface #118,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+      10: ifne          43
+      13: getstatic     #119                // Field org/apache/jena/tdb/sys/SystemTDB.errlog:Lorg/slf4j/Logger;
+      16: new           #120                // class java/lang/StringBuilder
+      19: dup
+      20: invokespecial #121                // Method java/lang/StringBuilder."<init>":()V
+      23: ldc           #122                // String Transaction not active:
+      25: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      28: aload_1
+      29: invokevirtual #124                // Method org/apache/jena/tdb/transaction/Transaction.getTxnId:()J
+      32: invokevirtual #125                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      35: invokevirtual #126                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      38: invokeinterface #96,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      43: aload_0
+      44: aload_1
+      45: invokespecial #134                // Method noteTxnAbort:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      48: getstatic     #128                // Field org/apache/jena/tdb/transaction/TransactionManager$1.$SwitchMap$org$apache$jena$query$ReadWrite:[I
+      51: aload_1
+      52: invokevirtual #79                 // Method org/apache/jena/tdb/transaction/Transaction.getMode:()Lorg/apache/jena/query/ReadWrite;
+      55: invokevirtual #129                // Method org/apache/jena/query/ReadWrite.ordinal:()I
+      58: iaload
+      59: lookupswitch  { // 2
+                     1: 84
+                     2: 87
+               default: 91
+          }
+      84: goto          91
+      87: aload_0
+      88: invokespecial #84                 // Method releaseWriterLock:()V
+      91: aload_0
+      92: invokespecial #132                // Method finishNonExclusive:()V
+      95: return
+
+  synchronized void notifyClose(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_1
+       1: invokevirtual #74                 // Method org/apache/jena/tdb/transaction/Transaction.getState:()Lorg/apache/jena/tdb/transaction/TxnState;
+       4: getstatic     #75                 // Field org/apache/jena/tdb/transaction/TxnState.ACTIVE:Lorg/apache/jena/tdb/transaction/TxnState;
+       7: if_acmpne     69
+      10: aload_1
+      11: invokevirtual #135                // Method org/apache/jena/tdb/transaction/Transaction.getBaseDataset:()Lorg/apache/jena/tdb/store/DatasetGraphTDB;
+      14: invokevirtual #63                 // Method org/apache/jena/tdb/store/DatasetGraphTDB.getLocation:()Lorg/apache/jena/tdb/base/file/Location;
+      17: invokevirtual #136                // Method org/apache/jena/tdb/base/file/Location.getDirectoryPath:()Ljava/lang/String;
+      20: astore_2
+      21: getstatic     #58                 // Field org/apache/jena/tdb/sys/SystemTDB.syslog:Lorg/slf4j/Logger;
+      24: new           #120                // class java/lang/StringBuilder
+      27: dup
+      28: invokespecial #121                // Method java/lang/StringBuilder."<init>":()V
+      31: ldc           #137                // String close: Transaction not commited or aborted: Transaction:
+      33: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      36: aload_1
+      37: invokevirtual #124                // Method org/apache/jena/tdb/transaction/Transaction.getTxnId:()J
+      40: invokevirtual #125                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      43: ldc           #138                // String  @
+      45: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      48: aload_2
+      49: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      52: invokevirtual #126                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      55: invokeinterface #96,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      60: aload_1
+      61: invokevirtual #139                // Method org/apache/jena/tdb/transaction/Transaction.abort:()V
+      64: aload_1
+      65: invokevirtual #140                // Method org/apache/jena/tdb/transaction/Transaction.close:()V
+      68: return
+      69: aload_0
+      70: aload_1
+      71: invokespecial #141                // Method noteTxnClose:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      74: return
+
+  private void releaseWriterLock();
+    Code:
+       0: aload_0
+       1: getfield      #42                 // Field writerPermits:Ljava/util/concurrent/Semaphore;
+       4: invokevirtual #142                // Method java/util/concurrent/Semaphore.availablePermits:()I
+       7: istore_1
+       8: iload_1
+       9: ifeq          22
+      12: new           #76                 // class org/apache/jena/tdb/transaction/TDBTransactionException
+      15: dup
+      16: ldc           #143                // String TransactionCoordinator: Probably mismatch of enableWriters/blockWriters calls
+      18: invokespecial #78                 // Method org/apache/jena/tdb/transaction/TDBTransactionException."<init>":(Ljava/lang/String;)V
+      21: athrow
+      22: aload_0
+      23: getfield      #42                 // Field writerPermits:Ljava/util/concurrent/Semaphore;
+      26: invokevirtual #144                // Method java/util/concurrent/Semaphore.release:()V
+      29: return
+
+  private boolean acquireWriterLock(boolean);
+    Code:
+       0: iload_1
+       1: ifne          12
+       4: aload_0
+       5: getfield      #42                 // Field writerPermits:Ljava/util/concurrent/Semaphore;
+       8: invokevirtual #145                // Method java/util/concurrent/Semaphore.tryAcquire:()Z
+      11: ireturn
+      12: aload_0
+      13: getfield      #42                 // Field writerPermits:Ljava/util/concurrent/Semaphore;
+      16: invokevirtual #146                // Method java/util/concurrent/Semaphore.acquire:()V
+      19: iconst_1
+      20: ireturn
+      21: astore_2
+      22: new           #76                 // class org/apache/jena/tdb/transaction/TDBTransactionException
+      25: dup
+      26: aload_2
+      27: invokespecial #148                // Method org/apache/jena/tdb/transaction/TDBTransactionException."<init>":(Ljava/lang/Throwable;)V
+      30: athrow
+    Exception table:
+       from    to  target type
+          12    20    21   Class java/lang/InterruptedException
+
+  public void blockWriters();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: invokespecial #71                 // Method acquireWriterLock:(Z)Z
+       5: pop
+       6: return
+
+  public boolean tryBlockWriters();
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: invokespecial #71                 // Method acquireWriterLock:(Z)Z
+       5: ireturn
+
+  public void enableWriters();
+    Code:
+       0: aload_0
+       1: invokespecial #84                 // Method releaseWriterLock:()V
+       4: return
+
+  private void exclusiveFlushQueue();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: invokespecial #149                // Method startExclusiveMode:(Z)Z
+       5: pop
+       6: aload_0
+       7: invokevirtual #150                // Method finishExclusiveMode:()V
+      10: return
+
+  private void startNonExclusive();
+    Code:
+       0: aload_0
+       1: getfield      #45                 // Field exclusivitylock:Ljava/util/concurrent/locks/ReadWriteLock;
+       4: invokeinterface #151,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+       9: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      14: return
+
+  private void finishNonExclusive();
+    Code:
+       0: aload_0
+       1: getfield      #45                 // Field exclusivitylock:Ljava/util/concurrent/locks/ReadWriteLock;
+       4: invokeinterface #151,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+       9: invokeinterface #153,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      14: return
+
+  public void startExclusiveMode();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: invokespecial #149                // Method startExclusiveMode:(Z)Z
+       5: pop
+       6: return
+
+  public boolean tryExclusiveMode();
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: invokespecial #149                // Method startExclusiveMode:(Z)Z
+       5: ireturn
+
+  private boolean startExclusiveMode(boolean);
+    Code:
+       0: iload_1
+       1: ifeq          25
+       4: aload_0
+       5: getfield      #45                 // Field exclusivitylock:Ljava/util/concurrent/locks/ReadWriteLock;
+       8: invokeinterface #154,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.writeLock:()Ljava/util/concurrent/locks/Lock;
+      13: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      18: aload_0
+      19: aconst_null
+      20: invokespecial #66                 // Method processDelayedReplayQueue:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      23: iconst_1
+      24: ireturn
+      25: aload_0
+      26: getfield      #45                 // Field exclusivitylock:Ljava/util/concurrent/locks/ReadWriteLock;
+      29: invokeinterface #154,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.writeLock:()Ljava/util/concurrent/locks/Lock;
+      34: invokeinterface #155,  1          // InterfaceMethod java/util/concurrent/locks/Lock.tryLock:()Z
+      39: istore_2
+      40: iload_2
+      41: ifne          46
+      44: iconst_0
+      45: ireturn
+      46: aload_0
+      47: aconst_null
+      48: invokespecial #66                 // Method processDelayedReplayQueue:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      51: iconst_1
+      52: ireturn
+
+  public java.util.concurrent.locks.ReadWriteLock getExclusivityLock$();
+    Code:
+       0: aload_0
+       1: getfield      #45                 // Field exclusivitylock:Ljava/util/concurrent/locks/ReadWriteLock;
+       4: areturn
+
+  public void finishExclusiveMode();
+    Code:
+       0: aload_0
+       1: getfield      #45                 // Field exclusivitylock:Ljava/util/concurrent/locks/ReadWriteLock;
+       4: invokeinterface #154,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.writeLock:()Ljava/util/concurrent/locks/Lock;
+       9: invokeinterface #153,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      14: return
+
+  private void enactTransaction(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_1
+       1: invokevirtual #92                 // Method org/apache/jena/tdb/transaction/Transaction.lifecycleComponents:()Ljava/util/List;
+       4: invokeinterface #97,  1           // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+       9: astore_2
+      10: aload_2
+      11: invokeinterface #98,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      16: ifeq          46
+      19: aload_2
+      20: invokeinterface #99,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      25: checkcast     #100                // class org/apache/jena/tdb/transaction/TransactionLifecycle
+      28: astore_3
+      29: aload_3
+      30: aload_1
+      31: invokeinterface #156,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionLifecycle.commitEnact:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      36: aload_3
+      37: aload_1
+      38: invokeinterface #157,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionLifecycle.commitClearup:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      43: goto          10
+      46: aload_1
+      47: invokevirtual #158                // Method org/apache/jena/tdb/transaction/Transaction.signalEnacted:()V
+      50: return
+
+  public synchronized void flush();
+    Code:
+       0: aload_0
+       1: aconst_null
+       2: invokespecial #66                 // Method processDelayedReplayQueue:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+       5: return
+
+  private void readerFinishesWorker(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: invokespecial #159                // Method checkForJournalFlush:()Z
+       4: ifeq          12
+       7: aload_0
+       8: aload_1
+       9: invokespecial #66                 // Method processDelayedReplayQueue:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      12: return
+
+  private void writerAbortsWorker(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: invokespecial #159                // Method checkForJournalFlush:()Z
+       4: ifeq          12
+       7: aload_0
+       8: aload_1
+       9: invokespecial #66                 // Method processDelayedReplayQueue:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      12: return
+
+  private boolean checkForJournalFlush();
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field queue:Ljava/util/concurrent/BlockingQueue;
+       4: invokeinterface #21,  1           // InterfaceMethod java/util/concurrent/BlockingQueue.size:()I
+       9: getstatic     #160                // Field QueueBatchSize:I
+      12: if_icmplt     17
+      15: iconst_1
+      16: ireturn
+      17: getstatic     #161                // Field JournalThresholdSize:I
+      20: ifle          42
+      23: aload_0
+      24: getfield      #65                 // Field journal:Lorg/apache/jena/tdb/transaction/Journal;
+      27: invokevirtual #162                // Method org/apache/jena/tdb/transaction/Journal.size:()J
+      30: getstatic     #161                // Field JournalThresholdSize:I
+      33: i2l
+      34: lcmp
+      35: ifle          42
+      38: iconst_1
+      39: goto          43
+      42: iconst_0
+      43: istore_1
+      44: iload_1
+      45: ifeq          50
+      48: iconst_1
+      49: ireturn
+      50: iconst_0
+      51: ireturn
+
+  private void writerCommitsWorker(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field activeReaders:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lconst_0
+       8: lcmp
+       9: ifne          50
+      12: aload_0
+      13: invokespecial #159                // Method checkForJournalFlush:()Z
+      16: ifeq          50
+      19: aload_0
+      20: invokespecial #163                // Method log:()Z
+      23: ifeq          33
+      26: aload_0
+      27: ldc           #164                // String Commit immediately
+      29: aload_1
+      30: invokespecial #9                  // Method log:(Ljava/lang/String;Lorg/apache/jena/tdb/transaction/Transaction;)V
+      33: aload_0
+      34: aload_1
+      35: invokespecial #66                 // Method processDelayedReplayQueue:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      38: aload_0
+      39: aload_1
+      40: invokespecial #165                // Method enactTransaction:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      43: aload_1
+      44: invokestatic  #166                // Method org/apache/jena/tdb/transaction/JournalControl.replay:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      47: goto          106
+      50: aload_0
+      51: getfield      #30                 // Field commitedAwaitingFlush:Ljava/util/List;
+      54: aload_1
+      55: invokeinterface #17,  2           // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      60: pop
+      61: aload_0
+      62: aload_0
+      63: getfield      #30                 // Field commitedAwaitingFlush:Ljava/util/List;
+      66: invokeinterface #94,  1           // InterfaceMethod java/util/List.size:()I
+      71: aload_0
+      72: getfield      #27                 // Field maxQueue:I
+      75: invokestatic  #167                // Method java/lang/Math.max:(II)I
+      78: putfield      #27                 // Field maxQueue:I
+      81: aload_0
+      82: invokespecial #163                // Method log:()Z
+      85: ifeq          95
+      88: aload_0
+      89: ldc           #168                // String Add to pending queue
+      91: aload_1
+      92: invokespecial #9                  // Method log:(Ljava/lang/String;Lorg/apache/jena/tdb/transaction/Transaction;)V
+      95: aload_0
+      96: getfield      #2                  // Field queue:Ljava/util/concurrent/BlockingQueue;
+      99: aload_1
+     100: invokeinterface #169,  2          // InterfaceMethod java/util/concurrent/BlockingQueue.add:(Ljava/lang/Object;)Z
+     105: pop
+     106: return
+
+  private void processDelayedReplayQueue(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field activeReaders:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lconst_0
+       8: lcmp
+       9: ifne          24
+      12: aload_0
+      13: getfield      #20                 // Field activeWriters:Ljava/util/concurrent/atomic/AtomicLong;
+      16: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      19: lconst_0
+      20: lcmp
+      21: ifeq          72
+      24: aload_0
+      25: getfield      #2                  // Field queue:Ljava/util/concurrent/BlockingQueue;
+      28: invokeinterface #21,  1           // InterfaceMethod java/util/concurrent/BlockingQueue.size:()I
+      33: ifle          71
+      36: aload_0
+      37: invokespecial #163                // Method log:()Z
+      40: ifeq          71
+      43: aload_0
+      44: ldc           #170                // String Pending transactions: R=%s / W=%s
+      46: iconst_2
+      47: anewarray     #171                // class java/lang/Object
+      50: dup
+      51: iconst_0
+      52: aload_0
+      53: getfield      #18                 // Field activeReaders:Ljava/util/concurrent/atomic/AtomicLong;
+      56: aastore
+      57: dup
+      58: iconst_1
+      59: aload_0
+      60: getfield      #20                 // Field activeWriters:Ljava/util/concurrent/atomic/AtomicLong;
+      63: aastore
+      64: invokestatic  #172                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      67: aload_1
+      68: invokespecial #9                  // Method log:(Ljava/lang/String;Lorg/apache/jena/tdb/transaction/Transaction;)V
+      71: return
+      72: aload_0
+      73: getfield      #2                  // Field queue:Ljava/util/concurrent/BlockingQueue;
+      76: invokeinterface #21,  1           // InterfaceMethod java/util/concurrent/BlockingQueue.size:()I
+      81: ifne          89
+      84: aload_1
+      85: ifnull        89
+      88: return
+      89: aload_0
+      90: invokespecial #163                // Method log:()Z
+      93: ifeq          103
+      96: aload_0
+      97: ldc           #173                // String Start flush delayed commits
+      99: aload_1
+     100: invokespecial #9                  // Method log:(Ljava/lang/String;Lorg/apache/jena/tdb/transaction/Transaction;)V
+     103: aload_0
+     104: getfield      #39                 // Field currentReaderView:Ljava/util/concurrent/atomic/AtomicReference;
+     107: aconst_null
+     108: invokevirtual #117                // Method java/util/concurrent/atomic/AtomicReference.set:(Ljava/lang/Object;)V
+     111: aload_0
+     112: getfield      #2                  // Field queue:Ljava/util/concurrent/BlockingQueue;
+     115: invokeinterface #21,  1           // InterfaceMethod java/util/concurrent/BlockingQueue.size:()I
+     120: ifle          217
+     123: aload_0
+     124: getfield      #2                  // Field queue:Ljava/util/concurrent/BlockingQueue;
+     127: invokeinterface #174,  1          // InterfaceMethod java/util/concurrent/BlockingQueue.take:()Ljava/lang/Object;
+     132: checkcast     #105                // class org/apache/jena/tdb/transaction/Transaction
+     135: astore_2
+     136: aload_2
+     137: invokevirtual #79                 // Method org/apache/jena/tdb/transaction/Transaction.getMode:()Lorg/apache/jena/query/ReadWrite;
+     140: getstatic     #93                 // Field org/apache/jena/query/ReadWrite.READ:Lorg/apache/jena/query/ReadWrite;
+     143: if_acmpne     149
+     146: goto          111
+     149: aload_0
+     150: invokespecial #163                // Method log:()Z
+     153: ifeq          183
+     156: aload_0
+     157: new           #120                // class java/lang/StringBuilder
+     160: dup
+     161: invokespecial #121                // Method java/lang/StringBuilder."<init>":()V
+     164: ldc           #175                // String   Flush delayed commit of
+     166: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     169: aload_2
+     170: invokevirtual #80                 // Method org/apache/jena/tdb/transaction/Transaction.getLabel:()Ljava/lang/String;
+     173: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     176: invokevirtual #126                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     179: aload_1
+     180: invokespecial #9                  // Method log:(Ljava/lang/String;Lorg/apache/jena/tdb/transaction/Transaction;)V
+     183: aload_0
+     184: invokespecial #176                // Method checkReplaySafe:()V
+     187: aload_0
+     188: aload_2
+     189: invokespecial #165                // Method enactTransaction:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+     192: aload_0
+     193: getfield      #30                 // Field commitedAwaitingFlush:Ljava/util/List;
+     196: aload_2
+     197: invokeinterface #177,  2          // InterfaceMethod java/util/List.remove:(Ljava/lang/Object;)Z
+     202: pop
+     203: goto          111
+     206: astore_2
+     207: aload_0
+     208: ldc           #178                // String Interruped!
+     210: aload_2
+     211: invokestatic  #179                // Method org/apache/jena/atlas/logging/Log.error:(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Throwable;)V
+     214: goto          111
+     217: aload_0
+     218: invokespecial #176                // Method checkReplaySafe:()V
+     221: aload_0
+     222: getfield      #65                 // Field journal:Lorg/apache/jena/tdb/transaction/Journal;
+     225: aload_0
+     226: getfield      #62                 // Field baseDataset:Lorg/apache/jena/tdb/store/DatasetGraphTDB;
+     229: invokestatic  #180                // Method org/apache/jena/tdb/transaction/JournalControl.replay:(Lorg/apache/jena/tdb/transaction/Journal;Lorg/apache/jena/tdb/store/DatasetGraphTDB;)V
+     232: aload_0
+     233: invokespecial #176                // Method checkReplaySafe:()V
+     236: aload_0
+     237: invokespecial #163                // Method log:()Z
+     240: ifeq          250
+     243: aload_0
+     244: ldc           #181                // String End flush delayed commits
+     246: aload_1
+     247: invokespecial #9                  // Method log:(Ljava/lang/String;Lorg/apache/jena/tdb/transaction/Transaction;)V
+     250: return
+    Exception table:
+       from    to  target type
+         123   146   206   Class java/lang/InterruptedException
+         149   203   206   Class java/lang/InterruptedException
+
+  private void checkNodesDatJrnl(java.lang.String, org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_2
+       1: ifnull        61
+       4: aload_2
+       5: invokevirtual #135                // Method org/apache/jena/tdb/transaction/Transaction.getBaseDataset:()Lorg/apache/jena/tdb/store/DatasetGraphTDB;
+       8: invokevirtual #63                 // Method org/apache/jena/tdb/store/DatasetGraphTDB.getLocation:()Lorg/apache/jena/tdb/base/file/Location;
+      11: new           #120                // class java/lang/StringBuilder
+      14: dup
+      15: invokespecial #121                // Method java/lang/StringBuilder."<init>":()V
+      18: aload_1
+      19: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: ldc           #182                // String : nodes.dat-jrnl
+      24: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      27: invokevirtual #126                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      30: invokevirtual #183                // Method org/apache/jena/tdb/base/file/Location.getPath:(Ljava/lang/String;)Ljava/lang/String;
+      33: astore_3
+      34: new           #184                // class java/io/File
+      37: dup
+      38: aload_3
+      39: invokespecial #185                // Method java/io/File."<init>":(Ljava/lang/String;)V
+      42: invokevirtual #186                // Method java/io/File.length:()J
+      45: lstore        4
+      47: lload         4
+      49: lconst_0
+      50: lcmp
+      51: ifeq          61
+      54: aload_0
+      55: ldc           #187                // String nodes.dat-jrnl: not empty
+      57: aload_2
+      58: invokespecial #9                  // Method log:(Ljava/lang/String;Lorg/apache/jena/tdb/transaction/Transaction;)V
+      61: return
+
+  private void checkReplaySafe();
+    Code:
+       0: getstatic     #188                // Field checking:Z
+       3: ifne          7
+       6: return
+       7: aload_0
+       8: getfield      #18                 // Field activeReaders:Ljava/util/concurrent/atomic/AtomicLong;
+      11: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      14: lconst_0
+      15: lcmp
+      16: ifne          31
+      19: aload_0
+      20: getfield      #20                 // Field activeWriters:Ljava/util/concurrent/atomic/AtomicLong;
+      23: invokevirtual #19                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      26: lconst_0
+      27: lcmp
+      28: ifeq          41
+      31: getstatic     #60                 // Field log:Lorg/slf4j/Logger;
+      34: ldc           #189                // String There are now active transactions
+      36: invokeinterface #190,  2          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      41: return
+
+  private void noteStartTxn(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: getstatic     #128                // Field org/apache/jena/tdb/transaction/TransactionManager$1.$SwitchMap$org$apache$jena$query$ReadWrite:[I
+       3: aload_1
+       4: invokevirtual #79                 // Method org/apache/jena/tdb/transaction/Transaction.getMode:()Lorg/apache/jena/query/ReadWrite;
+       7: invokevirtual #129                // Method org/apache/jena/query/ReadWrite.ordinal:()I
+      10: iaload
+      11: lookupswitch  { // 2
+                     1: 36
+                     2: 44
+               default: 49
+          }
+      36: aload_0
+      37: aload_1
+      38: invokespecial #191                // Method readerStarts:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      41: goto          49
+      44: aload_0
+      45: aload_1
+      46: invokespecial #192                // Method writerStarts:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      49: aload_0
+      50: aload_1
+      51: invokespecial #193                // Method transactionStarts:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      54: return
+
+  private void noteTxnCommit(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: getstatic     #128                // Field org/apache/jena/tdb/transaction/TransactionManager$1.$SwitchMap$org$apache$jena$query$ReadWrite:[I
+       3: aload_1
+       4: invokevirtual #79                 // Method org/apache/jena/tdb/transaction/Transaction.getMode:()Lorg/apache/jena/query/ReadWrite;
+       7: invokevirtual #129                // Method org/apache/jena/query/ReadWrite.ordinal:()I
+      10: iaload
+      11: lookupswitch  { // 2
+                     1: 36
+                     2: 44
+               default: 49
+          }
+      36: aload_0
+      37: aload_1
+      38: invokespecial #194                // Method readerFinishes:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      41: goto          49
+      44: aload_0
+      45: aload_1
+      46: invokespecial #195                // Method writerCommits:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      49: aload_0
+      50: aload_1
+      51: invokespecial #196                // Method transactionFinishes:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      54: return
+
+  private void noteTxnAbort(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: getstatic     #128                // Field org/apache/jena/tdb/transaction/TransactionManager$1.$SwitchMap$org$apache$jena$query$ReadWrite:[I
+       3: aload_1
+       4: invokevirtual #79                 // Method org/apache/jena/tdb/transaction/Transaction.getMode:()Lorg/apache/jena/query/ReadWrite;
+       7: invokevirtual #129                // Method org/apache/jena/query/ReadWrite.ordinal:()I
+      10: iaload
+      11: lookupswitch  { // 2
+                     1: 36
+                     2: 44
+               default: 49
+          }
+      36: aload_0
+      37: aload_1
+      38: invokespecial #194                // Method readerFinishes:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      41: goto          49
+      44: aload_0
+      45: aload_1
+      46: invokespecial #197                // Method writerAborts:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      49: aload_0
+      50: aload_1
+      51: invokespecial #196                // Method transactionFinishes:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      54: return
+
+  private void noteTxnClose(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #198                // Method transactionCloses:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+       5: return
+
+  public boolean recording();
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field recordHistory:Z
+       4: ireturn
+
+  public void recording(boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #12                 // Field recordHistory:Z
+       5: aload_0
+       6: getfield      #12                 // Field recordHistory:Z
+       9: ifeq          16
+      12: aload_0
+      13: invokespecial #13                 // Method initRecordingState:()V
+      16: return
+
+  public void clearRecordingState();
+    Code:
+       0: aload_0
+       1: invokespecial #13                 // Method initRecordingState:()V
+       4: aload_0
+       5: getfield      #14                 // Field transactionStateTransition:Ljava/util/List;
+       8: invokeinterface #199,  1          // InterfaceMethod java/util/List.clear:()V
+      13: return
+
+  private void initRecordingState();
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field transactionStateTransition:Ljava/util/List;
+       4: ifnonnull     18
+       7: aload_0
+       8: new           #28                 // class java/util/ArrayList
+      11: dup
+      12: invokespecial #29                 // Method java/util/ArrayList."<init>":()V
+      15: putfield      #14                 // Field transactionStateTransition:Ljava/util/List;
+      18: return
+
+  public org.apache.jena.tdb.transaction.Journal getJournal();
+    Code:
+       0: aload_0
+       1: getfield      #65                 // Field journal:Lorg/apache/jena/tdb/transaction/Journal;
+       4: areturn
+
+  private boolean log();
+    Code:
+       0: aload_0
+       1: getfield      #61                 // Field logstate:Z
+       4: ireturn
+
+  private void log(java.lang.String, org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: invokespecial #163                // Method log:()Z
+       4: ifne          8
+       7: return
+       8: aload_2
+       9: ifnonnull     42
+      12: invokestatic  #200                // Method logger:()Lorg/slf4j/Logger;
+      15: new           #120                // class java/lang/StringBuilder
+      18: dup
+      19: invokespecial #121                // Method java/lang/StringBuilder."<init>":()V
+      22: ldc           #201                // String <No txn>:
+      24: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      27: aload_1
+      28: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      31: invokevirtual #126                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      34: invokeinterface #202,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      39: goto          76
+      42: invokestatic  #200                // Method logger:()Lorg/slf4j/Logger;
+      45: new           #120                // class java/lang/StringBuilder
+      48: dup
+      49: invokespecial #121                // Method java/lang/StringBuilder."<init>":()V
+      52: aload_2
+      53: invokevirtual #80                 // Method org/apache/jena/tdb/transaction/Transaction.getLabel:()Ljava/lang/String;
+      56: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      59: ldc           #203                // String :
+      61: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      64: aload_1
+      65: invokevirtual #123                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      68: invokevirtual #126                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      71: invokeinterface #202,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      76: return
+
+  private void logInternal(java.lang.String, org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: invokespecial #163                // Method log:()Z
+       4: ifne          8
+       7: return
+       8: aload_2
+       9: ifnonnull     17
+      12: ldc           #204                // String <null>
+      14: goto          21
+      17: aload_2
+      18: invokevirtual #80                 // Method org/apache/jena/tdb/transaction/Transaction.getLabel:()Ljava/lang/String;
+      21: astore_3
+      22: invokestatic  #200                // Method logger:()Lorg/slf4j/Logger;
+      25: ldc           #205                // String %6s %s -- %s
+      27: iconst_3
+      28: anewarray     #171                // class java/lang/Object
+      31: dup
+      32: iconst_0
+      33: aload_1
+      34: aastore
+      35: dup
+      36: iconst_1
+      37: aload_3
+      38: aastore
+      39: dup
+      40: iconst_2
+      41: aload_0
+      42: invokevirtual #206                // Method state:()Lorg/apache/jena/tdb/transaction/SysTxnState;
+      45: aastore
+      46: invokestatic  #172                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      49: invokeinterface #202,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      54: return
+
+  private static org.slf4j.Logger logger();
+    Code:
+       0: getstatic     #58                 // Field org/apache/jena/tdb/sys/SystemTDB.syslog:Lorg/slf4j/Logger;
+       3: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          15
+      11: getstatic     #58                 // Field org/apache/jena/tdb/sys/SystemTDB.syslog:Lorg/slf4j/Logger;
+      14: areturn
+      15: getstatic     #60                 // Field log:Lorg/slf4j/Logger;
+      18: areturn
+
+  public synchronized org.apache.jena.tdb.transaction.SysTxnState state();
+    Code:
+       0: new           #207                // class org/apache/jena/tdb/transaction/SysTxnState
+       3: dup
+       4: aload_0
+       5: invokespecial #208                // Method org/apache/jena/tdb/transaction/SysTxnState."<init>":(Lorg/apache/jena/tdb/transaction/TransactionManager;)V
+       8: areturn
+
+  private void transactionStarts(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field actions:[Lorg/apache/jena/tdb/transaction/TransactionManager$TSM;
+       4: astore_2
+       5: aload_2
+       6: arraylength
+       7: istore_3
+       8: iconst_0
+       9: istore        4
+      11: iload         4
+      13: iload_3
+      14: if_icmpge     42
+      17: aload_2
+      18: iload         4
+      20: aaload
+      21: astore        5
+      23: aload         5
+      25: ifnull        36
+      28: aload         5
+      30: aload_1
+      31: invokeinterface #209,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionManager$TSM.transactionStarts:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      36: iinc          4, 1
+      39: goto          11
+      42: return
+
+  private void transactionFinishes(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field actions:[Lorg/apache/jena/tdb/transaction/TransactionManager$TSM;
+       4: astore_2
+       5: aload_2
+       6: arraylength
+       7: istore_3
+       8: iconst_0
+       9: istore        4
+      11: iload         4
+      13: iload_3
+      14: if_icmpge     42
+      17: aload_2
+      18: iload         4
+      20: aaload
+      21: astore        5
+      23: aload         5
+      25: ifnull        36
+      28: aload         5
+      30: aload_1
+      31: invokeinterface #210,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionManager$TSM.transactionFinishes:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      36: iinc          4, 1
+      39: goto          11
+      42: return
+
+  private void transactionCloses(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field actions:[Lorg/apache/jena/tdb/transaction/TransactionManager$TSM;
+       4: astore_2
+       5: aload_2
+       6: arraylength
+       7: istore_3
+       8: iconst_0
+       9: istore        4
+      11: iload         4
+      13: iload_3
+      14: if_icmpge     42
+      17: aload_2
+      18: iload         4
+      20: aaload
+      21: astore        5
+      23: aload         5
+      25: ifnull        36
+      28: aload         5
+      30: aload_1
+      31: invokeinterface #211,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionManager$TSM.transactionCloses:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      36: iinc          4, 1
+      39: goto          11
+      42: return
+
+  private void readerStarts(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field actions:[Lorg/apache/jena/tdb/transaction/TransactionManager$TSM;
+       4: astore_2
+       5: aload_2
+       6: arraylength
+       7: istore_3
+       8: iconst_0
+       9: istore        4
+      11: iload         4
+      13: iload_3
+      14: if_icmpge     42
+      17: aload_2
+      18: iload         4
+      20: aaload
+      21: astore        5
+      23: aload         5
+      25: ifnull        36
+      28: aload         5
+      30: aload_1
+      31: invokeinterface #212,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionManager$TSM.readerStarts:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      36: iinc          4, 1
+      39: goto          11
+      42: return
+
+  private void readerFinishes(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field actions:[Lorg/apache/jena/tdb/transaction/TransactionManager$TSM;
+       4: astore_2
+       5: aload_2
+       6: arraylength
+       7: istore_3
+       8: iconst_0
+       9: istore        4
+      11: iload         4
+      13: iload_3
+      14: if_icmpge     42
+      17: aload_2
+      18: iload         4
+      20: aaload
+      21: astore        5
+      23: aload         5
+      25: ifnull        36
+      28: aload         5
+      30: aload_1
+      31: invokeinterface #213,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionManager$TSM.readerFinishes:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      36: iinc          4, 1
+      39: goto          11
+      42: return
+
+  private void writerStarts(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field actions:[Lorg/apache/jena/tdb/transaction/TransactionManager$TSM;
+       4: astore_2
+       5: aload_2
+       6: arraylength
+       7: istore_3
+       8: iconst_0
+       9: istore        4
+      11: iload         4
+      13: iload_3
+      14: if_icmpge     42
+      17: aload_2
+      18: iload         4
+      20: aaload
+      21: astore        5
+      23: aload         5
+      25: ifnull        36
+      28: aload         5
+      30: aload_1
+      31: invokeinterface #214,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionManager$TSM.writerStarts:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      36: iinc          4, 1
+      39: goto          11
+      42: return
+
+  private void writerCommits(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field actions:[Lorg/apache/jena/tdb/transaction/TransactionManager$TSM;
+       4: astore_2
+       5: aload_2
+       6: arraylength
+       7: istore_3
+       8: iconst_0
+       9: istore        4
+      11: iload         4
+      13: iload_3
+      14: if_icmpge     42
+      17: aload_2
+      18: iload         4
+      20: aaload
+      21: astore        5
+      23: aload         5
+      25: ifnull        36
+      28: aload         5
+      30: aload_1
+      31: invokeinterface #215,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionManager$TSM.writerCommits:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      36: iinc          4, 1
+      39: goto          11
+      42: return
+
+  private void writerAborts(org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field actions:[Lorg/apache/jena/tdb/transaction/TransactionManager$TSM;
+       4: astore_2
+       5: aload_2
+       6: arraylength
+       7: istore_3
+       8: iconst_0
+       9: istore        4
+      11: iload         4
+      13: iload_3
+      14: if_icmpge     42
+      17: aload_2
+      18: iload         4
+      20: aaload
+      21: astore        5
+      23: aload         5
+      25: ifnull        36
+      28: aload         5
+      30: aload_1
+      31: invokeinterface #216,  2          // InterfaceMethod org/apache/jena/tdb/transaction/TransactionManager$TSM.writerAborts:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+      36: iinc          4, 1
+      39: goto          11
+      42: return
+
+  static void access$000(org.apache.jena.tdb.transaction.TransactionManager, java.lang.String, org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #9                  // Method log:(Ljava/lang/String;Lorg/apache/jena/tdb/transaction/Transaction;)V
+       6: return
+
+  static void access$100(org.apache.jena.tdb.transaction.TransactionManager, java.lang.String, org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #8                  // Method logInternal:(Ljava/lang/String;Lorg/apache/jena/tdb/transaction/Transaction;)V
+       6: return
+
+  static java.util.Set access$200(org.apache.jena.tdb.transaction.TransactionManager);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field activeTransactions:Ljava/util/Set;
+       4: areturn
+
+  static void access$300(org.apache.jena.tdb.transaction.TransactionManager, org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #6                  // Method readerFinishesWorker:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+       5: return
+
+  static void access$400(org.apache.jena.tdb.transaction.TransactionManager, org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #5                  // Method writerCommitsWorker:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+       5: return
+
+  static void access$500(org.apache.jena.tdb.transaction.TransactionManager, org.apache.jena.tdb.transaction.Transaction);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #4                  // Method writerAbortsWorker:(Lorg/apache/jena/tdb/transaction/Transaction;)V
+       5: return
+
+  static void access$600(org.apache.jena.tdb.transaction.TransactionManager, org.apache.jena.tdb.transaction.Transaction, org.apache.jena.tdb.transaction.TransactionManager$TxnPoint);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #3                  // Method record:(Lorg/apache/jena/tdb/transaction/Transaction;Lorg/apache/jena/tdb/transaction/TransactionManager$TxnPoint;)V
+       6: return
+
+  static java.util.concurrent.BlockingQueue access$700(org.apache.jena.tdb.transaction.TransactionManager);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field queue:Ljava/util/concurrent/BlockingQueue;
+       4: areturn
+
+  static {};
+    Code:
+       0: iconst_1
+       1: putstatic     #188                // Field checking:Z
+       4: ldc           #1                  // class org/apache/jena/tdb/transaction/TransactionManager
+       6: invokestatic  #217                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       9: putstatic     #60                 // Field log:Lorg/slf4j/Logger;
+      12: invokestatic  #218                // Method setQueueBatchSize:()I
+      15: putstatic     #160                // Field QueueBatchSize:I
+      18: iconst_m1
+      19: putstatic     #161                // Field JournalThresholdSize:I
+      22: bipush        100
+      24: putstatic     #131                // Field MaxQueueThreshold:I
+      27: new           #31                 // class java/util/concurrent/atomic/AtomicLong
+      30: dup
+      31: lconst_1
+      32: invokespecial #32                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      35: putstatic     #108                // Field transactionId:Ljava/util/concurrent/atomic/AtomicLong;
+      38: return
+}

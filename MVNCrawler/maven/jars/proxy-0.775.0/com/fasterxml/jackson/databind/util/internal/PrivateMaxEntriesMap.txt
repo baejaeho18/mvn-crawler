@@ -1,0 +1,1138 @@
+Compiled from "PrivateMaxEntriesMap.java"
+public final class com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap<K, V> extends java.util.AbstractMap<K, V> implements java.util.concurrent.ConcurrentMap<K, V>, java.io.Serializable {
+  static final int NCPU;
+
+  static final long MAXIMUM_CAPACITY;
+
+  static final int NUMBER_OF_READ_BUFFERS;
+
+  static final int READ_BUFFERS_MASK;
+
+  static final int READ_BUFFER_THRESHOLD;
+
+  static final int READ_BUFFER_DRAIN_THRESHOLD;
+
+  static final int READ_BUFFER_SIZE;
+
+  static final int READ_BUFFER_INDEX_MASK;
+
+  static final int WRITE_BUFFER_DRAIN_THRESHOLD;
+
+  final java.util.concurrent.ConcurrentMap<K, com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$Node<K, V>> data;
+
+  final int concurrencyLevel;
+
+  final long[] readBufferReadCount;
+
+  final com.fasterxml.jackson.databind.util.internal.LinkedDeque<com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$Node<K, V>> evictionDeque;
+
+  final java.util.concurrent.atomic.AtomicLong weightedSize;
+
+  final java.util.concurrent.atomic.AtomicLong capacity;
+
+  final java.util.concurrent.locks.Lock evictionLock;
+
+  final java.util.Queue<java.lang.Runnable> writeBuffer;
+
+  final java.util.concurrent.atomic.AtomicLongArray readBufferWriteCount;
+
+  final java.util.concurrent.atomic.AtomicLongArray readBufferDrainAtWriteCount;
+
+  final java.util.concurrent.atomic.AtomicReferenceArray<com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$Node<K, V>> readBuffers;
+
+  final java.util.concurrent.atomic.AtomicReference<com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$DrainStatus> drainStatus;
+
+  transient java.util.Set<K> keySet;
+
+  transient java.util.Collection<V> values;
+
+  transient java.util.Set<java.util.Map$Entry<K, V>> entrySet;
+
+  static final long serialVersionUID;
+
+  static int ceilingNextPowerOfTwo(int);
+    Code:
+       0: iconst_1
+       1: bipush        32
+       3: iload_0
+       4: iconst_1
+       5: isub
+       6: invokestatic  #4                  // Method java/lang/Integer.numberOfLeadingZeros:(I)I
+       9: isub
+      10: ishl
+      11: ireturn
+
+  private static int readBufferIndex(int, int);
+    Code:
+       0: bipush        16
+       2: iload_0
+       3: imul
+       4: iload_1
+       5: iadd
+       6: ireturn
+
+  com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap(com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$Builder<K, V>);
+    Code:
+       0: aload_0
+       1: invokespecial #5                  // Method java/util/AbstractMap."<init>":()V
+       4: aload_0
+       5: aload_1
+       6: getfield      #6                  // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Builder.concurrencyLevel:I
+       9: putfield      #7                  // Field concurrencyLevel:I
+      12: aload_0
+      13: new           #8                  // class java/util/concurrent/atomic/AtomicLong
+      16: dup
+      17: aload_1
+      18: getfield      #9                  // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Builder.capacity:J
+      21: ldc2_w        #10                 // long 9223372034707292160l
+      24: invokestatic  #12                 // Method java/lang/Math.min:(JJ)J
+      27: invokespecial #13                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      30: putfield      #14                 // Field capacity:Ljava/util/concurrent/atomic/AtomicLong;
+      33: aload_0
+      34: new           #15                 // class java/util/concurrent/ConcurrentHashMap
+      37: dup
+      38: aload_1
+      39: getfield      #16                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Builder.initialCapacity:I
+      42: ldc           #17                 // float 0.75f
+      44: aload_0
+      45: getfield      #7                  // Field concurrencyLevel:I
+      48: invokespecial #18                 // Method java/util/concurrent/ConcurrentHashMap."<init>":(IFI)V
+      51: putfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+      54: aload_0
+      55: new           #20                 // class java/util/concurrent/locks/ReentrantLock
+      58: dup
+      59: invokespecial #21                 // Method java/util/concurrent/locks/ReentrantLock."<init>":()V
+      62: putfield      #22                 // Field evictionLock:Ljava/util/concurrent/locks/Lock;
+      65: aload_0
+      66: new           #8                  // class java/util/concurrent/atomic/AtomicLong
+      69: dup
+      70: invokespecial #23                 // Method java/util/concurrent/atomic/AtomicLong."<init>":()V
+      73: putfield      #24                 // Field weightedSize:Ljava/util/concurrent/atomic/AtomicLong;
+      76: aload_0
+      77: new           #25                 // class com/fasterxml/jackson/databind/util/internal/LinkedDeque
+      80: dup
+      81: invokespecial #26                 // Method com/fasterxml/jackson/databind/util/internal/LinkedDeque."<init>":()V
+      84: putfield      #27                 // Field evictionDeque:Lcom/fasterxml/jackson/databind/util/internal/LinkedDeque;
+      87: aload_0
+      88: new           #28                 // class java/util/concurrent/ConcurrentLinkedQueue
+      91: dup
+      92: invokespecial #29                 // Method java/util/concurrent/ConcurrentLinkedQueue."<init>":()V
+      95: putfield      #30                 // Field writeBuffer:Ljava/util/Queue;
+      98: aload_0
+      99: new           #31                 // class java/util/concurrent/atomic/AtomicReference
+     102: dup
+     103: getstatic     #32                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus.IDLE:Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus;
+     106: invokespecial #33                 // Method java/util/concurrent/atomic/AtomicReference."<init>":(Ljava/lang/Object;)V
+     109: putfield      #34                 // Field drainStatus:Ljava/util/concurrent/atomic/AtomicReference;
+     112: aload_0
+     113: getstatic     #35                 // Field NUMBER_OF_READ_BUFFERS:I
+     116: newarray       long
+     118: putfield      #36                 // Field readBufferReadCount:[J
+     121: aload_0
+     122: new           #37                 // class java/util/concurrent/atomic/AtomicLongArray
+     125: dup
+     126: getstatic     #35                 // Field NUMBER_OF_READ_BUFFERS:I
+     129: invokespecial #38                 // Method java/util/concurrent/atomic/AtomicLongArray."<init>":(I)V
+     132: putfield      #39                 // Field readBufferWriteCount:Ljava/util/concurrent/atomic/AtomicLongArray;
+     135: aload_0
+     136: new           #37                 // class java/util/concurrent/atomic/AtomicLongArray
+     139: dup
+     140: getstatic     #35                 // Field NUMBER_OF_READ_BUFFERS:I
+     143: invokespecial #38                 // Method java/util/concurrent/atomic/AtomicLongArray."<init>":(I)V
+     146: putfield      #40                 // Field readBufferDrainAtWriteCount:Ljava/util/concurrent/atomic/AtomicLongArray;
+     149: aload_0
+     150: new           #41                 // class java/util/concurrent/atomic/AtomicReferenceArray
+     153: dup
+     154: getstatic     #35                 // Field NUMBER_OF_READ_BUFFERS:I
+     157: bipush        16
+     159: imul
+     160: invokespecial #42                 // Method java/util/concurrent/atomic/AtomicReferenceArray."<init>":(I)V
+     163: putfield      #43                 // Field readBuffers:Ljava/util/concurrent/atomic/AtomicReferenceArray;
+     166: return
+
+  static void checkNotNull(java.lang.Object);
+    Code:
+       0: aload_0
+       1: ifnonnull     12
+       4: new           #44                 // class java/lang/NullPointerException
+       7: dup
+       8: invokespecial #45                 // Method java/lang/NullPointerException."<init>":()V
+      11: athrow
+      12: return
+
+  static void checkArgument(boolean);
+    Code:
+       0: iload_0
+       1: ifne          12
+       4: new           #46                 // class java/lang/IllegalArgumentException
+       7: dup
+       8: invokespecial #47                 // Method java/lang/IllegalArgumentException."<init>":()V
+      11: athrow
+      12: return
+
+  static void checkState(boolean);
+    Code:
+       0: iload_0
+       1: ifne          12
+       4: new           #48                 // class java/lang/IllegalStateException
+       7: dup
+       8: invokespecial #49                 // Method java/lang/IllegalStateException."<init>":()V
+      11: athrow
+      12: return
+
+  public long capacity();
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field capacity:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #50                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  public void setCapacity(long);
+    Code:
+       0: lload_1
+       1: lconst_0
+       2: lcmp
+       3: iflt          10
+       6: iconst_1
+       7: goto          11
+      10: iconst_0
+      11: invokestatic  #51                 // Method checkArgument:(Z)V
+      14: aload_0
+      15: getfield      #22                 // Field evictionLock:Ljava/util/concurrent/locks/Lock;
+      18: invokeinterface #52,  1           // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      23: aload_0
+      24: getfield      #14                 // Field capacity:Ljava/util/concurrent/atomic/AtomicLong;
+      27: lload_1
+      28: ldc2_w        #10                 // long 9223372034707292160l
+      31: invokestatic  #12                 // Method java/lang/Math.min:(JJ)J
+      34: invokevirtual #53                 // Method java/util/concurrent/atomic/AtomicLong.lazySet:(J)V
+      37: aload_0
+      38: invokevirtual #54                 // Method drainBuffers:()V
+      41: aload_0
+      42: invokevirtual #55                 // Method evict:()V
+      45: aload_0
+      46: getfield      #22                 // Field evictionLock:Ljava/util/concurrent/locks/Lock;
+      49: invokeinterface #56,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      54: goto          69
+      57: astore_3
+      58: aload_0
+      59: getfield      #22                 // Field evictionLock:Ljava/util/concurrent/locks/Lock;
+      62: invokeinterface #56,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      67: aload_3
+      68: athrow
+      69: return
+    Exception table:
+       from    to  target type
+          23    45    57   any
+
+  boolean hasOverflowed();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field weightedSize:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #50                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: aload_0
+       8: getfield      #14                 // Field capacity:Ljava/util/concurrent/atomic/AtomicLong;
+      11: invokevirtual #50                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      14: lcmp
+      15: ifle          22
+      18: iconst_1
+      19: goto          23
+      22: iconst_0
+      23: ireturn
+
+  void evict();
+    Code:
+       0: aload_0
+       1: invokevirtual #57                 // Method hasOverflowed:()Z
+       4: ifeq          46
+       7: aload_0
+       8: getfield      #27                 // Field evictionDeque:Lcom/fasterxml/jackson/databind/util/internal/LinkedDeque;
+      11: invokevirtual #58                 // Method com/fasterxml/jackson/databind/util/internal/LinkedDeque.poll:()Lcom/fasterxml/jackson/databind/util/internal/Linked;
+      14: checkcast     #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      17: astore_1
+      18: aload_1
+      19: ifnonnull     23
+      22: return
+      23: aload_0
+      24: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+      27: aload_1
+      28: getfield      #60                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.key:Ljava/lang/Object;
+      31: aload_1
+      32: invokeinterface #61,  3           // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      37: pop
+      38: aload_0
+      39: aload_1
+      40: invokevirtual #62                 // Method makeDead:(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+      43: goto          0
+      46: return
+
+  void afterRead(com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$Node<K, V>);
+    Code:
+       0: invokestatic  #63                 // Method readBufferIndex:()I
+       3: istore_2
+       4: aload_0
+       5: iload_2
+       6: aload_1
+       7: invokevirtual #64                 // Method recordRead:(ILcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)J
+      10: lstore_3
+      11: aload_0
+      12: iload_2
+      13: lload_3
+      14: invokevirtual #65                 // Method drainOnReadIfNeeded:(IJ)V
+      17: return
+
+  static int readBufferIndex();
+    Code:
+       0: invokestatic  #66                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+       3: invokevirtual #67                 // Method java/lang/Thread.getId:()J
+       6: l2i
+       7: getstatic     #68                 // Field READ_BUFFERS_MASK:I
+      10: iand
+      11: ireturn
+
+  long recordRead(int, com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$Node<K, V>);
+    Code:
+       0: aload_0
+       1: getfield      #39                 // Field readBufferWriteCount:Ljava/util/concurrent/atomic/AtomicLongArray;
+       4: iload_1
+       5: invokevirtual #69                 // Method java/util/concurrent/atomic/AtomicLongArray.get:(I)J
+       8: lstore_3
+       9: aload_0
+      10: getfield      #39                 // Field readBufferWriteCount:Ljava/util/concurrent/atomic/AtomicLongArray;
+      13: iload_1
+      14: lload_3
+      15: lconst_1
+      16: ladd
+      17: invokevirtual #70                 // Method java/util/concurrent/atomic/AtomicLongArray.lazySet:(IJ)V
+      20: lload_3
+      21: ldc2_w        #71                 // long 15l
+      24: land
+      25: l2i
+      26: istore        5
+      28: aload_0
+      29: getfield      #43                 // Field readBuffers:Ljava/util/concurrent/atomic/AtomicReferenceArray;
+      32: iload_1
+      33: iload         5
+      35: invokestatic  #73                 // Method readBufferIndex:(II)I
+      38: aload_2
+      39: invokevirtual #74                 // Method java/util/concurrent/atomic/AtomicReferenceArray.lazySet:(ILjava/lang/Object;)V
+      42: lload_3
+      43: lreturn
+
+  void drainOnReadIfNeeded(int, long);
+    Code:
+       0: lload_2
+       1: aload_0
+       2: getfield      #40                 // Field readBufferDrainAtWriteCount:Ljava/util/concurrent/atomic/AtomicLongArray;
+       5: iload_1
+       6: invokevirtual #69                 // Method java/util/concurrent/atomic/AtomicLongArray.get:(I)J
+       9: lsub
+      10: lstore        4
+      12: lload         4
+      14: ldc2_w        #75                 // long 4l
+      17: lcmp
+      18: ifge          25
+      21: iconst_1
+      22: goto          26
+      25: iconst_0
+      26: istore        6
+      28: aload_0
+      29: getfield      #34                 // Field drainStatus:Ljava/util/concurrent/atomic/AtomicReference;
+      32: invokevirtual #77                 // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+      35: checkcast     #78                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus
+      38: astore        7
+      40: aload         7
+      42: iload         6
+      44: invokevirtual #79                 // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus.shouldDrainBuffers:(Z)Z
+      47: ifeq          54
+      50: aload_0
+      51: invokevirtual #80                 // Method tryToDrainBuffers:()V
+      54: return
+
+  void afterWrite(java.lang.Runnable);
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field writeBuffer:Ljava/util/Queue;
+       4: aload_1
+       5: invokeinterface #81,  2           // InterfaceMethod java/util/Queue.add:(Ljava/lang/Object;)Z
+      10: pop
+      11: aload_0
+      12: getfield      #34                 // Field drainStatus:Ljava/util/concurrent/atomic/AtomicReference;
+      15: getstatic     #82                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus.REQUIRED:Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus;
+      18: invokevirtual #83                 // Method java/util/concurrent/atomic/AtomicReference.lazySet:(Ljava/lang/Object;)V
+      21: aload_0
+      22: invokevirtual #80                 // Method tryToDrainBuffers:()V
+      25: return
+
+  void tryToDrainBuffers();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field evictionLock:Ljava/util/concurrent/locks/Lock;
+       4: invokeinterface #84,  1           // InterfaceMethod java/util/concurrent/locks/Lock.tryLock:()Z
+       9: ifeq          78
+      12: aload_0
+      13: getfield      #34                 // Field drainStatus:Ljava/util/concurrent/atomic/AtomicReference;
+      16: getstatic     #85                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus.PROCESSING:Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus;
+      19: invokevirtual #83                 // Method java/util/concurrent/atomic/AtomicReference.lazySet:(Ljava/lang/Object;)V
+      22: aload_0
+      23: invokevirtual #54                 // Method drainBuffers:()V
+      26: aload_0
+      27: getfield      #34                 // Field drainStatus:Ljava/util/concurrent/atomic/AtomicReference;
+      30: getstatic     #85                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus.PROCESSING:Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus;
+      33: getstatic     #32                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus.IDLE:Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus;
+      36: invokevirtual #86                 // Method java/util/concurrent/atomic/AtomicReference.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      39: pop
+      40: aload_0
+      41: getfield      #22                 // Field evictionLock:Ljava/util/concurrent/locks/Lock;
+      44: invokeinterface #56,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      49: goto          78
+      52: astore_1
+      53: aload_0
+      54: getfield      #34                 // Field drainStatus:Ljava/util/concurrent/atomic/AtomicReference;
+      57: getstatic     #85                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus.PROCESSING:Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus;
+      60: getstatic     #32                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus.IDLE:Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$DrainStatus;
+      63: invokevirtual #86                 // Method java/util/concurrent/atomic/AtomicReference.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      66: pop
+      67: aload_0
+      68: getfield      #22                 // Field evictionLock:Ljava/util/concurrent/locks/Lock;
+      71: invokeinterface #56,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      76: aload_1
+      77: athrow
+      78: return
+    Exception table:
+       from    to  target type
+          12    26    52   any
+
+  void drainBuffers();
+    Code:
+       0: aload_0
+       1: invokevirtual #87                 // Method drainReadBuffers:()V
+       4: aload_0
+       5: invokevirtual #88                 // Method drainWriteBuffer:()V
+       8: return
+
+  void drainReadBuffers();
+    Code:
+       0: invokestatic  #66                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+       3: invokevirtual #67                 // Method java/lang/Thread.getId:()J
+       6: l2i
+       7: istore_1
+       8: iload_1
+       9: getstatic     #35                 // Field NUMBER_OF_READ_BUFFERS:I
+      12: iadd
+      13: istore_2
+      14: iload_1
+      15: istore_3
+      16: iload_3
+      17: iload_2
+      18: if_icmpge     36
+      21: aload_0
+      22: iload_3
+      23: getstatic     #68                 // Field READ_BUFFERS_MASK:I
+      26: iand
+      27: invokevirtual #89                 // Method drainReadBuffer:(I)V
+      30: iinc          3, 1
+      33: goto          16
+      36: return
+
+  void drainReadBuffer(int);
+    Code:
+       0: aload_0
+       1: getfield      #39                 // Field readBufferWriteCount:Ljava/util/concurrent/atomic/AtomicLongArray;
+       4: iload_1
+       5: invokevirtual #69                 // Method java/util/concurrent/atomic/AtomicLongArray.get:(I)J
+       8: lstore_2
+       9: iconst_0
+      10: istore        4
+      12: iload         4
+      14: bipush        8
+      16: if_icmpge     94
+      19: aload_0
+      20: getfield      #36                 // Field readBufferReadCount:[J
+      23: iload_1
+      24: laload
+      25: ldc2_w        #71                 // long 15l
+      28: land
+      29: l2i
+      30: istore        5
+      32: iload_1
+      33: iload         5
+      35: invokestatic  #73                 // Method readBufferIndex:(II)I
+      38: istore        6
+      40: aload_0
+      41: getfield      #43                 // Field readBuffers:Ljava/util/concurrent/atomic/AtomicReferenceArray;
+      44: iload         6
+      46: invokevirtual #90                 // Method java/util/concurrent/atomic/AtomicReferenceArray.get:(I)Ljava/lang/Object;
+      49: checkcast     #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      52: astore        7
+      54: aload         7
+      56: ifnonnull     62
+      59: goto          94
+      62: aload_0
+      63: getfield      #43                 // Field readBuffers:Ljava/util/concurrent/atomic/AtomicReferenceArray;
+      66: iload         6
+      68: aconst_null
+      69: invokevirtual #74                 // Method java/util/concurrent/atomic/AtomicReferenceArray.lazySet:(ILjava/lang/Object;)V
+      72: aload_0
+      73: aload         7
+      75: invokevirtual #91                 // Method applyRead:(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+      78: aload_0
+      79: getfield      #36                 // Field readBufferReadCount:[J
+      82: iload_1
+      83: dup2
+      84: laload
+      85: lconst_1
+      86: ladd
+      87: lastore
+      88: iinc          4, 1
+      91: goto          12
+      94: aload_0
+      95: getfield      #40                 // Field readBufferDrainAtWriteCount:Ljava/util/concurrent/atomic/AtomicLongArray;
+      98: iload_1
+      99: lload_2
+     100: invokevirtual #70                 // Method java/util/concurrent/atomic/AtomicLongArray.lazySet:(IJ)V
+     103: return
+
+  void applyRead(com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$Node<K, V>);
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field evictionDeque:Lcom/fasterxml/jackson/databind/util/internal/LinkedDeque;
+       4: aload_1
+       5: invokevirtual #92                 // Method com/fasterxml/jackson/databind/util/internal/LinkedDeque.contains:(Lcom/fasterxml/jackson/databind/util/internal/Linked;)Z
+       8: ifeq          19
+      11: aload_0
+      12: getfield      #27                 // Field evictionDeque:Lcom/fasterxml/jackson/databind/util/internal/LinkedDeque;
+      15: aload_1
+      16: invokevirtual #93                 // Method com/fasterxml/jackson/databind/util/internal/LinkedDeque.moveToBack:(Lcom/fasterxml/jackson/databind/util/internal/Linked;)V
+      19: return
+
+  void drainWriteBuffer();
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: iload_1
+       3: bipush        16
+       5: if_icmpge     40
+       8: aload_0
+       9: getfield      #30                 // Field writeBuffer:Ljava/util/Queue;
+      12: invokeinterface #94,  1           // InterfaceMethod java/util/Queue.poll:()Ljava/lang/Object;
+      17: checkcast     #95                 // class java/lang/Runnable
+      20: astore_2
+      21: aload_2
+      22: ifnonnull     28
+      25: goto          40
+      28: aload_2
+      29: invokeinterface #96,  1           // InterfaceMethod java/lang/Runnable.run:()V
+      34: iinc          1, 1
+      37: goto          2
+      40: return
+
+  boolean tryToRetire(com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$Node<K, V>, com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$WeightedValue<V>);
+    Code:
+       0: aload_2
+       1: invokevirtual #97                 // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.isAlive:()Z
+       4: ifeq          31
+       7: new           #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+      10: dup
+      11: aload_2
+      12: getfield      #99                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.value:Ljava/lang/Object;
+      15: aload_2
+      16: getfield      #100                // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.weight:I
+      19: ineg
+      20: invokespecial #101                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue."<init>":(Ljava/lang/Object;I)V
+      23: astore_3
+      24: aload_1
+      25: aload_2
+      26: aload_3
+      27: invokevirtual #102                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      30: ireturn
+      31: iconst_0
+      32: ireturn
+
+  void makeRetired(com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$Node<K, V>);
+    Code:
+       0: aload_1
+       1: invokevirtual #103                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.get:()Ljava/lang/Object;
+       4: checkcast     #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+       7: astore_2
+       8: aload_2
+       9: invokevirtual #97                 // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.isAlive:()Z
+      12: ifne          16
+      15: return
+      16: new           #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+      19: dup
+      20: aload_2
+      21: getfield      #99                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.value:Ljava/lang/Object;
+      24: aload_2
+      25: getfield      #100                // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.weight:I
+      28: ineg
+      29: invokespecial #101                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue."<init>":(Ljava/lang/Object;I)V
+      32: astore_3
+      33: aload_1
+      34: aload_2
+      35: aload_3
+      36: invokevirtual #102                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      39: ifeq          43
+      42: return
+      43: goto          0
+
+  void makeDead(com.fasterxml.jackson.databind.util.internal.PrivateMaxEntriesMap$Node<K, V>);
+    Code:
+       0: aload_1
+       1: invokevirtual #103                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.get:()Ljava/lang/Object;
+       4: checkcast     #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+       7: astore_2
+       8: new           #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+      11: dup
+      12: aload_2
+      13: getfield      #99                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.value:Ljava/lang/Object;
+      16: iconst_0
+      17: invokespecial #101                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue."<init>":(Ljava/lang/Object;I)V
+      20: astore_3
+      21: aload_1
+      22: aload_2
+      23: aload_3
+      24: invokevirtual #102                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      27: ifeq          54
+      30: aload_0
+      31: getfield      #24                 // Field weightedSize:Ljava/util/concurrent/atomic/AtomicLong;
+      34: aload_0
+      35: getfield      #24                 // Field weightedSize:Ljava/util/concurrent/atomic/AtomicLong;
+      38: invokevirtual #50                 // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      41: aload_2
+      42: getfield      #100                // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.weight:I
+      45: invokestatic  #104                // Method java/lang/Math.abs:(I)I
+      48: i2l
+      49: lsub
+      50: invokevirtual #53                 // Method java/util/concurrent/atomic/AtomicLong.lazySet:(J)V
+      53: return
+      54: goto          0
+
+  public boolean isEmpty();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+       4: invokeinterface #105,  1          // InterfaceMethod java/util/concurrent/ConcurrentMap.isEmpty:()Z
+       9: ireturn
+
+  public int size();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+       4: invokeinterface #106,  1          // InterfaceMethod java/util/concurrent/ConcurrentMap.size:()I
+       9: ireturn
+
+  public void clear();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field evictionLock:Ljava/util/concurrent/locks/Lock;
+       4: invokeinterface #52,  1           // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+       9: aload_0
+      10: getfield      #27                 // Field evictionDeque:Lcom/fasterxml/jackson/databind/util/internal/LinkedDeque;
+      13: invokevirtual #58                 // Method com/fasterxml/jackson/databind/util/internal/LinkedDeque.poll:()Lcom/fasterxml/jackson/databind/util/internal/Linked;
+      16: checkcast     #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      19: dup
+      20: astore_1
+      21: ifnull        47
+      24: aload_0
+      25: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+      28: aload_1
+      29: getfield      #60                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.key:Ljava/lang/Object;
+      32: aload_1
+      33: invokeinterface #61,  3           // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      38: pop
+      39: aload_0
+      40: aload_1
+      41: invokevirtual #62                 // Method makeDead:(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+      44: goto          9
+      47: iconst_0
+      48: istore_2
+      49: iload_2
+      50: aload_0
+      51: getfield      #43                 // Field readBuffers:Ljava/util/concurrent/atomic/AtomicReferenceArray;
+      54: invokevirtual #107                // Method java/util/concurrent/atomic/AtomicReferenceArray.length:()I
+      57: if_icmpge     75
+      60: aload_0
+      61: getfield      #43                 // Field readBuffers:Ljava/util/concurrent/atomic/AtomicReferenceArray;
+      64: iload_2
+      65: aconst_null
+      66: invokevirtual #74                 // Method java/util/concurrent/atomic/AtomicReferenceArray.lazySet:(ILjava/lang/Object;)V
+      69: iinc          2, 1
+      72: goto          49
+      75: aload_0
+      76: getfield      #30                 // Field writeBuffer:Ljava/util/Queue;
+      79: invokeinterface #94,  1           // InterfaceMethod java/util/Queue.poll:()Ljava/lang/Object;
+      84: checkcast     #95                 // class java/lang/Runnable
+      87: dup
+      88: astore_2
+      89: ifnull        101
+      92: aload_2
+      93: invokeinterface #96,  1           // InterfaceMethod java/lang/Runnable.run:()V
+      98: goto          75
+     101: aload_0
+     102: getfield      #22                 // Field evictionLock:Ljava/util/concurrent/locks/Lock;
+     105: invokeinterface #56,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     110: goto          125
+     113: astore_3
+     114: aload_0
+     115: getfield      #22                 // Field evictionLock:Ljava/util/concurrent/locks/Lock;
+     118: invokeinterface #56,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     123: aload_3
+     124: athrow
+     125: return
+    Exception table:
+       from    to  target type
+           9   101   113   any
+
+  public boolean containsKey(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+       4: aload_1
+       5: invokeinterface #108,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.containsKey:(Ljava/lang/Object;)Z
+      10: ireturn
+
+  public boolean containsValue(java.lang.Object);
+    Code:
+       0: aload_1
+       1: invokestatic  #109                // Method checkNotNull:(Ljava/lang/Object;)V
+       4: aload_0
+       5: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+       8: invokeinterface #110,  1          // InterfaceMethod java/util/concurrent/ConcurrentMap.values:()Ljava/util/Collection;
+      13: invokeinterface #111,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      18: astore_2
+      19: aload_2
+      20: invokeinterface #112,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      25: ifeq          54
+      28: aload_2
+      29: invokeinterface #113,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      34: checkcast     #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      37: astore_3
+      38: aload_3
+      39: invokevirtual #114                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.getValue:()Ljava/lang/Object;
+      42: aload_1
+      43: invokevirtual #115                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      46: ifeq          51
+      49: iconst_1
+      50: ireturn
+      51: goto          19
+      54: iconst_0
+      55: ireturn
+
+  public V get(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+       4: aload_1
+       5: invokeinterface #116,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      13: astore_2
+      14: aload_2
+      15: ifnonnull     20
+      18: aconst_null
+      19: areturn
+      20: aload_0
+      21: aload_2
+      22: invokevirtual #117                // Method afterRead:(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+      25: aload_2
+      26: invokevirtual #114                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.getValue:()Ljava/lang/Object;
+      29: areturn
+
+  public V put(K, V);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: iconst_0
+       4: invokevirtual #118                // Method put:(Ljava/lang/Object;Ljava/lang/Object;Z)Ljava/lang/Object;
+       7: areturn
+
+  public V putIfAbsent(K, V);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: iconst_1
+       4: invokevirtual #118                // Method put:(Ljava/lang/Object;Ljava/lang/Object;Z)Ljava/lang/Object;
+       7: areturn
+
+  V put(K, V, boolean);
+    Code:
+       0: aload_1
+       1: invokestatic  #109                // Method checkNotNull:(Ljava/lang/Object;)V
+       4: aload_2
+       5: invokestatic  #109                // Method checkNotNull:(Ljava/lang/Object;)V
+       8: iconst_1
+       9: istore        4
+      11: new           #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+      14: dup
+      15: aload_2
+      16: iconst_1
+      17: invokespecial #101                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue."<init>":(Ljava/lang/Object;I)V
+      20: astore        5
+      22: new           #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      25: dup
+      26: aload_1
+      27: aload         5
+      29: invokespecial #119                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node."<init>":(Ljava/lang/Object;Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue;)V
+      32: astore        6
+      34: aload_0
+      35: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+      38: aload         6
+      40: getfield      #60                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.key:Ljava/lang/Object;
+      43: aload         6
+      45: invokeinterface #120,  3          // InterfaceMethod java/util/concurrent/ConcurrentMap.putIfAbsent:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      50: checkcast     #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      53: astore        7
+      55: aload         7
+      57: ifnonnull     77
+      60: aload_0
+      61: new           #121                // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$AddTask
+      64: dup
+      65: aload_0
+      66: aload         6
+      68: iconst_1
+      69: invokespecial #122                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$AddTask."<init>":(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap;Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;I)V
+      72: invokevirtual #123                // Method afterWrite:(Ljava/lang/Runnable;)V
+      75: aconst_null
+      76: areturn
+      77: iload_3
+      78: ifeq          93
+      81: aload_0
+      82: aload         7
+      84: invokevirtual #117                // Method afterRead:(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+      87: aload         7
+      89: invokevirtual #114                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.getValue:()Ljava/lang/Object;
+      92: areturn
+      93: aload         7
+      95: invokevirtual #103                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.get:()Ljava/lang/Object;
+      98: checkcast     #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+     101: astore        8
+     103: aload         8
+     105: invokevirtual #97                 // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.isAlive:()Z
+     108: ifne          114
+     111: goto          174
+     114: aload         7
+     116: aload         8
+     118: aload         5
+     120: invokevirtual #102                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+     123: ifeq          171
+     126: iconst_1
+     127: aload         8
+     129: getfield      #100                // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.weight:I
+     132: isub
+     133: istore        9
+     135: iload         9
+     137: ifne          149
+     140: aload_0
+     141: aload         7
+     143: invokevirtual #117                // Method afterRead:(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+     146: goto          165
+     149: aload_0
+     150: new           #124                // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$UpdateTask
+     153: dup
+     154: aload_0
+     155: aload         7
+     157: iload         9
+     159: invokespecial #125                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$UpdateTask."<init>":(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap;Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;I)V
+     162: invokevirtual #123                // Method afterWrite:(Ljava/lang/Runnable;)V
+     165: aload         8
+     167: getfield      #99                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.value:Ljava/lang/Object;
+     170: areturn
+     171: goto          93
+     174: goto          34
+
+  public V remove(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+       4: aload_1
+       5: invokeinterface #126,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      13: astore_2
+      14: aload_2
+      15: ifnonnull     20
+      18: aconst_null
+      19: areturn
+      20: aload_0
+      21: aload_2
+      22: invokevirtual #127                // Method makeRetired:(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+      25: aload_0
+      26: new           #128                // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$RemovalTask
+      29: dup
+      30: aload_0
+      31: aload_2
+      32: invokespecial #129                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$RemovalTask."<init>":(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap;Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+      35: invokevirtual #123                // Method afterWrite:(Ljava/lang/Runnable;)V
+      38: aload_2
+      39: invokevirtual #114                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.getValue:()Ljava/lang/Object;
+      42: areturn
+
+  public boolean remove(java.lang.Object, java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+       4: aload_1
+       5: invokeinterface #116,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      13: astore_3
+      14: aload_3
+      15: ifnull        22
+      18: aload_2
+      19: ifnonnull     24
+      22: iconst_0
+      23: ireturn
+      24: aload_3
+      25: invokevirtual #103                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.get:()Ljava/lang/Object;
+      28: checkcast     #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+      31: astore        4
+      33: aload         4
+      35: aload_2
+      36: invokevirtual #130                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.contains:(Ljava/lang/Object;)Z
+      39: ifeq          101
+      42: aload_0
+      43: aload_3
+      44: aload         4
+      46: invokevirtual #131                // Method tryToRetire:(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue;)Z
+      49: ifeq          81
+      52: aload_0
+      53: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+      56: aload_1
+      57: aload_3
+      58: invokeinterface #61,  3           // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      63: ifeq          101
+      66: aload_0
+      67: new           #128                // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$RemovalTask
+      70: dup
+      71: aload_0
+      72: aload_3
+      73: invokespecial #129                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$RemovalTask."<init>":(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap;Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+      76: invokevirtual #123                // Method afterWrite:(Ljava/lang/Runnable;)V
+      79: iconst_1
+      80: ireturn
+      81: aload_3
+      82: invokevirtual #103                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.get:()Ljava/lang/Object;
+      85: checkcast     #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+      88: astore        4
+      90: aload         4
+      92: invokevirtual #97                 // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.isAlive:()Z
+      95: ifeq          101
+      98: goto          33
+     101: iconst_0
+     102: ireturn
+
+  public V replace(K, V);
+    Code:
+       0: aload_1
+       1: invokestatic  #109                // Method checkNotNull:(Ljava/lang/Object;)V
+       4: aload_2
+       5: invokestatic  #109                // Method checkNotNull:(Ljava/lang/Object;)V
+       8: iconst_1
+       9: istore_3
+      10: new           #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+      13: dup
+      14: aload_2
+      15: iconst_1
+      16: invokespecial #101                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue."<init>":(Ljava/lang/Object;I)V
+      19: astore        4
+      21: aload_0
+      22: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+      25: aload_1
+      26: invokeinterface #116,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      31: checkcast     #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      34: astore        5
+      36: aload         5
+      38: ifnonnull     43
+      41: aconst_null
+      42: areturn
+      43: aload         5
+      45: invokevirtual #103                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.get:()Ljava/lang/Object;
+      48: checkcast     #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+      51: astore        6
+      53: aload         6
+      55: invokevirtual #97                 // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.isAlive:()Z
+      58: ifne          63
+      61: aconst_null
+      62: areturn
+      63: aload         5
+      65: aload         6
+      67: aload         4
+      69: invokevirtual #102                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      72: ifeq          120
+      75: iconst_1
+      76: aload         6
+      78: getfield      #100                // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.weight:I
+      81: isub
+      82: istore        7
+      84: iload         7
+      86: ifne          98
+      89: aload_0
+      90: aload         5
+      92: invokevirtual #117                // Method afterRead:(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+      95: goto          114
+      98: aload_0
+      99: new           #124                // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$UpdateTask
+     102: dup
+     103: aload_0
+     104: aload         5
+     106: iload         7
+     108: invokespecial #125                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$UpdateTask."<init>":(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap;Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;I)V
+     111: invokevirtual #123                // Method afterWrite:(Ljava/lang/Runnable;)V
+     114: aload         6
+     116: getfield      #99                 // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.value:Ljava/lang/Object;
+     119: areturn
+     120: goto          43
+
+  public boolean replace(K, V, V);
+    Code:
+       0: aload_1
+       1: invokestatic  #109                // Method checkNotNull:(Ljava/lang/Object;)V
+       4: aload_2
+       5: invokestatic  #109                // Method checkNotNull:(Ljava/lang/Object;)V
+       8: aload_3
+       9: invokestatic  #109                // Method checkNotNull:(Ljava/lang/Object;)V
+      12: iconst_1
+      13: istore        4
+      15: new           #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+      18: dup
+      19: aload_3
+      20: iconst_1
+      21: invokespecial #101                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue."<init>":(Ljava/lang/Object;I)V
+      24: astore        5
+      26: aload_0
+      27: getfield      #19                 // Field data:Ljava/util/concurrent/ConcurrentMap;
+      30: aload_1
+      31: invokeinterface #116,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      36: checkcast     #59                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node
+      39: astore        6
+      41: aload         6
+      43: ifnonnull     48
+      46: iconst_0
+      47: ireturn
+      48: aload         6
+      50: invokevirtual #103                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.get:()Ljava/lang/Object;
+      53: checkcast     #98                 // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue
+      56: astore        7
+      58: aload         7
+      60: invokevirtual #97                 // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.isAlive:()Z
+      63: ifeq          75
+      66: aload         7
+      68: aload_2
+      69: invokevirtual #130                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.contains:(Ljava/lang/Object;)Z
+      72: ifne          77
+      75: iconst_0
+      76: ireturn
+      77: aload         6
+      79: aload         7
+      81: aload         5
+      83: invokevirtual #102                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      86: ifeq          130
+      89: iconst_1
+      90: aload         7
+      92: getfield      #100                // Field com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$WeightedValue.weight:I
+      95: isub
+      96: istore        8
+      98: iload         8
+     100: ifne          112
+     103: aload_0
+     104: aload         6
+     106: invokevirtual #117                // Method afterRead:(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;)V
+     109: goto          128
+     112: aload_0
+     113: new           #124                // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$UpdateTask
+     116: dup
+     117: aload_0
+     118: aload         6
+     120: iload         8
+     122: invokespecial #125                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$UpdateTask."<init>":(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap;Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Node;I)V
+     125: invokevirtual #123                // Method afterWrite:(Ljava/lang/Runnable;)V
+     128: iconst_1
+     129: ireturn
+     130: goto          48
+
+  public java.util.Set<K> keySet();
+    Code:
+       0: aload_0
+       1: getfield      #132                // Field keySet:Ljava/util/Set;
+       4: astore_1
+       5: aload_1
+       6: ifnonnull     25
+       9: aload_0
+      10: new           #133                // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$KeySet
+      13: dup
+      14: aload_0
+      15: invokespecial #134                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$KeySet."<init>":(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap;)V
+      18: dup_x1
+      19: putfield      #132                // Field keySet:Ljava/util/Set;
+      22: goto          26
+      25: aload_1
+      26: areturn
+
+  public java.util.Collection<V> values();
+    Code:
+       0: aload_0
+       1: getfield      #135                // Field values:Ljava/util/Collection;
+       4: astore_1
+       5: aload_1
+       6: ifnonnull     25
+       9: aload_0
+      10: new           #136                // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Values
+      13: dup
+      14: aload_0
+      15: invokespecial #137                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$Values."<init>":(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap;)V
+      18: dup_x1
+      19: putfield      #135                // Field values:Ljava/util/Collection;
+      22: goto          26
+      25: aload_1
+      26: areturn
+
+  public java.util.Set<java.util.Map$Entry<K, V>> entrySet();
+    Code:
+       0: aload_0
+       1: getfield      #138                // Field entrySet:Ljava/util/Set;
+       4: astore_1
+       5: aload_1
+       6: ifnonnull     25
+       9: aload_0
+      10: new           #139                // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$EntrySet
+      13: dup
+      14: aload_0
+      15: invokespecial #140                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$EntrySet."<init>":(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap;)V
+      18: dup_x1
+      19: putfield      #138                // Field entrySet:Ljava/util/Set;
+      22: goto          26
+      25: aload_1
+      26: areturn
+
+  java.lang.Object writeReplace();
+    Code:
+       0: new           #141                // class com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$SerializationProxy
+       3: dup
+       4: aload_0
+       5: invokespecial #142                // Method com/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap$SerializationProxy."<init>":(Lcom/fasterxml/jackson/databind/util/internal/PrivateMaxEntriesMap;)V
+       8: areturn
+
+  private void readObject(java.io.ObjectInputStream) throws java.io.InvalidObjectException;
+    Code:
+       0: new           #143                // class java/io/InvalidObjectException
+       3: dup
+       4: ldc           #144                // String Proxy required
+       6: invokespecial #145                // Method java/io/InvalidObjectException."<init>":(Ljava/lang/String;)V
+       9: athrow
+
+  static {};
+    Code:
+       0: invokestatic  #146                // Method java/lang/Runtime.getRuntime:()Ljava/lang/Runtime;
+       3: invokevirtual #147                // Method java/lang/Runtime.availableProcessors:()I
+       6: putstatic     #148                // Field NCPU:I
+       9: iconst_4
+      10: getstatic     #148                // Field NCPU:I
+      13: invokestatic  #149                // Method ceilingNextPowerOfTwo:(I)I
+      16: invokestatic  #150                // Method java/lang/Math.min:(II)I
+      19: putstatic     #35                 // Field NUMBER_OF_READ_BUFFERS:I
+      22: getstatic     #35                 // Field NUMBER_OF_READ_BUFFERS:I
+      25: iconst_1
+      26: isub
+      27: putstatic     #68                 // Field READ_BUFFERS_MASK:I
+      30: return
+}

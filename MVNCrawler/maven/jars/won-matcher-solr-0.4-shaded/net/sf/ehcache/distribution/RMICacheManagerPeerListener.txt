@@ -1,0 +1,1046 @@
+Compiled from "RMICacheManagerPeerListener.java"
+public class net.sf.ehcache.distribution.RMICacheManagerPeerListener implements net.sf.ehcache.distribution.CacheManagerPeerListener {
+  private static final org.slf4j.Logger LOG;
+
+  private static final int MINIMUM_SENSIBLE_TIMEOUT;
+
+  private static final int NAMING_UNBIND_RETRY_INTERVAL;
+
+  private static final int NAMING_UNBIND_MAX_RETRIES;
+
+  protected final java.util.Map cachePeers;
+
+  protected net.sf.ehcache.Status status;
+
+  protected java.lang.Integer port;
+
+  private java.rmi.registry.Registry registry;
+
+  private boolean registryCreated;
+
+  private final java.lang.String hostName;
+
+  private net.sf.ehcache.CacheManager cacheManager;
+
+  private java.lang.Integer socketTimeoutMillis;
+
+  private java.lang.Integer remoteObjectPort;
+
+  public net.sf.ehcache.distribution.RMICacheManagerPeerListener(java.lang.String, java.lang.Integer, java.lang.Integer, net.sf.ehcache.CacheManager, java.lang.Integer) throws java.net.UnknownHostException;
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #2                  // class java/util/HashMap
+       8: dup
+       9: invokespecial #3                  // Method java/util/HashMap."<init>":()V
+      12: putfield      #4                  // Field cachePeers:Ljava/util/Map;
+      15: aload_0
+      16: getstatic     #5                  // Field net/sf/ehcache/Status.STATUS_UNINITIALISED:Lnet/sf/ehcache/Status;
+      19: putfield      #6                  // Field status:Lnet/sf/ehcache/Status;
+      22: aload_1
+      23: ifnull        60
+      26: aload_1
+      27: invokevirtual #7                  // Method java/lang/String.length:()I
+      30: ifeq          60
+      33: aload_0
+      34: aload_1
+      35: putfield      #8                  // Field hostName:Ljava/lang/String;
+      38: aload_1
+      39: ldc           #9                  // String localhost
+      41: invokevirtual #10                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      44: ifeq          68
+      47: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+      50: ldc           #12                 // String Explicitly setting the listener hostname to \'localhost\' is not recommended. It will only work if all CacheManager peers are on the same machine.
+      52: invokeinterface #13,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      57: goto          68
+      60: aload_0
+      61: aload_0
+      62: invokevirtual #14                 // Method calculateHostAddress:()Ljava/lang/String;
+      65: putfield      #8                  // Field hostName:Ljava/lang/String;
+      68: aload_2
+      69: ifnull        79
+      72: aload_2
+      73: invokevirtual #15                 // Method java/lang/Integer.intValue:()I
+      76: ifne          87
+      79: aload_0
+      80: iconst_0
+      81: invokevirtual #16                 // Method assignFreePort:(Z)V
+      84: goto          92
+      87: aload_0
+      88: aload_2
+      89: putfield      #17                 // Field port:Ljava/lang/Integer;
+      92: aload_0
+      93: aload_3
+      94: putfield      #18                 // Field remoteObjectPort:Ljava/lang/Integer;
+      97: aload_0
+      98: aload         4
+     100: putfield      #19                 // Field cacheManager:Lnet/sf/ehcache/CacheManager;
+     103: aload         5
+     105: ifnull        119
+     108: aload         5
+     110: invokevirtual #15                 // Method java/lang/Integer.intValue:()I
+     113: sipush        200
+     116: if_icmpge     129
+     119: new           #20                 // class java/lang/IllegalArgumentException
+     122: dup
+     123: ldc           #21                 // String socketTimoutMillis must be a reasonable value greater than 200ms
+     125: invokespecial #22                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     128: athrow
+     129: aload_0
+     130: aload         5
+     132: putfield      #23                 // Field socketTimeoutMillis:Ljava/lang/Integer;
+     135: return
+
+  protected void assignFreePort(boolean) throws java.lang.IllegalStateException;
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field status:Lnet/sf/ehcache/Status;
+       4: getstatic     #5                  // Field net/sf/ehcache/Status.STATUS_UNINITIALISED:Lnet/sf/ehcache/Status;
+       7: if_acmpeq     20
+      10: new           #24                 // class java/lang/IllegalStateException
+      13: dup
+      14: ldc           #25                 // String Cannot change the port of an already started listener.
+      16: invokespecial #26                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      19: athrow
+      20: aload_0
+      21: aload_0
+      22: invokevirtual #27                 // Method getFreePort:()I
+      25: invokestatic  #28                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      28: putfield      #17                 // Field port:Ljava/lang/Integer;
+      31: iload_1
+      32: ifeq          68
+      35: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+      38: new           #29                 // class java/lang/StringBuilder
+      41: dup
+      42: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+      45: ldc           #31                 // String Resolving RMI port conflict by automatically using a free TCP/IP port to listen on:
+      47: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      50: aload_0
+      51: getfield      #17                 // Field port:Ljava/lang/Integer;
+      54: invokevirtual #33                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      57: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      60: invokeinterface #13,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      65: goto          98
+      68: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+      71: new           #29                 // class java/lang/StringBuilder
+      74: dup
+      75: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+      78: ldc           #35                 // String Automatically finding a free TCP/IP port to listen on:
+      80: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      83: aload_0
+      84: getfield      #17                 // Field port:Ljava/lang/Integer;
+      87: invokevirtual #33                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      90: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      93: invokeinterface #36,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      98: return
+
+  protected java.lang.String calculateHostAddress() throws java.net.UnknownHostException;
+    Code:
+       0: invokestatic  #37                 // Method java/net/InetAddress.getLocalHost:()Ljava/net/InetAddress;
+       3: invokevirtual #38                 // Method java/net/InetAddress.getHostAddress:()Ljava/lang/String;
+       6: areturn
+
+  protected int getFreePort() throws java.lang.IllegalArgumentException;
+    Code:
+       0: aconst_null
+       1: astore_1
+       2: new           #39                 // class java/net/ServerSocket
+       5: dup
+       6: iconst_0
+       7: invokespecial #40                 // Method java/net/ServerSocket."<init>":(I)V
+      10: astore_1
+      11: aload_1
+      12: invokevirtual #41                 // Method java/net/ServerSocket.getLocalPort:()I
+      15: istore_2
+      16: aload_1
+      17: ifnull        65
+      20: aload_1
+      21: invokevirtual #42                 // Method java/net/ServerSocket.isClosed:()Z
+      24: ifne          65
+      27: aload_1
+      28: invokevirtual #43                 // Method java/net/ServerSocket.close:()V
+      31: goto          65
+      34: astore_3
+      35: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+      38: new           #29                 // class java/lang/StringBuilder
+      41: dup
+      42: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+      45: ldc           #45                 // String Error closing ServerSocket:
+      47: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      50: aload_3
+      51: invokevirtual #46                 // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+      54: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      57: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      60: invokeinterface #36,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      65: iload_2
+      66: ireturn
+      67: astore_2
+      68: new           #20                 // class java/lang/IllegalArgumentException
+      71: dup
+      72: ldc           #48                 // String Could not acquire a free port number.
+      74: invokespecial #22                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      77: athrow
+      78: astore        4
+      80: aload_1
+      81: ifnull        131
+      84: aload_1
+      85: invokevirtual #42                 // Method java/net/ServerSocket.isClosed:()Z
+      88: ifne          131
+      91: aload_1
+      92: invokevirtual #43                 // Method java/net/ServerSocket.close:()V
+      95: goto          131
+      98: astore        5
+     100: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+     103: new           #29                 // class java/lang/StringBuilder
+     106: dup
+     107: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+     110: ldc           #45                 // String Error closing ServerSocket:
+     112: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     115: aload         5
+     117: invokevirtual #46                 // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+     120: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     123: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     126: invokeinterface #36,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     131: aload         4
+     133: athrow
+    Exception table:
+       from    to  target type
+          27    31    34   Class java/lang/Exception
+           2    16    67   Class java/io/IOException
+           2    16    78   any
+          91    95    98   Class java/lang/Exception
+          67    80    78   any
+
+  public void init() throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field status:Lnet/sf/ehcache/Status;
+       4: getstatic     #5                  // Field net/sf/ehcache/Status.STATUS_UNINITIALISED:Lnet/sf/ehcache/Status;
+       7: invokevirtual #49                 // Method net/sf/ehcache/Status.equals:(Lnet/sf/ehcache/Status;)Z
+      10: ifne          14
+      13: return
+      14: aconst_null
+      15: astore_1
+      16: aload_0
+      17: invokevirtual #50                 // Method startRegistry:()V
+      20: iconst_0
+      21: istore_2
+      22: aload_0
+      23: invokevirtual #51                 // Method populateListOfRemoteCachePeers:()V
+      26: aload_0
+      27: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      30: dup
+      31: astore_3
+      32: monitorenter
+      33: aload_0
+      34: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      37: invokeinterface #52,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      42: invokeinterface #53,  1           // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      47: astore        4
+      49: aload         4
+      51: invokeinterface #54,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      56: ifeq          85
+      59: aload         4
+      61: invokeinterface #55,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      66: checkcast     #56                 // class net/sf/ehcache/distribution/RMICachePeer
+      69: astore_1
+      70: aload_0
+      71: aload_1
+      72: invokevirtual #57                 // Method net/sf/ehcache/distribution/RMICachePeer.getUrl:()Ljava/lang/String;
+      75: aload_1
+      76: invokevirtual #58                 // Method bind:(Ljava/lang/String;Lnet/sf/ehcache/distribution/RMICachePeer;)V
+      79: iinc          2, 1
+      82: goto          49
+      85: aload_3
+      86: monitorexit
+      87: goto          97
+      90: astore        5
+      92: aload_3
+      93: monitorexit
+      94: aload         5
+      96: athrow
+      97: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+     100: new           #29                 // class java/lang/StringBuilder
+     103: dup
+     104: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+     107: iload_2
+     108: invokevirtual #59                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     111: ldc           #60                 // String  RMICachePeers bound in registry for RMI listener
+     113: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     116: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     119: invokeinterface #36,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     124: aload_0
+     125: getstatic     #61                 // Field net/sf/ehcache/Status.STATUS_ALIVE:Lnet/sf/ehcache/Status;
+     128: putfield      #6                  // Field status:Lnet/sf/ehcache/Status;
+     131: goto          186
+     134: astore_2
+     135: aconst_null
+     136: astore_3
+     137: aload_1
+     138: ifnull        146
+     141: aload_1
+     142: invokevirtual #57                 // Method net/sf/ehcache/distribution/RMICachePeer.getUrl:()Ljava/lang/String;
+     145: astore_3
+     146: new           #62                 // class net/sf/ehcache/CacheException
+     149: dup
+     150: new           #29                 // class java/lang/StringBuilder
+     153: dup
+     154: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+     157: ldc           #63                 // String Problem starting listener for RMICachePeer
+     159: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     162: aload_3
+     163: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     166: ldc           #64                 // String . Initial cause was
+     168: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     171: aload_2
+     172: invokevirtual #46                 // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+     175: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     178: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     181: aload_2
+     182: invokespecial #65                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     185: athrow
+     186: return
+    Exception table:
+       from    to  target type
+          33    87    90   any
+          90    94    90   any
+          16   131   134   Class java/lang/Exception
+
+  protected void bind(java.lang.String, net.sf.ehcache.distribution.RMICachePeer) throws java.lang.Exception;
+    Code:
+       0: aload_1
+       1: aload_2
+       2: invokestatic  #66                 // Method java/rmi/Naming.rebind:(Ljava/lang/String;Ljava/rmi/Remote;)V
+       5: return
+
+  protected java.lang.String[] listBoundRMICachePeers() throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_0
+       1: getfield      #67                 // Field registry:Ljava/rmi/registry/Registry;
+       4: invokeinterface #68,  1           // InterfaceMethod java/rmi/registry/Registry.list:()[Ljava/lang/String;
+       9: areturn
+      10: astore_1
+      11: new           #62                 // class net/sf/ehcache/CacheException
+      14: dup
+      15: new           #29                 // class java/lang/StringBuilder
+      18: dup
+      19: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+      22: ldc           #70                 // String Unable to list cache peers
+      24: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      27: aload_1
+      28: invokevirtual #71                 // Method java/rmi/RemoteException.getMessage:()Ljava/lang/String;
+      31: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      37: invokespecial #72                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;)V
+      40: athrow
+    Exception table:
+       from    to  target type
+           0     9    10   Class java/rmi/RemoteException
+
+  protected java.rmi.Remote lookupPeer(java.lang.String) throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_0
+       1: getfield      #67                 // Field registry:Ljava/rmi/registry/Registry;
+       4: aload_1
+       5: invokeinterface #73,  2           // InterfaceMethod java/rmi/registry/Registry.lookup:(Ljava/lang/String;)Ljava/rmi/Remote;
+      10: areturn
+      11: astore_2
+      12: new           #62                 // class net/sf/ehcache/CacheException
+      15: dup
+      16: new           #29                 // class java/lang/StringBuilder
+      19: dup
+      20: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+      23: ldc           #74                 // String Unable to lookup peer for replicated cache
+      25: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      28: aload_1
+      29: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      32: ldc           #75                 // String
+      34: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      37: aload_2
+      38: invokevirtual #46                 // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+      41: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      44: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      47: invokespecial #72                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;)V
+      50: athrow
+    Exception table:
+       from    to  target type
+           0    10    11   Class java/lang/Exception
+
+  protected void populateListOfRemoteCachePeers() throws java.rmi.RemoteException;
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field cacheManager:Lnet/sf/ehcache/CacheManager;
+       4: invokevirtual #76                 // Method net/sf/ehcache/CacheManager.getCacheNames:()[Ljava/lang/String;
+       7: astore_1
+       8: iconst_0
+       9: istore_2
+      10: iload_2
+      11: aload_1
+      12: arraylength
+      13: if_icmpge     166
+      16: aload_1
+      17: iload_2
+      18: aaload
+      19: astore_3
+      20: aload_0
+      21: getfield      #19                 // Field cacheManager:Lnet/sf/ehcache/CacheManager;
+      24: aload_3
+      25: invokevirtual #77                 // Method net/sf/ehcache/CacheManager.getEhcache:(Ljava/lang/String;)Lnet/sf/ehcache/Ehcache;
+      28: astore        4
+      30: aload_0
+      31: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      34: dup
+      35: astore        5
+      37: monitorenter
+      38: aload_0
+      39: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      42: aload_3
+      43: invokeinterface #78,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      48: ifnonnull     146
+      51: aload_0
+      52: aload         4
+      54: invokevirtual #79                 // Method isDistributed:(Lnet/sf/ehcache/Ehcache;)Z
+      57: ifeq          146
+      60: aload         4
+      62: invokeinterface #80,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheConfiguration:()Lnet/sf/ehcache/config/CacheConfiguration;
+      67: invokevirtual #81                 // Method net/sf/ehcache/config/CacheConfiguration.getTransactionalMode:()Lnet/sf/ehcache/config/CacheConfiguration$TransactionalMode;
+      70: invokevirtual #82                 // Method net/sf/ehcache/config/CacheConfiguration$TransactionalMode.isTransactional:()Z
+      73: ifeq          106
+      76: new           #83                 // class net/sf/ehcache/distribution/TransactionalRMICachePeer
+      79: dup
+      80: aload         4
+      82: aload_0
+      83: getfield      #8                  // Field hostName:Ljava/lang/String;
+      86: aload_0
+      87: getfield      #17                 // Field port:Ljava/lang/Integer;
+      90: aload_0
+      91: getfield      #18                 // Field remoteObjectPort:Ljava/lang/Integer;
+      94: aload_0
+      95: getfield      #23                 // Field socketTimeoutMillis:Ljava/lang/Integer;
+      98: invokespecial #84                 // Method net/sf/ehcache/distribution/TransactionalRMICachePeer."<init>":(Lnet/sf/ehcache/Ehcache;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;)V
+     101: astore        6
+     103: goto          133
+     106: new           #56                 // class net/sf/ehcache/distribution/RMICachePeer
+     109: dup
+     110: aload         4
+     112: aload_0
+     113: getfield      #8                  // Field hostName:Ljava/lang/String;
+     116: aload_0
+     117: getfield      #17                 // Field port:Ljava/lang/Integer;
+     120: aload_0
+     121: getfield      #18                 // Field remoteObjectPort:Ljava/lang/Integer;
+     124: aload_0
+     125: getfield      #23                 // Field socketTimeoutMillis:Ljava/lang/Integer;
+     128: invokespecial #85                 // Method net/sf/ehcache/distribution/RMICachePeer."<init>":(Lnet/sf/ehcache/Ehcache;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;)V
+     131: astore        6
+     133: aload_0
+     134: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+     137: aload_3
+     138: aload         6
+     140: invokeinterface #86,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     145: pop
+     146: aload         5
+     148: monitorexit
+     149: goto          160
+     152: astore        7
+     154: aload         5
+     156: monitorexit
+     157: aload         7
+     159: athrow
+     160: iinc          2, 1
+     163: goto          10
+     166: return
+    Exception table:
+       from    to  target type
+          38   149   152   any
+         152   157   152   any
+
+  protected boolean isDistributed(net.sf.ehcache.Ehcache);
+    Code:
+       0: aload_1
+       1: invokeinterface #87,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheEventNotificationService:()Lnet/sf/ehcache/event/RegisteredEventListeners;
+       6: invokevirtual #88                 // Method net/sf/ehcache/event/RegisteredEventListeners.getCacheEventListeners:()Ljava/util/Set;
+       9: astore_2
+      10: aload_2
+      11: invokeinterface #89,  1           // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      16: astore_3
+      17: aload_3
+      18: invokeinterface #54,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      23: ifeq          50
+      26: aload_3
+      27: invokeinterface #55,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      32: checkcast     #90                 // class net/sf/ehcache/event/CacheEventListener
+      35: astore        4
+      37: aload         4
+      39: instanceof    #91                 // class net/sf/ehcache/distribution/CacheReplicator
+      42: ifeq          47
+      45: iconst_1
+      46: ireturn
+      47: goto          17
+      50: iconst_0
+      51: ireturn
+
+  protected void startRegistry() throws java.rmi.RemoteException;
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #17                 // Field port:Ljava/lang/Integer;
+       5: invokevirtual #15                 // Method java/lang/Integer.intValue:()I
+       8: invokestatic  #92                 // Method java/rmi/registry/LocateRegistry.getRegistry:(I)Ljava/rmi/registry/Registry;
+      11: putfield      #67                 // Field registry:Ljava/rmi/registry/Registry;
+      14: aload_0
+      15: getfield      #67                 // Field registry:Ljava/rmi/registry/Registry;
+      18: invokeinterface #68,  1           // InterfaceMethod java/rmi/registry/Registry.list:()[Ljava/lang/String;
+      23: pop
+      24: goto          47
+      27: astore_1
+      28: aload_0
+      29: aload_0
+      30: getfield      #17                 // Field port:Ljava/lang/Integer;
+      33: invokevirtual #15                 // Method java/lang/Integer.intValue:()I
+      36: invokestatic  #93                 // Method java/rmi/registry/LocateRegistry.createRegistry:(I)Ljava/rmi/registry/Registry;
+      39: putfield      #67                 // Field registry:Ljava/rmi/registry/Registry;
+      42: aload_0
+      43: iconst_1
+      44: putfield      #94                 // Field registryCreated:Z
+      47: goto          82
+      50: astore_1
+      51: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+      54: new           #29                 // class java/lang/StringBuilder
+      57: dup
+      58: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+      61: ldc           #96                 // String Exception starting RMI registry. Error was
+      63: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      66: aload_1
+      67: invokevirtual #97                 // Method java/rmi/server/ExportException.getMessage:()Ljava/lang/String;
+      70: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      73: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      76: aload_1
+      77: invokeinterface #98,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      82: return
+    Exception table:
+       from    to  target type
+          14    24    27   Class java/rmi/RemoteException
+           0    47    50   Class java/rmi/server/ExportException
+
+  protected void stopRegistry() throws java.rmi.RemoteException;
+    Code:
+       0: aload_0
+       1: getfield      #94                 // Field registryCreated:Z
+       4: ifeq          43
+       7: aload_0
+       8: getfield      #67                 // Field registry:Ljava/rmi/registry/Registry;
+      11: iconst_1
+      12: invokestatic  #99                 // Method java/rmi/server/UnicastRemoteObject.unexportObject:(Ljava/rmi/Remote;Z)Z
+      15: istore_1
+      16: iload_1
+      17: ifeq          33
+      20: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+      23: ldc           #100                // String rmiregistry unexported.
+      25: invokeinterface #36,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      30: goto          43
+      33: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+      36: ldc           #101                // String Could not unexport rmiregistry.
+      38: invokeinterface #13,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      43: return
+
+  public void dispose() throws net.sf.ehcache.CacheException;
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field status:Lnet/sf/ehcache/Status;
+       4: getstatic     #61                 // Field net/sf/ehcache/Status.STATUS_ALIVE:Lnet/sf/ehcache/Status;
+       7: invokevirtual #49                 // Method net/sf/ehcache/Status.equals:(Lnet/sf/ehcache/Status;)Z
+      10: ifne          14
+      13: return
+      14: iconst_0
+      15: istore_1
+      16: aload_0
+      17: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      20: dup
+      21: astore_2
+      22: monitorenter
+      23: aload_0
+      24: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      27: invokeinterface #52,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      32: invokeinterface #53,  1           // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      37: astore_3
+      38: aload_3
+      39: invokeinterface #54,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      44: ifeq          70
+      47: aload_3
+      48: invokeinterface #55,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      53: checkcast     #56                 // class net/sf/ehcache/distribution/RMICachePeer
+      56: astore        4
+      58: aload_0
+      59: aload         4
+      61: invokevirtual #102                // Method disposeRMICachePeer:(Lnet/sf/ehcache/distribution/RMICachePeer;)V
+      64: iinc          1, 1
+      67: goto          38
+      70: aload_0
+      71: invokevirtual #103                // Method stopRegistry:()V
+      74: aload_2
+      75: monitorexit
+      76: goto          86
+      79: astore        5
+      81: aload_2
+      82: monitorexit
+      83: aload         5
+      85: athrow
+      86: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+      89: new           #29                 // class java/lang/StringBuilder
+      92: dup
+      93: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+      96: iload_1
+      97: invokevirtual #59                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     100: ldc           #104                // String  RMICachePeers unbound from registry in RMI listener
+     102: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     105: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     108: invokeinterface #36,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     113: aload_0
+     114: getstatic     #105                // Field net/sf/ehcache/Status.STATUS_SHUTDOWN:Lnet/sf/ehcache/Status;
+     117: putfield      #6                  // Field status:Lnet/sf/ehcache/Status;
+     120: goto          155
+     123: astore_1
+     124: new           #62                 // class net/sf/ehcache/CacheException
+     127: dup
+     128: new           #29                 // class java/lang/StringBuilder
+     131: dup
+     132: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+     135: ldc           #106                // String Problem unbinding remote cache peers. Initial cause was
+     137: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     140: aload_1
+     141: invokevirtual #46                 // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+     144: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     147: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     150: aload_1
+     151: invokespecial #65                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     154: athrow
+     155: return
+    Exception table:
+       from    to  target type
+          23    76    79   any
+          79    83    79   any
+          14   120   123   Class java/lang/Exception
+
+  protected void disposeRMICachePeer(net.sf.ehcache.distribution.RMICachePeer) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #107                // Method unbind:(Lnet/sf/ehcache/distribution/RMICachePeer;)V
+       5: return
+
+  protected void unbind(net.sf.ehcache.distribution.RMICachePeer) throws java.lang.Exception;
+    Code:
+       0: aload_1
+       1: invokevirtual #57                 // Method net/sf/ehcache/distribution/RMICachePeer.getUrl:()Ljava/lang/String;
+       4: astore_2
+       5: aload_2
+       6: invokestatic  #108                // Method java/rmi/Naming.unbind:(Ljava/lang/String;)V
+       9: goto          40
+      12: astore_3
+      13: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+      16: new           #29                 // class java/lang/StringBuilder
+      19: dup
+      20: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+      23: aload_2
+      24: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      27: ldc           #110                // String  not bound therefore not unbinding.
+      29: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      32: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      35: invokeinterface #13,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      40: aload_1
+      41: iconst_0
+      42: invokestatic  #99                 // Method java/rmi/server/UnicastRemoteObject.unexportObject:(Ljava/rmi/Remote;Z)Z
+      45: istore_3
+      46: iconst_1
+      47: istore        4
+      49: iload         4
+      51: bipush        10
+      53: if_icmpge     86
+      56: iload_3
+      57: ifne          86
+      60: ldc2_w        #111                // long 400l
+      63: invokestatic  #113                // Method java/lang/Thread.sleep:(J)V
+      66: goto          74
+      69: astore        5
+      71: goto          86
+      74: aload_1
+      75: iconst_0
+      76: invokestatic  #99                 // Method java/rmi/server/UnicastRemoteObject.unexportObject:(Ljava/rmi/Remote;Z)Z
+      79: istore_3
+      80: iinc          4, 1
+      83: goto          49
+      86: iload_3
+      87: ifne          133
+      90: aload_1
+      91: iconst_1
+      92: invokestatic  #99                 // Method java/rmi/server/UnicastRemoteObject.unexportObject:(Ljava/rmi/Remote;Z)Z
+      95: ifne          133
+      98: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+     101: new           #29                 // class java/lang/StringBuilder
+     104: dup
+     105: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+     108: ldc           #115                // String Unable to unexport rmiCachePeer:
+     110: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     113: aload_1
+     114: invokevirtual #57                 // Method net/sf/ehcache/distribution/RMICachePeer.getUrl:()Ljava/lang/String;
+     117: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     120: ldc           #116                // String .  Skipping.
+     122: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     125: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     128: invokeinterface #13,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     133: return
+    Exception table:
+       from    to  target type
+           5     9    12   Class java/rmi/NotBoundException
+          60    66    69   Class java/lang/InterruptedException
+
+  public java.util.List getBoundCachePeers();
+    Code:
+       0: new           #117                // class java/util/ArrayList
+       3: dup
+       4: invokespecial #118                // Method java/util/ArrayList."<init>":()V
+       7: astore_1
+       8: aload_0
+       9: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      12: dup
+      13: astore_2
+      14: monitorenter
+      15: aload_0
+      16: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      19: invokeinterface #52,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      24: invokeinterface #53,  1           // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      29: astore_3
+      30: aload_3
+      31: invokeinterface #54,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      36: ifeq          62
+      39: aload_3
+      40: invokeinterface #55,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      45: checkcast     #56                 // class net/sf/ehcache/distribution/RMICachePeer
+      48: astore        4
+      50: aload_1
+      51: aload         4
+      53: invokeinterface #119,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      58: pop
+      59: goto          30
+      62: aload_2
+      63: monitorexit
+      64: goto          74
+      67: astore        5
+      69: aload_2
+      70: monitorexit
+      71: aload         5
+      73: athrow
+      74: aload_1
+      75: areturn
+    Exception table:
+       from    to  target type
+          15    64    67   any
+          67    71    67   any
+
+  public net.sf.ehcache.Status getStatus();
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field status:Lnet/sf/ehcache/Status;
+       4: areturn
+
+  public java.lang.String getUniqueResourceIdentifier();
+    Code:
+       0: new           #29                 // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+       7: ldc           #120                // String RMI listener port:
+       9: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: aload_0
+      13: getfield      #17                 // Field port:Ljava/lang/Integer;
+      16: invokevirtual #33                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      19: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      22: areturn
+
+  public void attemptResolutionOfUniqueResourceConflict() throws java.lang.IllegalStateException, net.sf.ehcache.CacheException;
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: invokevirtual #16                 // Method assignFreePort:(Z)V
+       5: return
+
+  public java.lang.String getScheme();
+    Code:
+       0: ldc           #121                // String RMI
+       2: areturn
+
+  public void notifyCacheAdded(java.lang.String) throws net.sf.ehcache.CacheException;
+    Code:
+       0: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #122                // String Adding to RMI listener
+       5: aload_1
+       6: invokeinterface #123,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      11: aload_0
+      12: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      15: dup
+      16: astore_2
+      17: monitorenter
+      18: aload_0
+      19: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      22: aload_1
+      23: invokeinterface #78,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      28: ifnull        34
+      31: aload_2
+      32: monitorexit
+      33: return
+      34: aload_2
+      35: monitorexit
+      36: goto          44
+      39: astore_3
+      40: aload_2
+      41: monitorexit
+      42: aload_3
+      43: athrow
+      44: aload_0
+      45: getfield      #19                 // Field cacheManager:Lnet/sf/ehcache/CacheManager;
+      48: aload_1
+      49: invokevirtual #77                 // Method net/sf/ehcache/CacheManager.getEhcache:(Ljava/lang/String;)Lnet/sf/ehcache/Ehcache;
+      52: astore_2
+      53: aload_0
+      54: aload_2
+      55: invokevirtual #79                 // Method isDistributed:(Lnet/sf/ehcache/Ehcache;)Z
+      58: ifeq          229
+      61: aconst_null
+      62: astore_3
+      63: aconst_null
+      64: astore        4
+      66: aload_2
+      67: invokeinterface #80,  1           // InterfaceMethod net/sf/ehcache/Ehcache.getCacheConfiguration:()Lnet/sf/ehcache/config/CacheConfiguration;
+      72: invokevirtual #81                 // Method net/sf/ehcache/config/CacheConfiguration.getTransactionalMode:()Lnet/sf/ehcache/config/CacheConfiguration$TransactionalMode;
+      75: invokevirtual #82                 // Method net/sf/ehcache/config/CacheConfiguration$TransactionalMode.isTransactional:()Z
+      78: ifeq          109
+      81: new           #83                 // class net/sf/ehcache/distribution/TransactionalRMICachePeer
+      84: dup
+      85: aload_2
+      86: aload_0
+      87: getfield      #8                  // Field hostName:Ljava/lang/String;
+      90: aload_0
+      91: getfield      #17                 // Field port:Ljava/lang/Integer;
+      94: aload_0
+      95: getfield      #18                 // Field remoteObjectPort:Ljava/lang/Integer;
+      98: aload_0
+      99: getfield      #23                 // Field socketTimeoutMillis:Ljava/lang/Integer;
+     102: invokespecial #84                 // Method net/sf/ehcache/distribution/TransactionalRMICachePeer."<init>":(Lnet/sf/ehcache/Ehcache;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;)V
+     105: astore_3
+     106: goto          134
+     109: new           #56                 // class net/sf/ehcache/distribution/RMICachePeer
+     112: dup
+     113: aload_2
+     114: aload_0
+     115: getfield      #8                  // Field hostName:Ljava/lang/String;
+     118: aload_0
+     119: getfield      #17                 // Field port:Ljava/lang/Integer;
+     122: aload_0
+     123: getfield      #18                 // Field remoteObjectPort:Ljava/lang/Integer;
+     126: aload_0
+     127: getfield      #23                 // Field socketTimeoutMillis:Ljava/lang/Integer;
+     130: invokespecial #85                 // Method net/sf/ehcache/distribution/RMICachePeer."<init>":(Lnet/sf/ehcache/Ehcache;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;)V
+     133: astore_3
+     134: aload_3
+     135: invokevirtual #57                 // Method net/sf/ehcache/distribution/RMICachePeer.getUrl:()Ljava/lang/String;
+     138: astore        4
+     140: aload_0
+     141: aload         4
+     143: aload_3
+     144: invokevirtual #58                 // Method bind:(Ljava/lang/String;Lnet/sf/ehcache/distribution/RMICachePeer;)V
+     147: goto          195
+     150: astore        5
+     152: new           #62                 // class net/sf/ehcache/CacheException
+     155: dup
+     156: new           #29                 // class java/lang/StringBuilder
+     159: dup
+     160: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+     163: ldc           #63                 // String Problem starting listener for RMICachePeer
+     165: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     168: aload         4
+     170: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     173: ldc           #64                 // String . Initial cause was
+     175: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     178: aload         5
+     180: invokevirtual #46                 // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+     183: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     186: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     189: aload         5
+     191: invokespecial #65                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     194: athrow
+     195: aload_0
+     196: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+     199: dup
+     200: astore        5
+     202: monitorenter
+     203: aload_0
+     204: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+     207: aload_1
+     208: aload_3
+     209: invokeinterface #86,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     214: pop
+     215: aload         5
+     217: monitorexit
+     218: goto          229
+     221: astore        6
+     223: aload         5
+     225: monitorexit
+     226: aload         6
+     228: athrow
+     229: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+     232: invokeinterface #124,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     237: ifeq          275
+     240: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+     243: new           #29                 // class java/lang/StringBuilder
+     246: dup
+     247: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+     250: aload_0
+     251: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+     254: invokeinterface #125,  1          // InterfaceMethod java/util/Map.size:()I
+     259: invokevirtual #59                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     262: ldc           #60                 // String  RMICachePeers bound in registry for RMI listener
+     264: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     267: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     270: invokeinterface #36,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     275: return
+    Exception table:
+       from    to  target type
+          18    33    39   any
+          34    36    39   any
+          39    42    39   any
+          66   147   150   Class java/lang/Exception
+         203   218   221   any
+         221   226   221   any
+
+  public void notifyCacheRemoved(java.lang.String);
+    Code:
+       0: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #126                // String Removing from RMI listener
+       5: aload_1
+       6: invokeinterface #123,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      11: aload_0
+      12: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      15: dup
+      16: astore_2
+      17: monitorenter
+      18: aload_0
+      19: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      22: aload_1
+      23: invokeinterface #78,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      28: ifnonnull     34
+      31: aload_2
+      32: monitorexit
+      33: return
+      34: aload_2
+      35: monitorexit
+      36: goto          44
+      39: astore_3
+      40: aload_2
+      41: monitorexit
+      42: aload_3
+      43: athrow
+      44: aload_0
+      45: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      48: dup
+      49: astore_3
+      50: monitorenter
+      51: aload_0
+      52: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      55: aload_1
+      56: invokeinterface #127,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      61: checkcast     #56                 // class net/sf/ehcache/distribution/RMICachePeer
+      64: astore_2
+      65: aload_3
+      66: monitorexit
+      67: goto          77
+      70: astore        4
+      72: aload_3
+      73: monitorexit
+      74: aload         4
+      76: athrow
+      77: aconst_null
+      78: astore_3
+      79: aload_0
+      80: aload_2
+      81: invokevirtual #107                // Method unbind:(Lnet/sf/ehcache/distribution/RMICachePeer;)V
+      84: goto          131
+      87: astore        4
+      89: new           #62                 // class net/sf/ehcache/CacheException
+      92: dup
+      93: new           #29                 // class java/lang/StringBuilder
+      96: dup
+      97: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+     100: ldc           #128                // String Error removing Cache Peer
+     102: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     105: aload_3
+     106: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     109: ldc           #129                // String  from listener. Message was:
+     111: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     114: aload         4
+     116: invokevirtual #46                 // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+     119: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     122: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     125: aload         4
+     127: invokespecial #65                 // Method net/sf/ehcache/CacheException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     130: athrow
+     131: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+     134: invokeinterface #124,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     139: ifeq          177
+     142: getstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+     145: new           #29                 // class java/lang/StringBuilder
+     148: dup
+     149: invokespecial #30                 // Method java/lang/StringBuilder."<init>":()V
+     152: aload_0
+     153: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+     156: invokeinterface #125,  1          // InterfaceMethod java/util/Map.size:()I
+     161: invokevirtual #59                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     164: ldc           #60                 // String  RMICachePeers bound in registry for RMI listener
+     166: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     169: invokevirtual #34                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     172: invokeinterface #36,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     177: return
+    Exception table:
+       from    to  target type
+          18    33    39   any
+          34    36    39   any
+          39    42    39   any
+          51    67    70   any
+          70    74    70   any
+          79    84    87   Class java/lang/Exception
+
+  void addCachePeer(java.lang.String, net.sf.ehcache.distribution.RMICachePeer);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+       4: dup
+       5: astore_3
+       6: monitorenter
+       7: aload_0
+       8: getfield      #4                  // Field cachePeers:Ljava/util/Map;
+      11: aload_1
+      12: aload_2
+      13: invokeinterface #86,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      18: pop
+      19: aload_3
+      20: monitorexit
+      21: goto          31
+      24: astore        4
+      26: aload_3
+      27: monitorexit
+      28: aload         4
+      30: athrow
+      31: return
+    Exception table:
+       from    to  target type
+           7    21    24   any
+          24    28    24   any
+
+  static {};
+    Code:
+       0: ldc_w         #130                // class net/sf/ehcache/distribution/RMICacheManagerPeerListener
+       3: invokevirtual #131                // Method java/lang/Class.getName:()Ljava/lang/String;
+       6: invokestatic  #132                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/String;)Lorg/slf4j/Logger;
+       9: putstatic     #11                 // Field LOG:Lorg/slf4j/Logger;
+      12: return
+}

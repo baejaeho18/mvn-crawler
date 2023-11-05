@@ -1,0 +1,180 @@
+<!--
+  Outermost page layout. This is used with nested <side-panel> and <main-panel>
+  to form Hudson's basic HTML layout.
+
+  Attributes:
+   title : controls the HTML page title. Mandatory.
+   norefresh : set to "true" to disable auto refresh for this page.
+   secured : set to "true" to fail unless the caller is admin.
+             (deprecated: @permission should be used instead)
+   permission: if non-null, the page rendering fails unless the caller has the given permission
+   css :
+     specify path that starts from "/" for loading additional CSS stylesheet.
+     path is interprted as relative to the context root. e.g.,
+     <l:layout css="/plugin/mysuperplugin/css/myneatstyle.css">
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout">
+<st:header name="Expires" value="0" />
+<!-- Use st:header here rather than st:contentType because Jetty 5.x appears to ignore the latter. -->
+<st:header name="Content-Type" value="text/html;charset=UTF-8" />
+<j:set var="rootURL" value="${request.contextPath}" />
+<j:new var="h" className="hudson.Functions" /><!-- instead of JSP functions -->
+<j:set var="_" value="${h.configureAutoRefresh(request, response, attrs.norefresh!=null)}"/>
+<!--
+  load static resources from the path dedicated to a specific version.
+  This "/static/VERSION/abc/def.ghi" path is interpreted by stapler to be
+  the same thing as "/abc/def.ghi", but this avoids the stale cache
+  problem when the user upgrades to new Hudson. Stapler also sets a long
+  future expiration dates for such static resources.
+-->
+<j:set var="resURL"  value="${rootURL}${h.resourcePath}" />
+<j:set var="imagesURL"  value="${rootURL}${h.resourcePath}/images" />
+<html>
+  <head>
+    <!-- if this page needs to be secured, make sure the user is admin -->
+    ${h.adminCheck(request,response,secured,permission)}
+
+    <title>${h.appendIfNotNull(title, ' [Hudson]', 'Hudson')}</title>
+    <link rel="stylesheet" href="${resURL}/css/style.css" type="text/css" />
+    <link rel="stylesheet" href="${resURL}/css/color.css" type="text/css" />
+    <j:if test="${attrs.css!=null}">
+      <link rel="stylesheet" href="${rootURL}${attrs.css}" type="text/css" />
+    </j:if>
+    <link rel="shortcut icon" href="${resURL}/favicon.ico" type="image/vnd.microsoft.icon" />
+    <script src="${resURL}/scripts/prototype.js" type="text/javascript"></script>
+    <script src="${resURL}/scripts/behavior.js" type="text/javascript"></script>
+    <script src="${resURL}/scripts/sortable.js" type="text/javascript"></script>
+
+    <!-- To use the debug version of YUI, set the system property 'debug.YUI' to true -->
+    <j:set var="yuiSuffix" value="${h.yuiSuffix}" />
+    <l:yui module="yahoo" />
+    <l:yui module="dom" />
+    <l:yui module="event" />
+    <j:if test="${h.yuiSuffix=='debug'}">
+      <l:yui module="logger" />
+    </j:if>
+    <l:yui module="animation" />
+    <l:yui module="container" />
+    <l:yui module="connection" />
+    <l:yui module="autocomplete" />
+    <l:yui module="menu" />
+    <l:yui module="element" suffix="-beta" />
+    <l:yui module="button" />
+    <l:yui module="dragdrop" />
+    <!--l:yui module="editor" suffix="-beta" /-->
+
+    <script src="${resURL}/scripts/hudson-behavior.js" type="text/javascript"></script>
+    
+    <link rel="stylesheet" href="${resURL}/scripts/yui/container/assets/container.css" type="text/css"/>
+    <link rel="stylesheet" href="${resURL}/scripts/yui/assets/skins/sam/skin.css" type="text/css" />
+    <link rel="stylesheet" href="${resURL}/scripts/yui/button/assets/skins/sam/button.css" type="text/css" />
+    <link rel="stylesheet" href="${resURL}/scripts/yui/menu/assets/skins/sam/menu.css" type="text/css" />
+    <!--link rel="stylesheet" href="${resURL}/scripts/yui/editor/assets/skins/sam/editor.css" type="text/css" /-->
+
+    <link rel="search" type="application/opensearchdescription+xml" href="${rootURL}/opensearch.xml" title="Hudson" />
+    <meta name="ROBOTS" content="INDEX,NOFOLLOW" />
+    <j:set var="mode" value="header" />
+    <d:invokeBody />
+  </head>
+  <body class="yui-skin-sam">
+    <table id="header" cellpadding="0" cellspacing="0" width="100%" border="0">
+      <tr>
+        <td id="top-panel" colspan="2">
+          <table cellpadding="0" cellspacing="0" width="100%" border="0">
+            <tr><td style="font-weight:bold; font-size: 2em;">
+              <a href="${rootURL}/"><img src="${imagesURL}/title.png" alt="title" /></a>
+            </td><td style="vertical-align: middle; text-align: right; padding-right: 1em;">
+
+              <!-- search box -->
+              <j:set var="searchURL" value="${h.searchURL}"/>
+              <form action="${searchURL}" method="get" style="position:relative;">
+                <!-- this div determines the minimum width -->
+                <div id="search-box-minWidth"/>
+                <!-- this div is used to calculate the width of the text box -->
+                <div id="search-box-sizer"/>
+                <div id="searchform">
+                  <input name="q" value="search" id="search-box" class="has-default-text defaulted" />
+                  <st:nbsp />
+                  <a href="http://hudson.gotdns.com/wiki/display/HUDSON/Search+Box"><img src="${imagesURL}/16x16/help.png" /></a>
+                  <div id="search-box-completion" />
+                  <script>createSearchBox("${searchURL}");</script>
+                </div>
+              </form>
+            </td><td id="login-field"><span>
+              <!-- login field -->
+              <j:if test="${app.useSecurity}">
+                <st:nbsp/>
+                <j:choose>
+                  <j:when test="${!h.isAnonymous()}">
+                    <span style="white-space:nowrap">
+                      <a href="${rootURL}/user/${app.authentication.name}"><b>${app.authentication.name}</b></a>
+                      |
+                      <a href="${rootURL}/logout"><b>${%logout}</b></a>
+                    </span>
+                  </j:when>
+                  <j:otherwise>
+                    <st:include it="${app.securityRealm}" page="loginLink.jelly" />
+                  </j:otherwise>
+                </j:choose>
+              </j:if>
+            </span></td></tr>
+          </table>
+        </td>
+      </tr>
+
+      <tr id="top-nav">
+        <td id="left-top-nav">
+          <j:forEach var="anc" items="${request.ancestors}">
+            <j:if test="${h.isModel(anc.object)}">
+              <j:if test="${anc.prev!=null}">
+                <j:whitespace> &#187; </j:whitespace>
+              </j:if>
+              <a href="${anc.url}/">
+                ${anc.object.displayName}
+              </a>
+            </j:if>
+          </j:forEach>
+        </td>
+        <td id="right-top-nav">
+          <j:if test="${attrs.norefresh==null}">
+            <span class="smallfont">
+              <j:choose>
+                <j:when test="${h.isAutoRefresh(request)}">
+                  <a href="?auto_refresh=false">${%DISABLE AUTO REFRESH}</a>
+                </j:when>
+                <j:otherwise>
+                  <a href="?auto_refresh=true">${%ENABLE AUTO REFRESH}</a>
+                </j:otherwise>
+              </j:choose>
+            </span>
+          </j:if>
+        </td>
+      </tr>
+    </table>
+    <table id="main-table" width="100%" height="70%" border="0"
+        style="background-image: url(${imagesURL}/hudson.png);
+               background-repeat: no-repeat; background-position: bottom left;">
+      <tr>
+        <td id="side-panel" width="20%">
+          <div style="margin-left: 20px; margin-right: 20px; border-top: 1px solid #bbb"></div>
+          <div id="navigation">
+            <j:set var="mode" value="side-panel" />
+            <d:invokeBody />
+          </div>
+        </td>
+        <td id="main-panel" width="80%" height="100%">
+          <j:set var="mode" value="main-panel" />
+          <d:invokeBody/>
+        </td>
+      </tr>
+    </table>
+    <table width="100%">
+      <tr><td id="footer">
+        <a href="http://hudson.dev.java.net/">
+          Hudson ver. ${h.version}
+        </a>
+      </td></tr>
+    </table>
+  </body>
+</html>
+</j:jelly>

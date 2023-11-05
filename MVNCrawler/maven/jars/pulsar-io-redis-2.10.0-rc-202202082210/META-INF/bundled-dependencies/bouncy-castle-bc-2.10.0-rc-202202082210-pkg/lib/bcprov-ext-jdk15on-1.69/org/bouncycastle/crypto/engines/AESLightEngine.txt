@@ -1,0 +1,4807 @@
+public class org.bouncycastle.crypto.engines.AESLightEngine implements org.bouncycastle.crypto.BlockCipher {
+  private static final byte[] S;
+
+  private static final byte[] Si;
+
+  private static final int[] rcon;
+
+  private static final int m1;
+
+  private static final int m2;
+
+  private static final int m3;
+
+  private static final int m4;
+
+  private static final int m5;
+
+  private int ROUNDS;
+
+  private int[][] WorkingKey;
+
+  private boolean forEncryption;
+
+  private static final int BLOCK_SIZE;
+
+  private static int shift(int, int);
+    Code:
+       0: iload_0
+       1: iload_1
+       2: iushr
+       3: iload_0
+       4: iload_1
+       5: ineg
+       6: ishl
+       7: ior
+       8: ireturn
+
+  private static int FFmulX(int);
+    Code:
+       0: iload_0
+       1: ldc           #4                  // int 2139062143
+       3: iand
+       4: iconst_1
+       5: ishl
+       6: iload_0
+       7: ldc           #1                  // int -2139062144
+       9: iand
+      10: bipush        7
+      12: iushr
+      13: bipush        27
+      15: imul
+      16: ixor
+      17: ireturn
+
+  private static int FFmulX2(int);
+    Code:
+       0: iload_0
+       1: ldc           #3                  // int 1061109567
+       3: iand
+       4: iconst_2
+       5: ishl
+       6: istore_1
+       7: iload_0
+       8: ldc           #2                  // int -1061109568
+      10: iand
+      11: istore_2
+      12: iload_2
+      13: iload_2
+      14: iconst_1
+      15: iushr
+      16: ixor
+      17: istore_2
+      18: iload_1
+      19: iload_2
+      20: iconst_2
+      21: iushr
+      22: ixor
+      23: iload_2
+      24: iconst_5
+      25: iushr
+      26: ixor
+      27: ireturn
+
+  private static int mcol(int);
+    Code:
+       0: iload_0
+       1: bipush        8
+       3: invokestatic  #144                // Method shift:(II)I
+       6: istore_1
+       7: iload_0
+       8: iload_1
+       9: ixor
+      10: istore_2
+      11: iload_2
+      12: bipush        16
+      14: invokestatic  #144                // Method shift:(II)I
+      17: iload_1
+      18: ixor
+      19: iload_2
+      20: invokestatic  #139                // Method FFmulX:(I)I
+      23: ixor
+      24: ireturn
+
+  private static int inv_mcol(int);
+    Code:
+       0: iload_0
+       1: istore_1
+       2: iload_1
+       3: iload_1
+       4: bipush        8
+       6: invokestatic  #144                // Method shift:(II)I
+       9: ixor
+      10: istore_2
+      11: iload_1
+      12: iload_2
+      13: invokestatic  #139                // Method FFmulX:(I)I
+      16: ixor
+      17: istore_1
+      18: iload_2
+      19: iload_1
+      20: invokestatic  #140                // Method FFmulX2:(I)I
+      23: ixor
+      24: istore_2
+      25: iload_1
+      26: iload_2
+      27: iload_2
+      28: bipush        16
+      30: invokestatic  #144                // Method shift:(II)I
+      33: ixor
+      34: ixor
+      35: istore_1
+      36: iload_1
+      37: ireturn
+
+  private static int subWord(int);
+    Code:
+       0: getstatic     #125                // Field S:[B
+       3: iload_0
+       4: sipush        255
+       7: iand
+       8: baload
+       9: sipush        255
+      12: iand
+      13: getstatic     #125                // Field S:[B
+      16: iload_0
+      17: bipush        8
+      19: ishr
+      20: sipush        255
+      23: iand
+      24: baload
+      25: sipush        255
+      28: iand
+      29: bipush        8
+      31: ishl
+      32: ior
+      33: getstatic     #125                // Field S:[B
+      36: iload_0
+      37: bipush        16
+      39: ishr
+      40: sipush        255
+      43: iand
+      44: baload
+      45: sipush        255
+      48: iand
+      49: bipush        16
+      51: ishl
+      52: ior
+      53: getstatic     #125                // Field S:[B
+      56: iload_0
+      57: bipush        24
+      59: ishr
+      60: sipush        255
+      63: iand
+      64: baload
+      65: bipush        24
+      67: ishl
+      68: ior
+      69: ireturn
+
+  private int[][] generateWorkingKey(byte[], boolean);
+    Code:
+       0: aload_1
+       1: arraylength
+       2: istore_3
+       3: iload_3
+       4: bipush        16
+       6: if_icmplt     22
+       9: iload_3
+      10: bipush        32
+      12: if_icmpgt     22
+      15: iload_3
+      16: bipush        7
+      18: iand
+      19: ifeq          32
+      22: new           #84                 // class java/lang/IllegalArgumentException
+      25: dup
+      26: ldc           #7                  // String Key length not 128/192/256 bits.
+      28: invokespecial #130                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      31: athrow
+      32: iload_3
+      33: iconst_2
+      34: iushr
+      35: istore        4
+      37: aload_0
+      38: iload         4
+      40: bipush        6
+      42: iadd
+      43: putfield      #123                // Field ROUNDS:I
+      46: aload_0
+      47: getfield      #123                // Field ROUNDS:I
+      50: iconst_1
+      51: iadd
+      52: iconst_4
+      53: multianewarray #82,  2            // class "[[I"
+      57: astore        5
+      59: iload         4
+      61: tableswitch   { // 4 to 8
+                     4: 96
+                     5: 919
+                     6: 262
+                     7: 919
+                     8: 612
+               default: 919
+          }
+      96: aload_1
+      97: iconst_0
+      98: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     101: istore        6
+     103: aload         5
+     105: iconst_0
+     106: aaload
+     107: iconst_0
+     108: iload         6
+     110: iastore
+     111: aload_1
+     112: iconst_4
+     113: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     116: istore        7
+     118: aload         5
+     120: iconst_0
+     121: aaload
+     122: iconst_1
+     123: iload         7
+     125: iastore
+     126: aload_1
+     127: bipush        8
+     129: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     132: istore        8
+     134: aload         5
+     136: iconst_0
+     137: aaload
+     138: iconst_2
+     139: iload         8
+     141: iastore
+     142: aload_1
+     143: bipush        12
+     145: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     148: istore        9
+     150: aload         5
+     152: iconst_0
+     153: aaload
+     154: iconst_3
+     155: iload         9
+     157: iastore
+     158: iconst_1
+     159: istore        10
+     161: iload         10
+     163: bipush        10
+     165: if_icmpgt     259
+     168: iload         9
+     170: bipush        8
+     172: invokestatic  #144                // Method shift:(II)I
+     175: invokestatic  #143                // Method subWord:(I)I
+     178: getstatic     #127                // Field rcon:[I
+     181: iload         10
+     183: iconst_1
+     184: isub
+     185: iaload
+     186: ixor
+     187: istore        11
+     189: iload         6
+     191: iload         11
+     193: ixor
+     194: istore        6
+     196: aload         5
+     198: iload         10
+     200: aaload
+     201: iconst_0
+     202: iload         6
+     204: iastore
+     205: iload         7
+     207: iload         6
+     209: ixor
+     210: istore        7
+     212: aload         5
+     214: iload         10
+     216: aaload
+     217: iconst_1
+     218: iload         7
+     220: iastore
+     221: iload         8
+     223: iload         7
+     225: ixor
+     226: istore        8
+     228: aload         5
+     230: iload         10
+     232: aaload
+     233: iconst_2
+     234: iload         8
+     236: iastore
+     237: iload         9
+     239: iload         8
+     241: ixor
+     242: istore        9
+     244: aload         5
+     246: iload         10
+     248: aaload
+     249: iconst_3
+     250: iload         9
+     252: iastore
+     253: iinc          10, 1
+     256: goto          161
+     259: goto          929
+     262: aload_1
+     263: iconst_0
+     264: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     267: istore        6
+     269: aload         5
+     271: iconst_0
+     272: aaload
+     273: iconst_0
+     274: iload         6
+     276: iastore
+     277: aload_1
+     278: iconst_4
+     279: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     282: istore        7
+     284: aload         5
+     286: iconst_0
+     287: aaload
+     288: iconst_1
+     289: iload         7
+     291: iastore
+     292: aload_1
+     293: bipush        8
+     295: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     298: istore        8
+     300: aload         5
+     302: iconst_0
+     303: aaload
+     304: iconst_2
+     305: iload         8
+     307: iastore
+     308: aload_1
+     309: bipush        12
+     311: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     314: istore        9
+     316: aload         5
+     318: iconst_0
+     319: aaload
+     320: iconst_3
+     321: iload         9
+     323: iastore
+     324: aload_1
+     325: bipush        16
+     327: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     330: istore        10
+     332: aload_1
+     333: bipush        20
+     335: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     338: istore        11
+     340: iconst_1
+     341: istore        12
+     343: iconst_1
+     344: istore        13
+     346: aload         5
+     348: iload         12
+     350: aaload
+     351: iconst_0
+     352: iload         10
+     354: iastore
+     355: aload         5
+     357: iload         12
+     359: aaload
+     360: iconst_1
+     361: iload         11
+     363: iastore
+     364: iload         11
+     366: bipush        8
+     368: invokestatic  #144                // Method shift:(II)I
+     371: invokestatic  #143                // Method subWord:(I)I
+     374: iload         13
+     376: ixor
+     377: istore        14
+     379: iload         13
+     381: iconst_1
+     382: ishl
+     383: istore        13
+     385: iload         6
+     387: iload         14
+     389: ixor
+     390: istore        6
+     392: aload         5
+     394: iload         12
+     396: aaload
+     397: iconst_2
+     398: iload         6
+     400: iastore
+     401: iload         7
+     403: iload         6
+     405: ixor
+     406: istore        7
+     408: aload         5
+     410: iload         12
+     412: aaload
+     413: iconst_3
+     414: iload         7
+     416: iastore
+     417: iload         8
+     419: iload         7
+     421: ixor
+     422: istore        8
+     424: aload         5
+     426: iload         12
+     428: iconst_1
+     429: iadd
+     430: aaload
+     431: iconst_0
+     432: iload         8
+     434: iastore
+     435: iload         9
+     437: iload         8
+     439: ixor
+     440: istore        9
+     442: aload         5
+     444: iload         12
+     446: iconst_1
+     447: iadd
+     448: aaload
+     449: iconst_1
+     450: iload         9
+     452: iastore
+     453: iload         10
+     455: iload         9
+     457: ixor
+     458: istore        10
+     460: aload         5
+     462: iload         12
+     464: iconst_1
+     465: iadd
+     466: aaload
+     467: iconst_2
+     468: iload         10
+     470: iastore
+     471: iload         11
+     473: iload         10
+     475: ixor
+     476: istore        11
+     478: aload         5
+     480: iload         12
+     482: iconst_1
+     483: iadd
+     484: aaload
+     485: iconst_3
+     486: iload         11
+     488: iastore
+     489: iload         11
+     491: bipush        8
+     493: invokestatic  #144                // Method shift:(II)I
+     496: invokestatic  #143                // Method subWord:(I)I
+     499: iload         13
+     501: ixor
+     502: istore        14
+     504: iload         13
+     506: iconst_1
+     507: ishl
+     508: istore        13
+     510: iload         6
+     512: iload         14
+     514: ixor
+     515: istore        6
+     517: aload         5
+     519: iload         12
+     521: iconst_2
+     522: iadd
+     523: aaload
+     524: iconst_0
+     525: iload         6
+     527: iastore
+     528: iload         7
+     530: iload         6
+     532: ixor
+     533: istore        7
+     535: aload         5
+     537: iload         12
+     539: iconst_2
+     540: iadd
+     541: aaload
+     542: iconst_1
+     543: iload         7
+     545: iastore
+     546: iload         8
+     548: iload         7
+     550: ixor
+     551: istore        8
+     553: aload         5
+     555: iload         12
+     557: iconst_2
+     558: iadd
+     559: aaload
+     560: iconst_2
+     561: iload         8
+     563: iastore
+     564: iload         9
+     566: iload         8
+     568: ixor
+     569: istore        9
+     571: aload         5
+     573: iload         12
+     575: iconst_2
+     576: iadd
+     577: aaload
+     578: iconst_3
+     579: iload         9
+     581: iastore
+     582: iinc          12, 3
+     585: iload         12
+     587: bipush        13
+     589: if_icmplt     595
+     592: goto          929
+     595: iload         10
+     597: iload         9
+     599: ixor
+     600: istore        10
+     602: iload         11
+     604: iload         10
+     606: ixor
+     607: istore        11
+     609: goto          346
+     612: aload_1
+     613: iconst_0
+     614: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     617: istore        6
+     619: aload         5
+     621: iconst_0
+     622: aaload
+     623: iconst_0
+     624: iload         6
+     626: iastore
+     627: aload_1
+     628: iconst_4
+     629: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     632: istore        7
+     634: aload         5
+     636: iconst_0
+     637: aaload
+     638: iconst_1
+     639: iload         7
+     641: iastore
+     642: aload_1
+     643: bipush        8
+     645: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     648: istore        8
+     650: aload         5
+     652: iconst_0
+     653: aaload
+     654: iconst_2
+     655: iload         8
+     657: iastore
+     658: aload_1
+     659: bipush        12
+     661: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     664: istore        9
+     666: aload         5
+     668: iconst_0
+     669: aaload
+     670: iconst_3
+     671: iload         9
+     673: iastore
+     674: aload_1
+     675: bipush        16
+     677: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     680: istore        10
+     682: aload         5
+     684: iconst_1
+     685: aaload
+     686: iconst_0
+     687: iload         10
+     689: iastore
+     690: aload_1
+     691: bipush        20
+     693: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     696: istore        11
+     698: aload         5
+     700: iconst_1
+     701: aaload
+     702: iconst_1
+     703: iload         11
+     705: iastore
+     706: aload_1
+     707: bipush        24
+     709: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     712: istore        12
+     714: aload         5
+     716: iconst_1
+     717: aaload
+     718: iconst_2
+     719: iload         12
+     721: iastore
+     722: aload_1
+     723: bipush        28
+     725: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+     728: istore        13
+     730: aload         5
+     732: iconst_1
+     733: aaload
+     734: iconst_3
+     735: iload         13
+     737: iastore
+     738: iconst_2
+     739: istore        14
+     741: iconst_1
+     742: istore        15
+     744: iload         13
+     746: bipush        8
+     748: invokestatic  #144                // Method shift:(II)I
+     751: invokestatic  #143                // Method subWord:(I)I
+     754: iload         15
+     756: ixor
+     757: istore        16
+     759: iload         15
+     761: iconst_1
+     762: ishl
+     763: istore        15
+     765: iload         6
+     767: iload         16
+     769: ixor
+     770: istore        6
+     772: aload         5
+     774: iload         14
+     776: aaload
+     777: iconst_0
+     778: iload         6
+     780: iastore
+     781: iload         7
+     783: iload         6
+     785: ixor
+     786: istore        7
+     788: aload         5
+     790: iload         14
+     792: aaload
+     793: iconst_1
+     794: iload         7
+     796: iastore
+     797: iload         8
+     799: iload         7
+     801: ixor
+     802: istore        8
+     804: aload         5
+     806: iload         14
+     808: aaload
+     809: iconst_2
+     810: iload         8
+     812: iastore
+     813: iload         9
+     815: iload         8
+     817: ixor
+     818: istore        9
+     820: aload         5
+     822: iload         14
+     824: aaload
+     825: iconst_3
+     826: iload         9
+     828: iastore
+     829: iinc          14, 1
+     832: iload         14
+     834: bipush        15
+     836: if_icmplt     842
+     839: goto          929
+     842: iload         9
+     844: invokestatic  #143                // Method subWord:(I)I
+     847: istore        16
+     849: iload         10
+     851: iload         16
+     853: ixor
+     854: istore        10
+     856: aload         5
+     858: iload         14
+     860: aaload
+     861: iconst_0
+     862: iload         10
+     864: iastore
+     865: iload         11
+     867: iload         10
+     869: ixor
+     870: istore        11
+     872: aload         5
+     874: iload         14
+     876: aaload
+     877: iconst_1
+     878: iload         11
+     880: iastore
+     881: iload         12
+     883: iload         11
+     885: ixor
+     886: istore        12
+     888: aload         5
+     890: iload         14
+     892: aaload
+     893: iconst_2
+     894: iload         12
+     896: iastore
+     897: iload         13
+     899: iload         12
+     901: ixor
+     902: istore        13
+     904: aload         5
+     906: iload         14
+     908: aaload
+     909: iconst_3
+     910: iload         13
+     912: iastore
+     913: iinc          14, 1
+     916: goto          744
+     919: new           #85                 // class java/lang/IllegalStateException
+     922: dup
+     923: ldc           #8                  // String Should never get here
+     925: invokespecial #131                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+     928: athrow
+     929: iload_2
+     930: ifne          985
+     933: iconst_1
+     934: istore        6
+     936: iload         6
+     938: aload_0
+     939: getfield      #123                // Field ROUNDS:I
+     942: if_icmpge     985
+     945: iconst_0
+     946: istore        7
+     948: iload         7
+     950: iconst_4
+     951: if_icmpge     979
+     954: aload         5
+     956: iload         6
+     958: aaload
+     959: iload         7
+     961: aload         5
+     963: iload         6
+     965: aaload
+     966: iload         7
+     968: iaload
+     969: invokestatic  #141                // Method inv_mcol:(I)I
+     972: iastore
+     973: iinc          7, 1
+     976: goto          948
+     979: iinc          6, 1
+     982: goto          936
+     985: aload         5
+     987: areturn
+
+  public org.bouncycastle.crypto.engines.AESLightEngine();
+    Code:
+       0: aload_0
+       1: invokespecial #132                // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aconst_null
+       6: checkcast     #82                 // class "[[I"
+       9: putfield      #128                // Field WorkingKey:[[I
+      12: return
+
+  public void init(boolean, org.bouncycastle.crypto.CipherParameters);
+    Code:
+       0: aload_2
+       1: instanceof    #92                 // class org/bouncycastle/crypto/params/KeyParameter
+       4: ifeq          29
+       7: aload_0
+       8: aload_0
+       9: aload_2
+      10: checkcast     #92                 // class org/bouncycastle/crypto/params/KeyParameter
+      13: invokevirtual #148                // Method org/bouncycastle/crypto/params/KeyParameter.getKey:()[B
+      16: iload_1
+      17: invokespecial #147                // Method generateWorkingKey:([BZ)[[I
+      20: putfield      #128                // Field WorkingKey:[[I
+      23: aload_0
+      24: iload_1
+      25: putfield      #124                // Field forEncryption:Z
+      28: return
+      29: new           #84                 // class java/lang/IllegalArgumentException
+      32: dup
+      33: new           #87                 // class java/lang/StringBuilder
+      36: dup
+      37: invokespecial #134                // Method java/lang/StringBuilder."<init>":()V
+      40: ldc           #10                 // String invalid parameter passed to AES init -
+      42: invokevirtual #136                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      45: aload_2
+      46: invokevirtual #133                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      49: invokevirtual #129                // Method java/lang/Class.getName:()Ljava/lang/String;
+      52: invokevirtual #136                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      55: invokevirtual #135                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      58: invokespecial #130                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      61: athrow
+
+  public java.lang.String getAlgorithmName();
+    Code:
+       0: ldc           #5                  // String AES
+       2: areturn
+
+  public int getBlockSize();
+    Code:
+       0: bipush        16
+       2: ireturn
+
+  public int processBlock(byte[], int, byte[], int);
+    Code:
+       0: aload_0
+       1: getfield      #128                // Field WorkingKey:[[I
+       4: ifnonnull     17
+       7: new           #85                 // class java/lang/IllegalStateException
+      10: dup
+      11: ldc           #6                  // String AES engine not initialised
+      13: invokespecial #131                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      16: athrow
+      17: iload_2
+      18: aload_1
+      19: arraylength
+      20: bipush        16
+      22: isub
+      23: if_icmple     36
+      26: new           #89                 // class org/bouncycastle/crypto/DataLengthException
+      29: dup
+      30: ldc           #9                  // String input buffer too short
+      32: invokespecial #137                // Method org/bouncycastle/crypto/DataLengthException."<init>":(Ljava/lang/String;)V
+      35: athrow
+      36: iload         4
+      38: aload_3
+      39: arraylength
+      40: bipush        16
+      42: isub
+      43: if_icmple     56
+      46: new           #90                 // class org/bouncycastle/crypto/OutputLengthException
+      49: dup
+      50: ldc           #11                 // String output buffer too short
+      52: invokespecial #138                // Method org/bouncycastle/crypto/OutputLengthException."<init>":(Ljava/lang/String;)V
+      55: athrow
+      56: aload_0
+      57: getfield      #124                // Field forEncryption:Z
+      60: ifeq          79
+      63: aload_0
+      64: aload_1
+      65: iload_2
+      66: aload_3
+      67: iload         4
+      69: aload_0
+      70: getfield      #128                // Field WorkingKey:[[I
+      73: invokespecial #146                // Method encryptBlock:([BI[BI[[I)V
+      76: goto          92
+      79: aload_0
+      80: aload_1
+      81: iload_2
+      82: aload_3
+      83: iload         4
+      85: aload_0
+      86: getfield      #128                // Field WorkingKey:[[I
+      89: invokespecial #145                // Method decryptBlock:([BI[BI[[I)V
+      92: bipush        16
+      94: ireturn
+
+  public void reset();
+    Code:
+       0: return
+
+  private void encryptBlock(byte[], int, byte[], int, int[][]);
+    Code:
+       0: aload_1
+       1: iload_2
+       2: iconst_0
+       3: iadd
+       4: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+       7: istore        6
+       9: aload_1
+      10: iload_2
+      11: iconst_4
+      12: iadd
+      13: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      16: istore        7
+      18: aload_1
+      19: iload_2
+      20: bipush        8
+      22: iadd
+      23: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      26: istore        8
+      28: aload_1
+      29: iload_2
+      30: bipush        12
+      32: iadd
+      33: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      36: istore        9
+      38: iload         6
+      40: aload         5
+      42: iconst_0
+      43: aaload
+      44: iconst_0
+      45: iaload
+      46: ixor
+      47: istore        10
+      49: iload         7
+      51: aload         5
+      53: iconst_0
+      54: aaload
+      55: iconst_1
+      56: iaload
+      57: ixor
+      58: istore        11
+      60: iload         8
+      62: aload         5
+      64: iconst_0
+      65: aaload
+      66: iconst_2
+      67: iaload
+      68: ixor
+      69: istore        12
+      71: iconst_1
+      72: istore        13
+      74: iload         9
+      76: aload         5
+      78: iconst_0
+      79: aaload
+      80: iconst_3
+      81: iaload
+      82: ixor
+      83: istore        17
+      85: iload         13
+      87: aload_0
+      88: getfield      #123                // Field ROUNDS:I
+      91: iconst_1
+      92: isub
+      93: if_icmpge     793
+      96: getstatic     #125                // Field S:[B
+      99: iload         10
+     101: sipush        255
+     104: iand
+     105: baload
+     106: sipush        255
+     109: iand
+     110: getstatic     #125                // Field S:[B
+     113: iload         11
+     115: bipush        8
+     117: ishr
+     118: sipush        255
+     121: iand
+     122: baload
+     123: sipush        255
+     126: iand
+     127: bipush        8
+     129: ishl
+     130: ixor
+     131: getstatic     #125                // Field S:[B
+     134: iload         12
+     136: bipush        16
+     138: ishr
+     139: sipush        255
+     142: iand
+     143: baload
+     144: sipush        255
+     147: iand
+     148: bipush        16
+     150: ishl
+     151: ixor
+     152: getstatic     #125                // Field S:[B
+     155: iload         17
+     157: bipush        24
+     159: ishr
+     160: sipush        255
+     163: iand
+     164: baload
+     165: bipush        24
+     167: ishl
+     168: ixor
+     169: invokestatic  #142                // Method mcol:(I)I
+     172: aload         5
+     174: iload         13
+     176: aaload
+     177: iconst_0
+     178: iaload
+     179: ixor
+     180: istore        14
+     182: getstatic     #125                // Field S:[B
+     185: iload         11
+     187: sipush        255
+     190: iand
+     191: baload
+     192: sipush        255
+     195: iand
+     196: getstatic     #125                // Field S:[B
+     199: iload         12
+     201: bipush        8
+     203: ishr
+     204: sipush        255
+     207: iand
+     208: baload
+     209: sipush        255
+     212: iand
+     213: bipush        8
+     215: ishl
+     216: ixor
+     217: getstatic     #125                // Field S:[B
+     220: iload         17
+     222: bipush        16
+     224: ishr
+     225: sipush        255
+     228: iand
+     229: baload
+     230: sipush        255
+     233: iand
+     234: bipush        16
+     236: ishl
+     237: ixor
+     238: getstatic     #125                // Field S:[B
+     241: iload         10
+     243: bipush        24
+     245: ishr
+     246: sipush        255
+     249: iand
+     250: baload
+     251: bipush        24
+     253: ishl
+     254: ixor
+     255: invokestatic  #142                // Method mcol:(I)I
+     258: aload         5
+     260: iload         13
+     262: aaload
+     263: iconst_1
+     264: iaload
+     265: ixor
+     266: istore        15
+     268: getstatic     #125                // Field S:[B
+     271: iload         12
+     273: sipush        255
+     276: iand
+     277: baload
+     278: sipush        255
+     281: iand
+     282: getstatic     #125                // Field S:[B
+     285: iload         17
+     287: bipush        8
+     289: ishr
+     290: sipush        255
+     293: iand
+     294: baload
+     295: sipush        255
+     298: iand
+     299: bipush        8
+     301: ishl
+     302: ixor
+     303: getstatic     #125                // Field S:[B
+     306: iload         10
+     308: bipush        16
+     310: ishr
+     311: sipush        255
+     314: iand
+     315: baload
+     316: sipush        255
+     319: iand
+     320: bipush        16
+     322: ishl
+     323: ixor
+     324: getstatic     #125                // Field S:[B
+     327: iload         11
+     329: bipush        24
+     331: ishr
+     332: sipush        255
+     335: iand
+     336: baload
+     337: bipush        24
+     339: ishl
+     340: ixor
+     341: invokestatic  #142                // Method mcol:(I)I
+     344: aload         5
+     346: iload         13
+     348: aaload
+     349: iconst_2
+     350: iaload
+     351: ixor
+     352: istore        16
+     354: getstatic     #125                // Field S:[B
+     357: iload         17
+     359: sipush        255
+     362: iand
+     363: baload
+     364: sipush        255
+     367: iand
+     368: getstatic     #125                // Field S:[B
+     371: iload         10
+     373: bipush        8
+     375: ishr
+     376: sipush        255
+     379: iand
+     380: baload
+     381: sipush        255
+     384: iand
+     385: bipush        8
+     387: ishl
+     388: ixor
+     389: getstatic     #125                // Field S:[B
+     392: iload         11
+     394: bipush        16
+     396: ishr
+     397: sipush        255
+     400: iand
+     401: baload
+     402: sipush        255
+     405: iand
+     406: bipush        16
+     408: ishl
+     409: ixor
+     410: getstatic     #125                // Field S:[B
+     413: iload         12
+     415: bipush        24
+     417: ishr
+     418: sipush        255
+     421: iand
+     422: baload
+     423: bipush        24
+     425: ishl
+     426: ixor
+     427: invokestatic  #142                // Method mcol:(I)I
+     430: aload         5
+     432: iload         13
+     434: iinc          13, 1
+     437: aaload
+     438: iconst_3
+     439: iaload
+     440: ixor
+     441: istore        17
+     443: getstatic     #125                // Field S:[B
+     446: iload         14
+     448: sipush        255
+     451: iand
+     452: baload
+     453: sipush        255
+     456: iand
+     457: getstatic     #125                // Field S:[B
+     460: iload         15
+     462: bipush        8
+     464: ishr
+     465: sipush        255
+     468: iand
+     469: baload
+     470: sipush        255
+     473: iand
+     474: bipush        8
+     476: ishl
+     477: ixor
+     478: getstatic     #125                // Field S:[B
+     481: iload         16
+     483: bipush        16
+     485: ishr
+     486: sipush        255
+     489: iand
+     490: baload
+     491: sipush        255
+     494: iand
+     495: bipush        16
+     497: ishl
+     498: ixor
+     499: getstatic     #125                // Field S:[B
+     502: iload         17
+     504: bipush        24
+     506: ishr
+     507: sipush        255
+     510: iand
+     511: baload
+     512: bipush        24
+     514: ishl
+     515: ixor
+     516: invokestatic  #142                // Method mcol:(I)I
+     519: aload         5
+     521: iload         13
+     523: aaload
+     524: iconst_0
+     525: iaload
+     526: ixor
+     527: istore        10
+     529: getstatic     #125                // Field S:[B
+     532: iload         15
+     534: sipush        255
+     537: iand
+     538: baload
+     539: sipush        255
+     542: iand
+     543: getstatic     #125                // Field S:[B
+     546: iload         16
+     548: bipush        8
+     550: ishr
+     551: sipush        255
+     554: iand
+     555: baload
+     556: sipush        255
+     559: iand
+     560: bipush        8
+     562: ishl
+     563: ixor
+     564: getstatic     #125                // Field S:[B
+     567: iload         17
+     569: bipush        16
+     571: ishr
+     572: sipush        255
+     575: iand
+     576: baload
+     577: sipush        255
+     580: iand
+     581: bipush        16
+     583: ishl
+     584: ixor
+     585: getstatic     #125                // Field S:[B
+     588: iload         14
+     590: bipush        24
+     592: ishr
+     593: sipush        255
+     596: iand
+     597: baload
+     598: bipush        24
+     600: ishl
+     601: ixor
+     602: invokestatic  #142                // Method mcol:(I)I
+     605: aload         5
+     607: iload         13
+     609: aaload
+     610: iconst_1
+     611: iaload
+     612: ixor
+     613: istore        11
+     615: getstatic     #125                // Field S:[B
+     618: iload         16
+     620: sipush        255
+     623: iand
+     624: baload
+     625: sipush        255
+     628: iand
+     629: getstatic     #125                // Field S:[B
+     632: iload         17
+     634: bipush        8
+     636: ishr
+     637: sipush        255
+     640: iand
+     641: baload
+     642: sipush        255
+     645: iand
+     646: bipush        8
+     648: ishl
+     649: ixor
+     650: getstatic     #125                // Field S:[B
+     653: iload         14
+     655: bipush        16
+     657: ishr
+     658: sipush        255
+     661: iand
+     662: baload
+     663: sipush        255
+     666: iand
+     667: bipush        16
+     669: ishl
+     670: ixor
+     671: getstatic     #125                // Field S:[B
+     674: iload         15
+     676: bipush        24
+     678: ishr
+     679: sipush        255
+     682: iand
+     683: baload
+     684: bipush        24
+     686: ishl
+     687: ixor
+     688: invokestatic  #142                // Method mcol:(I)I
+     691: aload         5
+     693: iload         13
+     695: aaload
+     696: iconst_2
+     697: iaload
+     698: ixor
+     699: istore        12
+     701: getstatic     #125                // Field S:[B
+     704: iload         17
+     706: sipush        255
+     709: iand
+     710: baload
+     711: sipush        255
+     714: iand
+     715: getstatic     #125                // Field S:[B
+     718: iload         14
+     720: bipush        8
+     722: ishr
+     723: sipush        255
+     726: iand
+     727: baload
+     728: sipush        255
+     731: iand
+     732: bipush        8
+     734: ishl
+     735: ixor
+     736: getstatic     #125                // Field S:[B
+     739: iload         15
+     741: bipush        16
+     743: ishr
+     744: sipush        255
+     747: iand
+     748: baload
+     749: sipush        255
+     752: iand
+     753: bipush        16
+     755: ishl
+     756: ixor
+     757: getstatic     #125                // Field S:[B
+     760: iload         16
+     762: bipush        24
+     764: ishr
+     765: sipush        255
+     768: iand
+     769: baload
+     770: bipush        24
+     772: ishl
+     773: ixor
+     774: invokestatic  #142                // Method mcol:(I)I
+     777: aload         5
+     779: iload         13
+     781: iinc          13, 1
+     784: aaload
+     785: iconst_3
+     786: iaload
+     787: ixor
+     788: istore        17
+     790: goto          85
+     793: getstatic     #125                // Field S:[B
+     796: iload         10
+     798: sipush        255
+     801: iand
+     802: baload
+     803: sipush        255
+     806: iand
+     807: getstatic     #125                // Field S:[B
+     810: iload         11
+     812: bipush        8
+     814: ishr
+     815: sipush        255
+     818: iand
+     819: baload
+     820: sipush        255
+     823: iand
+     824: bipush        8
+     826: ishl
+     827: ixor
+     828: getstatic     #125                // Field S:[B
+     831: iload         12
+     833: bipush        16
+     835: ishr
+     836: sipush        255
+     839: iand
+     840: baload
+     841: sipush        255
+     844: iand
+     845: bipush        16
+     847: ishl
+     848: ixor
+     849: getstatic     #125                // Field S:[B
+     852: iload         17
+     854: bipush        24
+     856: ishr
+     857: sipush        255
+     860: iand
+     861: baload
+     862: bipush        24
+     864: ishl
+     865: ixor
+     866: invokestatic  #142                // Method mcol:(I)I
+     869: aload         5
+     871: iload         13
+     873: aaload
+     874: iconst_0
+     875: iaload
+     876: ixor
+     877: istore        14
+     879: getstatic     #125                // Field S:[B
+     882: iload         11
+     884: sipush        255
+     887: iand
+     888: baload
+     889: sipush        255
+     892: iand
+     893: getstatic     #125                // Field S:[B
+     896: iload         12
+     898: bipush        8
+     900: ishr
+     901: sipush        255
+     904: iand
+     905: baload
+     906: sipush        255
+     909: iand
+     910: bipush        8
+     912: ishl
+     913: ixor
+     914: getstatic     #125                // Field S:[B
+     917: iload         17
+     919: bipush        16
+     921: ishr
+     922: sipush        255
+     925: iand
+     926: baload
+     927: sipush        255
+     930: iand
+     931: bipush        16
+     933: ishl
+     934: ixor
+     935: getstatic     #125                // Field S:[B
+     938: iload         10
+     940: bipush        24
+     942: ishr
+     943: sipush        255
+     946: iand
+     947: baload
+     948: bipush        24
+     950: ishl
+     951: ixor
+     952: invokestatic  #142                // Method mcol:(I)I
+     955: aload         5
+     957: iload         13
+     959: aaload
+     960: iconst_1
+     961: iaload
+     962: ixor
+     963: istore        15
+     965: getstatic     #125                // Field S:[B
+     968: iload         12
+     970: sipush        255
+     973: iand
+     974: baload
+     975: sipush        255
+     978: iand
+     979: getstatic     #125                // Field S:[B
+     982: iload         17
+     984: bipush        8
+     986: ishr
+     987: sipush        255
+     990: iand
+     991: baload
+     992: sipush        255
+     995: iand
+     996: bipush        8
+     998: ishl
+     999: ixor
+    1000: getstatic     #125                // Field S:[B
+    1003: iload         10
+    1005: bipush        16
+    1007: ishr
+    1008: sipush        255
+    1011: iand
+    1012: baload
+    1013: sipush        255
+    1016: iand
+    1017: bipush        16
+    1019: ishl
+    1020: ixor
+    1021: getstatic     #125                // Field S:[B
+    1024: iload         11
+    1026: bipush        24
+    1028: ishr
+    1029: sipush        255
+    1032: iand
+    1033: baload
+    1034: bipush        24
+    1036: ishl
+    1037: ixor
+    1038: invokestatic  #142                // Method mcol:(I)I
+    1041: aload         5
+    1043: iload         13
+    1045: aaload
+    1046: iconst_2
+    1047: iaload
+    1048: ixor
+    1049: istore        16
+    1051: getstatic     #125                // Field S:[B
+    1054: iload         17
+    1056: sipush        255
+    1059: iand
+    1060: baload
+    1061: sipush        255
+    1064: iand
+    1065: getstatic     #125                // Field S:[B
+    1068: iload         10
+    1070: bipush        8
+    1072: ishr
+    1073: sipush        255
+    1076: iand
+    1077: baload
+    1078: sipush        255
+    1081: iand
+    1082: bipush        8
+    1084: ishl
+    1085: ixor
+    1086: getstatic     #125                // Field S:[B
+    1089: iload         11
+    1091: bipush        16
+    1093: ishr
+    1094: sipush        255
+    1097: iand
+    1098: baload
+    1099: sipush        255
+    1102: iand
+    1103: bipush        16
+    1105: ishl
+    1106: ixor
+    1107: getstatic     #125                // Field S:[B
+    1110: iload         12
+    1112: bipush        24
+    1114: ishr
+    1115: sipush        255
+    1118: iand
+    1119: baload
+    1120: bipush        24
+    1122: ishl
+    1123: ixor
+    1124: invokestatic  #142                // Method mcol:(I)I
+    1127: aload         5
+    1129: iload         13
+    1131: iinc          13, 1
+    1134: aaload
+    1135: iconst_3
+    1136: iaload
+    1137: ixor
+    1138: istore        17
+    1140: getstatic     #125                // Field S:[B
+    1143: iload         14
+    1145: sipush        255
+    1148: iand
+    1149: baload
+    1150: sipush        255
+    1153: iand
+    1154: getstatic     #125                // Field S:[B
+    1157: iload         15
+    1159: bipush        8
+    1161: ishr
+    1162: sipush        255
+    1165: iand
+    1166: baload
+    1167: sipush        255
+    1170: iand
+    1171: bipush        8
+    1173: ishl
+    1174: ixor
+    1175: getstatic     #125                // Field S:[B
+    1178: iload         16
+    1180: bipush        16
+    1182: ishr
+    1183: sipush        255
+    1186: iand
+    1187: baload
+    1188: sipush        255
+    1191: iand
+    1192: bipush        16
+    1194: ishl
+    1195: ixor
+    1196: getstatic     #125                // Field S:[B
+    1199: iload         17
+    1201: bipush        24
+    1203: ishr
+    1204: sipush        255
+    1207: iand
+    1208: baload
+    1209: bipush        24
+    1211: ishl
+    1212: ixor
+    1213: aload         5
+    1215: iload         13
+    1217: aaload
+    1218: iconst_0
+    1219: iaload
+    1220: ixor
+    1221: istore        6
+    1223: getstatic     #125                // Field S:[B
+    1226: iload         15
+    1228: sipush        255
+    1231: iand
+    1232: baload
+    1233: sipush        255
+    1236: iand
+    1237: getstatic     #125                // Field S:[B
+    1240: iload         16
+    1242: bipush        8
+    1244: ishr
+    1245: sipush        255
+    1248: iand
+    1249: baload
+    1250: sipush        255
+    1253: iand
+    1254: bipush        8
+    1256: ishl
+    1257: ixor
+    1258: getstatic     #125                // Field S:[B
+    1261: iload         17
+    1263: bipush        16
+    1265: ishr
+    1266: sipush        255
+    1269: iand
+    1270: baload
+    1271: sipush        255
+    1274: iand
+    1275: bipush        16
+    1277: ishl
+    1278: ixor
+    1279: getstatic     #125                // Field S:[B
+    1282: iload         14
+    1284: bipush        24
+    1286: ishr
+    1287: sipush        255
+    1290: iand
+    1291: baload
+    1292: bipush        24
+    1294: ishl
+    1295: ixor
+    1296: aload         5
+    1298: iload         13
+    1300: aaload
+    1301: iconst_1
+    1302: iaload
+    1303: ixor
+    1304: istore        7
+    1306: getstatic     #125                // Field S:[B
+    1309: iload         16
+    1311: sipush        255
+    1314: iand
+    1315: baload
+    1316: sipush        255
+    1319: iand
+    1320: getstatic     #125                // Field S:[B
+    1323: iload         17
+    1325: bipush        8
+    1327: ishr
+    1328: sipush        255
+    1331: iand
+    1332: baload
+    1333: sipush        255
+    1336: iand
+    1337: bipush        8
+    1339: ishl
+    1340: ixor
+    1341: getstatic     #125                // Field S:[B
+    1344: iload         14
+    1346: bipush        16
+    1348: ishr
+    1349: sipush        255
+    1352: iand
+    1353: baload
+    1354: sipush        255
+    1357: iand
+    1358: bipush        16
+    1360: ishl
+    1361: ixor
+    1362: getstatic     #125                // Field S:[B
+    1365: iload         15
+    1367: bipush        24
+    1369: ishr
+    1370: sipush        255
+    1373: iand
+    1374: baload
+    1375: bipush        24
+    1377: ishl
+    1378: ixor
+    1379: aload         5
+    1381: iload         13
+    1383: aaload
+    1384: iconst_2
+    1385: iaload
+    1386: ixor
+    1387: istore        8
+    1389: getstatic     #125                // Field S:[B
+    1392: iload         17
+    1394: sipush        255
+    1397: iand
+    1398: baload
+    1399: sipush        255
+    1402: iand
+    1403: getstatic     #125                // Field S:[B
+    1406: iload         14
+    1408: bipush        8
+    1410: ishr
+    1411: sipush        255
+    1414: iand
+    1415: baload
+    1416: sipush        255
+    1419: iand
+    1420: bipush        8
+    1422: ishl
+    1423: ixor
+    1424: getstatic     #125                // Field S:[B
+    1427: iload         15
+    1429: bipush        16
+    1431: ishr
+    1432: sipush        255
+    1435: iand
+    1436: baload
+    1437: sipush        255
+    1440: iand
+    1441: bipush        16
+    1443: ishl
+    1444: ixor
+    1445: getstatic     #125                // Field S:[B
+    1448: iload         16
+    1450: bipush        24
+    1452: ishr
+    1453: sipush        255
+    1456: iand
+    1457: baload
+    1458: bipush        24
+    1460: ishl
+    1461: ixor
+    1462: aload         5
+    1464: iload         13
+    1466: aaload
+    1467: iconst_3
+    1468: iaload
+    1469: ixor
+    1470: istore        9
+    1472: iload         6
+    1474: aload_3
+    1475: iload         4
+    1477: iconst_0
+    1478: iadd
+    1479: invokestatic  #149                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1482: iload         7
+    1484: aload_3
+    1485: iload         4
+    1487: iconst_4
+    1488: iadd
+    1489: invokestatic  #149                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1492: iload         8
+    1494: aload_3
+    1495: iload         4
+    1497: bipush        8
+    1499: iadd
+    1500: invokestatic  #149                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1503: iload         9
+    1505: aload_3
+    1506: iload         4
+    1508: bipush        12
+    1510: iadd
+    1511: invokestatic  #149                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1514: return
+
+  private void decryptBlock(byte[], int, byte[], int, int[][]);
+    Code:
+       0: aload_1
+       1: iload_2
+       2: iconst_0
+       3: iadd
+       4: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+       7: istore        6
+       9: aload_1
+      10: iload_2
+      11: iconst_4
+      12: iadd
+      13: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      16: istore        7
+      18: aload_1
+      19: iload_2
+      20: bipush        8
+      22: iadd
+      23: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      26: istore        8
+      28: aload_1
+      29: iload_2
+      30: bipush        12
+      32: iadd
+      33: invokestatic  #150                // Method org/bouncycastle/util/Pack.littleEndianToInt:([BI)I
+      36: istore        9
+      38: iload         6
+      40: aload         5
+      42: aload_0
+      43: getfield      #123                // Field ROUNDS:I
+      46: aaload
+      47: iconst_0
+      48: iaload
+      49: ixor
+      50: istore        10
+      52: iload         7
+      54: aload         5
+      56: aload_0
+      57: getfield      #123                // Field ROUNDS:I
+      60: aaload
+      61: iconst_1
+      62: iaload
+      63: ixor
+      64: istore        11
+      66: iload         8
+      68: aload         5
+      70: aload_0
+      71: getfield      #123                // Field ROUNDS:I
+      74: aaload
+      75: iconst_2
+      76: iaload
+      77: ixor
+      78: istore        12
+      80: aload_0
+      81: getfield      #123                // Field ROUNDS:I
+      84: iconst_1
+      85: isub
+      86: istore        13
+      88: iload         9
+      90: aload         5
+      92: aload_0
+      93: getfield      #123                // Field ROUNDS:I
+      96: aaload
+      97: iconst_3
+      98: iaload
+      99: ixor
+     100: istore        17
+     102: iload         13
+     104: iconst_1
+     105: if_icmple     805
+     108: getstatic     #126                // Field Si:[B
+     111: iload         10
+     113: sipush        255
+     116: iand
+     117: baload
+     118: sipush        255
+     121: iand
+     122: getstatic     #126                // Field Si:[B
+     125: iload         17
+     127: bipush        8
+     129: ishr
+     130: sipush        255
+     133: iand
+     134: baload
+     135: sipush        255
+     138: iand
+     139: bipush        8
+     141: ishl
+     142: ixor
+     143: getstatic     #126                // Field Si:[B
+     146: iload         12
+     148: bipush        16
+     150: ishr
+     151: sipush        255
+     154: iand
+     155: baload
+     156: sipush        255
+     159: iand
+     160: bipush        16
+     162: ishl
+     163: ixor
+     164: getstatic     #126                // Field Si:[B
+     167: iload         11
+     169: bipush        24
+     171: ishr
+     172: sipush        255
+     175: iand
+     176: baload
+     177: bipush        24
+     179: ishl
+     180: ixor
+     181: invokestatic  #141                // Method inv_mcol:(I)I
+     184: aload         5
+     186: iload         13
+     188: aaload
+     189: iconst_0
+     190: iaload
+     191: ixor
+     192: istore        14
+     194: getstatic     #126                // Field Si:[B
+     197: iload         11
+     199: sipush        255
+     202: iand
+     203: baload
+     204: sipush        255
+     207: iand
+     208: getstatic     #126                // Field Si:[B
+     211: iload         10
+     213: bipush        8
+     215: ishr
+     216: sipush        255
+     219: iand
+     220: baload
+     221: sipush        255
+     224: iand
+     225: bipush        8
+     227: ishl
+     228: ixor
+     229: getstatic     #126                // Field Si:[B
+     232: iload         17
+     234: bipush        16
+     236: ishr
+     237: sipush        255
+     240: iand
+     241: baload
+     242: sipush        255
+     245: iand
+     246: bipush        16
+     248: ishl
+     249: ixor
+     250: getstatic     #126                // Field Si:[B
+     253: iload         12
+     255: bipush        24
+     257: ishr
+     258: sipush        255
+     261: iand
+     262: baload
+     263: bipush        24
+     265: ishl
+     266: ixor
+     267: invokestatic  #141                // Method inv_mcol:(I)I
+     270: aload         5
+     272: iload         13
+     274: aaload
+     275: iconst_1
+     276: iaload
+     277: ixor
+     278: istore        15
+     280: getstatic     #126                // Field Si:[B
+     283: iload         12
+     285: sipush        255
+     288: iand
+     289: baload
+     290: sipush        255
+     293: iand
+     294: getstatic     #126                // Field Si:[B
+     297: iload         11
+     299: bipush        8
+     301: ishr
+     302: sipush        255
+     305: iand
+     306: baload
+     307: sipush        255
+     310: iand
+     311: bipush        8
+     313: ishl
+     314: ixor
+     315: getstatic     #126                // Field Si:[B
+     318: iload         10
+     320: bipush        16
+     322: ishr
+     323: sipush        255
+     326: iand
+     327: baload
+     328: sipush        255
+     331: iand
+     332: bipush        16
+     334: ishl
+     335: ixor
+     336: getstatic     #126                // Field Si:[B
+     339: iload         17
+     341: bipush        24
+     343: ishr
+     344: sipush        255
+     347: iand
+     348: baload
+     349: bipush        24
+     351: ishl
+     352: ixor
+     353: invokestatic  #141                // Method inv_mcol:(I)I
+     356: aload         5
+     358: iload         13
+     360: aaload
+     361: iconst_2
+     362: iaload
+     363: ixor
+     364: istore        16
+     366: getstatic     #126                // Field Si:[B
+     369: iload         17
+     371: sipush        255
+     374: iand
+     375: baload
+     376: sipush        255
+     379: iand
+     380: getstatic     #126                // Field Si:[B
+     383: iload         12
+     385: bipush        8
+     387: ishr
+     388: sipush        255
+     391: iand
+     392: baload
+     393: sipush        255
+     396: iand
+     397: bipush        8
+     399: ishl
+     400: ixor
+     401: getstatic     #126                // Field Si:[B
+     404: iload         11
+     406: bipush        16
+     408: ishr
+     409: sipush        255
+     412: iand
+     413: baload
+     414: sipush        255
+     417: iand
+     418: bipush        16
+     420: ishl
+     421: ixor
+     422: getstatic     #126                // Field Si:[B
+     425: iload         10
+     427: bipush        24
+     429: ishr
+     430: sipush        255
+     433: iand
+     434: baload
+     435: bipush        24
+     437: ishl
+     438: ixor
+     439: invokestatic  #141                // Method inv_mcol:(I)I
+     442: aload         5
+     444: iload         13
+     446: iinc          13, -1
+     449: aaload
+     450: iconst_3
+     451: iaload
+     452: ixor
+     453: istore        17
+     455: getstatic     #126                // Field Si:[B
+     458: iload         14
+     460: sipush        255
+     463: iand
+     464: baload
+     465: sipush        255
+     468: iand
+     469: getstatic     #126                // Field Si:[B
+     472: iload         17
+     474: bipush        8
+     476: ishr
+     477: sipush        255
+     480: iand
+     481: baload
+     482: sipush        255
+     485: iand
+     486: bipush        8
+     488: ishl
+     489: ixor
+     490: getstatic     #126                // Field Si:[B
+     493: iload         16
+     495: bipush        16
+     497: ishr
+     498: sipush        255
+     501: iand
+     502: baload
+     503: sipush        255
+     506: iand
+     507: bipush        16
+     509: ishl
+     510: ixor
+     511: getstatic     #126                // Field Si:[B
+     514: iload         15
+     516: bipush        24
+     518: ishr
+     519: sipush        255
+     522: iand
+     523: baload
+     524: bipush        24
+     526: ishl
+     527: ixor
+     528: invokestatic  #141                // Method inv_mcol:(I)I
+     531: aload         5
+     533: iload         13
+     535: aaload
+     536: iconst_0
+     537: iaload
+     538: ixor
+     539: istore        10
+     541: getstatic     #126                // Field Si:[B
+     544: iload         15
+     546: sipush        255
+     549: iand
+     550: baload
+     551: sipush        255
+     554: iand
+     555: getstatic     #126                // Field Si:[B
+     558: iload         14
+     560: bipush        8
+     562: ishr
+     563: sipush        255
+     566: iand
+     567: baload
+     568: sipush        255
+     571: iand
+     572: bipush        8
+     574: ishl
+     575: ixor
+     576: getstatic     #126                // Field Si:[B
+     579: iload         17
+     581: bipush        16
+     583: ishr
+     584: sipush        255
+     587: iand
+     588: baload
+     589: sipush        255
+     592: iand
+     593: bipush        16
+     595: ishl
+     596: ixor
+     597: getstatic     #126                // Field Si:[B
+     600: iload         16
+     602: bipush        24
+     604: ishr
+     605: sipush        255
+     608: iand
+     609: baload
+     610: bipush        24
+     612: ishl
+     613: ixor
+     614: invokestatic  #141                // Method inv_mcol:(I)I
+     617: aload         5
+     619: iload         13
+     621: aaload
+     622: iconst_1
+     623: iaload
+     624: ixor
+     625: istore        11
+     627: getstatic     #126                // Field Si:[B
+     630: iload         16
+     632: sipush        255
+     635: iand
+     636: baload
+     637: sipush        255
+     640: iand
+     641: getstatic     #126                // Field Si:[B
+     644: iload         15
+     646: bipush        8
+     648: ishr
+     649: sipush        255
+     652: iand
+     653: baload
+     654: sipush        255
+     657: iand
+     658: bipush        8
+     660: ishl
+     661: ixor
+     662: getstatic     #126                // Field Si:[B
+     665: iload         14
+     667: bipush        16
+     669: ishr
+     670: sipush        255
+     673: iand
+     674: baload
+     675: sipush        255
+     678: iand
+     679: bipush        16
+     681: ishl
+     682: ixor
+     683: getstatic     #126                // Field Si:[B
+     686: iload         17
+     688: bipush        24
+     690: ishr
+     691: sipush        255
+     694: iand
+     695: baload
+     696: bipush        24
+     698: ishl
+     699: ixor
+     700: invokestatic  #141                // Method inv_mcol:(I)I
+     703: aload         5
+     705: iload         13
+     707: aaload
+     708: iconst_2
+     709: iaload
+     710: ixor
+     711: istore        12
+     713: getstatic     #126                // Field Si:[B
+     716: iload         17
+     718: sipush        255
+     721: iand
+     722: baload
+     723: sipush        255
+     726: iand
+     727: getstatic     #126                // Field Si:[B
+     730: iload         16
+     732: bipush        8
+     734: ishr
+     735: sipush        255
+     738: iand
+     739: baload
+     740: sipush        255
+     743: iand
+     744: bipush        8
+     746: ishl
+     747: ixor
+     748: getstatic     #126                // Field Si:[B
+     751: iload         15
+     753: bipush        16
+     755: ishr
+     756: sipush        255
+     759: iand
+     760: baload
+     761: sipush        255
+     764: iand
+     765: bipush        16
+     767: ishl
+     768: ixor
+     769: getstatic     #126                // Field Si:[B
+     772: iload         14
+     774: bipush        24
+     776: ishr
+     777: sipush        255
+     780: iand
+     781: baload
+     782: bipush        24
+     784: ishl
+     785: ixor
+     786: invokestatic  #141                // Method inv_mcol:(I)I
+     789: aload         5
+     791: iload         13
+     793: iinc          13, -1
+     796: aaload
+     797: iconst_3
+     798: iaload
+     799: ixor
+     800: istore        17
+     802: goto          102
+     805: getstatic     #126                // Field Si:[B
+     808: iload         10
+     810: sipush        255
+     813: iand
+     814: baload
+     815: sipush        255
+     818: iand
+     819: getstatic     #126                // Field Si:[B
+     822: iload         17
+     824: bipush        8
+     826: ishr
+     827: sipush        255
+     830: iand
+     831: baload
+     832: sipush        255
+     835: iand
+     836: bipush        8
+     838: ishl
+     839: ixor
+     840: getstatic     #126                // Field Si:[B
+     843: iload         12
+     845: bipush        16
+     847: ishr
+     848: sipush        255
+     851: iand
+     852: baload
+     853: sipush        255
+     856: iand
+     857: bipush        16
+     859: ishl
+     860: ixor
+     861: getstatic     #126                // Field Si:[B
+     864: iload         11
+     866: bipush        24
+     868: ishr
+     869: sipush        255
+     872: iand
+     873: baload
+     874: bipush        24
+     876: ishl
+     877: ixor
+     878: invokestatic  #141                // Method inv_mcol:(I)I
+     881: aload         5
+     883: iload         13
+     885: aaload
+     886: iconst_0
+     887: iaload
+     888: ixor
+     889: istore        14
+     891: getstatic     #126                // Field Si:[B
+     894: iload         11
+     896: sipush        255
+     899: iand
+     900: baload
+     901: sipush        255
+     904: iand
+     905: getstatic     #126                // Field Si:[B
+     908: iload         10
+     910: bipush        8
+     912: ishr
+     913: sipush        255
+     916: iand
+     917: baload
+     918: sipush        255
+     921: iand
+     922: bipush        8
+     924: ishl
+     925: ixor
+     926: getstatic     #126                // Field Si:[B
+     929: iload         17
+     931: bipush        16
+     933: ishr
+     934: sipush        255
+     937: iand
+     938: baload
+     939: sipush        255
+     942: iand
+     943: bipush        16
+     945: ishl
+     946: ixor
+     947: getstatic     #126                // Field Si:[B
+     950: iload         12
+     952: bipush        24
+     954: ishr
+     955: sipush        255
+     958: iand
+     959: baload
+     960: bipush        24
+     962: ishl
+     963: ixor
+     964: invokestatic  #141                // Method inv_mcol:(I)I
+     967: aload         5
+     969: iload         13
+     971: aaload
+     972: iconst_1
+     973: iaload
+     974: ixor
+     975: istore        15
+     977: getstatic     #126                // Field Si:[B
+     980: iload         12
+     982: sipush        255
+     985: iand
+     986: baload
+     987: sipush        255
+     990: iand
+     991: getstatic     #126                // Field Si:[B
+     994: iload         11
+     996: bipush        8
+     998: ishr
+     999: sipush        255
+    1002: iand
+    1003: baload
+    1004: sipush        255
+    1007: iand
+    1008: bipush        8
+    1010: ishl
+    1011: ixor
+    1012: getstatic     #126                // Field Si:[B
+    1015: iload         10
+    1017: bipush        16
+    1019: ishr
+    1020: sipush        255
+    1023: iand
+    1024: baload
+    1025: sipush        255
+    1028: iand
+    1029: bipush        16
+    1031: ishl
+    1032: ixor
+    1033: getstatic     #126                // Field Si:[B
+    1036: iload         17
+    1038: bipush        24
+    1040: ishr
+    1041: sipush        255
+    1044: iand
+    1045: baload
+    1046: bipush        24
+    1048: ishl
+    1049: ixor
+    1050: invokestatic  #141                // Method inv_mcol:(I)I
+    1053: aload         5
+    1055: iload         13
+    1057: aaload
+    1058: iconst_2
+    1059: iaload
+    1060: ixor
+    1061: istore        16
+    1063: getstatic     #126                // Field Si:[B
+    1066: iload         17
+    1068: sipush        255
+    1071: iand
+    1072: baload
+    1073: sipush        255
+    1076: iand
+    1077: getstatic     #126                // Field Si:[B
+    1080: iload         12
+    1082: bipush        8
+    1084: ishr
+    1085: sipush        255
+    1088: iand
+    1089: baload
+    1090: sipush        255
+    1093: iand
+    1094: bipush        8
+    1096: ishl
+    1097: ixor
+    1098: getstatic     #126                // Field Si:[B
+    1101: iload         11
+    1103: bipush        16
+    1105: ishr
+    1106: sipush        255
+    1109: iand
+    1110: baload
+    1111: sipush        255
+    1114: iand
+    1115: bipush        16
+    1117: ishl
+    1118: ixor
+    1119: getstatic     #126                // Field Si:[B
+    1122: iload         10
+    1124: bipush        24
+    1126: ishr
+    1127: sipush        255
+    1130: iand
+    1131: baload
+    1132: bipush        24
+    1134: ishl
+    1135: ixor
+    1136: invokestatic  #141                // Method inv_mcol:(I)I
+    1139: aload         5
+    1141: iload         13
+    1143: aaload
+    1144: iconst_3
+    1145: iaload
+    1146: ixor
+    1147: istore        17
+    1149: getstatic     #126                // Field Si:[B
+    1152: iload         14
+    1154: sipush        255
+    1157: iand
+    1158: baload
+    1159: sipush        255
+    1162: iand
+    1163: getstatic     #126                // Field Si:[B
+    1166: iload         17
+    1168: bipush        8
+    1170: ishr
+    1171: sipush        255
+    1174: iand
+    1175: baload
+    1176: sipush        255
+    1179: iand
+    1180: bipush        8
+    1182: ishl
+    1183: ixor
+    1184: getstatic     #126                // Field Si:[B
+    1187: iload         16
+    1189: bipush        16
+    1191: ishr
+    1192: sipush        255
+    1195: iand
+    1196: baload
+    1197: sipush        255
+    1200: iand
+    1201: bipush        16
+    1203: ishl
+    1204: ixor
+    1205: getstatic     #126                // Field Si:[B
+    1208: iload         15
+    1210: bipush        24
+    1212: ishr
+    1213: sipush        255
+    1216: iand
+    1217: baload
+    1218: bipush        24
+    1220: ishl
+    1221: ixor
+    1222: aload         5
+    1224: iconst_0
+    1225: aaload
+    1226: iconst_0
+    1227: iaload
+    1228: ixor
+    1229: istore        6
+    1231: getstatic     #126                // Field Si:[B
+    1234: iload         15
+    1236: sipush        255
+    1239: iand
+    1240: baload
+    1241: sipush        255
+    1244: iand
+    1245: getstatic     #126                // Field Si:[B
+    1248: iload         14
+    1250: bipush        8
+    1252: ishr
+    1253: sipush        255
+    1256: iand
+    1257: baload
+    1258: sipush        255
+    1261: iand
+    1262: bipush        8
+    1264: ishl
+    1265: ixor
+    1266: getstatic     #126                // Field Si:[B
+    1269: iload         17
+    1271: bipush        16
+    1273: ishr
+    1274: sipush        255
+    1277: iand
+    1278: baload
+    1279: sipush        255
+    1282: iand
+    1283: bipush        16
+    1285: ishl
+    1286: ixor
+    1287: getstatic     #126                // Field Si:[B
+    1290: iload         16
+    1292: bipush        24
+    1294: ishr
+    1295: sipush        255
+    1298: iand
+    1299: baload
+    1300: bipush        24
+    1302: ishl
+    1303: ixor
+    1304: aload         5
+    1306: iconst_0
+    1307: aaload
+    1308: iconst_1
+    1309: iaload
+    1310: ixor
+    1311: istore        7
+    1313: getstatic     #126                // Field Si:[B
+    1316: iload         16
+    1318: sipush        255
+    1321: iand
+    1322: baload
+    1323: sipush        255
+    1326: iand
+    1327: getstatic     #126                // Field Si:[B
+    1330: iload         15
+    1332: bipush        8
+    1334: ishr
+    1335: sipush        255
+    1338: iand
+    1339: baload
+    1340: sipush        255
+    1343: iand
+    1344: bipush        8
+    1346: ishl
+    1347: ixor
+    1348: getstatic     #126                // Field Si:[B
+    1351: iload         14
+    1353: bipush        16
+    1355: ishr
+    1356: sipush        255
+    1359: iand
+    1360: baload
+    1361: sipush        255
+    1364: iand
+    1365: bipush        16
+    1367: ishl
+    1368: ixor
+    1369: getstatic     #126                // Field Si:[B
+    1372: iload         17
+    1374: bipush        24
+    1376: ishr
+    1377: sipush        255
+    1380: iand
+    1381: baload
+    1382: bipush        24
+    1384: ishl
+    1385: ixor
+    1386: aload         5
+    1388: iconst_0
+    1389: aaload
+    1390: iconst_2
+    1391: iaload
+    1392: ixor
+    1393: istore        8
+    1395: getstatic     #126                // Field Si:[B
+    1398: iload         17
+    1400: sipush        255
+    1403: iand
+    1404: baload
+    1405: sipush        255
+    1408: iand
+    1409: getstatic     #126                // Field Si:[B
+    1412: iload         16
+    1414: bipush        8
+    1416: ishr
+    1417: sipush        255
+    1420: iand
+    1421: baload
+    1422: sipush        255
+    1425: iand
+    1426: bipush        8
+    1428: ishl
+    1429: ixor
+    1430: getstatic     #126                // Field Si:[B
+    1433: iload         15
+    1435: bipush        16
+    1437: ishr
+    1438: sipush        255
+    1441: iand
+    1442: baload
+    1443: sipush        255
+    1446: iand
+    1447: bipush        16
+    1449: ishl
+    1450: ixor
+    1451: getstatic     #126                // Field Si:[B
+    1454: iload         14
+    1456: bipush        24
+    1458: ishr
+    1459: sipush        255
+    1462: iand
+    1463: baload
+    1464: bipush        24
+    1466: ishl
+    1467: ixor
+    1468: aload         5
+    1470: iconst_0
+    1471: aaload
+    1472: iconst_3
+    1473: iaload
+    1474: ixor
+    1475: istore        9
+    1477: iload         6
+    1479: aload_3
+    1480: iload         4
+    1482: iconst_0
+    1483: iadd
+    1484: invokestatic  #149                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1487: iload         7
+    1489: aload_3
+    1490: iload         4
+    1492: iconst_4
+    1493: iadd
+    1494: invokestatic  #149                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1497: iload         8
+    1499: aload_3
+    1500: iload         4
+    1502: bipush        8
+    1504: iadd
+    1505: invokestatic  #149                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1508: iload         9
+    1510: aload_3
+    1511: iload         4
+    1513: bipush        12
+    1515: iadd
+    1516: invokestatic  #149                // Method org/bouncycastle/util/Pack.intToLittleEndian:(I[BI)V
+    1519: return
+
+  static {};
+    Code:
+       0: sipush        256
+       3: newarray       byte
+       5: dup
+       6: iconst_0
+       7: bipush        99
+       9: bastore
+      10: dup
+      11: iconst_1
+      12: bipush        124
+      14: bastore
+      15: dup
+      16: iconst_2
+      17: bipush        119
+      19: bastore
+      20: dup
+      21: iconst_3
+      22: bipush        123
+      24: bastore
+      25: dup
+      26: iconst_4
+      27: bipush        -14
+      29: bastore
+      30: dup
+      31: iconst_5
+      32: bipush        107
+      34: bastore
+      35: dup
+      36: bipush        6
+      38: bipush        111
+      40: bastore
+      41: dup
+      42: bipush        7
+      44: bipush        -59
+      46: bastore
+      47: dup
+      48: bipush        8
+      50: bipush        48
+      52: bastore
+      53: dup
+      54: bipush        9
+      56: iconst_1
+      57: bastore
+      58: dup
+      59: bipush        10
+      61: bipush        103
+      63: bastore
+      64: dup
+      65: bipush        11
+      67: bipush        43
+      69: bastore
+      70: dup
+      71: bipush        12
+      73: bipush        -2
+      75: bastore
+      76: dup
+      77: bipush        13
+      79: bipush        -41
+      81: bastore
+      82: dup
+      83: bipush        14
+      85: bipush        -85
+      87: bastore
+      88: dup
+      89: bipush        15
+      91: bipush        118
+      93: bastore
+      94: dup
+      95: bipush        16
+      97: bipush        -54
+      99: bastore
+     100: dup
+     101: bipush        17
+     103: bipush        -126
+     105: bastore
+     106: dup
+     107: bipush        18
+     109: bipush        -55
+     111: bastore
+     112: dup
+     113: bipush        19
+     115: bipush        125
+     117: bastore
+     118: dup
+     119: bipush        20
+     121: bipush        -6
+     123: bastore
+     124: dup
+     125: bipush        21
+     127: bipush        89
+     129: bastore
+     130: dup
+     131: bipush        22
+     133: bipush        71
+     135: bastore
+     136: dup
+     137: bipush        23
+     139: bipush        -16
+     141: bastore
+     142: dup
+     143: bipush        24
+     145: bipush        -83
+     147: bastore
+     148: dup
+     149: bipush        25
+     151: bipush        -44
+     153: bastore
+     154: dup
+     155: bipush        26
+     157: bipush        -94
+     159: bastore
+     160: dup
+     161: bipush        27
+     163: bipush        -81
+     165: bastore
+     166: dup
+     167: bipush        28
+     169: bipush        -100
+     171: bastore
+     172: dup
+     173: bipush        29
+     175: bipush        -92
+     177: bastore
+     178: dup
+     179: bipush        30
+     181: bipush        114
+     183: bastore
+     184: dup
+     185: bipush        31
+     187: bipush        -64
+     189: bastore
+     190: dup
+     191: bipush        32
+     193: bipush        -73
+     195: bastore
+     196: dup
+     197: bipush        33
+     199: bipush        -3
+     201: bastore
+     202: dup
+     203: bipush        34
+     205: bipush        -109
+     207: bastore
+     208: dup
+     209: bipush        35
+     211: bipush        38
+     213: bastore
+     214: dup
+     215: bipush        36
+     217: bipush        54
+     219: bastore
+     220: dup
+     221: bipush        37
+     223: bipush        63
+     225: bastore
+     226: dup
+     227: bipush        38
+     229: bipush        -9
+     231: bastore
+     232: dup
+     233: bipush        39
+     235: bipush        -52
+     237: bastore
+     238: dup
+     239: bipush        40
+     241: bipush        52
+     243: bastore
+     244: dup
+     245: bipush        41
+     247: bipush        -91
+     249: bastore
+     250: dup
+     251: bipush        42
+     253: bipush        -27
+     255: bastore
+     256: dup
+     257: bipush        43
+     259: bipush        -15
+     261: bastore
+     262: dup
+     263: bipush        44
+     265: bipush        113
+     267: bastore
+     268: dup
+     269: bipush        45
+     271: bipush        -40
+     273: bastore
+     274: dup
+     275: bipush        46
+     277: bipush        49
+     279: bastore
+     280: dup
+     281: bipush        47
+     283: bipush        21
+     285: bastore
+     286: dup
+     287: bipush        48
+     289: iconst_4
+     290: bastore
+     291: dup
+     292: bipush        49
+     294: bipush        -57
+     296: bastore
+     297: dup
+     298: bipush        50
+     300: bipush        35
+     302: bastore
+     303: dup
+     304: bipush        51
+     306: bipush        -61
+     308: bastore
+     309: dup
+     310: bipush        52
+     312: bipush        24
+     314: bastore
+     315: dup
+     316: bipush        53
+     318: bipush        -106
+     320: bastore
+     321: dup
+     322: bipush        54
+     324: iconst_5
+     325: bastore
+     326: dup
+     327: bipush        55
+     329: bipush        -102
+     331: bastore
+     332: dup
+     333: bipush        56
+     335: bipush        7
+     337: bastore
+     338: dup
+     339: bipush        57
+     341: bipush        18
+     343: bastore
+     344: dup
+     345: bipush        58
+     347: bipush        -128
+     349: bastore
+     350: dup
+     351: bipush        59
+     353: bipush        -30
+     355: bastore
+     356: dup
+     357: bipush        60
+     359: bipush        -21
+     361: bastore
+     362: dup
+     363: bipush        61
+     365: bipush        39
+     367: bastore
+     368: dup
+     369: bipush        62
+     371: bipush        -78
+     373: bastore
+     374: dup
+     375: bipush        63
+     377: bipush        117
+     379: bastore
+     380: dup
+     381: bipush        64
+     383: bipush        9
+     385: bastore
+     386: dup
+     387: bipush        65
+     389: bipush        -125
+     391: bastore
+     392: dup
+     393: bipush        66
+     395: bipush        44
+     397: bastore
+     398: dup
+     399: bipush        67
+     401: bipush        26
+     403: bastore
+     404: dup
+     405: bipush        68
+     407: bipush        27
+     409: bastore
+     410: dup
+     411: bipush        69
+     413: bipush        110
+     415: bastore
+     416: dup
+     417: bipush        70
+     419: bipush        90
+     421: bastore
+     422: dup
+     423: bipush        71
+     425: bipush        -96
+     427: bastore
+     428: dup
+     429: bipush        72
+     431: bipush        82
+     433: bastore
+     434: dup
+     435: bipush        73
+     437: bipush        59
+     439: bastore
+     440: dup
+     441: bipush        74
+     443: bipush        -42
+     445: bastore
+     446: dup
+     447: bipush        75
+     449: bipush        -77
+     451: bastore
+     452: dup
+     453: bipush        76
+     455: bipush        41
+     457: bastore
+     458: dup
+     459: bipush        77
+     461: bipush        -29
+     463: bastore
+     464: dup
+     465: bipush        78
+     467: bipush        47
+     469: bastore
+     470: dup
+     471: bipush        79
+     473: bipush        -124
+     475: bastore
+     476: dup
+     477: bipush        80
+     479: bipush        83
+     481: bastore
+     482: dup
+     483: bipush        81
+     485: bipush        -47
+     487: bastore
+     488: dup
+     489: bipush        82
+     491: iconst_0
+     492: bastore
+     493: dup
+     494: bipush        83
+     496: bipush        -19
+     498: bastore
+     499: dup
+     500: bipush        84
+     502: bipush        32
+     504: bastore
+     505: dup
+     506: bipush        85
+     508: bipush        -4
+     510: bastore
+     511: dup
+     512: bipush        86
+     514: bipush        -79
+     516: bastore
+     517: dup
+     518: bipush        87
+     520: bipush        91
+     522: bastore
+     523: dup
+     524: bipush        88
+     526: bipush        106
+     528: bastore
+     529: dup
+     530: bipush        89
+     532: bipush        -53
+     534: bastore
+     535: dup
+     536: bipush        90
+     538: bipush        -66
+     540: bastore
+     541: dup
+     542: bipush        91
+     544: bipush        57
+     546: bastore
+     547: dup
+     548: bipush        92
+     550: bipush        74
+     552: bastore
+     553: dup
+     554: bipush        93
+     556: bipush        76
+     558: bastore
+     559: dup
+     560: bipush        94
+     562: bipush        88
+     564: bastore
+     565: dup
+     566: bipush        95
+     568: bipush        -49
+     570: bastore
+     571: dup
+     572: bipush        96
+     574: bipush        -48
+     576: bastore
+     577: dup
+     578: bipush        97
+     580: bipush        -17
+     582: bastore
+     583: dup
+     584: bipush        98
+     586: bipush        -86
+     588: bastore
+     589: dup
+     590: bipush        99
+     592: bipush        -5
+     594: bastore
+     595: dup
+     596: bipush        100
+     598: bipush        67
+     600: bastore
+     601: dup
+     602: bipush        101
+     604: bipush        77
+     606: bastore
+     607: dup
+     608: bipush        102
+     610: bipush        51
+     612: bastore
+     613: dup
+     614: bipush        103
+     616: bipush        -123
+     618: bastore
+     619: dup
+     620: bipush        104
+     622: bipush        69
+     624: bastore
+     625: dup
+     626: bipush        105
+     628: bipush        -7
+     630: bastore
+     631: dup
+     632: bipush        106
+     634: iconst_2
+     635: bastore
+     636: dup
+     637: bipush        107
+     639: bipush        127
+     641: bastore
+     642: dup
+     643: bipush        108
+     645: bipush        80
+     647: bastore
+     648: dup
+     649: bipush        109
+     651: bipush        60
+     653: bastore
+     654: dup
+     655: bipush        110
+     657: bipush        -97
+     659: bastore
+     660: dup
+     661: bipush        111
+     663: bipush        -88
+     665: bastore
+     666: dup
+     667: bipush        112
+     669: bipush        81
+     671: bastore
+     672: dup
+     673: bipush        113
+     675: bipush        -93
+     677: bastore
+     678: dup
+     679: bipush        114
+     681: bipush        64
+     683: bastore
+     684: dup
+     685: bipush        115
+     687: bipush        -113
+     689: bastore
+     690: dup
+     691: bipush        116
+     693: bipush        -110
+     695: bastore
+     696: dup
+     697: bipush        117
+     699: bipush        -99
+     701: bastore
+     702: dup
+     703: bipush        118
+     705: bipush        56
+     707: bastore
+     708: dup
+     709: bipush        119
+     711: bipush        -11
+     713: bastore
+     714: dup
+     715: bipush        120
+     717: bipush        -68
+     719: bastore
+     720: dup
+     721: bipush        121
+     723: bipush        -74
+     725: bastore
+     726: dup
+     727: bipush        122
+     729: bipush        -38
+     731: bastore
+     732: dup
+     733: bipush        123
+     735: bipush        33
+     737: bastore
+     738: dup
+     739: bipush        124
+     741: bipush        16
+     743: bastore
+     744: dup
+     745: bipush        125
+     747: iconst_m1
+     748: bastore
+     749: dup
+     750: bipush        126
+     752: bipush        -13
+     754: bastore
+     755: dup
+     756: bipush        127
+     758: bipush        -46
+     760: bastore
+     761: dup
+     762: sipush        128
+     765: bipush        -51
+     767: bastore
+     768: dup
+     769: sipush        129
+     772: bipush        12
+     774: bastore
+     775: dup
+     776: sipush        130
+     779: bipush        19
+     781: bastore
+     782: dup
+     783: sipush        131
+     786: bipush        -20
+     788: bastore
+     789: dup
+     790: sipush        132
+     793: bipush        95
+     795: bastore
+     796: dup
+     797: sipush        133
+     800: bipush        -105
+     802: bastore
+     803: dup
+     804: sipush        134
+     807: bipush        68
+     809: bastore
+     810: dup
+     811: sipush        135
+     814: bipush        23
+     816: bastore
+     817: dup
+     818: sipush        136
+     821: bipush        -60
+     823: bastore
+     824: dup
+     825: sipush        137
+     828: bipush        -89
+     830: bastore
+     831: dup
+     832: sipush        138
+     835: bipush        126
+     837: bastore
+     838: dup
+     839: sipush        139
+     842: bipush        61
+     844: bastore
+     845: dup
+     846: sipush        140
+     849: bipush        100
+     851: bastore
+     852: dup
+     853: sipush        141
+     856: bipush        93
+     858: bastore
+     859: dup
+     860: sipush        142
+     863: bipush        25
+     865: bastore
+     866: dup
+     867: sipush        143
+     870: bipush        115
+     872: bastore
+     873: dup
+     874: sipush        144
+     877: bipush        96
+     879: bastore
+     880: dup
+     881: sipush        145
+     884: bipush        -127
+     886: bastore
+     887: dup
+     888: sipush        146
+     891: bipush        79
+     893: bastore
+     894: dup
+     895: sipush        147
+     898: bipush        -36
+     900: bastore
+     901: dup
+     902: sipush        148
+     905: bipush        34
+     907: bastore
+     908: dup
+     909: sipush        149
+     912: bipush        42
+     914: bastore
+     915: dup
+     916: sipush        150
+     919: bipush        -112
+     921: bastore
+     922: dup
+     923: sipush        151
+     926: bipush        -120
+     928: bastore
+     929: dup
+     930: sipush        152
+     933: bipush        70
+     935: bastore
+     936: dup
+     937: sipush        153
+     940: bipush        -18
+     942: bastore
+     943: dup
+     944: sipush        154
+     947: bipush        -72
+     949: bastore
+     950: dup
+     951: sipush        155
+     954: bipush        20
+     956: bastore
+     957: dup
+     958: sipush        156
+     961: bipush        -34
+     963: bastore
+     964: dup
+     965: sipush        157
+     968: bipush        94
+     970: bastore
+     971: dup
+     972: sipush        158
+     975: bipush        11
+     977: bastore
+     978: dup
+     979: sipush        159
+     982: bipush        -37
+     984: bastore
+     985: dup
+     986: sipush        160
+     989: bipush        -32
+     991: bastore
+     992: dup
+     993: sipush        161
+     996: bipush        50
+     998: bastore
+     999: dup
+    1000: sipush        162
+    1003: bipush        58
+    1005: bastore
+    1006: dup
+    1007: sipush        163
+    1010: bipush        10
+    1012: bastore
+    1013: dup
+    1014: sipush        164
+    1017: bipush        73
+    1019: bastore
+    1020: dup
+    1021: sipush        165
+    1024: bipush        6
+    1026: bastore
+    1027: dup
+    1028: sipush        166
+    1031: bipush        36
+    1033: bastore
+    1034: dup
+    1035: sipush        167
+    1038: bipush        92
+    1040: bastore
+    1041: dup
+    1042: sipush        168
+    1045: bipush        -62
+    1047: bastore
+    1048: dup
+    1049: sipush        169
+    1052: bipush        -45
+    1054: bastore
+    1055: dup
+    1056: sipush        170
+    1059: bipush        -84
+    1061: bastore
+    1062: dup
+    1063: sipush        171
+    1066: bipush        98
+    1068: bastore
+    1069: dup
+    1070: sipush        172
+    1073: bipush        -111
+    1075: bastore
+    1076: dup
+    1077: sipush        173
+    1080: bipush        -107
+    1082: bastore
+    1083: dup
+    1084: sipush        174
+    1087: bipush        -28
+    1089: bastore
+    1090: dup
+    1091: sipush        175
+    1094: bipush        121
+    1096: bastore
+    1097: dup
+    1098: sipush        176
+    1101: bipush        -25
+    1103: bastore
+    1104: dup
+    1105: sipush        177
+    1108: bipush        -56
+    1110: bastore
+    1111: dup
+    1112: sipush        178
+    1115: bipush        55
+    1117: bastore
+    1118: dup
+    1119: sipush        179
+    1122: bipush        109
+    1124: bastore
+    1125: dup
+    1126: sipush        180
+    1129: bipush        -115
+    1131: bastore
+    1132: dup
+    1133: sipush        181
+    1136: bipush        -43
+    1138: bastore
+    1139: dup
+    1140: sipush        182
+    1143: bipush        78
+    1145: bastore
+    1146: dup
+    1147: sipush        183
+    1150: bipush        -87
+    1152: bastore
+    1153: dup
+    1154: sipush        184
+    1157: bipush        108
+    1159: bastore
+    1160: dup
+    1161: sipush        185
+    1164: bipush        86
+    1166: bastore
+    1167: dup
+    1168: sipush        186
+    1171: bipush        -12
+    1173: bastore
+    1174: dup
+    1175: sipush        187
+    1178: bipush        -22
+    1180: bastore
+    1181: dup
+    1182: sipush        188
+    1185: bipush        101
+    1187: bastore
+    1188: dup
+    1189: sipush        189
+    1192: bipush        122
+    1194: bastore
+    1195: dup
+    1196: sipush        190
+    1199: bipush        -82
+    1201: bastore
+    1202: dup
+    1203: sipush        191
+    1206: bipush        8
+    1208: bastore
+    1209: dup
+    1210: sipush        192
+    1213: bipush        -70
+    1215: bastore
+    1216: dup
+    1217: sipush        193
+    1220: bipush        120
+    1222: bastore
+    1223: dup
+    1224: sipush        194
+    1227: bipush        37
+    1229: bastore
+    1230: dup
+    1231: sipush        195
+    1234: bipush        46
+    1236: bastore
+    1237: dup
+    1238: sipush        196
+    1241: bipush        28
+    1243: bastore
+    1244: dup
+    1245: sipush        197
+    1248: bipush        -90
+    1250: bastore
+    1251: dup
+    1252: sipush        198
+    1255: bipush        -76
+    1257: bastore
+    1258: dup
+    1259: sipush        199
+    1262: bipush        -58
+    1264: bastore
+    1265: dup
+    1266: sipush        200
+    1269: bipush        -24
+    1271: bastore
+    1272: dup
+    1273: sipush        201
+    1276: bipush        -35
+    1278: bastore
+    1279: dup
+    1280: sipush        202
+    1283: bipush        116
+    1285: bastore
+    1286: dup
+    1287: sipush        203
+    1290: bipush        31
+    1292: bastore
+    1293: dup
+    1294: sipush        204
+    1297: bipush        75
+    1299: bastore
+    1300: dup
+    1301: sipush        205
+    1304: bipush        -67
+    1306: bastore
+    1307: dup
+    1308: sipush        206
+    1311: bipush        -117
+    1313: bastore
+    1314: dup
+    1315: sipush        207
+    1318: bipush        -118
+    1320: bastore
+    1321: dup
+    1322: sipush        208
+    1325: bipush        112
+    1327: bastore
+    1328: dup
+    1329: sipush        209
+    1332: bipush        62
+    1334: bastore
+    1335: dup
+    1336: sipush        210
+    1339: bipush        -75
+    1341: bastore
+    1342: dup
+    1343: sipush        211
+    1346: bipush        102
+    1348: bastore
+    1349: dup
+    1350: sipush        212
+    1353: bipush        72
+    1355: bastore
+    1356: dup
+    1357: sipush        213
+    1360: iconst_3
+    1361: bastore
+    1362: dup
+    1363: sipush        214
+    1366: bipush        -10
+    1368: bastore
+    1369: dup
+    1370: sipush        215
+    1373: bipush        14
+    1375: bastore
+    1376: dup
+    1377: sipush        216
+    1380: bipush        97
+    1382: bastore
+    1383: dup
+    1384: sipush        217
+    1387: bipush        53
+    1389: bastore
+    1390: dup
+    1391: sipush        218
+    1394: bipush        87
+    1396: bastore
+    1397: dup
+    1398: sipush        219
+    1401: bipush        -71
+    1403: bastore
+    1404: dup
+    1405: sipush        220
+    1408: bipush        -122
+    1410: bastore
+    1411: dup
+    1412: sipush        221
+    1415: bipush        -63
+    1417: bastore
+    1418: dup
+    1419: sipush        222
+    1422: bipush        29
+    1424: bastore
+    1425: dup
+    1426: sipush        223
+    1429: bipush        -98
+    1431: bastore
+    1432: dup
+    1433: sipush        224
+    1436: bipush        -31
+    1438: bastore
+    1439: dup
+    1440: sipush        225
+    1443: bipush        -8
+    1445: bastore
+    1446: dup
+    1447: sipush        226
+    1450: bipush        -104
+    1452: bastore
+    1453: dup
+    1454: sipush        227
+    1457: bipush        17
+    1459: bastore
+    1460: dup
+    1461: sipush        228
+    1464: bipush        105
+    1466: bastore
+    1467: dup
+    1468: sipush        229
+    1471: bipush        -39
+    1473: bastore
+    1474: dup
+    1475: sipush        230
+    1478: bipush        -114
+    1480: bastore
+    1481: dup
+    1482: sipush        231
+    1485: bipush        -108
+    1487: bastore
+    1488: dup
+    1489: sipush        232
+    1492: bipush        -101
+    1494: bastore
+    1495: dup
+    1496: sipush        233
+    1499: bipush        30
+    1501: bastore
+    1502: dup
+    1503: sipush        234
+    1506: bipush        -121
+    1508: bastore
+    1509: dup
+    1510: sipush        235
+    1513: bipush        -23
+    1515: bastore
+    1516: dup
+    1517: sipush        236
+    1520: bipush        -50
+    1522: bastore
+    1523: dup
+    1524: sipush        237
+    1527: bipush        85
+    1529: bastore
+    1530: dup
+    1531: sipush        238
+    1534: bipush        40
+    1536: bastore
+    1537: dup
+    1538: sipush        239
+    1541: bipush        -33
+    1543: bastore
+    1544: dup
+    1545: sipush        240
+    1548: bipush        -116
+    1550: bastore
+    1551: dup
+    1552: sipush        241
+    1555: bipush        -95
+    1557: bastore
+    1558: dup
+    1559: sipush        242
+    1562: bipush        -119
+    1564: bastore
+    1565: dup
+    1566: sipush        243
+    1569: bipush        13
+    1571: bastore
+    1572: dup
+    1573: sipush        244
+    1576: bipush        -65
+    1578: bastore
+    1579: dup
+    1580: sipush        245
+    1583: bipush        -26
+    1585: bastore
+    1586: dup
+    1587: sipush        246
+    1590: bipush        66
+    1592: bastore
+    1593: dup
+    1594: sipush        247
+    1597: bipush        104
+    1599: bastore
+    1600: dup
+    1601: sipush        248
+    1604: bipush        65
+    1606: bastore
+    1607: dup
+    1608: sipush        249
+    1611: bipush        -103
+    1613: bastore
+    1614: dup
+    1615: sipush        250
+    1618: bipush        45
+    1620: bastore
+    1621: dup
+    1622: sipush        251
+    1625: bipush        15
+    1627: bastore
+    1628: dup
+    1629: sipush        252
+    1632: bipush        -80
+    1634: bastore
+    1635: dup
+    1636: sipush        253
+    1639: bipush        84
+    1641: bastore
+    1642: dup
+    1643: sipush        254
+    1646: bipush        -69
+    1648: bastore
+    1649: dup
+    1650: sipush        255
+    1653: bipush        22
+    1655: bastore
+    1656: putstatic     #125                // Field S:[B
+    1659: sipush        256
+    1662: newarray       byte
+    1664: dup
+    1665: iconst_0
+    1666: bipush        82
+    1668: bastore
+    1669: dup
+    1670: iconst_1
+    1671: bipush        9
+    1673: bastore
+    1674: dup
+    1675: iconst_2
+    1676: bipush        106
+    1678: bastore
+    1679: dup
+    1680: iconst_3
+    1681: bipush        -43
+    1683: bastore
+    1684: dup
+    1685: iconst_4
+    1686: bipush        48
+    1688: bastore
+    1689: dup
+    1690: iconst_5
+    1691: bipush        54
+    1693: bastore
+    1694: dup
+    1695: bipush        6
+    1697: bipush        -91
+    1699: bastore
+    1700: dup
+    1701: bipush        7
+    1703: bipush        56
+    1705: bastore
+    1706: dup
+    1707: bipush        8
+    1709: bipush        -65
+    1711: bastore
+    1712: dup
+    1713: bipush        9
+    1715: bipush        64
+    1717: bastore
+    1718: dup
+    1719: bipush        10
+    1721: bipush        -93
+    1723: bastore
+    1724: dup
+    1725: bipush        11
+    1727: bipush        -98
+    1729: bastore
+    1730: dup
+    1731: bipush        12
+    1733: bipush        -127
+    1735: bastore
+    1736: dup
+    1737: bipush        13
+    1739: bipush        -13
+    1741: bastore
+    1742: dup
+    1743: bipush        14
+    1745: bipush        -41
+    1747: bastore
+    1748: dup
+    1749: bipush        15
+    1751: bipush        -5
+    1753: bastore
+    1754: dup
+    1755: bipush        16
+    1757: bipush        124
+    1759: bastore
+    1760: dup
+    1761: bipush        17
+    1763: bipush        -29
+    1765: bastore
+    1766: dup
+    1767: bipush        18
+    1769: bipush        57
+    1771: bastore
+    1772: dup
+    1773: bipush        19
+    1775: bipush        -126
+    1777: bastore
+    1778: dup
+    1779: bipush        20
+    1781: bipush        -101
+    1783: bastore
+    1784: dup
+    1785: bipush        21
+    1787: bipush        47
+    1789: bastore
+    1790: dup
+    1791: bipush        22
+    1793: iconst_m1
+    1794: bastore
+    1795: dup
+    1796: bipush        23
+    1798: bipush        -121
+    1800: bastore
+    1801: dup
+    1802: bipush        24
+    1804: bipush        52
+    1806: bastore
+    1807: dup
+    1808: bipush        25
+    1810: bipush        -114
+    1812: bastore
+    1813: dup
+    1814: bipush        26
+    1816: bipush        67
+    1818: bastore
+    1819: dup
+    1820: bipush        27
+    1822: bipush        68
+    1824: bastore
+    1825: dup
+    1826: bipush        28
+    1828: bipush        -60
+    1830: bastore
+    1831: dup
+    1832: bipush        29
+    1834: bipush        -34
+    1836: bastore
+    1837: dup
+    1838: bipush        30
+    1840: bipush        -23
+    1842: bastore
+    1843: dup
+    1844: bipush        31
+    1846: bipush        -53
+    1848: bastore
+    1849: dup
+    1850: bipush        32
+    1852: bipush        84
+    1854: bastore
+    1855: dup
+    1856: bipush        33
+    1858: bipush        123
+    1860: bastore
+    1861: dup
+    1862: bipush        34
+    1864: bipush        -108
+    1866: bastore
+    1867: dup
+    1868: bipush        35
+    1870: bipush        50
+    1872: bastore
+    1873: dup
+    1874: bipush        36
+    1876: bipush        -90
+    1878: bastore
+    1879: dup
+    1880: bipush        37
+    1882: bipush        -62
+    1884: bastore
+    1885: dup
+    1886: bipush        38
+    1888: bipush        35
+    1890: bastore
+    1891: dup
+    1892: bipush        39
+    1894: bipush        61
+    1896: bastore
+    1897: dup
+    1898: bipush        40
+    1900: bipush        -18
+    1902: bastore
+    1903: dup
+    1904: bipush        41
+    1906: bipush        76
+    1908: bastore
+    1909: dup
+    1910: bipush        42
+    1912: bipush        -107
+    1914: bastore
+    1915: dup
+    1916: bipush        43
+    1918: bipush        11
+    1920: bastore
+    1921: dup
+    1922: bipush        44
+    1924: bipush        66
+    1926: bastore
+    1927: dup
+    1928: bipush        45
+    1930: bipush        -6
+    1932: bastore
+    1933: dup
+    1934: bipush        46
+    1936: bipush        -61
+    1938: bastore
+    1939: dup
+    1940: bipush        47
+    1942: bipush        78
+    1944: bastore
+    1945: dup
+    1946: bipush        48
+    1948: bipush        8
+    1950: bastore
+    1951: dup
+    1952: bipush        49
+    1954: bipush        46
+    1956: bastore
+    1957: dup
+    1958: bipush        50
+    1960: bipush        -95
+    1962: bastore
+    1963: dup
+    1964: bipush        51
+    1966: bipush        102
+    1968: bastore
+    1969: dup
+    1970: bipush        52
+    1972: bipush        40
+    1974: bastore
+    1975: dup
+    1976: bipush        53
+    1978: bipush        -39
+    1980: bastore
+    1981: dup
+    1982: bipush        54
+    1984: bipush        36
+    1986: bastore
+    1987: dup
+    1988: bipush        55
+    1990: bipush        -78
+    1992: bastore
+    1993: dup
+    1994: bipush        56
+    1996: bipush        118
+    1998: bastore
+    1999: dup
+    2000: bipush        57
+    2002: bipush        91
+    2004: bastore
+    2005: dup
+    2006: bipush        58
+    2008: bipush        -94
+    2010: bastore
+    2011: dup
+    2012: bipush        59
+    2014: bipush        73
+    2016: bastore
+    2017: dup
+    2018: bipush        60
+    2020: bipush        109
+    2022: bastore
+    2023: dup
+    2024: bipush        61
+    2026: bipush        -117
+    2028: bastore
+    2029: dup
+    2030: bipush        62
+    2032: bipush        -47
+    2034: bastore
+    2035: dup
+    2036: bipush        63
+    2038: bipush        37
+    2040: bastore
+    2041: dup
+    2042: bipush        64
+    2044: bipush        114
+    2046: bastore
+    2047: dup
+    2048: bipush        65
+    2050: bipush        -8
+    2052: bastore
+    2053: dup
+    2054: bipush        66
+    2056: bipush        -10
+    2058: bastore
+    2059: dup
+    2060: bipush        67
+    2062: bipush        100
+    2064: bastore
+    2065: dup
+    2066: bipush        68
+    2068: bipush        -122
+    2070: bastore
+    2071: dup
+    2072: bipush        69
+    2074: bipush        104
+    2076: bastore
+    2077: dup
+    2078: bipush        70
+    2080: bipush        -104
+    2082: bastore
+    2083: dup
+    2084: bipush        71
+    2086: bipush        22
+    2088: bastore
+    2089: dup
+    2090: bipush        72
+    2092: bipush        -44
+    2094: bastore
+    2095: dup
+    2096: bipush        73
+    2098: bipush        -92
+    2100: bastore
+    2101: dup
+    2102: bipush        74
+    2104: bipush        92
+    2106: bastore
+    2107: dup
+    2108: bipush        75
+    2110: bipush        -52
+    2112: bastore
+    2113: dup
+    2114: bipush        76
+    2116: bipush        93
+    2118: bastore
+    2119: dup
+    2120: bipush        77
+    2122: bipush        101
+    2124: bastore
+    2125: dup
+    2126: bipush        78
+    2128: bipush        -74
+    2130: bastore
+    2131: dup
+    2132: bipush        79
+    2134: bipush        -110
+    2136: bastore
+    2137: dup
+    2138: bipush        80
+    2140: bipush        108
+    2142: bastore
+    2143: dup
+    2144: bipush        81
+    2146: bipush        112
+    2148: bastore
+    2149: dup
+    2150: bipush        82
+    2152: bipush        72
+    2154: bastore
+    2155: dup
+    2156: bipush        83
+    2158: bipush        80
+    2160: bastore
+    2161: dup
+    2162: bipush        84
+    2164: bipush        -3
+    2166: bastore
+    2167: dup
+    2168: bipush        85
+    2170: bipush        -19
+    2172: bastore
+    2173: dup
+    2174: bipush        86
+    2176: bipush        -71
+    2178: bastore
+    2179: dup
+    2180: bipush        87
+    2182: bipush        -38
+    2184: bastore
+    2185: dup
+    2186: bipush        88
+    2188: bipush        94
+    2190: bastore
+    2191: dup
+    2192: bipush        89
+    2194: bipush        21
+    2196: bastore
+    2197: dup
+    2198: bipush        90
+    2200: bipush        70
+    2202: bastore
+    2203: dup
+    2204: bipush        91
+    2206: bipush        87
+    2208: bastore
+    2209: dup
+    2210: bipush        92
+    2212: bipush        -89
+    2214: bastore
+    2215: dup
+    2216: bipush        93
+    2218: bipush        -115
+    2220: bastore
+    2221: dup
+    2222: bipush        94
+    2224: bipush        -99
+    2226: bastore
+    2227: dup
+    2228: bipush        95
+    2230: bipush        -124
+    2232: bastore
+    2233: dup
+    2234: bipush        96
+    2236: bipush        -112
+    2238: bastore
+    2239: dup
+    2240: bipush        97
+    2242: bipush        -40
+    2244: bastore
+    2245: dup
+    2246: bipush        98
+    2248: bipush        -85
+    2250: bastore
+    2251: dup
+    2252: bipush        99
+    2254: iconst_0
+    2255: bastore
+    2256: dup
+    2257: bipush        100
+    2259: bipush        -116
+    2261: bastore
+    2262: dup
+    2263: bipush        101
+    2265: bipush        -68
+    2267: bastore
+    2268: dup
+    2269: bipush        102
+    2271: bipush        -45
+    2273: bastore
+    2274: dup
+    2275: bipush        103
+    2277: bipush        10
+    2279: bastore
+    2280: dup
+    2281: bipush        104
+    2283: bipush        -9
+    2285: bastore
+    2286: dup
+    2287: bipush        105
+    2289: bipush        -28
+    2291: bastore
+    2292: dup
+    2293: bipush        106
+    2295: bipush        88
+    2297: bastore
+    2298: dup
+    2299: bipush        107
+    2301: iconst_5
+    2302: bastore
+    2303: dup
+    2304: bipush        108
+    2306: bipush        -72
+    2308: bastore
+    2309: dup
+    2310: bipush        109
+    2312: bipush        -77
+    2314: bastore
+    2315: dup
+    2316: bipush        110
+    2318: bipush        69
+    2320: bastore
+    2321: dup
+    2322: bipush        111
+    2324: bipush        6
+    2326: bastore
+    2327: dup
+    2328: bipush        112
+    2330: bipush        -48
+    2332: bastore
+    2333: dup
+    2334: bipush        113
+    2336: bipush        44
+    2338: bastore
+    2339: dup
+    2340: bipush        114
+    2342: bipush        30
+    2344: bastore
+    2345: dup
+    2346: bipush        115
+    2348: bipush        -113
+    2350: bastore
+    2351: dup
+    2352: bipush        116
+    2354: bipush        -54
+    2356: bastore
+    2357: dup
+    2358: bipush        117
+    2360: bipush        63
+    2362: bastore
+    2363: dup
+    2364: bipush        118
+    2366: bipush        15
+    2368: bastore
+    2369: dup
+    2370: bipush        119
+    2372: iconst_2
+    2373: bastore
+    2374: dup
+    2375: bipush        120
+    2377: bipush        -63
+    2379: bastore
+    2380: dup
+    2381: bipush        121
+    2383: bipush        -81
+    2385: bastore
+    2386: dup
+    2387: bipush        122
+    2389: bipush        -67
+    2391: bastore
+    2392: dup
+    2393: bipush        123
+    2395: iconst_3
+    2396: bastore
+    2397: dup
+    2398: bipush        124
+    2400: iconst_1
+    2401: bastore
+    2402: dup
+    2403: bipush        125
+    2405: bipush        19
+    2407: bastore
+    2408: dup
+    2409: bipush        126
+    2411: bipush        -118
+    2413: bastore
+    2414: dup
+    2415: bipush        127
+    2417: bipush        107
+    2419: bastore
+    2420: dup
+    2421: sipush        128
+    2424: bipush        58
+    2426: bastore
+    2427: dup
+    2428: sipush        129
+    2431: bipush        -111
+    2433: bastore
+    2434: dup
+    2435: sipush        130
+    2438: bipush        17
+    2440: bastore
+    2441: dup
+    2442: sipush        131
+    2445: bipush        65
+    2447: bastore
+    2448: dup
+    2449: sipush        132
+    2452: bipush        79
+    2454: bastore
+    2455: dup
+    2456: sipush        133
+    2459: bipush        103
+    2461: bastore
+    2462: dup
+    2463: sipush        134
+    2466: bipush        -36
+    2468: bastore
+    2469: dup
+    2470: sipush        135
+    2473: bipush        -22
+    2475: bastore
+    2476: dup
+    2477: sipush        136
+    2480: bipush        -105
+    2482: bastore
+    2483: dup
+    2484: sipush        137
+    2487: bipush        -14
+    2489: bastore
+    2490: dup
+    2491: sipush        138
+    2494: bipush        -49
+    2496: bastore
+    2497: dup
+    2498: sipush        139
+    2501: bipush        -50
+    2503: bastore
+    2504: dup
+    2505: sipush        140
+    2508: bipush        -16
+    2510: bastore
+    2511: dup
+    2512: sipush        141
+    2515: bipush        -76
+    2517: bastore
+    2518: dup
+    2519: sipush        142
+    2522: bipush        -26
+    2524: bastore
+    2525: dup
+    2526: sipush        143
+    2529: bipush        115
+    2531: bastore
+    2532: dup
+    2533: sipush        144
+    2536: bipush        -106
+    2538: bastore
+    2539: dup
+    2540: sipush        145
+    2543: bipush        -84
+    2545: bastore
+    2546: dup
+    2547: sipush        146
+    2550: bipush        116
+    2552: bastore
+    2553: dup
+    2554: sipush        147
+    2557: bipush        34
+    2559: bastore
+    2560: dup
+    2561: sipush        148
+    2564: bipush        -25
+    2566: bastore
+    2567: dup
+    2568: sipush        149
+    2571: bipush        -83
+    2573: bastore
+    2574: dup
+    2575: sipush        150
+    2578: bipush        53
+    2580: bastore
+    2581: dup
+    2582: sipush        151
+    2585: bipush        -123
+    2587: bastore
+    2588: dup
+    2589: sipush        152
+    2592: bipush        -30
+    2594: bastore
+    2595: dup
+    2596: sipush        153
+    2599: bipush        -7
+    2601: bastore
+    2602: dup
+    2603: sipush        154
+    2606: bipush        55
+    2608: bastore
+    2609: dup
+    2610: sipush        155
+    2613: bipush        -24
+    2615: bastore
+    2616: dup
+    2617: sipush        156
+    2620: bipush        28
+    2622: bastore
+    2623: dup
+    2624: sipush        157
+    2627: bipush        117
+    2629: bastore
+    2630: dup
+    2631: sipush        158
+    2634: bipush        -33
+    2636: bastore
+    2637: dup
+    2638: sipush        159
+    2641: bipush        110
+    2643: bastore
+    2644: dup
+    2645: sipush        160
+    2648: bipush        71
+    2650: bastore
+    2651: dup
+    2652: sipush        161
+    2655: bipush        -15
+    2657: bastore
+    2658: dup
+    2659: sipush        162
+    2662: bipush        26
+    2664: bastore
+    2665: dup
+    2666: sipush        163
+    2669: bipush        113
+    2671: bastore
+    2672: dup
+    2673: sipush        164
+    2676: bipush        29
+    2678: bastore
+    2679: dup
+    2680: sipush        165
+    2683: bipush        41
+    2685: bastore
+    2686: dup
+    2687: sipush        166
+    2690: bipush        -59
+    2692: bastore
+    2693: dup
+    2694: sipush        167
+    2697: bipush        -119
+    2699: bastore
+    2700: dup
+    2701: sipush        168
+    2704: bipush        111
+    2706: bastore
+    2707: dup
+    2708: sipush        169
+    2711: bipush        -73
+    2713: bastore
+    2714: dup
+    2715: sipush        170
+    2718: bipush        98
+    2720: bastore
+    2721: dup
+    2722: sipush        171
+    2725: bipush        14
+    2727: bastore
+    2728: dup
+    2729: sipush        172
+    2732: bipush        -86
+    2734: bastore
+    2735: dup
+    2736: sipush        173
+    2739: bipush        24
+    2741: bastore
+    2742: dup
+    2743: sipush        174
+    2746: bipush        -66
+    2748: bastore
+    2749: dup
+    2750: sipush        175
+    2753: bipush        27
+    2755: bastore
+    2756: dup
+    2757: sipush        176
+    2760: bipush        -4
+    2762: bastore
+    2763: dup
+    2764: sipush        177
+    2767: bipush        86
+    2769: bastore
+    2770: dup
+    2771: sipush        178
+    2774: bipush        62
+    2776: bastore
+    2777: dup
+    2778: sipush        179
+    2781: bipush        75
+    2783: bastore
+    2784: dup
+    2785: sipush        180
+    2788: bipush        -58
+    2790: bastore
+    2791: dup
+    2792: sipush        181
+    2795: bipush        -46
+    2797: bastore
+    2798: dup
+    2799: sipush        182
+    2802: bipush        121
+    2804: bastore
+    2805: dup
+    2806: sipush        183
+    2809: bipush        32
+    2811: bastore
+    2812: dup
+    2813: sipush        184
+    2816: bipush        -102
+    2818: bastore
+    2819: dup
+    2820: sipush        185
+    2823: bipush        -37
+    2825: bastore
+    2826: dup
+    2827: sipush        186
+    2830: bipush        -64
+    2832: bastore
+    2833: dup
+    2834: sipush        187
+    2837: bipush        -2
+    2839: bastore
+    2840: dup
+    2841: sipush        188
+    2844: bipush        120
+    2846: bastore
+    2847: dup
+    2848: sipush        189
+    2851: bipush        -51
+    2853: bastore
+    2854: dup
+    2855: sipush        190
+    2858: bipush        90
+    2860: bastore
+    2861: dup
+    2862: sipush        191
+    2865: bipush        -12
+    2867: bastore
+    2868: dup
+    2869: sipush        192
+    2872: bipush        31
+    2874: bastore
+    2875: dup
+    2876: sipush        193
+    2879: bipush        -35
+    2881: bastore
+    2882: dup
+    2883: sipush        194
+    2886: bipush        -88
+    2888: bastore
+    2889: dup
+    2890: sipush        195
+    2893: bipush        51
+    2895: bastore
+    2896: dup
+    2897: sipush        196
+    2900: bipush        -120
+    2902: bastore
+    2903: dup
+    2904: sipush        197
+    2907: bipush        7
+    2909: bastore
+    2910: dup
+    2911: sipush        198
+    2914: bipush        -57
+    2916: bastore
+    2917: dup
+    2918: sipush        199
+    2921: bipush        49
+    2923: bastore
+    2924: dup
+    2925: sipush        200
+    2928: bipush        -79
+    2930: bastore
+    2931: dup
+    2932: sipush        201
+    2935: bipush        18
+    2937: bastore
+    2938: dup
+    2939: sipush        202
+    2942: bipush        16
+    2944: bastore
+    2945: dup
+    2946: sipush        203
+    2949: bipush        89
+    2951: bastore
+    2952: dup
+    2953: sipush        204
+    2956: bipush        39
+    2958: bastore
+    2959: dup
+    2960: sipush        205
+    2963: bipush        -128
+    2965: bastore
+    2966: dup
+    2967: sipush        206
+    2970: bipush        -20
+    2972: bastore
+    2973: dup
+    2974: sipush        207
+    2977: bipush        95
+    2979: bastore
+    2980: dup
+    2981: sipush        208
+    2984: bipush        96
+    2986: bastore
+    2987: dup
+    2988: sipush        209
+    2991: bipush        81
+    2993: bastore
+    2994: dup
+    2995: sipush        210
+    2998: bipush        127
+    3000: bastore
+    3001: dup
+    3002: sipush        211
+    3005: bipush        -87
+    3007: bastore
+    3008: dup
+    3009: sipush        212
+    3012: bipush        25
+    3014: bastore
+    3015: dup
+    3016: sipush        213
+    3019: bipush        -75
+    3021: bastore
+    3022: dup
+    3023: sipush        214
+    3026: bipush        74
+    3028: bastore
+    3029: dup
+    3030: sipush        215
+    3033: bipush        13
+    3035: bastore
+    3036: dup
+    3037: sipush        216
+    3040: bipush        45
+    3042: bastore
+    3043: dup
+    3044: sipush        217
+    3047: bipush        -27
+    3049: bastore
+    3050: dup
+    3051: sipush        218
+    3054: bipush        122
+    3056: bastore
+    3057: dup
+    3058: sipush        219
+    3061: bipush        -97
+    3063: bastore
+    3064: dup
+    3065: sipush        220
+    3068: bipush        -109
+    3070: bastore
+    3071: dup
+    3072: sipush        221
+    3075: bipush        -55
+    3077: bastore
+    3078: dup
+    3079: sipush        222
+    3082: bipush        -100
+    3084: bastore
+    3085: dup
+    3086: sipush        223
+    3089: bipush        -17
+    3091: bastore
+    3092: dup
+    3093: sipush        224
+    3096: bipush        -96
+    3098: bastore
+    3099: dup
+    3100: sipush        225
+    3103: bipush        -32
+    3105: bastore
+    3106: dup
+    3107: sipush        226
+    3110: bipush        59
+    3112: bastore
+    3113: dup
+    3114: sipush        227
+    3117: bipush        77
+    3119: bastore
+    3120: dup
+    3121: sipush        228
+    3124: bipush        -82
+    3126: bastore
+    3127: dup
+    3128: sipush        229
+    3131: bipush        42
+    3133: bastore
+    3134: dup
+    3135: sipush        230
+    3138: bipush        -11
+    3140: bastore
+    3141: dup
+    3142: sipush        231
+    3145: bipush        -80
+    3147: bastore
+    3148: dup
+    3149: sipush        232
+    3152: bipush        -56
+    3154: bastore
+    3155: dup
+    3156: sipush        233
+    3159: bipush        -21
+    3161: bastore
+    3162: dup
+    3163: sipush        234
+    3166: bipush        -69
+    3168: bastore
+    3169: dup
+    3170: sipush        235
+    3173: bipush        60
+    3175: bastore
+    3176: dup
+    3177: sipush        236
+    3180: bipush        -125
+    3182: bastore
+    3183: dup
+    3184: sipush        237
+    3187: bipush        83
+    3189: bastore
+    3190: dup
+    3191: sipush        238
+    3194: bipush        -103
+    3196: bastore
+    3197: dup
+    3198: sipush        239
+    3201: bipush        97
+    3203: bastore
+    3204: dup
+    3205: sipush        240
+    3208: bipush        23
+    3210: bastore
+    3211: dup
+    3212: sipush        241
+    3215: bipush        43
+    3217: bastore
+    3218: dup
+    3219: sipush        242
+    3222: iconst_4
+    3223: bastore
+    3224: dup
+    3225: sipush        243
+    3228: bipush        126
+    3230: bastore
+    3231: dup
+    3232: sipush        244
+    3235: bipush        -70
+    3237: bastore
+    3238: dup
+    3239: sipush        245
+    3242: bipush        119
+    3244: bastore
+    3245: dup
+    3246: sipush        246
+    3249: bipush        -42
+    3251: bastore
+    3252: dup
+    3253: sipush        247
+    3256: bipush        38
+    3258: bastore
+    3259: dup
+    3260: sipush        248
+    3263: bipush        -31
+    3265: bastore
+    3266: dup
+    3267: sipush        249
+    3270: bipush        105
+    3272: bastore
+    3273: dup
+    3274: sipush        250
+    3277: bipush        20
+    3279: bastore
+    3280: dup
+    3281: sipush        251
+    3284: bipush        99
+    3286: bastore
+    3287: dup
+    3288: sipush        252
+    3291: bipush        85
+    3293: bastore
+    3294: dup
+    3295: sipush        253
+    3298: bipush        33
+    3300: bastore
+    3301: dup
+    3302: sipush        254
+    3305: bipush        12
+    3307: bastore
+    3308: dup
+    3309: sipush        255
+    3312: bipush        125
+    3314: bastore
+    3315: putstatic     #126                // Field Si:[B
+    3318: bipush        30
+    3320: newarray       int
+    3322: dup
+    3323: iconst_0
+    3324: iconst_1
+    3325: iastore
+    3326: dup
+    3327: iconst_1
+    3328: iconst_2
+    3329: iastore
+    3330: dup
+    3331: iconst_2
+    3332: iconst_4
+    3333: iastore
+    3334: dup
+    3335: iconst_3
+    3336: bipush        8
+    3338: iastore
+    3339: dup
+    3340: iconst_4
+    3341: bipush        16
+    3343: iastore
+    3344: dup
+    3345: iconst_5
+    3346: bipush        32
+    3348: iastore
+    3349: dup
+    3350: bipush        6
+    3352: bipush        64
+    3354: iastore
+    3355: dup
+    3356: bipush        7
+    3358: sipush        128
+    3361: iastore
+    3362: dup
+    3363: bipush        8
+    3365: bipush        27
+    3367: iastore
+    3368: dup
+    3369: bipush        9
+    3371: bipush        54
+    3373: iastore
+    3374: dup
+    3375: bipush        10
+    3377: bipush        108
+    3379: iastore
+    3380: dup
+    3381: bipush        11
+    3383: sipush        216
+    3386: iastore
+    3387: dup
+    3388: bipush        12
+    3390: sipush        171
+    3393: iastore
+    3394: dup
+    3395: bipush        13
+    3397: bipush        77
+    3399: iastore
+    3400: dup
+    3401: bipush        14
+    3403: sipush        154
+    3406: iastore
+    3407: dup
+    3408: bipush        15
+    3410: bipush        47
+    3412: iastore
+    3413: dup
+    3414: bipush        16
+    3416: bipush        94
+    3418: iastore
+    3419: dup
+    3420: bipush        17
+    3422: sipush        188
+    3425: iastore
+    3426: dup
+    3427: bipush        18
+    3429: bipush        99
+    3431: iastore
+    3432: dup
+    3433: bipush        19
+    3435: sipush        198
+    3438: iastore
+    3439: dup
+    3440: bipush        20
+    3442: sipush        151
+    3445: iastore
+    3446: dup
+    3447: bipush        21
+    3449: bipush        53
+    3451: iastore
+    3452: dup
+    3453: bipush        22
+    3455: bipush        106
+    3457: iastore
+    3458: dup
+    3459: bipush        23
+    3461: sipush        212
+    3464: iastore
+    3465: dup
+    3466: bipush        24
+    3468: sipush        179
+    3471: iastore
+    3472: dup
+    3473: bipush        25
+    3475: bipush        125
+    3477: iastore
+    3478: dup
+    3479: bipush        26
+    3481: sipush        250
+    3484: iastore
+    3485: dup
+    3486: bipush        27
+    3488: sipush        239
+    3491: iastore
+    3492: dup
+    3493: bipush        28
+    3495: sipush        197
+    3498: iastore
+    3499: dup
+    3500: bipush        29
+    3502: sipush        145
+    3505: iastore
+    3506: putstatic     #127                // Field rcon:[I
+    3509: return
+}

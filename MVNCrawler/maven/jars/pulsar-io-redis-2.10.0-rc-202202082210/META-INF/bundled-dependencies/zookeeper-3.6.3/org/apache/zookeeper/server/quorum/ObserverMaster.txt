@@ -1,0 +1,1142 @@
+Compiled from "ObserverMaster.java"
+public class org.apache.zookeeper.server.quorum.ObserverMaster extends org.apache.zookeeper.server.quorum.LearnerMaster implements java.lang.Runnable {
+  private static final org.slf4j.Logger LOG;
+
+  private final java.util.concurrent.atomic.AtomicLong followerCounter;
+
+  private org.apache.zookeeper.server.quorum.QuorumPeer self;
+
+  private org.apache.zookeeper.server.quorum.FollowerZooKeeperServer zks;
+
+  private int port;
+
+  private java.util.Set<org.apache.zookeeper.server.quorum.LearnerHandler> activeObservers;
+
+  private final java.util.concurrent.ConcurrentHashMap<org.apache.zookeeper.server.quorum.LearnerHandler, org.apache.zookeeper.server.quorum.LearnerHandlerBean> connectionBeans;
+
+  private static final int PKTS_SIZE_LIMIT;
+
+  private static volatile int pktsSizeLimit;
+
+  private java.util.concurrent.ConcurrentLinkedQueue<org.apache.zookeeper.server.quorum.QuorumPacket> proposedPkts;
+
+  private java.util.concurrent.ConcurrentLinkedQueue<org.apache.zookeeper.server.quorum.QuorumPacket> committedPkts;
+
+  private int pktsSize;
+
+  private long lastProposedZxid;
+
+  private final java.lang.Object revalidateSessionLock;
+
+  private final java.util.concurrent.ConcurrentLinkedQueue<org.apache.zookeeper.server.quorum.ObserverMaster$Revalidation> pendingRevalidations;
+
+  private java.lang.Thread thread;
+
+  private java.net.ServerSocket ss;
+
+  private boolean listenerRunning;
+
+  private java.util.concurrent.ScheduledExecutorService pinger;
+
+  java.lang.Runnable ping;
+
+  org.apache.zookeeper.server.quorum.ObserverMaster(org.apache.zookeeper.server.quorum.QuorumPeer, org.apache.zookeeper.server.quorum.FollowerZooKeeperServer, int);
+    Code:
+       0: aload_0
+       1: invokespecial #2                  // Method org/apache/zookeeper/server/quorum/LearnerMaster."<init>":()V
+       4: aload_0
+       5: new           #3                  // class java/util/concurrent/atomic/AtomicLong
+       8: dup
+       9: ldc2_w        #4                  // long -1l
+      12: invokespecial #6                  // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      15: putfield      #7                  // Field followerCounter:Ljava/util/concurrent/atomic/AtomicLong;
+      18: aload_0
+      19: new           #8                  // class java/util/concurrent/ConcurrentHashMap
+      22: dup
+      23: invokespecial #9                  // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      26: invokestatic  #10                 // Method java/util/Collections.newSetFromMap:(Ljava/util/Map;)Ljava/util/Set;
+      29: putfield      #1                  // Field activeObservers:Ljava/util/Set;
+      32: aload_0
+      33: new           #8                  // class java/util/concurrent/ConcurrentHashMap
+      36: dup
+      37: invokespecial #9                  // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      40: putfield      #11                 // Field connectionBeans:Ljava/util/concurrent/ConcurrentHashMap;
+      43: aload_0
+      44: new           #12                 // class java/util/concurrent/ConcurrentLinkedQueue
+      47: dup
+      48: invokespecial #13                 // Method java/util/concurrent/ConcurrentLinkedQueue."<init>":()V
+      51: putfield      #14                 // Field proposedPkts:Ljava/util/concurrent/ConcurrentLinkedQueue;
+      54: aload_0
+      55: new           #12                 // class java/util/concurrent/ConcurrentLinkedQueue
+      58: dup
+      59: invokespecial #13                 // Method java/util/concurrent/ConcurrentLinkedQueue."<init>":()V
+      62: putfield      #15                 // Field committedPkts:Ljava/util/concurrent/ConcurrentLinkedQueue;
+      65: aload_0
+      66: iconst_0
+      67: putfield      #16                 // Field pktsSize:I
+      70: aload_0
+      71: new           #17                 // class java/lang/Object
+      74: dup
+      75: invokespecial #18                 // Method java/lang/Object."<init>":()V
+      78: putfield      #19                 // Field revalidateSessionLock:Ljava/lang/Object;
+      81: aload_0
+      82: new           #12                 // class java/util/concurrent/ConcurrentLinkedQueue
+      85: dup
+      86: invokespecial #13                 // Method java/util/concurrent/ConcurrentLinkedQueue."<init>":()V
+      89: putfield      #20                 // Field pendingRevalidations:Ljava/util/concurrent/ConcurrentLinkedQueue;
+      92: aload_0
+      93: new           #21                 // class org/apache/zookeeper/server/quorum/ObserverMaster$1
+      96: dup
+      97: aload_0
+      98: invokespecial #22                 // Method org/apache/zookeeper/server/quorum/ObserverMaster$1."<init>":(Lorg/apache/zookeeper/server/quorum/ObserverMaster;)V
+     101: putfield      #23                 // Field ping:Ljava/lang/Runnable;
+     104: aload_0
+     105: aload_1
+     106: putfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     109: aload_0
+     110: aload_2
+     111: putfield      #25                 // Field zks:Lorg/apache/zookeeper/server/quorum/FollowerZooKeeperServer;
+     114: aload_0
+     115: iload_3
+     116: putfield      #26                 // Field port:I
+     119: return
+
+  public void addLearnerHandler(org.apache.zookeeper.server.quorum.LearnerHandler);
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field listenerRunning:Z
+       4: ifne          17
+       7: new           #28                 // class java/lang/RuntimeException
+      10: dup
+      11: ldc           #29                 // String ObserverMaster is not running
+      13: invokespecial #30                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;)V
+      16: athrow
+      17: return
+
+  public void removeLearnerHandler(org.apache.zookeeper.server.quorum.LearnerHandler);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field activeObservers:Ljava/util/Set;
+       4: aload_1
+       5: invokeinterface #31,  2           // InterfaceMethod java/util/Set.remove:(Ljava/lang/Object;)Z
+      10: pop
+      11: return
+
+  public int syncTimeout();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #32                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getSyncLimit:()I
+       7: aload_0
+       8: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      11: invokevirtual #33                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getTickTime:()I
+      14: imul
+      15: ireturn
+
+  public int getTickOfNextAckDeadline();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: getfield      #34                 // Field org/apache/zookeeper/server/quorum/QuorumPeer.tick:Ljava/util/concurrent/atomic/AtomicInteger;
+       7: invokevirtual #35                 // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+      10: aload_0
+      11: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      14: getfield      #36                 // Field org/apache/zookeeper/server/quorum/QuorumPeer.syncLimit:I
+      17: iadd
+      18: ireturn
+
+  public int getTickOfInitialAckDeadline();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: getfield      #34                 // Field org/apache/zookeeper/server/quorum/QuorumPeer.tick:Ljava/util/concurrent/atomic/AtomicInteger;
+       7: invokevirtual #35                 // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+      10: aload_0
+      11: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      14: getfield      #37                 // Field org/apache/zookeeper/server/quorum/QuorumPeer.initLimit:I
+      17: iadd
+      18: aload_0
+      19: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      22: getfield      #36                 // Field org/apache/zookeeper/server/quorum/QuorumPeer.syncLimit:I
+      25: iadd
+      26: ireturn
+
+  public long getAndDecrementFollowerCounter();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field followerCounter:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #38                 // Method java/util/concurrent/atomic/AtomicLong.getAndDecrement:()J
+       7: lreturn
+
+  public void waitForEpochAck(long, org.apache.zookeeper.server.quorum.StateSummary) throws java.io.IOException, java.lang.InterruptedException;
+    Code:
+       0: return
+
+  public void waitForStartup() throws java.lang.InterruptedException;
+    Code:
+       0: return
+
+  public synchronized long getLastProposed();
+    Code:
+       0: aload_0
+       1: getfield      #39                 // Field lastProposedZxid:J
+       4: lreturn
+
+  public long getEpochToPropose(long, long) throws java.lang.InterruptedException, java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #40                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getCurrentEpoch:()J
+       7: lreturn
+
+  public org.apache.zookeeper.server.ZKDatabase getZKDatabase();
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field zks:Lorg/apache/zookeeper/server/quorum/FollowerZooKeeperServer;
+       4: invokevirtual #41                 // Method org/apache/zookeeper/server/quorum/FollowerZooKeeperServer.getZKDatabase:()Lorg/apache/zookeeper/server/ZKDatabase;
+       7: areturn
+
+  public void waitForNewLeaderAck(long, long) throws java.lang.InterruptedException;
+    Code:
+       0: return
+
+  public int getCurrentTick();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: getfield      #34                 // Field org/apache/zookeeper/server/quorum/QuorumPeer.tick:Ljava/util/concurrent/atomic/AtomicInteger;
+       7: invokevirtual #35                 // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+      10: ireturn
+
+  public void processAck(long, long, java.net.SocketAddress);
+    Code:
+       0: lload_3
+       1: ldc2_w        #42                 // long 4294967295l
+       4: land
+       5: lconst_0
+       6: lcmp
+       7: ifne          11
+      10: return
+      11: new           #28                 // class java/lang/RuntimeException
+      14: dup
+      15: new           #44                 // class java/lang/StringBuilder
+      18: dup
+      19: invokespecial #45                 // Method java/lang/StringBuilder."<init>":()V
+      22: ldc           #46                 // String Observers shouldn\'t send ACKS ack =
+      24: invokevirtual #47                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      27: lload_3
+      28: invokestatic  #48                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      31: invokevirtual #47                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: invokevirtual #49                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      37: invokespecial #30                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;)V
+      40: athrow
+
+  public void touch(long, int);
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field zks:Lorg/apache/zookeeper/server/quorum/FollowerZooKeeperServer;
+       4: invokevirtual #50                 // Method org/apache/zookeeper/server/quorum/FollowerZooKeeperServer.getSessionTracker:()Lorg/apache/zookeeper/server/SessionTracker;
+       7: lload_1
+       8: iload_3
+       9: invokeinterface #51,  4           // InterfaceMethod org/apache/zookeeper/server/SessionTracker.touchSession:(JI)Z
+      14: pop
+      15: return
+
+  boolean revalidateLearnerSession(org.apache.zookeeper.server.quorum.QuorumPacket) throws java.io.IOException;
+    Code:
+       0: new           #52                 // class java/io/ByteArrayInputStream
+       3: dup
+       4: aload_1
+       5: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getData:()[B
+       8: invokespecial #54                 // Method java/io/ByteArrayInputStream."<init>":([B)V
+      11: astore_2
+      12: new           #55                 // class java/io/DataInputStream
+      15: dup
+      16: aload_2
+      17: invokespecial #56                 // Method java/io/DataInputStream."<init>":(Ljava/io/InputStream;)V
+      20: astore_3
+      21: aload_3
+      22: invokevirtual #57                 // Method java/io/DataInputStream.readLong:()J
+      25: lstore        4
+      27: aload_3
+      28: invokevirtual #58                 // Method java/io/DataInputStream.readBoolean:()Z
+      31: istore        6
+      33: aload_0
+      34: getfield      #20                 // Field pendingRevalidations:Ljava/util/concurrent/ConcurrentLinkedQueue;
+      37: invokevirtual #59                 // Method java/util/concurrent/ConcurrentLinkedQueue.iterator:()Ljava/util/Iterator;
+      40: astore        7
+      42: aload         7
+      44: invokeinterface #60,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      49: ifne          54
+      52: iconst_0
+      53: ireturn
+      54: aload         7
+      56: invokeinterface #61,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      61: checkcast     #62                 // class org/apache/zookeeper/server/quorum/ObserverMaster$Revalidation
+      64: astore        8
+      66: aload         8
+      68: getfield      #63                 // Field org/apache/zookeeper/server/quorum/ObserverMaster$Revalidation.sessionId:J
+      71: lload         4
+      73: lcmp
+      74: ifeq          79
+      77: iconst_0
+      78: ireturn
+      79: aload         7
+      81: invokeinterface #64,  1           // InterfaceMethod java/util/Iterator.remove:()V
+      86: aload         8
+      88: getfield      #65                 // Field org/apache/zookeeper/server/quorum/ObserverMaster$Revalidation.handler:Lorg/apache/zookeeper/server/quorum/LearnerHandler;
+      91: astore        9
+      93: new           #66                 // class org/apache/zookeeper/server/quorum/QuorumPacket
+      96: dup
+      97: aload_1
+      98: invokevirtual #67                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getType:()I
+     101: aload_1
+     102: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+     105: aload_1
+     106: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getData:()[B
+     109: aload_1
+     110: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getData:()[B
+     113: arraylength
+     114: invokestatic  #69                 // Method java/util/Arrays.copyOf:([BI)[B
+     117: aload_1
+     118: invokevirtual #70                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getAuthinfo:()Ljava/util/List;
+     121: ifnonnull     128
+     124: aconst_null
+     125: goto          139
+     128: new           #71                 // class java/util/ArrayList
+     131: dup
+     132: aload_1
+     133: invokevirtual #70                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getAuthinfo:()Ljava/util/List;
+     136: invokespecial #72                 // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+     139: invokespecial #73                 // Method org/apache/zookeeper/server/quorum/QuorumPacket."<init>":(IJ[BLjava/util/List;)V
+     142: astore        10
+     144: aload         9
+     146: aload         10
+     148: invokevirtual #74                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.queuePacket:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)V
+     151: iload         6
+     153: ifeq          170
+     156: aload_0
+     157: aload         8
+     159: getfield      #63                 // Field org/apache/zookeeper/server/quorum/ObserverMaster$Revalidation.sessionId:J
+     162: aload         8
+     164: getfield      #75                 // Field org/apache/zookeeper/server/quorum/ObserverMaster$Revalidation.timeout:I
+     167: invokevirtual #76                 // Method touch:(JI)V
+     170: iconst_1
+     171: ireturn
+
+  public void revalidateSession(org.apache.zookeeper.server.quorum.QuorumPacket, org.apache.zookeeper.server.quorum.LearnerHandler) throws java.io.IOException;
+    Code:
+       0: new           #52                 // class java/io/ByteArrayInputStream
+       3: dup
+       4: aload_1
+       5: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getData:()[B
+       8: invokespecial #54                 // Method java/io/ByteArrayInputStream."<init>":([B)V
+      11: astore_3
+      12: new           #55                 // class java/io/DataInputStream
+      15: dup
+      16: aload_3
+      17: invokespecial #56                 // Method java/io/DataInputStream."<init>":(Ljava/io/InputStream;)V
+      20: astore        4
+      22: aload         4
+      24: invokevirtual #57                 // Method java/io/DataInputStream.readLong:()J
+      27: lstore        5
+      29: aload         4
+      31: invokevirtual #77                 // Method java/io/DataInputStream.readInt:()I
+      34: istore        7
+      36: aload_0
+      37: getfield      #19                 // Field revalidateSessionLock:Ljava/lang/Object;
+      40: dup
+      41: astore        8
+      43: monitorenter
+      44: aload_0
+      45: getfield      #20                 // Field pendingRevalidations:Ljava/util/concurrent/ConcurrentLinkedQueue;
+      48: new           #62                 // class org/apache/zookeeper/server/quorum/ObserverMaster$Revalidation
+      51: dup
+      52: lload         5
+      54: invokestatic  #78                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      57: iload         7
+      59: aload_2
+      60: invokespecial #79                 // Method org/apache/zookeeper/server/quorum/ObserverMaster$Revalidation."<init>":(Ljava/lang/Long;ILorg/apache/zookeeper/server/quorum/LearnerHandler;)V
+      63: invokevirtual #80                 // Method java/util/concurrent/ConcurrentLinkedQueue.add:(Ljava/lang/Object;)Z
+      66: pop
+      67: aload_0
+      68: getfield      #25                 // Field zks:Lorg/apache/zookeeper/server/quorum/FollowerZooKeeperServer;
+      71: invokevirtual #81                 // Method org/apache/zookeeper/server/quorum/FollowerZooKeeperServer.getLearner:()Lorg/apache/zookeeper/server/quorum/Learner;
+      74: astore        9
+      76: aload         9
+      78: ifnull        88
+      81: aload         9
+      83: aload_1
+      84: iconst_1
+      85: invokevirtual #82                 // Method org/apache/zookeeper/server/quorum/Learner.writePacket:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;Z)V
+      88: aload         8
+      90: monitorexit
+      91: goto          102
+      94: astore        10
+      96: aload         8
+      98: monitorexit
+      99: aload         10
+     101: athrow
+     102: return
+    Exception table:
+       from    to  target type
+          44    91    94   any
+          94    99    94   any
+
+  public void submitLearnerRequest(org.apache.zookeeper.server.Request);
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field zks:Lorg/apache/zookeeper/server/quorum/FollowerZooKeeperServer;
+       4: aload_1
+       5: invokevirtual #83                 // Method org/apache/zookeeper/server/quorum/FollowerZooKeeperServer.processObserverRequest:(Lorg/apache/zookeeper/server/Request;)V
+       8: return
+
+  public synchronized long startForwarding(org.apache.zookeeper.server.quorum.LearnerHandler, long);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field committedPkts:Ljava/util/concurrent/ConcurrentLinkedQueue;
+       4: invokevirtual #59                 // Method java/util/concurrent/ConcurrentLinkedQueue.iterator:()Ljava/util/Iterator;
+       7: astore        4
+       9: aload         4
+      11: invokeinterface #60,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      16: ifeq          260
+      19: aload         4
+      21: invokeinterface #61,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      26: checkcast     #66                 // class org/apache/zookeeper/server/quorum/QuorumPacket
+      29: astore        5
+      31: aload         5
+      33: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+      36: lload_2
+      37: lconst_1
+      38: ladd
+      39: lcmp
+      40: ifle          102
+      43: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+      46: ldc           #85                 // String LearnerHandler is too far behind (0x{} < 0x{}), disconnecting {} at {}
+      48: iconst_4
+      49: anewarray     #17                 // class java/lang/Object
+      52: dup
+      53: iconst_0
+      54: lload_2
+      55: lconst_1
+      56: ladd
+      57: invokestatic  #48                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      60: aastore
+      61: dup
+      62: iconst_1
+      63: aload         5
+      65: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+      68: invokestatic  #48                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      71: aastore
+      72: dup
+      73: iconst_2
+      74: aload_1
+      75: invokevirtual #86                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.getSid:()J
+      78: invokestatic  #78                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      81: aastore
+      82: dup
+      83: iconst_3
+      84: aload_1
+      85: invokevirtual #87                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.getRemoteAddress:()Ljava/lang/String;
+      88: aastore
+      89: invokeinterface #88,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;[Ljava/lang/Object;)V
+      94: aload_1
+      95: invokevirtual #89                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.shutdown:()V
+      98: ldc2_w        #4                  // long -1l
+     101: lreturn
+     102: aload         5
+     104: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+     107: lload_2
+     108: lconst_1
+     109: ladd
+     110: lcmp
+     111: ifne          120
+     114: aload_1
+     115: aload         5
+     117: invokevirtual #74                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.queuePacket:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)V
+     120: aload         5
+     122: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+     125: lstore        6
+     127: aload         5
+     129: invokestatic  #90                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.packetSize:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)J
+     132: lstore        8
+     134: aload         4
+     136: invokeinterface #60,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+     141: ifeq          188
+     144: aload         4
+     146: invokeinterface #61,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     151: checkcast     #66                 // class org/apache/zookeeper/server/quorum/QuorumPacket
+     154: astore        5
+     156: aload         5
+     158: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+     161: lload_2
+     162: lcmp
+     163: ifgt          169
+     166: goto          134
+     169: aload_1
+     170: aload         5
+     172: invokevirtual #74                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.queuePacket:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)V
+     175: lload         8
+     177: aload         5
+     179: invokestatic  #90                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.packetSize:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)J
+     182: ladd
+     183: lstore        8
+     185: goto          134
+     188: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+     191: ldc           #91                 // String finished syncing observer from retained commit queue: sid {}, queue head 0x{}, queue tail 0x{}, sync position 0x{}, num packets used {}, num bytes used {}
+     193: bipush        6
+     195: anewarray     #17                 // class java/lang/Object
+     198: dup
+     199: iconst_0
+     200: aload_1
+     201: invokevirtual #86                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.getSid:()J
+     204: invokestatic  #78                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     207: aastore
+     208: dup
+     209: iconst_1
+     210: lload         6
+     212: invokestatic  #48                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     215: aastore
+     216: dup
+     217: iconst_2
+     218: aload         5
+     220: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+     223: invokestatic  #48                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     226: aastore
+     227: dup
+     228: iconst_3
+     229: lload_2
+     230: invokestatic  #48                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     233: aastore
+     234: dup
+     235: iconst_4
+     236: aload         5
+     238: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+     241: lload_2
+     242: lsub
+     243: invokestatic  #78                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     246: aastore
+     247: dup
+     248: iconst_5
+     249: lload         8
+     251: invokestatic  #78                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     254: aastore
+     255: invokeinterface #92,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+     260: aload_0
+     261: getfield      #1                  // Field activeObservers:Ljava/util/Set;
+     264: aload_1
+     265: invokeinterface #93,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     270: pop
+     271: aload_0
+     272: getfield      #39                 // Field lastProposedZxid:J
+     275: lreturn
+
+  public long getQuorumVerifierVersion();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #94                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getQuorumVerifier:()Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;
+       7: invokeinterface #95,  1           // InterfaceMethod org/apache/zookeeper/server/quorum/flexible/QuorumVerifier.getVersion:()J
+      12: lreturn
+
+  public java.lang.String getPeerInfo(long);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #96                 // Method org/apache/zookeeper/server/quorum/QuorumPeer.getView:()Ljava/util/Map;
+       7: lload_1
+       8: invokestatic  #78                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      11: invokeinterface #97,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      16: checkcast     #98                 // class org/apache/zookeeper/server/quorum/QuorumPeer$QuorumServer
+      19: astore_3
+      20: aload_3
+      21: ifnonnull     29
+      24: ldc           #99                 // String
+      26: goto          33
+      29: aload_3
+      30: invokevirtual #100                // Method org/apache/zookeeper/server/quorum/QuorumPeer$QuorumServer.toString:()Ljava/lang/String;
+      33: areturn
+
+  public byte[] getQuorumVerifierBytes();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: invokevirtual #101                // Method org/apache/zookeeper/server/quorum/QuorumPeer.getLastSeenQuorumVerifier:()Lorg/apache/zookeeper/server/quorum/flexible/QuorumVerifier;
+       7: invokeinterface #102,  1          // InterfaceMethod org/apache/zookeeper/server/quorum/flexible/QuorumVerifier.toString:()Ljava/lang/String;
+      12: invokevirtual #103                // Method java/lang/String.getBytes:()[B
+      15: areturn
+
+  public org.apache.zookeeper.server.quorum.auth.QuorumAuthServer getQuorumAuthServer();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+       4: ifnonnull     11
+       7: aconst_null
+       8: goto          18
+      11: aload_0
+      12: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      15: getfield      #104                // Field org/apache/zookeeper/server/quorum/QuorumPeer.authServer:Lorg/apache/zookeeper/server/quorum/auth/QuorumAuthServer;
+      18: areturn
+
+  void proposalReceived(org.apache.zookeeper.server.quorum.QuorumPacket);
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field proposedPkts:Ljava/util/concurrent/ConcurrentLinkedQueue;
+       4: new           #66                 // class org/apache/zookeeper/server/quorum/QuorumPacket
+       7: dup
+       8: bipush        8
+      10: aload_1
+      11: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+      14: aload_1
+      15: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getData:()[B
+      18: aconst_null
+      19: invokespecial #73                 // Method org/apache/zookeeper/server/quorum/QuorumPacket."<init>":(IJ[BLjava/util/List;)V
+      22: invokevirtual #80                 // Method java/util/concurrent/ConcurrentLinkedQueue.add:(Ljava/lang/Object;)Z
+      25: pop
+      26: return
+
+  private synchronized org.apache.zookeeper.server.quorum.QuorumPacket removeProposedPacket(long);
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field proposedPkts:Ljava/util/concurrent/ConcurrentLinkedQueue;
+       4: invokevirtual #106                // Method java/util/concurrent/ConcurrentLinkedQueue.peek:()Ljava/lang/Object;
+       7: checkcast     #66                 // class org/apache/zookeeper/server/quorum/QuorumPacket
+      10: astore_3
+      11: aload_3
+      12: ifnull        24
+      15: aload_3
+      16: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+      19: lload_1
+      20: lcmp
+      21: ifle          40
+      24: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+      27: ldc           #107                // String ignore missing proposal packet for {}
+      29: lload_1
+      30: invokestatic  #48                 // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      33: invokeinterface #108,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      38: aconst_null
+      39: areturn
+      40: aload_3
+      41: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+      44: lload_1
+      45: lcmp
+      46: ifeq          97
+      49: ldc           #109                // String Unexpected proposal packet on commit ack, expected zxid 0x%d got zxid 0x%d
+      51: iconst_2
+      52: anewarray     #17                 // class java/lang/Object
+      55: dup
+      56: iconst_0
+      57: lload_1
+      58: invokestatic  #78                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      61: aastore
+      62: dup
+      63: iconst_1
+      64: aload_3
+      65: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+      68: invokestatic  #78                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      71: aastore
+      72: invokestatic  #110                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      75: astore        4
+      77: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+      80: aload         4
+      82: invokeinterface #111,  2          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      87: new           #28                 // class java/lang/RuntimeException
+      90: dup
+      91: aload         4
+      93: invokespecial #30                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;)V
+      96: athrow
+      97: aload_0
+      98: getfield      #14                 // Field proposedPkts:Ljava/util/concurrent/ConcurrentLinkedQueue;
+     101: invokevirtual #112                // Method java/util/concurrent/ConcurrentLinkedQueue.remove:()Ljava/lang/Object;
+     104: pop
+     105: aload_3
+     106: areturn
+
+  private synchronized void cacheCommittedPacket(org.apache.zookeeper.server.quorum.QuorumPacket);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field committedPkts:Ljava/util/concurrent/ConcurrentLinkedQueue;
+       4: aload_1
+       5: invokevirtual #80                 // Method java/util/concurrent/ConcurrentLinkedQueue.add:(Ljava/lang/Object;)Z
+       8: pop
+       9: aload_0
+      10: dup
+      11: getfield      #16                 // Field pktsSize:I
+      14: i2l
+      15: aload_1
+      16: invokestatic  #90                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.packetSize:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)J
+      19: ladd
+      20: l2i
+      21: putfield      #16                 // Field pktsSize:I
+      24: iconst_0
+      25: istore_2
+      26: aload_0
+      27: getfield      #16                 // Field pktsSize:I
+      30: i2d
+      31: getstatic     #113                // Field pktsSizeLimit:I
+      34: i2d
+      35: ldc2_w        #114                // double 0.8d
+      38: dmul
+      39: dcmpl
+      40: ifle          92
+      43: iload_2
+      44: iconst_5
+      45: if_icmpge     92
+      48: aload_0
+      49: getfield      #15                 // Field committedPkts:Ljava/util/concurrent/ConcurrentLinkedQueue;
+      52: invokevirtual #116                // Method java/util/concurrent/ConcurrentLinkedQueue.poll:()Ljava/lang/Object;
+      55: checkcast     #66                 // class org/apache/zookeeper/server/quorum/QuorumPacket
+      58: astore_3
+      59: aload_3
+      60: ifnonnull     71
+      63: aload_0
+      64: iconst_0
+      65: putfield      #16                 // Field pktsSize:I
+      68: goto          92
+      71: aload_0
+      72: dup
+      73: getfield      #16                 // Field pktsSize:I
+      76: i2l
+      77: aload_3
+      78: invokestatic  #90                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.packetSize:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)J
+      81: lsub
+      82: l2i
+      83: putfield      #16                 // Field pktsSize:I
+      86: iinc          2, 1
+      89: goto          26
+      92: aload_0
+      93: getfield      #16                 // Field pktsSize:I
+      96: getstatic     #113                // Field pktsSizeLimit:I
+      99: if_icmple     143
+     102: aload_0
+     103: getfield      #15                 // Field committedPkts:Ljava/util/concurrent/ConcurrentLinkedQueue;
+     106: invokevirtual #116                // Method java/util/concurrent/ConcurrentLinkedQueue.poll:()Ljava/lang/Object;
+     109: checkcast     #66                 // class org/apache/zookeeper/server/quorum/QuorumPacket
+     112: astore_2
+     113: aload_2
+     114: ifnonnull     125
+     117: aload_0
+     118: iconst_0
+     119: putfield      #16                 // Field pktsSize:I
+     122: goto          143
+     125: aload_0
+     126: dup
+     127: getfield      #16                 // Field pktsSize:I
+     130: i2l
+     131: aload_2
+     132: invokestatic  #90                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.packetSize:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)J
+     135: lsub
+     136: l2i
+     137: putfield      #16                 // Field pktsSize:I
+     140: goto          92
+     143: return
+
+  private synchronized void sendPacket(org.apache.zookeeper.server.quorum.QuorumPacket);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field activeObservers:Ljava/util/Set;
+       4: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+       9: astore_2
+      10: aload_2
+      11: invokeinterface #60,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      16: ifeq          37
+      19: aload_2
+      20: invokeinterface #61,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      25: checkcast     #118                // class org/apache/zookeeper/server/quorum/LearnerHandler
+      28: astore_3
+      29: aload_3
+      30: aload_1
+      31: invokevirtual #74                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.queuePacket:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)V
+      34: goto          10
+      37: aload_0
+      38: aload_1
+      39: invokevirtual #68                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getZxid:()J
+      42: putfield      #39                 // Field lastProposedZxid:J
+      45: return
+
+  synchronized void proposalCommitted(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokespecial #119                // Method removeProposedPacket:(J)Lorg/apache/zookeeper/server/quorum/QuorumPacket;
+       5: astore_3
+       6: aload_3
+       7: ifnonnull     11
+      10: return
+      11: aload_0
+      12: aload_3
+      13: invokespecial #120                // Method cacheCommittedPacket:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)V
+      16: aload_0
+      17: aload_3
+      18: invokespecial #121                // Method sendPacket:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)V
+      21: return
+
+  synchronized void informAndActivate(long, long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokespecial #119                // Method removeProposedPacket:(J)Lorg/apache/zookeeper/server/quorum/QuorumPacket;
+       5: astore        5
+       7: aload         5
+       9: ifnonnull     13
+      12: return
+      13: lload_1
+      14: lload_3
+      15: aload         5
+      17: invokevirtual #53                 // Method org/apache/zookeeper/server/quorum/QuorumPacket.getData:()[B
+      20: invokestatic  #122                // Method org/apache/zookeeper/server/quorum/Leader.buildInformAndActivePacket:(JJ[B)Lorg/apache/zookeeper/server/quorum/QuorumPacket;
+      23: astore        6
+      25: aload_0
+      26: aload         6
+      28: invokespecial #120                // Method cacheCommittedPacket:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)V
+      31: aload_0
+      32: aload         6
+      34: invokespecial #121                // Method sendPacket:(Lorg/apache/zookeeper/server/quorum/QuorumPacket;)V
+      37: return
+
+  public synchronized void start() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #123                // Field thread:Ljava/lang/Thread;
+       4: ifnull        18
+       7: aload_0
+       8: getfield      #123                // Field thread:Ljava/lang/Thread;
+      11: invokevirtual #124                // Method java/lang/Thread.isAlive:()Z
+      14: ifeq          18
+      17: return
+      18: aload_0
+      19: iconst_1
+      20: putfield      #27                 // Field listenerRunning:Z
+      23: bipush        10
+      25: istore_1
+      26: aload_0
+      27: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      30: invokevirtual #125                // Method org/apache/zookeeper/server/quorum/QuorumPeer.getQuorumAddress:()Lorg/apache/zookeeper/server/quorum/MultipleAddresses;
+      33: invokevirtual #126                // Method org/apache/zookeeper/server/quorum/MultipleAddresses.getReachableOrOne:()Ljava/net/InetSocketAddress;
+      36: invokevirtual #127                // Method java/net/InetSocketAddress.getAddress:()Ljava/net/InetAddress;
+      39: astore_2
+      40: aload_0
+      41: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      44: invokevirtual #128                // Method org/apache/zookeeper/server/quorum/QuorumPeer.shouldUsePortUnification:()Z
+      47: ifne          60
+      50: aload_0
+      51: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      54: invokevirtual #129                // Method org/apache/zookeeper/server/quorum/QuorumPeer.isSslQuorum:()Z
+      57: ifeq          133
+      60: aload_0
+      61: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      64: invokevirtual #128                // Method org/apache/zookeeper/server/quorum/QuorumPeer.shouldUsePortUnification:()Z
+      67: istore_3
+      68: aload_0
+      69: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      72: invokevirtual #130                // Method org/apache/zookeeper/server/quorum/QuorumPeer.getQuorumListenOnAllIPs:()Z
+      75: ifeq          105
+      78: aload_0
+      79: new           #131                // class org/apache/zookeeper/server/quorum/UnifiedServerSocket
+      82: dup
+      83: aload_0
+      84: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      87: invokevirtual #132                // Method org/apache/zookeeper/server/quorum/QuorumPeer.getX509Util:()Lorg/apache/zookeeper/common/QuorumX509Util;
+      90: iload_3
+      91: aload_0
+      92: getfield      #26                 // Field port:I
+      95: iload_1
+      96: invokespecial #133                // Method org/apache/zookeeper/server/quorum/UnifiedServerSocket."<init>":(Lorg/apache/zookeeper/common/X509Util;ZII)V
+      99: putfield      #134                // Field ss:Ljava/net/ServerSocket;
+     102: goto          130
+     105: aload_0
+     106: new           #131                // class org/apache/zookeeper/server/quorum/UnifiedServerSocket
+     109: dup
+     110: aload_0
+     111: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     114: invokevirtual #132                // Method org/apache/zookeeper/server/quorum/QuorumPeer.getX509Util:()Lorg/apache/zookeeper/common/QuorumX509Util;
+     117: iload_3
+     118: aload_0
+     119: getfield      #26                 // Field port:I
+     122: iload_1
+     123: aload_2
+     124: invokespecial #135                // Method org/apache/zookeeper/server/quorum/UnifiedServerSocket."<init>":(Lorg/apache/zookeeper/common/X509Util;ZIILjava/net/InetAddress;)V
+     127: putfield      #134                // Field ss:Ljava/net/ServerSocket;
+     130: goto          179
+     133: aload_0
+     134: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     137: invokevirtual #130                // Method org/apache/zookeeper/server/quorum/QuorumPeer.getQuorumListenOnAllIPs:()Z
+     140: ifeq          162
+     143: aload_0
+     144: new           #136                // class java/net/ServerSocket
+     147: dup
+     148: aload_0
+     149: getfield      #26                 // Field port:I
+     152: iload_1
+     153: invokespecial #137                // Method java/net/ServerSocket."<init>":(II)V
+     156: putfield      #134                // Field ss:Ljava/net/ServerSocket;
+     159: goto          179
+     162: aload_0
+     163: new           #136                // class java/net/ServerSocket
+     166: dup
+     167: aload_0
+     168: getfield      #26                 // Field port:I
+     171: iload_1
+     172: aload_2
+     173: invokespecial #138                // Method java/net/ServerSocket."<init>":(IILjava/net/InetAddress;)V
+     176: putfield      #134                // Field ss:Ljava/net/ServerSocket;
+     179: aload_0
+     180: new           #139                // class java/lang/Thread
+     183: dup
+     184: aload_0
+     185: ldc           #140                // String ObserverMaster
+     187: invokespecial #141                // Method java/lang/Thread."<init>":(Ljava/lang/Runnable;Ljava/lang/String;)V
+     190: putfield      #123                // Field thread:Ljava/lang/Thread;
+     193: aload_0
+     194: getfield      #123                // Field thread:Ljava/lang/Thread;
+     197: invokevirtual #142                // Method java/lang/Thread.start:()V
+     200: aload_0
+     201: invokestatic  #143                // Method java/util/concurrent/Executors.newSingleThreadScheduledExecutor:()Ljava/util/concurrent/ScheduledExecutorService;
+     204: putfield      #144                // Field pinger:Ljava/util/concurrent/ScheduledExecutorService;
+     207: aload_0
+     208: getfield      #144                // Field pinger:Ljava/util/concurrent/ScheduledExecutorService;
+     211: aload_0
+     212: getfield      #23                 // Field ping:Ljava/lang/Runnable;
+     215: aload_0
+     216: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     219: getfield      #145                // Field org/apache/zookeeper/server/quorum/QuorumPeer.tickTime:I
+     222: iconst_2
+     223: idiv
+     224: i2l
+     225: aload_0
+     226: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+     229: getfield      #145                // Field org/apache/zookeeper/server/quorum/QuorumPeer.tickTime:I
+     232: iconst_2
+     233: idiv
+     234: i2l
+     235: getstatic     #146                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     238: invokeinterface #147,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+     243: pop
+     244: return
+
+  public void run();
+    Code:
+       0: aload_0
+       1: dup
+       2: astore_2
+       3: monitorenter
+       4: aload_0
+       5: getfield      #134                // Field ss:Ljava/net/ServerSocket;
+       8: astore_1
+       9: aload_2
+      10: monitorexit
+      11: goto          19
+      14: astore_3
+      15: aload_2
+      16: monitorexit
+      17: aload_3
+      18: athrow
+      19: aload_0
+      20: getfield      #27                 // Field listenerRunning:Z
+      23: ifeq          118
+      26: aload_1
+      27: invokevirtual #148                // Method java/net/ServerSocket.accept:()Ljava/net/Socket;
+      30: astore_2
+      31: aload_2
+      32: aload_0
+      33: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      36: getfield      #145                // Field org/apache/zookeeper/server/quorum/QuorumPeer.tickTime:I
+      39: aload_0
+      40: getfield      #24                 // Field self:Lorg/apache/zookeeper/server/quorum/QuorumPeer;
+      43: getfield      #37                 // Field org/apache/zookeeper/server/quorum/QuorumPeer.initLimit:I
+      46: imul
+      47: invokevirtual #149                // Method java/net/Socket.setSoTimeout:(I)V
+      50: new           #150                // class java/io/BufferedInputStream
+      53: dup
+      54: aload_2
+      55: invokevirtual #151                // Method java/net/Socket.getInputStream:()Ljava/io/InputStream;
+      58: invokespecial #152                // Method java/io/BufferedInputStream."<init>":(Ljava/io/InputStream;)V
+      61: astore_3
+      62: new           #118                // class org/apache/zookeeper/server/quorum/LearnerHandler
+      65: dup
+      66: aload_2
+      67: aload_3
+      68: aload_0
+      69: invokespecial #153                // Method org/apache/zookeeper/server/quorum/LearnerHandler."<init>":(Ljava/net/Socket;Ljava/io/BufferedInputStream;Lorg/apache/zookeeper/server/quorum/LearnerMaster;)V
+      72: astore        4
+      74: aload         4
+      76: invokevirtual #154                // Method org/apache/zookeeper/server/quorum/LearnerHandler.start:()V
+      79: goto          19
+      82: astore_2
+      83: aload_0
+      84: getfield      #27                 // Field listenerRunning:Z
+      87: ifeq          104
+      90: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+      93: ldc           #156                // String Ignoring accept exception (maybe shutting down)
+      95: aload_2
+      96: invokeinterface #157,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     101: goto          115
+     104: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+     107: ldc           #158                // String Ignoring accept exception (maybe client closed)
+     109: aload_2
+     110: invokeinterface #157,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     115: goto          19
+     118: return
+    Exception table:
+       from    to  target type
+           4    11    14   any
+          14    17    14   any
+          26    79    82   Class java/lang/Exception
+
+  public synchronized void stop();
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: putfield      #27                 // Field listenerRunning:Z
+       5: aload_0
+       6: getfield      #144                // Field pinger:Ljava/util/concurrent/ScheduledExecutorService;
+       9: ifnull        22
+      12: aload_0
+      13: getfield      #144                // Field pinger:Ljava/util/concurrent/ScheduledExecutorService;
+      16: invokeinterface #159,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.shutdownNow:()Ljava/util/List;
+      21: pop
+      22: aload_0
+      23: getfield      #134                // Field ss:Ljava/net/ServerSocket;
+      26: ifnull        44
+      29: aload_0
+      30: getfield      #134                // Field ss:Ljava/net/ServerSocket;
+      33: invokevirtual #160                // Method java/net/ServerSocket.close:()V
+      36: goto          44
+      39: astore_1
+      40: aload_1
+      41: invokevirtual #162                // Method java/io/IOException.printStackTrace:()V
+      44: aload_0
+      45: getfield      #1                  // Field activeObservers:Ljava/util/Set;
+      48: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      53: astore_1
+      54: aload_1
+      55: invokeinterface #60,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      60: ifeq          80
+      63: aload_1
+      64: invokeinterface #61,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      69: checkcast     #118                // class org/apache/zookeeper/server/quorum/LearnerHandler
+      72: astore_2
+      73: aload_2
+      74: invokevirtual #89                 // Method org/apache/zookeeper/server/quorum/LearnerHandler.shutdown:()V
+      77: goto          54
+      80: return
+    Exception table:
+       from    to  target type
+          29    36    39   Class java/io/IOException
+
+  int getNumActiveObservers();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field activeObservers:Ljava/util/Set;
+       4: invokeinterface #163,  1          // InterfaceMethod java/util/Set.size:()I
+       9: ireturn
+
+  public java.lang.Iterable<java.util.Map<java.lang.String, java.lang.Object>> getActiveObservers();
+    Code:
+       0: new           #164                // class java/util/HashSet
+       3: dup
+       4: invokespecial #165                // Method java/util/HashSet."<init>":()V
+       7: astore_1
+       8: aload_0
+       9: getfield      #1                  // Field activeObservers:Ljava/util/Set;
+      12: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      17: astore_2
+      18: aload_2
+      19: invokeinterface #60,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      24: ifeq          51
+      27: aload_2
+      28: invokeinterface #61,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      33: checkcast     #118                // class org/apache/zookeeper/server/quorum/LearnerHandler
+      36: astore_3
+      37: aload_1
+      38: aload_3
+      39: invokevirtual #166                // Method org/apache/zookeeper/server/quorum/LearnerHandler.getLearnerHandlerInfo:()Ljava/util/Map;
+      42: invokeinterface #93,  2           // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      47: pop
+      48: goto          18
+      51: aload_1
+      52: areturn
+
+  public void resetObserverConnectionStats();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field activeObservers:Ljava/util/Set;
+       4: invokeinterface #117,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+       9: astore_1
+      10: aload_1
+      11: invokeinterface #60,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      16: ifeq          36
+      19: aload_1
+      20: invokeinterface #61,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      25: checkcast     #118                // class org/apache/zookeeper/server/quorum/LearnerHandler
+      28: astore_2
+      29: aload_2
+      30: invokevirtual #167                // Method org/apache/zookeeper/server/quorum/LearnerHandler.resetObserverConnectionStats:()V
+      33: goto          10
+      36: return
+
+  int getPktsSizeLimit();
+    Code:
+       0: getstatic     #113                // Field pktsSizeLimit:I
+       3: ireturn
+
+  static void setPktsSizeLimit(int);
+    Code:
+       0: iload_0
+       1: putstatic     #113                // Field pktsSizeLimit:I
+       4: return
+
+  public void registerLearnerHandlerBean(org.apache.zookeeper.server.quorum.LearnerHandler, java.net.Socket);
+    Code:
+       0: new           #168                // class org/apache/zookeeper/server/quorum/LearnerHandlerBean
+       3: dup
+       4: aload_1
+       5: aload_2
+       6: invokespecial #169                // Method org/apache/zookeeper/server/quorum/LearnerHandlerBean."<init>":(Lorg/apache/zookeeper/server/quorum/LearnerHandler;Ljava/net/Socket;)V
+       9: astore_3
+      10: aload_0
+      11: getfield      #25                 // Field zks:Lorg/apache/zookeeper/server/quorum/FollowerZooKeeperServer;
+      14: aload_3
+      15: invokevirtual #170                // Method org/apache/zookeeper/server/quorum/FollowerZooKeeperServer.registerJMX:(Lorg/apache/zookeeper/server/quorum/LearnerHandlerBean;)Z
+      18: ifeq          31
+      21: aload_0
+      22: getfield      #11                 // Field connectionBeans:Ljava/util/concurrent/ConcurrentHashMap;
+      25: aload_1
+      26: aload_3
+      27: invokevirtual #171                // Method java/util/concurrent/ConcurrentHashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      30: pop
+      31: return
+
+  public void unregisterLearnerHandlerBean(org.apache.zookeeper.server.quorum.LearnerHandler);
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field connectionBeans:Ljava/util/concurrent/ConcurrentHashMap;
+       4: aload_1
+       5: invokevirtual #172                // Method java/util/concurrent/ConcurrentHashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+       8: checkcast     #168                // class org/apache/zookeeper/server/quorum/LearnerHandlerBean
+      11: astore_2
+      12: aload_2
+      13: ifnull        23
+      16: invokestatic  #173                // Method org/apache/zookeeper/jmx/MBeanRegistry.getInstance:()Lorg/apache/zookeeper/jmx/MBeanRegistry;
+      19: aload_2
+      20: invokevirtual #174                // Method org/apache/zookeeper/jmx/MBeanRegistry.unregister:(Lorg/apache/zookeeper/jmx/ZKMBeanInfo;)V
+      23: return
+
+  static java.util.Set access$000(org.apache.zookeeper.server.quorum.ObserverMaster);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field activeObservers:Ljava/util/Set;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc           #175                // class org/apache/zookeeper/server/quorum/ObserverMaster
+       2: invokestatic  #176                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+       8: ldc           #177                // String zookeeper.observerMaster.sizeLimit
+      10: ldc           #178                // int 33554432
+      12: invokestatic  #179                // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+      15: invokevirtual #180                // Method java/lang/Integer.intValue:()I
+      18: putstatic     #113                // Field pktsSizeLimit:I
+      21: return
+}

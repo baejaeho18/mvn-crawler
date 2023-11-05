@@ -1,0 +1,872 @@
+Compiled from "AbstractInactivityMonitor.java"
+public abstract class org.apache.activemq.transport.AbstractInactivityMonitor extends org.apache.activemq.transport.TransportFilter {
+  private static final org.slf4j.Logger LOG;
+
+  private static java.util.concurrent.ThreadPoolExecutor ASYNC_TASKS;
+
+  private static int CHECKER_COUNTER;
+
+  private static long DEFAULT_CHECK_TIME_MILLS;
+
+  private static java.util.Timer READ_CHECK_TIMER;
+
+  private static java.util.Timer WRITE_CHECK_TIMER;
+
+  private final java.util.concurrent.atomic.AtomicBoolean monitorStarted;
+
+  private final java.util.concurrent.atomic.AtomicBoolean commandSent;
+
+  private final java.util.concurrent.atomic.AtomicBoolean inSend;
+
+  private final java.util.concurrent.atomic.AtomicBoolean failed;
+
+  private final java.util.concurrent.atomic.AtomicBoolean commandReceived;
+
+  private final java.util.concurrent.atomic.AtomicBoolean inReceive;
+
+  private final java.util.concurrent.atomic.AtomicInteger lastReceiveCounter;
+
+  private final java.util.concurrent.locks.ReentrantReadWriteLock sendLock;
+
+  private org.apache.activemq.thread.SchedulerTimerTask writeCheckerTask;
+
+  private org.apache.activemq.thread.SchedulerTimerTask readCheckerTask;
+
+  private long readCheckTime;
+
+  private long writeCheckTime;
+
+  private long initialDelayTime;
+
+  private boolean useKeepAlive;
+
+  private boolean keepAliveResponseRequired;
+
+  protected org.apache.activemq.wireformat.WireFormat wireFormat;
+
+  private final java.lang.Runnable readChecker;
+
+  private final java.lang.Runnable writeChecker;
+
+  private final java.util.concurrent.ThreadFactory factory;
+
+  private boolean allowReadCheck(long);
+    Code:
+       0: lload_1
+       1: aload_0
+       2: getfield      #1                  // Field readCheckTime:J
+       5: ldc2_w        #8                  // long 9l
+       8: lmul
+       9: ldc2_w        #10                 // long 10l
+      12: ldiv
+      13: lcmp
+      14: ifle          21
+      17: iconst_1
+      18: goto          22
+      21: iconst_0
+      22: ireturn
+
+  public org.apache.activemq.transport.AbstractInactivityMonitor(org.apache.activemq.transport.Transport, org.apache.activemq.wireformat.WireFormat);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #12                 // Method org/apache/activemq/transport/TransportFilter."<init>":(Lorg/apache/activemq/transport/Transport;)V
+       5: aload_0
+       6: new           #13                 // class java/util/concurrent/atomic/AtomicBoolean
+       9: dup
+      10: iconst_0
+      11: invokespecial #14                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      14: putfield      #5                  // Field monitorStarted:Ljava/util/concurrent/atomic/AtomicBoolean;
+      17: aload_0
+      18: new           #13                 // class java/util/concurrent/atomic/AtomicBoolean
+      21: dup
+      22: iconst_0
+      23: invokespecial #14                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      26: putfield      #15                 // Field commandSent:Ljava/util/concurrent/atomic/AtomicBoolean;
+      29: aload_0
+      30: new           #13                 // class java/util/concurrent/atomic/AtomicBoolean
+      33: dup
+      34: iconst_0
+      35: invokespecial #14                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      38: putfield      #16                 // Field inSend:Ljava/util/concurrent/atomic/AtomicBoolean;
+      41: aload_0
+      42: new           #13                 // class java/util/concurrent/atomic/AtomicBoolean
+      45: dup
+      46: iconst_0
+      47: invokespecial #14                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      50: putfield      #17                 // Field failed:Ljava/util/concurrent/atomic/AtomicBoolean;
+      53: aload_0
+      54: new           #13                 // class java/util/concurrent/atomic/AtomicBoolean
+      57: dup
+      58: iconst_1
+      59: invokespecial #14                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      62: putfield      #18                 // Field commandReceived:Ljava/util/concurrent/atomic/AtomicBoolean;
+      65: aload_0
+      66: new           #13                 // class java/util/concurrent/atomic/AtomicBoolean
+      69: dup
+      70: iconst_0
+      71: invokespecial #14                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      74: putfield      #19                 // Field inReceive:Ljava/util/concurrent/atomic/AtomicBoolean;
+      77: aload_0
+      78: new           #20                 // class java/util/concurrent/atomic/AtomicInteger
+      81: dup
+      82: iconst_0
+      83: invokespecial #21                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      86: putfield      #22                 // Field lastReceiveCounter:Ljava/util/concurrent/atomic/AtomicInteger;
+      89: aload_0
+      90: new           #23                 // class java/util/concurrent/locks/ReentrantReadWriteLock
+      93: dup
+      94: invokespecial #24                 // Method java/util/concurrent/locks/ReentrantReadWriteLock."<init>":()V
+      97: putfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+     100: aload_0
+     101: getstatic     #25                 // Field DEFAULT_CHECK_TIME_MILLS:J
+     104: putfield      #1                  // Field readCheckTime:J
+     107: aload_0
+     108: getstatic     #25                 // Field DEFAULT_CHECK_TIME_MILLS:J
+     111: putfield      #26                 // Field writeCheckTime:J
+     114: aload_0
+     115: getstatic     #25                 // Field DEFAULT_CHECK_TIME_MILLS:J
+     118: putfield      #27                 // Field initialDelayTime:J
+     121: aload_0
+     122: iconst_1
+     123: putfield      #28                 // Field useKeepAlive:Z
+     126: aload_0
+     127: new           #29                 // class org/apache/activemq/transport/AbstractInactivityMonitor$1
+     130: dup
+     131: aload_0
+     132: invokespecial #30                 // Method org/apache/activemq/transport/AbstractInactivityMonitor$1."<init>":(Lorg/apache/activemq/transport/AbstractInactivityMonitor;)V
+     135: putfield      #31                 // Field readChecker:Ljava/lang/Runnable;
+     138: aload_0
+     139: new           #32                 // class org/apache/activemq/transport/AbstractInactivityMonitor$2
+     142: dup
+     143: aload_0
+     144: invokespecial #33                 // Method org/apache/activemq/transport/AbstractInactivityMonitor$2."<init>":(Lorg/apache/activemq/transport/AbstractInactivityMonitor;)V
+     147: putfield      #34                 // Field writeChecker:Ljava/lang/Runnable;
+     150: aload_0
+     151: new           #35                 // class org/apache/activemq/transport/AbstractInactivityMonitor$5
+     154: dup
+     155: aload_0
+     156: invokespecial #36                 // Method org/apache/activemq/transport/AbstractInactivityMonitor$5."<init>":(Lorg/apache/activemq/transport/AbstractInactivityMonitor;)V
+     159: putfield      #37                 // Field factory:Ljava/util/concurrent/ThreadFactory;
+     162: aload_0
+     163: aload_2
+     164: putfield      #38                 // Field wireFormat:Lorg/apache/activemq/wireformat/WireFormat;
+     167: return
+
+  public void start() throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: getfield      #39                 // Field next:Lorg/apache/activemq/transport/Transport;
+       4: invokeinterface #40,  1           // InterfaceMethod org/apache/activemq/transport/Transport.start:()V
+       9: aload_0
+      10: invokevirtual #41                 // Method startMonitorThreads:()V
+      13: return
+
+  public void stop() throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: invokevirtual #42                 // Method stopMonitorThreads:()V
+       4: aload_0
+       5: getfield      #39                 // Field next:Lorg/apache/activemq/transport/Transport;
+       8: invokeinterface #43,  1           // InterfaceMethod org/apache/activemq/transport/Transport.stop:()V
+      13: return
+
+  final void writeCheck();
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field inSend:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: ifeq          21
+      10: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      13: ldc           #45                 // String Send in progress. Skipping write check.
+      15: invokeinterface #46,  2           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+      20: return
+      21: aload_0
+      22: getfield      #15                 // Field commandSent:Ljava/util/concurrent/atomic/AtomicBoolean;
+      25: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      28: ifne          129
+      31: aload_0
+      32: getfield      #28                 // Field useKeepAlive:Z
+      35: ifeq          129
+      38: aload_0
+      39: getfield      #5                  // Field monitorStarted:Ljava/util/concurrent/atomic/AtomicBoolean;
+      42: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      45: ifeq          129
+      48: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+      51: invokevirtual #48                 // Method java/util/concurrent/ThreadPoolExecutor.isTerminating:()Z
+      54: ifne          129
+      57: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+      60: invokevirtual #49                 // Method java/util/concurrent/ThreadPoolExecutor.isTerminated:()Z
+      63: ifne          129
+      66: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      69: ldc           #50                 // String {} no message sent since last write check, sending a KeepAliveInfo
+      71: aload_0
+      72: invokeinterface #51,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;)V
+      77: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+      80: new           #52                 // class org/apache/activemq/transport/AbstractInactivityMonitor$3
+      83: dup
+      84: aload_0
+      85: invokespecial #53                 // Method org/apache/activemq/transport/AbstractInactivityMonitor$3."<init>":(Lorg/apache/activemq/transport/AbstractInactivityMonitor;)V
+      88: invokevirtual #54                 // Method java/util/concurrent/ThreadPoolExecutor.execute:(Ljava/lang/Runnable;)V
+      91: goto          140
+      94: astore_1
+      95: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+      98: invokevirtual #48                 // Method java/util/concurrent/ThreadPoolExecutor.isTerminating:()Z
+     101: ifne          126
+     104: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+     107: invokevirtual #49                 // Method java/util/concurrent/ThreadPoolExecutor.isTerminated:()Z
+     110: ifne          126
+     113: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     116: ldc           #56                 // String Async write check was rejected from the executor:
+     118: aload_1
+     119: invokeinterface #57,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     124: aload_1
+     125: athrow
+     126: goto          140
+     129: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     132: ldc           #58                 // String {} message sent since last write check, resetting flag.
+     134: aload_0
+     135: invokeinterface #51,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;)V
+     140: aload_0
+     141: getfield      #15                 // Field commandSent:Ljava/util/concurrent/atomic/AtomicBoolean;
+     144: iconst_0
+     145: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     148: return
+    Exception table:
+       from    to  target type
+          77    91    94   Class java/util/concurrent/RejectedExecutionException
+
+  final void readCheck();
+    Code:
+       0: aload_0
+       1: getfield      #39                 // Field next:Lorg/apache/activemq/transport/Transport;
+       4: invokeinterface #60,  1           // InterfaceMethod org/apache/activemq/transport/Transport.getReceiveCounter:()I
+       9: istore_1
+      10: aload_0
+      11: getfield      #22                 // Field lastReceiveCounter:Ljava/util/concurrent/atomic/AtomicInteger;
+      14: iload_1
+      15: invokevirtual #61                 // Method java/util/concurrent/atomic/AtomicInteger.getAndSet:(I)I
+      18: istore_2
+      19: aload_0
+      20: getfield      #19                 // Field inReceive:Ljava/util/concurrent/atomic/AtomicBoolean;
+      23: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      26: ifne          34
+      29: iload_1
+      30: iload_2
+      31: if_icmpeq     45
+      34: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      37: ldc           #62                 // String A receive is in progress, skipping read check.
+      39: invokeinterface #46,  2           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+      44: return
+      45: aload_0
+      46: getfield      #18                 // Field commandReceived:Ljava/util/concurrent/atomic/AtomicBoolean;
+      49: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      52: ifne          146
+      55: aload_0
+      56: getfield      #5                  // Field monitorStarted:Ljava/util/concurrent/atomic/AtomicBoolean;
+      59: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      62: ifeq          146
+      65: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+      68: invokevirtual #48                 // Method java/util/concurrent/ThreadPoolExecutor.isTerminating:()Z
+      71: ifne          146
+      74: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+      77: invokevirtual #49                 // Method java/util/concurrent/ThreadPoolExecutor.isTerminated:()Z
+      80: ifne          146
+      83: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      86: ldc           #63                 // String No message received since last read check for {}. Throwing InactivityIOException.
+      88: aload_0
+      89: invokeinterface #64,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      94: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+      97: new           #65                 // class org/apache/activemq/transport/AbstractInactivityMonitor$4
+     100: dup
+     101: aload_0
+     102: invokespecial #66                 // Method org/apache/activemq/transport/AbstractInactivityMonitor$4."<init>":(Lorg/apache/activemq/transport/AbstractInactivityMonitor;)V
+     105: invokevirtual #54                 // Method java/util/concurrent/ThreadPoolExecutor.execute:(Ljava/lang/Runnable;)V
+     108: goto          167
+     111: astore_3
+     112: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+     115: invokevirtual #48                 // Method java/util/concurrent/ThreadPoolExecutor.isTerminating:()Z
+     118: ifne          143
+     121: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+     124: invokevirtual #49                 // Method java/util/concurrent/ThreadPoolExecutor.isTerminated:()Z
+     127: ifne          143
+     130: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     133: ldc           #67                 // String Async read check was rejected from the executor:
+     135: aload_3
+     136: invokeinterface #57,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     141: aload_3
+     142: athrow
+     143: goto          167
+     146: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     149: invokeinterface #68,  1           // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+     154: ifeq          167
+     157: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     160: ldc           #69                 // String Message received since last read check, resetting flag:
+     162: invokeinterface #46,  2           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+     167: aload_0
+     168: getfield      #18                 // Field commandReceived:Ljava/util/concurrent/atomic/AtomicBoolean;
+     171: iconst_0
+     172: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     175: return
+    Exception table:
+       from    to  target type
+          94   108   111   Class java/util/concurrent/RejectedExecutionException
+
+  protected abstract void processInboundWireFormatInfo(org.apache.activemq.command.WireFormatInfo) throws java.io.IOException;
+
+  protected abstract void processOutboundWireFormatInfo(org.apache.activemq.command.WireFormatInfo) throws java.io.IOException;
+
+  public void onCommand(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field commandReceived:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_1
+       5: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+       8: aload_0
+       9: getfield      #19                 // Field inReceive:Ljava/util/concurrent/atomic/AtomicBoolean;
+      12: iconst_1
+      13: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      16: aload_1
+      17: invokevirtual #70                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      20: ldc_w         #71                 // class org/apache/activemq/command/KeepAliveInfo
+      23: if_acmpne     108
+      26: aload_1
+      27: checkcast     #71                 // class org/apache/activemq/command/KeepAliveInfo
+      30: astore_2
+      31: aload_2
+      32: invokevirtual #72                 // Method org/apache/activemq/command/KeepAliveInfo.isResponseRequired:()Z
+      35: ifeq          105
+      38: aload_0
+      39: getfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      42: invokevirtual #73                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      45: invokevirtual #74                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      48: aload_2
+      49: iconst_0
+      50: invokevirtual #75                 // Method org/apache/activemq/command/KeepAliveInfo.setResponseRequired:(Z)V
+      53: aload_0
+      54: aload_2
+      55: invokevirtual #76                 // Method oneway:(Ljava/lang/Object;)V
+      58: aload_0
+      59: getfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      62: invokevirtual #73                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      65: invokevirtual #77                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      68: goto          105
+      71: astore_3
+      72: aload_0
+      73: aload_3
+      74: invokevirtual #79                 // Method onException:(Ljava/io/IOException;)V
+      77: aload_0
+      78: getfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      81: invokevirtual #73                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      84: invokevirtual #77                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      87: goto          105
+      90: astore        4
+      92: aload_0
+      93: getfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      96: invokevirtual #73                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      99: invokevirtual #77                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     102: aload         4
+     104: athrow
+     105: goto          161
+     108: aload_1
+     109: invokevirtual #70                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     112: ldc_w         #80                 // class org/apache/activemq/command/WireFormatInfo
+     115: if_acmpne     151
+     118: aload_0
+     119: dup
+     120: astore_2
+     121: monitorenter
+     122: aload_0
+     123: aload_1
+     124: checkcast     #80                 // class org/apache/activemq/command/WireFormatInfo
+     127: invokevirtual #81                 // Method processInboundWireFormatInfo:(Lorg/apache/activemq/command/WireFormatInfo;)V
+     130: goto          139
+     133: astore_3
+     134: aload_0
+     135: aload_3
+     136: invokevirtual #79                 // Method onException:(Ljava/io/IOException;)V
+     139: aload_2
+     140: monitorexit
+     141: goto          151
+     144: astore        5
+     146: aload_2
+     147: monitorexit
+     148: aload         5
+     150: athrow
+     151: aload_0
+     152: getfield      #82                 // Field transportListener:Lorg/apache/activemq/transport/TransportListener;
+     155: aload_1
+     156: invokeinterface #83,  2           // InterfaceMethod org/apache/activemq/transport/TransportListener.onCommand:(Ljava/lang/Object;)V
+     161: aload_0
+     162: getfield      #19                 // Field inReceive:Ljava/util/concurrent/atomic/AtomicBoolean;
+     165: iconst_0
+     166: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     169: goto          185
+     172: astore        6
+     174: aload_0
+     175: getfield      #19                 // Field inReceive:Ljava/util/concurrent/atomic/AtomicBoolean;
+     178: iconst_0
+     179: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     182: aload         6
+     184: athrow
+     185: return
+    Exception table:
+       from    to  target type
+          48    58    71   Class java/io/IOException
+          48    58    90   any
+          71    77    90   any
+          90    92    90   any
+         122   130   133   Class java/io/IOException
+         122   141   144   any
+         144   148   144   any
+          16   161   172   any
+         172   174   172   any
+
+  public void oneway(java.lang.Object) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+       4: invokevirtual #73                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+       7: invokevirtual #74                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      10: aload_0
+      11: getfield      #16                 // Field inSend:Ljava/util/concurrent/atomic/AtomicBoolean;
+      14: iconst_1
+      15: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      18: aload_0
+      19: aload_1
+      20: invokespecial #2                  // Method doOnewaySend:(Ljava/lang/Object;)V
+      23: aload_0
+      24: getfield      #15                 // Field commandSent:Ljava/util/concurrent/atomic/AtomicBoolean;
+      27: iconst_1
+      28: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      31: aload_0
+      32: getfield      #16                 // Field inSend:Ljava/util/concurrent/atomic/AtomicBoolean;
+      35: iconst_0
+      36: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      39: aload_0
+      40: getfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      43: invokevirtual #73                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      46: invokevirtual #77                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      49: goto          81
+      52: astore_2
+      53: aload_0
+      54: getfield      #15                 // Field commandSent:Ljava/util/concurrent/atomic/AtomicBoolean;
+      57: iconst_1
+      58: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      61: aload_0
+      62: getfield      #16                 // Field inSend:Ljava/util/concurrent/atomic/AtomicBoolean;
+      65: iconst_0
+      66: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      69: aload_0
+      70: getfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      73: invokevirtual #73                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      76: invokevirtual #77                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      79: aload_2
+      80: athrow
+      81: return
+    Exception table:
+       from    to  target type
+          18    23    52   any
+          52    53    52   any
+
+  private void doOnewaySend(java.lang.Object) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field failed:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: ifeq          45
+      10: new           #84                 // class org/apache/activemq/transport/InactivityIOException
+      13: dup
+      14: new           #85                 // class java/lang/StringBuilder
+      17: dup
+      18: invokespecial #86                 // Method java/lang/StringBuilder."<init>":()V
+      21: ldc           #87                 // String Cannot send, channel has already failed:
+      23: invokevirtual #88                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: aload_0
+      27: getfield      #39                 // Field next:Lorg/apache/activemq/transport/Transport;
+      30: invokeinterface #89,  1           // InterfaceMethod org/apache/activemq/transport/Transport.getRemoteAddress:()Ljava/lang/String;
+      35: invokevirtual #88                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      38: invokevirtual #90                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      41: invokespecial #91                 // Method org/apache/activemq/transport/InactivityIOException."<init>":(Ljava/lang/String;)V
+      44: athrow
+      45: aload_1
+      46: invokevirtual #70                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      49: ldc_w         #80                 // class org/apache/activemq/command/WireFormatInfo
+      52: if_acmpne     77
+      55: aload_0
+      56: dup
+      57: astore_2
+      58: monitorenter
+      59: aload_0
+      60: aload_1
+      61: checkcast     #80                 // class org/apache/activemq/command/WireFormatInfo
+      64: invokevirtual #92                 // Method processOutboundWireFormatInfo:(Lorg/apache/activemq/command/WireFormatInfo;)V
+      67: aload_2
+      68: monitorexit
+      69: goto          77
+      72: astore_3
+      73: aload_2
+      74: monitorexit
+      75: aload_3
+      76: athrow
+      77: aload_0
+      78: getfield      #39                 // Field next:Lorg/apache/activemq/transport/Transport;
+      81: aload_1
+      82: invokeinterface #93,  2           // InterfaceMethod org/apache/activemq/transport/Transport.oneway:(Ljava/lang/Object;)V
+      87: return
+    Exception table:
+       from    to  target type
+          59    69    72   any
+          72    75    72   any
+
+  public void onException(java.io.IOException);
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field failed:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_0
+       5: iconst_1
+       6: invokevirtual #94                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+       9: ifeq          49
+      12: aload_0
+      13: invokevirtual #42                 // Method stopMonitorThreads:()V
+      16: aload_0
+      17: getfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      20: invokevirtual #95                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      23: invokevirtual #96                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.isHeldByCurrentThread:()Z
+      26: ifeq          39
+      29: aload_0
+      30: getfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+      33: invokevirtual #95                 // Method java/util/concurrent/locks/ReentrantReadWriteLock.writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      36: invokevirtual #97                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      39: aload_0
+      40: getfield      #82                 // Field transportListener:Lorg/apache/activemq/transport/TransportListener;
+      43: aload_1
+      44: invokeinterface #98,  2           // InterfaceMethod org/apache/activemq/transport/TransportListener.onException:(Ljava/io/IOException;)V
+      49: return
+
+  public void setUseKeepAlive(boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #28                 // Field useKeepAlive:Z
+       5: return
+
+  public long getReadCheckTime();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field readCheckTime:J
+       4: lreturn
+
+  public void setReadCheckTime(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: putfield      #1                  // Field readCheckTime:J
+       5: return
+
+  public long getWriteCheckTime();
+    Code:
+       0: aload_0
+       1: getfield      #26                 // Field writeCheckTime:J
+       4: lreturn
+
+  public void setWriteCheckTime(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: putfield      #26                 // Field writeCheckTime:J
+       5: return
+
+  public long getInitialDelayTime();
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field initialDelayTime:J
+       4: lreturn
+
+  public void setInitialDelayTime(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: putfield      #27                 // Field initialDelayTime:J
+       5: return
+
+  public boolean isKeepAliveResponseRequired();
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field keepAliveResponseRequired:Z
+       4: ireturn
+
+  public void setKeepAliveResponseRequired(boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #3                  // Field keepAliveResponseRequired:Z
+       5: return
+
+  public boolean isMonitorStarted();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field monitorStarted:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: ireturn
+
+  protected synchronized void startMonitorThreads() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field monitorStarted:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: ifeq          11
+      10: return
+      11: aload_0
+      12: invokevirtual #99                 // Method configuredOk:()Z
+      15: ifne          19
+      18: return
+      19: aload_0
+      20: getfield      #1                  // Field readCheckTime:J
+      23: lconst_0
+      24: lcmp
+      25: ifle          43
+      28: aload_0
+      29: new           #100                // class org/apache/activemq/thread/SchedulerTimerTask
+      32: dup
+      33: aload_0
+      34: getfield      #31                 // Field readChecker:Ljava/lang/Runnable;
+      37: invokespecial #101                // Method org/apache/activemq/thread/SchedulerTimerTask."<init>":(Ljava/lang/Runnable;)V
+      40: putfield      #102                // Field readCheckerTask:Lorg/apache/activemq/thread/SchedulerTimerTask;
+      43: aload_0
+      44: getfield      #26                 // Field writeCheckTime:J
+      47: lconst_0
+      48: lcmp
+      49: ifle          67
+      52: aload_0
+      53: new           #100                // class org/apache/activemq/thread/SchedulerTimerTask
+      56: dup
+      57: aload_0
+      58: getfield      #34                 // Field writeChecker:Ljava/lang/Runnable;
+      61: invokespecial #101                // Method org/apache/activemq/thread/SchedulerTimerTask."<init>":(Ljava/lang/Runnable;)V
+      64: putfield      #103                // Field writeCheckerTask:Lorg/apache/activemq/thread/SchedulerTimerTask;
+      67: aload_0
+      68: getfield      #26                 // Field writeCheckTime:J
+      71: lconst_0
+      72: lcmp
+      73: ifgt          85
+      76: aload_0
+      77: getfield      #1                  // Field readCheckTime:J
+      80: lconst_0
+      81: lcmp
+      82: ifle          210
+      85: aload_0
+      86: getfield      #5                  // Field monitorStarted:Ljava/util/concurrent/atomic/AtomicBoolean;
+      89: iconst_1
+      90: invokevirtual #59                 // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+      93: ldc_w         #104                // class org/apache/activemq/transport/AbstractInactivityMonitor
+      96: dup
+      97: astore_1
+      98: monitorenter
+      99: getstatic     #105                // Field CHECKER_COUNTER:I
+     102: ifne          138
+     105: aload_0
+     106: invokespecial #106                // Method createExecutor:()Ljava/util/concurrent/ThreadPoolExecutor;
+     109: putstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+     112: new           #107                // class java/util/Timer
+     115: dup
+     116: ldc           #108                // String ActiveMQ InactivityMonitor ReadCheckTimer
+     118: iconst_1
+     119: invokespecial #109                // Method java/util/Timer."<init>":(Ljava/lang/String;Z)V
+     122: putstatic     #110                // Field READ_CHECK_TIMER:Ljava/util/Timer;
+     125: new           #107                // class java/util/Timer
+     128: dup
+     129: ldc           #111                // String ActiveMQ InactivityMonitor WriteCheckTimer
+     131: iconst_1
+     132: invokespecial #109                // Method java/util/Timer."<init>":(Ljava/lang/String;Z)V
+     135: putstatic     #112                // Field WRITE_CHECK_TIMER:Ljava/util/Timer;
+     138: getstatic     #105                // Field CHECKER_COUNTER:I
+     141: iconst_1
+     142: iadd
+     143: putstatic     #105                // Field CHECKER_COUNTER:I
+     146: aload_0
+     147: getfield      #1                  // Field readCheckTime:J
+     150: lconst_0
+     151: lcmp
+     152: ifle          173
+     155: getstatic     #110                // Field READ_CHECK_TIMER:Ljava/util/Timer;
+     158: aload_0
+     159: getfield      #102                // Field readCheckerTask:Lorg/apache/activemq/thread/SchedulerTimerTask;
+     162: aload_0
+     163: getfield      #27                 // Field initialDelayTime:J
+     166: aload_0
+     167: getfield      #1                  // Field readCheckTime:J
+     170: invokevirtual #113                // Method java/util/Timer.schedule:(Ljava/util/TimerTask;JJ)V
+     173: aload_0
+     174: getfield      #26                 // Field writeCheckTime:J
+     177: lconst_0
+     178: lcmp
+     179: ifle          200
+     182: getstatic     #112                // Field WRITE_CHECK_TIMER:Ljava/util/Timer;
+     185: aload_0
+     186: getfield      #103                // Field writeCheckerTask:Lorg/apache/activemq/thread/SchedulerTimerTask;
+     189: aload_0
+     190: getfield      #27                 // Field initialDelayTime:J
+     193: aload_0
+     194: getfield      #26                 // Field writeCheckTime:J
+     197: invokevirtual #113                // Method java/util/Timer.schedule:(Ljava/util/TimerTask;JJ)V
+     200: aload_1
+     201: monitorexit
+     202: goto          210
+     205: astore_2
+     206: aload_1
+     207: monitorexit
+     208: aload_2
+     209: athrow
+     210: return
+    Exception table:
+       from    to  target type
+          99   202   205   any
+         205   208   205   any
+
+  protected abstract boolean configuredOk() throws java.io.IOException;
+
+  protected synchronized void stopMonitorThreads();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field monitorStarted:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: iconst_1
+       5: iconst_0
+       6: invokevirtual #94                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+       9: ifeq          112
+      12: aload_0
+      13: getfield      #102                // Field readCheckerTask:Lorg/apache/activemq/thread/SchedulerTimerTask;
+      16: ifnull        27
+      19: aload_0
+      20: getfield      #102                // Field readCheckerTask:Lorg/apache/activemq/thread/SchedulerTimerTask;
+      23: invokevirtual #114                // Method org/apache/activemq/thread/SchedulerTimerTask.cancel:()Z
+      26: pop
+      27: aload_0
+      28: getfield      #103                // Field writeCheckerTask:Lorg/apache/activemq/thread/SchedulerTimerTask;
+      31: ifnull        42
+      34: aload_0
+      35: getfield      #103                // Field writeCheckerTask:Lorg/apache/activemq/thread/SchedulerTimerTask;
+      38: invokevirtual #114                // Method org/apache/activemq/thread/SchedulerTimerTask.cancel:()Z
+      41: pop
+      42: ldc_w         #104                // class org/apache/activemq/transport/AbstractInactivityMonitor
+      45: dup
+      46: astore_1
+      47: monitorenter
+      48: getstatic     #112                // Field WRITE_CHECK_TIMER:Ljava/util/Timer;
+      51: invokevirtual #115                // Method java/util/Timer.purge:()I
+      54: pop
+      55: getstatic     #110                // Field READ_CHECK_TIMER:Ljava/util/Timer;
+      58: invokevirtual #115                // Method java/util/Timer.purge:()I
+      61: pop
+      62: getstatic     #105                // Field CHECKER_COUNTER:I
+      65: iconst_1
+      66: isub
+      67: putstatic     #105                // Field CHECKER_COUNTER:I
+      70: getstatic     #105                // Field CHECKER_COUNTER:I
+      73: ifne          102
+      76: getstatic     #112                // Field WRITE_CHECK_TIMER:Ljava/util/Timer;
+      79: invokevirtual #116                // Method java/util/Timer.cancel:()V
+      82: getstatic     #110                // Field READ_CHECK_TIMER:Ljava/util/Timer;
+      85: invokevirtual #116                // Method java/util/Timer.cancel:()V
+      88: aconst_null
+      89: putstatic     #112                // Field WRITE_CHECK_TIMER:Ljava/util/Timer;
+      92: aconst_null
+      93: putstatic     #110                // Field READ_CHECK_TIMER:Ljava/util/Timer;
+      96: getstatic     #47                 // Field ASYNC_TASKS:Ljava/util/concurrent/ThreadPoolExecutor;
+      99: invokestatic  #117                // Method org/apache/activemq/util/ThreadPoolUtils.shutdown:(Ljava/util/concurrent/ExecutorService;)V
+     102: aload_1
+     103: monitorexit
+     104: goto          112
+     107: astore_2
+     108: aload_1
+     109: monitorexit
+     110: aload_2
+     111: athrow
+     112: return
+    Exception table:
+       from    to  target type
+          48   104   107   any
+         107   110   107   any
+
+  private java.util.concurrent.ThreadPoolExecutor createExecutor();
+    Code:
+       0: new           #118                // class java/util/concurrent/ThreadPoolExecutor
+       3: dup
+       4: iconst_0
+       5: ldc           #119                // int 2147483647
+       7: invokestatic  #120                // Method getDefaultKeepAliveTime:()I
+      10: i2l
+      11: getstatic     #121                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      14: new           #122                // class java/util/concurrent/SynchronousQueue
+      17: dup
+      18: invokespecial #123                // Method java/util/concurrent/SynchronousQueue."<init>":()V
+      21: aload_0
+      22: getfield      #37                 // Field factory:Ljava/util/concurrent/ThreadFactory;
+      25: invokespecial #124                // Method java/util/concurrent/ThreadPoolExecutor."<init>":(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/ThreadFactory;)V
+      28: astore_1
+      29: aload_1
+      30: iconst_1
+      31: invokevirtual #125                // Method java/util/concurrent/ThreadPoolExecutor.allowCoreThreadTimeOut:(Z)V
+      34: aload_1
+      35: areturn
+
+  private static int getDefaultKeepAliveTime();
+    Code:
+       0: ldc           #126                // String org.apache.activemq.transport.AbstractInactivityMonitor.keepAliveTime
+       2: bipush        30
+       4: invokestatic  #127                // Method java/lang/Integer.getInteger:(Ljava/lang/String;I)Ljava/lang/Integer;
+       7: invokevirtual #128                // Method java/lang/Integer.intValue:()I
+      10: ireturn
+
+  static org.slf4j.Logger access$000();
+    Code:
+       0: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static boolean access$100(org.apache.activemq.transport.AbstractInactivityMonitor, long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokespecial #6                  // Method allowReadCheck:(J)Z
+       5: ireturn
+
+  static java.util.concurrent.atomic.AtomicBoolean access$200(org.apache.activemq.transport.AbstractInactivityMonitor);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field monitorStarted:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: areturn
+
+  static java.util.concurrent.locks.ReentrantReadWriteLock access$300(org.apache.activemq.transport.AbstractInactivityMonitor);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field sendLock:Ljava/util/concurrent/locks/ReentrantReadWriteLock;
+       4: areturn
+
+  static boolean access$400(org.apache.activemq.transport.AbstractInactivityMonitor);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field keepAliveResponseRequired:Z
+       4: ireturn
+
+  static void access$500(org.apache.activemq.transport.AbstractInactivityMonitor, java.lang.Object) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #2                  // Method doOnewaySend:(Ljava/lang/Object;)V
+       5: return
+
+  static long access$600(org.apache.activemq.transport.AbstractInactivityMonitor);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field readCheckTime:J
+       4: lreturn
+
+  static {};
+    Code:
+       0: ldc_w         #104                // class org/apache/activemq/transport/AbstractInactivityMonitor
+       3: invokestatic  #129                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       6: putstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       9: ldc2_w        #130                // long 30000l
+      12: putstatic     #25                 // Field DEFAULT_CHECK_TIME_MILLS:J
+      15: return
+}

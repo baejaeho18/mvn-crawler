@@ -1,0 +1,690 @@
+Compiled from "InMemorySessionManager.java"
+class io.undertow.server.session.InMemorySessionManager$SessionImpl implements io.undertow.server.session.Session {
+  final io.undertow.util.AttachmentKey<java.lang.Long> FIRST_REQUEST_ACCESS;
+
+  final io.undertow.server.session.InMemorySessionManager sessionManager;
+
+  final java.util.concurrent.ConcurrentMap<java.lang.String, java.lang.Object> attributes;
+
+  volatile long lastAccessed;
+
+  final long creationTime;
+
+  volatile int maxInactiveInterval;
+
+  static volatile java.util.concurrent.atomic.AtomicReferenceFieldUpdater<io.undertow.server.session.InMemorySessionManager$SessionImpl, java.lang.Object> evictionTokenUpdater;
+
+  private volatile java.lang.String sessionId;
+
+  private volatile java.lang.Object evictionToken;
+
+  private final io.undertow.server.session.SessionConfig sessionCookieConfig;
+
+  private volatile long expireTime;
+
+  private volatile boolean invalid;
+
+  private volatile boolean invalidationStarted;
+
+  final org.xnio.XnioIoThread executor;
+
+  final org.xnio.XnioWorker worker;
+
+  org.xnio.XnioExecutor$Key timerCancelKey;
+
+  java.lang.Runnable cancelTask;
+
+  private static java.util.concurrent.atomic.AtomicReferenceFieldUpdater<io.undertow.server.session.InMemorySessionManager$SessionImpl, java.lang.Object> createTokenUpdater();
+    Code:
+       0: ldc           #1                  // class io/undertow/server/session/InMemorySessionManager$SessionImpl
+       2: ldc           #2                  // class java/lang/Object
+       4: ldc           #3                  // String evictionToken
+       6: invokestatic  #4                  // Method java/util/concurrent/atomic/AtomicReferenceFieldUpdater.newUpdater:(Ljava/lang/Class;Ljava/lang/Class;Ljava/lang/String;)Ljava/util/concurrent/atomic/AtomicReferenceFieldUpdater;
+       9: areturn
+
+  private io.undertow.server.session.InMemorySessionManager$SessionImpl(io.undertow.server.session.InMemorySessionManager, io.undertow.server.session.SessionConfig, org.xnio.XnioIoThread, org.xnio.XnioWorker, int);
+    Code:
+       0: aload_0
+       1: invokespecial #5                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: ldc           #6                  // class java/lang/Long
+       7: invokestatic  #7                  // Method io/undertow/util/AttachmentKey.create:(Ljava/lang/Class;)Lio/undertow/util/AttachmentKey;
+      10: putfield      #8                  // Field FIRST_REQUEST_ACCESS:Lio/undertow/util/AttachmentKey;
+      13: aload_0
+      14: new           #9                  // class java/util/concurrent/ConcurrentHashMap
+      17: dup
+      18: invokespecial #10                 // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      21: putfield      #11                 // Field attributes:Ljava/util/concurrent/ConcurrentMap;
+      24: aload_0
+      25: ldc2_w        #12                 // long -1l
+      28: putfield      #14                 // Field expireTime:J
+      31: aload_0
+      32: iconst_0
+      33: putfield      #15                 // Field invalid:Z
+      36: aload_0
+      37: iconst_0
+      38: putfield      #16                 // Field invalidationStarted:Z
+      41: aload_0
+      42: new           #17                 // class io/undertow/server/session/InMemorySessionManager$SessionImpl$2
+      45: dup
+      46: aload_0
+      47: invokespecial #18                 // Method io/undertow/server/session/InMemorySessionManager$SessionImpl$2."<init>":(Lio/undertow/server/session/InMemorySessionManager$SessionImpl;)V
+      50: putfield      #19                 // Field cancelTask:Ljava/lang/Runnable;
+      53: aload_0
+      54: aload_1
+      55: putfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      58: aload_0
+      59: aload_2
+      60: putfield      #21                 // Field sessionCookieConfig:Lio/undertow/server/session/SessionConfig;
+      63: aload_0
+      64: aload_3
+      65: putfield      #22                 // Field executor:Lorg/xnio/XnioIoThread;
+      68: aload_0
+      69: aload         4
+      71: putfield      #23                 // Field worker:Lorg/xnio/XnioWorker;
+      74: aload_0
+      75: aload_0
+      76: invokestatic  #24                 // Method java/lang/System.currentTimeMillis:()J
+      79: dup2_x1
+      80: putfield      #25                 // Field lastAccessed:J
+      83: putfield      #26                 // Field creationTime:J
+      86: aload_0
+      87: iload         5
+      89: invokevirtual #27                 // Method setMaxInactiveInterval:(I)V
+      92: return
+
+  synchronized void bumpTimeout();
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field invalidationStarted:Z
+       4: ifeq          8
+       7: return
+       8: aload_0
+       9: invokevirtual #28                 // Method getMaxInactiveIntervalMilis:()J
+      12: lstore_1
+      13: lload_1
+      14: lconst_0
+      15: lcmp
+      16: ifle          116
+      19: invokestatic  #24                 // Method java/lang/System.currentTimeMillis:()J
+      22: lload_1
+      23: ladd
+      24: lstore_3
+      25: aload_0
+      26: getfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+      29: ifnull        59
+      32: lload_3
+      33: aload_0
+      34: getfield      #14                 // Field expireTime:J
+      37: lcmp
+      38: ifge          59
+      41: aload_0
+      42: getfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+      45: invokeinterface #30,  1           // InterfaceMethod org/xnio/XnioExecutor$Key.remove:()Z
+      50: ifne          54
+      53: return
+      54: aload_0
+      55: aconst_null
+      56: putfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+      59: aload_0
+      60: lload_3
+      61: putfield      #14                 // Field expireTime:J
+      64: getstatic     #31                 // Field io/undertow/UndertowLogger.SESSION_LOGGER:Lio/undertow/UndertowLogger;
+      67: ldc           #32                 // String Bumping timeout for session %s to %s
+      69: aload_0
+      70: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      73: aload_0
+      74: getfield      #14                 // Field expireTime:J
+      77: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      80: invokeinterface #35,  4           // InterfaceMethod io/undertow/UndertowLogger.tracef:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      85: aload_0
+      86: getfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+      89: ifnonnull     113
+      92: aload_0
+      93: aload_0
+      94: getfield      #22                 // Field executor:Lorg/xnio/XnioIoThread;
+      97: aload_0
+      98: getfield      #19                 // Field cancelTask:Ljava/lang/Runnable;
+     101: lload_1
+     102: lconst_1
+     103: ladd
+     104: getstatic     #36                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     107: invokevirtual #37                 // Method org/xnio/XnioIoThread.executeAfter:(Ljava/lang/Runnable;JLjava/util/concurrent/TimeUnit;)Lorg/xnio/XnioExecutor$Key;
+     110: putfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+     113: goto          145
+     116: aload_0
+     117: ldc2_w        #12                 // long -1l
+     120: putfield      #14                 // Field expireTime:J
+     123: aload_0
+     124: getfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+     127: ifnull        145
+     130: aload_0
+     131: getfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+     134: invokeinterface #30,  1           // InterfaceMethod org/xnio/XnioExecutor$Key.remove:()Z
+     139: pop
+     140: aload_0
+     141: aconst_null
+     142: putfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+     145: return
+
+  private void setEvictionToken(java.lang.Object);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #38                 // Field evictionToken:Ljava/lang/Object;
+       5: aload_1
+       6: ifnull        52
+       9: aload_1
+      10: astore_2
+      11: getstatic     #39                 // Field evictionTokenUpdater:Ljava/util/concurrent/atomic/AtomicReferenceFieldUpdater;
+      14: aload_0
+      15: aload_2
+      16: aconst_null
+      17: invokevirtual #40                 // Method java/util/concurrent/atomic/AtomicReferenceFieldUpdater.compareAndSet:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Z
+      20: ifeq          52
+      23: aload_0
+      24: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      27: getfield      #41                 // Field io/undertow/server/session/InMemorySessionManager.evictionQueue:Lio/undertow/util/ConcurrentDirectDeque;
+      30: aload_2
+      31: invokevirtual #42                 // Method io/undertow/util/ConcurrentDirectDeque.removeToken:(Ljava/lang/Object;)V
+      34: aload_0
+      35: aload_0
+      36: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      39: getfield      #41                 // Field io/undertow/server/session/InMemorySessionManager.evictionQueue:Lio/undertow/util/ConcurrentDirectDeque;
+      42: aload_0
+      43: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      46: invokevirtual #43                 // Method io/undertow/util/ConcurrentDirectDeque.offerLastAndReturnToken:(Ljava/lang/Object;)Ljava/lang/Object;
+      49: putfield      #38                 // Field evictionToken:Ljava/lang/Object;
+      52: return
+
+  private void setId(java.lang.String);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #33                 // Field sessionId:Ljava/lang/String;
+       5: return
+
+  public java.lang.String getId();
+    Code:
+       0: aload_0
+       1: getfield      #33                 // Field sessionId:Ljava/lang/String;
+       4: areturn
+
+  void requestStarted(io.undertow.server.HttpServerExchange);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: getfield      #8                  // Field FIRST_REQUEST_ACCESS:Lio/undertow/util/AttachmentKey;
+       5: invokevirtual #44                 // Method io/undertow/server/HttpServerExchange.getAttachment:(Lio/undertow/util/AttachmentKey;)Ljava/lang/Object;
+       8: checkcast     #6                  // class java/lang/Long
+      11: astore_2
+      12: aload_2
+      13: ifnonnull     38
+      16: aload_0
+      17: getfield      #15                 // Field invalid:Z
+      20: ifne          38
+      23: aload_1
+      24: aload_0
+      25: getfield      #8                  // Field FIRST_REQUEST_ACCESS:Lio/undertow/util/AttachmentKey;
+      28: invokestatic  #24                 // Method java/lang/System.currentTimeMillis:()J
+      31: invokestatic  #34                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      34: invokevirtual #45                 // Method io/undertow/server/HttpServerExchange.putAttachment:(Lio/undertow/util/AttachmentKey;Ljava/lang/Object;)Ljava/lang/Object;
+      37: pop
+      38: aload_0
+      39: invokevirtual #46                 // Method bumpTimeout:()V
+      42: return
+
+  public void requestDone(io.undertow.server.HttpServerExchange);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: getfield      #8                  // Field FIRST_REQUEST_ACCESS:Lio/undertow/util/AttachmentKey;
+       5: invokevirtual #44                 // Method io/undertow/server/HttpServerExchange.getAttachment:(Lio/undertow/util/AttachmentKey;)Ljava/lang/Object;
+       8: checkcast     #6                  // class java/lang/Long
+      11: astore_2
+      12: aload_2
+      13: ifnull        24
+      16: aload_0
+      17: aload_2
+      18: invokevirtual #47                 // Method java/lang/Long.longValue:()J
+      21: putfield      #25                 // Field lastAccessed:J
+      24: aload_0
+      25: invokevirtual #46                 // Method bumpTimeout:()V
+      28: return
+
+  public long getCreationTime();
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field invalid:Z
+       4: ifeq          20
+       7: getstatic     #48                 // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      10: aload_0
+      11: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      14: invokeinterface #49,  2           // InterfaceMethod io/undertow/UndertowMessages.sessionIsInvalid:(Ljava/lang/String;)Ljava/lang/IllegalStateException;
+      19: athrow
+      20: aload_0
+      21: getfield      #26                 // Field creationTime:J
+      24: lreturn
+
+  public long getLastAccessedTime();
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field invalid:Z
+       4: ifeq          20
+       7: getstatic     #48                 // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      10: aload_0
+      11: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      14: invokeinterface #49,  2           // InterfaceMethod io/undertow/UndertowMessages.sessionIsInvalid:(Ljava/lang/String;)Ljava/lang/IllegalStateException;
+      19: athrow
+      20: aload_0
+      21: getfield      #25                 // Field lastAccessed:J
+      24: lreturn
+
+  public void setMaxInactiveInterval(int);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field invalid:Z
+       4: ifeq          20
+       7: getstatic     #48                 // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      10: aload_0
+      11: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      14: invokeinterface #49,  2           // InterfaceMethod io/undertow/UndertowMessages.sessionIsInvalid:(Ljava/lang/String;)Ljava/lang/IllegalStateException;
+      19: athrow
+      20: getstatic     #31                 // Field io/undertow/UndertowLogger.SESSION_LOGGER:Lio/undertow/UndertowLogger;
+      23: ldc           #50                 // String Setting max inactive interval for %s to %s
+      25: aload_0
+      26: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      29: iload_1
+      30: invokestatic  #51                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      33: invokeinterface #52,  4           // InterfaceMethod io/undertow/UndertowLogger.debugf:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      38: aload_0
+      39: iload_1
+      40: putfield      #53                 // Field maxInactiveInterval:I
+      43: aload_0
+      44: invokevirtual #46                 // Method bumpTimeout:()V
+      47: return
+
+  public int getMaxInactiveInterval();
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field invalid:Z
+       4: ifeq          20
+       7: getstatic     #48                 // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      10: aload_0
+      11: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      14: invokeinterface #49,  2           // InterfaceMethod io/undertow/UndertowMessages.sessionIsInvalid:(Ljava/lang/String;)Ljava/lang/IllegalStateException;
+      19: athrow
+      20: aload_0
+      21: getfield      #53                 // Field maxInactiveInterval:I
+      24: ireturn
+
+  private long getMaxInactiveIntervalMilis();
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field invalid:Z
+       4: ifeq          20
+       7: getstatic     #48                 // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      10: aload_0
+      11: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      14: invokeinterface #49,  2           // InterfaceMethod io/undertow/UndertowMessages.sessionIsInvalid:(Ljava/lang/String;)Ljava/lang/IllegalStateException;
+      19: athrow
+      20: aload_0
+      21: getfield      #53                 // Field maxInactiveInterval:I
+      24: i2l
+      25: ldc2_w        #54                 // long 1000l
+      28: lmul
+      29: lreturn
+
+  public java.lang.Object getAttribute(java.lang.String);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field invalid:Z
+       4: ifeq          20
+       7: getstatic     #48                 // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      10: aload_0
+      11: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      14: invokeinterface #49,  2           // InterfaceMethod io/undertow/UndertowMessages.sessionIsInvalid:(Ljava/lang/String;)Ljava/lang/IllegalStateException;
+      19: athrow
+      20: aload_0
+      21: getfield      #11                 // Field attributes:Ljava/util/concurrent/ConcurrentMap;
+      24: aload_1
+      25: invokeinterface #56,  2           // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      30: areturn
+
+  public java.util.Set<java.lang.String> getAttributeNames();
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field invalid:Z
+       4: ifeq          20
+       7: getstatic     #48                 // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      10: aload_0
+      11: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      14: invokeinterface #49,  2           // InterfaceMethod io/undertow/UndertowMessages.sessionIsInvalid:(Ljava/lang/String;)Ljava/lang/IllegalStateException;
+      19: athrow
+      20: aload_0
+      21: getfield      #11                 // Field attributes:Ljava/util/concurrent/ConcurrentMap;
+      24: invokeinterface #57,  1           // InterfaceMethod java/util/concurrent/ConcurrentMap.keySet:()Ljava/util/Set;
+      29: areturn
+
+  public java.lang.Object setAttribute(java.lang.String, java.lang.Object);
+    Code:
+       0: aload_2
+       1: ifnonnull     10
+       4: aload_0
+       5: aload_1
+       6: invokevirtual #58                 // Method removeAttribute:(Ljava/lang/String;)Ljava/lang/Object;
+       9: areturn
+      10: aload_0
+      11: getfield      #15                 // Field invalid:Z
+      14: ifeq          30
+      17: getstatic     #48                 // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      20: aload_0
+      21: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      24: invokeinterface #49,  2           // InterfaceMethod io/undertow/UndertowMessages.sessionIsInvalid:(Ljava/lang/String;)Ljava/lang/IllegalStateException;
+      29: athrow
+      30: aload_0
+      31: getfield      #11                 // Field attributes:Ljava/util/concurrent/ConcurrentMap;
+      34: aload_1
+      35: aload_2
+      36: invokeinterface #59,  3           // InterfaceMethod java/util/concurrent/ConcurrentMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      41: astore_3
+      42: aload_3
+      43: ifnonnull     62
+      46: aload_0
+      47: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      50: getfield      #60                 // Field io/undertow/server/session/InMemorySessionManager.sessionListeners:Lio/undertow/server/session/SessionListeners;
+      53: aload_0
+      54: aload_1
+      55: aload_2
+      56: invokevirtual #61                 // Method io/undertow/server/session/SessionListeners.attributeAdded:(Lio/undertow/server/session/Session;Ljava/lang/String;Ljava/lang/Object;)V
+      59: goto          76
+      62: aload_0
+      63: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      66: getfield      #60                 // Field io/undertow/server/session/InMemorySessionManager.sessionListeners:Lio/undertow/server/session/SessionListeners;
+      69: aload_0
+      70: aload_1
+      71: aload_2
+      72: aload_3
+      73: invokevirtual #62                 // Method io/undertow/server/session/SessionListeners.attributeUpdated:(Lio/undertow/server/session/Session;Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      76: getstatic     #31                 // Field io/undertow/UndertowLogger.SESSION_LOGGER:Lio/undertow/UndertowLogger;
+      79: ldc           #63                 // String Setting session attribute %s to %s for session %s
+      81: aload_1
+      82: aload_2
+      83: aload_0
+      84: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      87: invokeinterface #64,  5           // InterfaceMethod io/undertow/UndertowLogger.tracef:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V
+      92: aload_3
+      93: areturn
+
+  public java.lang.Object removeAttribute(java.lang.String);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field invalid:Z
+       4: ifeq          20
+       7: getstatic     #48                 // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      10: aload_0
+      11: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      14: invokeinterface #49,  2           // InterfaceMethod io/undertow/UndertowMessages.sessionIsInvalid:(Ljava/lang/String;)Ljava/lang/IllegalStateException;
+      19: athrow
+      20: aload_0
+      21: getfield      #11                 // Field attributes:Ljava/util/concurrent/ConcurrentMap;
+      24: aload_1
+      25: invokeinterface #65,  2           // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      30: astore_2
+      31: aload_0
+      32: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      35: getfield      #60                 // Field io/undertow/server/session/InMemorySessionManager.sessionListeners:Lio/undertow/server/session/SessionListeners;
+      38: aload_0
+      39: aload_1
+      40: aload_2
+      41: invokevirtual #66                 // Method io/undertow/server/session/SessionListeners.attributeRemoved:(Lio/undertow/server/session/Session;Ljava/lang/String;Ljava/lang/Object;)V
+      44: getstatic     #31                 // Field io/undertow/UndertowLogger.SESSION_LOGGER:Lio/undertow/UndertowLogger;
+      47: ldc           #67                 // String Removing session attribute %s for session %s
+      49: aload_1
+      50: aload_0
+      51: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      54: invokeinterface #35,  4           // InterfaceMethod io/undertow/UndertowLogger.tracef:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      59: aload_2
+      60: areturn
+
+  public void invalidate(io.undertow.server.HttpServerExchange);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: getstatic     #68                 // Field io/undertow/server/session/SessionListener$SessionDestroyedReason.INVALIDATED:Lio/undertow/server/session/SessionListener$SessionDestroyedReason;
+       5: invokevirtual #69                 // Method invalidate:(Lio/undertow/server/HttpServerExchange;Lio/undertow/server/session/SessionListener$SessionDestroyedReason;)V
+       8: aload_1
+       9: ifnull        24
+      12: aload_1
+      13: aload_0
+      14: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      17: getfield      #70                 // Field io/undertow/server/session/InMemorySessionManager.NEW_SESSION:Lio/undertow/util/AttachmentKey;
+      20: invokevirtual #71                 // Method io/undertow/server/HttpServerExchange.removeAttachment:(Lio/undertow/util/AttachmentKey;)Ljava/lang/Object;
+      23: pop
+      24: aload_0
+      25: getfield      #38                 // Field evictionToken:Ljava/lang/Object;
+      28: astore_2
+      29: aload_2
+      30: ifnull        44
+      33: aload_0
+      34: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      37: getfield      #41                 // Field io/undertow/server/session/InMemorySessionManager.evictionQueue:Lio/undertow/util/ConcurrentDirectDeque;
+      40: aload_2
+      41: invokevirtual #42                 // Method io/undertow/util/ConcurrentDirectDeque.removeToken:(Ljava/lang/Object;)V
+      44: return
+
+  void invalidate(io.undertow.server.HttpServerExchange, io.undertow.server.session.SessionListener$SessionDestroyedReason);
+    Code:
+       0: aload_0
+       1: dup
+       2: astore_3
+       3: monitorenter
+       4: aload_0
+       5: getfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+       8: ifnull        21
+      11: aload_0
+      12: getfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+      15: invokeinterface #30,  1           // InterfaceMethod org/xnio/XnioExecutor$Key.remove:()Z
+      20: pop
+      21: aload_0
+      22: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      25: getfield      #72                 // Field io/undertow/server/session/InMemorySessionManager.sessions:Ljava/util/concurrent/ConcurrentMap;
+      28: aload_0
+      29: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      32: invokeinterface #65,  2           // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      37: checkcast     #1                  // class io/undertow/server/session/InMemorySessionManager$SessionImpl
+      40: astore        4
+      42: aload         4
+      44: ifnonnull     66
+      47: aload_2
+      48: getstatic     #68                 // Field io/undertow/server/session/SessionListener$SessionDestroyedReason.INVALIDATED:Lio/undertow/server/session/SessionListener$SessionDestroyedReason;
+      51: if_acmpne     63
+      54: getstatic     #48                 // Field io/undertow/UndertowMessages.MESSAGES:Lio/undertow/UndertowMessages;
+      57: invokeinterface #73,  1           // InterfaceMethod io/undertow/UndertowMessages.sessionAlreadyInvalidated:()Ljava/lang/IllegalStateException;
+      62: athrow
+      63: aload_3
+      64: monitorexit
+      65: return
+      66: aload_0
+      67: iconst_1
+      68: putfield      #16                 // Field invalidationStarted:Z
+      71: aload_3
+      72: monitorexit
+      73: goto          83
+      76: astore        5
+      78: aload_3
+      79: monitorexit
+      80: aload         5
+      82: athrow
+      83: getstatic     #31                 // Field io/undertow/UndertowLogger.SESSION_LOGGER:Lio/undertow/UndertowLogger;
+      86: ldc           #74                 // String Invalidating session %s for exchange %s
+      88: aload_0
+      89: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      92: aload_1
+      93: invokeinterface #52,  4           // InterfaceMethod io/undertow/UndertowLogger.debugf:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      98: aload_0
+      99: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+     102: getfield      #60                 // Field io/undertow/server/session/InMemorySessionManager.sessionListeners:Lio/undertow/server/session/SessionListeners;
+     105: aload_0
+     106: aload_1
+     107: aload_2
+     108: invokevirtual #75                 // Method io/undertow/server/session/SessionListeners.sessionDestroyed:(Lio/undertow/server/session/Session;Lio/undertow/server/HttpServerExchange;Lio/undertow/server/session/SessionListener$SessionDestroyedReason;)V
+     111: aload_0
+     112: iconst_1
+     113: putfield      #15                 // Field invalid:Z
+     116: aload_0
+     117: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+     120: getfield      #76                 // Field io/undertow/server/session/InMemorySessionManager.statisticsEnabled:Z
+     123: ifeq          211
+     126: invokestatic  #24                 // Method java/lang/System.currentTimeMillis:()J
+     129: aload_0
+     130: getfield      #26                 // Field creationTime:J
+     133: lsub
+     134: lstore_3
+     135: aload_0
+     136: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+     139: dup
+     140: astore        5
+     142: monitorenter
+     143: aload_0
+     144: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+     147: dup
+     148: getfield      #77                 // Field io/undertow/server/session/InMemorySessionManager.expiredSessionCount:J
+     151: lconst_1
+     152: ladd
+     153: putfield      #77                 // Field io/undertow/server/session/InMemorySessionManager.expiredSessionCount:J
+     156: aload_0
+     157: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+     160: aload_0
+     161: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+     164: getfield      #78                 // Field io/undertow/server/session/InMemorySessionManager.totalSessionLifetime:Ljava/math/BigInteger;
+     167: lload_3
+     168: invokestatic  #79                 // Method java/math/BigInteger.valueOf:(J)Ljava/math/BigInteger;
+     171: invokevirtual #80                 // Method java/math/BigInteger.add:(Ljava/math/BigInteger;)Ljava/math/BigInteger;
+     174: putfield      #78                 // Field io/undertow/server/session/InMemorySessionManager.totalSessionLifetime:Ljava/math/BigInteger;
+     177: aload_0
+     178: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+     181: getfield      #81                 // Field io/undertow/server/session/InMemorySessionManager.longestSessionLifetime:J
+     184: lload_3
+     185: lcmp
+     186: ifge          197
+     189: aload_0
+     190: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+     193: lload_3
+     194: putfield      #81                 // Field io/undertow/server/session/InMemorySessionManager.longestSessionLifetime:J
+     197: aload         5
+     199: monitorexit
+     200: goto          211
+     203: astore        6
+     205: aload         5
+     207: monitorexit
+     208: aload         6
+     210: athrow
+     211: aload_1
+     212: ifnull        229
+     215: aload_0
+     216: getfield      #21                 // Field sessionCookieConfig:Lio/undertow/server/session/SessionConfig;
+     219: aload_1
+     220: aload_0
+     221: invokevirtual #82                 // Method getId:()Ljava/lang/String;
+     224: invokeinterface #83,  3           // InterfaceMethod io/undertow/server/session/SessionConfig.clearSession:(Lio/undertow/server/HttpServerExchange;Ljava/lang/String;)V
+     229: return
+    Exception table:
+       from    to  target type
+           4    65    76   any
+          66    73    76   any
+          76    80    76   any
+         143   200   203   any
+         203   208   203   any
+
+  public io.undertow.server.session.SessionManager getSessionManager();
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+       4: areturn
+
+  public java.lang.String changeSessionId(io.undertow.server.HttpServerExchange, io.undertow.server.session.SessionConfig);
+    Code:
+       0: aload_0
+       1: dup
+       2: astore_3
+       3: monitorenter
+       4: aload_0
+       5: getfield      #16                 // Field invalidationStarted:Z
+       8: ifeq          15
+      11: aconst_null
+      12: aload_3
+      13: monitorexit
+      14: areturn
+      15: aload_0
+      16: getfield      #33                 // Field sessionId:Ljava/lang/String;
+      19: astore        4
+      21: aload_0
+      22: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      25: aload_0
+      26: invokevirtual #84                 // Method io/undertow/server/session/InMemorySessionManager.createAndSaveNewID:(Lio/undertow/server/session/InMemorySessionManager$SessionImpl;)Ljava/lang/String;
+      29: astore        5
+      31: aload_0
+      32: aload         5
+      34: putfield      #33                 // Field sessionId:Ljava/lang/String;
+      37: aload_2
+      38: aload_1
+      39: aload_0
+      40: invokevirtual #82                 // Method getId:()Ljava/lang/String;
+      43: invokeinterface #85,  3           // InterfaceMethod io/undertow/server/session/SessionConfig.setSessionId:(Lio/undertow/server/HttpServerExchange;Ljava/lang/String;)V
+      48: aload_0
+      49: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      52: getfield      #72                 // Field io/undertow/server/session/InMemorySessionManager.sessions:Ljava/util/concurrent/ConcurrentMap;
+      55: aload         4
+      57: invokeinterface #65,  2           // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      62: pop
+      63: aload_0
+      64: getfield      #20                 // Field sessionManager:Lio/undertow/server/session/InMemorySessionManager;
+      67: getfield      #60                 // Field io/undertow/server/session/InMemorySessionManager.sessionListeners:Lio/undertow/server/session/SessionListeners;
+      70: aload_0
+      71: aload         4
+      73: invokevirtual #86                 // Method io/undertow/server/session/SessionListeners.sessionIdChanged:(Lio/undertow/server/session/Session;Ljava/lang/String;)V
+      76: getstatic     #31                 // Field io/undertow/UndertowLogger.SESSION_LOGGER:Lio/undertow/UndertowLogger;
+      79: ldc           #87                 // String Changing session id %s to %s
+      81: aload         4
+      83: aload         5
+      85: invokeinterface #52,  4           // InterfaceMethod io/undertow/UndertowLogger.debugf:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      90: aload         5
+      92: aload_3
+      93: monitorexit
+      94: areturn
+      95: astore        6
+      97: aload_3
+      98: monitorexit
+      99: aload         6
+     101: athrow
+    Exception table:
+       from    to  target type
+           4    14    95   any
+          15    94    95   any
+          95    99    95   any
+
+  private synchronized void destroy();
+    Code:
+       0: aload_0
+       1: getfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+       4: ifnull        17
+       7: aload_0
+       8: getfield      #29                 // Field timerCancelKey:Lorg/xnio/XnioExecutor$Key;
+      11: invokeinterface #30,  1           // InterfaceMethod org/xnio/XnioExecutor$Key.remove:()Z
+      16: pop
+      17: aload_0
+      18: aconst_null
+      19: putfield      #19                 // Field cancelTask:Ljava/lang/Runnable;
+      22: return
+
+  static {};
+    Code:
+       0: new           #88                 // class io/undertow/server/session/InMemorySessionManager$SessionImpl$1
+       3: dup
+       4: invokespecial #89                 // Method io/undertow/server/session/InMemorySessionManager$SessionImpl$1."<init>":()V
+       7: invokestatic  #90                 // Method java/security/AccessController.doPrivileged:(Ljava/security/PrivilegedAction;)Ljava/lang/Object;
+      10: checkcast     #91                 // class java/util/concurrent/atomic/AtomicReferenceFieldUpdater
+      13: putstatic     #39                 // Field evictionTokenUpdater:Ljava/util/concurrent/atomic/AtomicReferenceFieldUpdater;
+      16: return
+}

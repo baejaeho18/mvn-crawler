@@ -1,0 +1,2092 @@
+Compiled from "Segment.java"
+public class net.sf.ehcache.store.disk.Segment extends java.util.concurrent.locks.ReentrantReadWriteLock {
+  private static final org.slf4j.Logger LOG;
+
+  private static final net.sf.ehcache.store.disk.HashEntry NULL_HASH_ENTRY;
+
+  private static final float LOAD_FACTOR;
+
+  private static final int MAXIMUM_CAPACITY;
+
+  protected volatile int count;
+
+  protected int modCount;
+
+  private final net.sf.ehcache.store.disk.DiskStorageFactory disk;
+
+  private volatile net.sf.ehcache.store.disk.HashEntry[] table;
+
+  private int threshold;
+
+  private final net.sf.ehcache.util.ratestatistics.RateStatistic diskHitRate;
+
+  private final net.sf.ehcache.util.ratestatistics.RateStatistic diskMissRate;
+
+  private final net.sf.ehcache.pool.PoolAccessor onHeapPoolAccessor;
+
+  private final net.sf.ehcache.pool.PoolAccessor onDiskPoolAccessor;
+
+  private final net.sf.ehcache.event.RegisteredEventListeners cacheEventNotificationService;
+
+  private volatile boolean cachePinned;
+
+  public net.sf.ehcache.store.disk.Segment(int, float, net.sf.ehcache.store.disk.DiskStorageFactory, net.sf.ehcache.config.CacheConfiguration, net.sf.ehcache.pool.PoolAccessor, net.sf.ehcache.pool.PoolAccessor, net.sf.ehcache.event.RegisteredEventListeners);
+    Code:
+       0: aload_0
+       1: invokespecial #2                  // Method java/util/concurrent/locks/ReentrantReadWriteLock."<init>":()V
+       4: aload_0
+       5: new           #3                  // class net/sf/ehcache/util/ratestatistics/AtomicRateStatistic
+       8: dup
+       9: ldc2_w        #4                  // long 1000l
+      12: getstatic     #6                  // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      15: invokespecial #7                  // Method net/sf/ehcache/util/ratestatistics/AtomicRateStatistic."<init>":(JLjava/util/concurrent/TimeUnit;)V
+      18: putfield      #8                  // Field diskHitRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+      21: aload_0
+      22: new           #3                  // class net/sf/ehcache/util/ratestatistics/AtomicRateStatistic
+      25: dup
+      26: ldc2_w        #4                  // long 1000l
+      29: getstatic     #6                  // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      32: invokespecial #7                  // Method net/sf/ehcache/util/ratestatistics/AtomicRateStatistic."<init>":(JLjava/util/concurrent/TimeUnit;)V
+      35: putfield      #9                  // Field diskMissRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+      38: aload_0
+      39: aload         5
+      41: putfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      44: aload_0
+      45: aload         6
+      47: putfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      50: aload_0
+      51: aload         7
+      53: putfield      #12                 // Field cacheEventNotificationService:Lnet/sf/ehcache/event/RegisteredEventListeners;
+      56: aload_0
+      57: iload_1
+      58: anewarray     #13                 // class net/sf/ehcache/store/disk/HashEntry
+      61: putfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+      64: aload_0
+      65: aload_0
+      66: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+      69: arraylength
+      70: i2f
+      71: fload_2
+      72: fmul
+      73: f2i
+      74: putfield      #14                 // Field threshold:I
+      77: aload_0
+      78: iconst_0
+      79: putfield      #15                 // Field modCount:I
+      82: aload_0
+      83: aload_3
+      84: putfield      #16                 // Field disk:Lnet/sf/ehcache/store/disk/DiskStorageFactory;
+      87: aload_0
+      88: aload         4
+      90: invokestatic  #17                 // Method determineCachePinned:(Lnet/sf/ehcache/config/CacheConfiguration;)Z
+      93: putfield      #18                 // Field cachePinned:Z
+      96: return
+
+  private static boolean determineCachePinned(net.sf.ehcache.config.CacheConfiguration);
+    Code:
+       0: aload_0
+       1: invokevirtual #19                 // Method net/sf/ehcache/config/CacheConfiguration.getPinningConfiguration:()Lnet/sf/ehcache/config/PinningConfiguration;
+       4: astore_1
+       5: aload_1
+       6: ifnonnull     11
+       9: iconst_0
+      10: ireturn
+      11: getstatic     #20                 // Field net/sf/ehcache/store/disk/Segment$1.$SwitchMap$net$sf$ehcache$config$PinningConfiguration$Store:[I
+      14: aload_1
+      15: invokevirtual #21                 // Method net/sf/ehcache/config/PinningConfiguration.getStore:()Lnet/sf/ehcache/config/PinningConfiguration$Store;
+      18: invokevirtual #22                 // Method net/sf/ehcache/config/PinningConfiguration$Store.ordinal:()I
+      21: iaload
+      22: tableswitch   { // 1 to 3
+                     1: 48
+                     2: 50
+                     3: 52
+               default: 57
+          }
+      48: iconst_0
+      49: ireturn
+      50: iconst_0
+      51: ireturn
+      52: aload_0
+      53: invokevirtual #23                 // Method net/sf/ehcache/config/CacheConfiguration.isOverflowToDisk:()Z
+      56: ireturn
+      57: new           #24                 // class java/lang/IllegalArgumentException
+      60: dup
+      61: invokespecial #25                 // Method java/lang/IllegalArgumentException."<init>":()V
+      64: athrow
+
+  private net.sf.ehcache.store.disk.HashEntry getFirst(int);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+       4: astore_2
+       5: aload_2
+       6: iload_1
+       7: aload_2
+       8: arraylength
+       9: iconst_1
+      10: isub
+      11: iand
+      12: aaload
+      13: areturn
+
+  private net.sf.ehcache.Element decode(java.lang.Object);
+    Code:
+       0: aload_1
+       1: checkcast     #26                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute
+       4: astore_2
+       5: aload_2
+       6: invokevirtual #27                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.getFactory:()Lnet/sf/ehcache/store/disk/DiskStorageFactory;
+       9: aload_2
+      10: invokevirtual #28                 // Method net/sf/ehcache/store/disk/DiskStorageFactory.retrieve:(Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;)Lnet/sf/ehcache/Element;
+      13: areturn
+
+  private net.sf.ehcache.Element decodeHit(java.lang.Object);
+    Code:
+       0: aload_1
+       1: checkcast     #26                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute
+       4: astore_2
+       5: aload_2
+       6: invokevirtual #27                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.getFactory:()Lnet/sf/ehcache/store/disk/DiskStorageFactory;
+       9: aload_2
+      10: aload_0
+      11: invokevirtual #29                 // Method net/sf/ehcache/store/disk/DiskStorageFactory.retrieve:(Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;Lnet/sf/ehcache/store/disk/Segment;)Lnet/sf/ehcache/Element;
+      14: areturn
+
+  private void free(java.lang.Object);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iconst_0
+       3: invokespecial #30                 // Method free:(Ljava/lang/Object;Z)V
+       6: return
+
+  private void free(java.lang.Object, boolean);
+    Code:
+       0: aload_1
+       1: checkcast     #26                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute
+       4: astore_3
+       5: aload_3
+       6: invokevirtual #27                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.getFactory:()Lnet/sf/ehcache/store/disk/DiskStorageFactory;
+       9: aload_0
+      10: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      13: aload_3
+      14: iload_2
+      15: invokevirtual #32                 // Method net/sf/ehcache/store/disk/DiskStorageFactory.free:(Ljava/util/concurrent/locks/Lock;Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;Z)V
+      18: return
+
+  net.sf.ehcache.Element get(java.lang.Object, int);
+    Code:
+       0: aload_0
+       1: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+       4: invokevirtual #34                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+       7: aload_0
+       8: getfield      #35                 // Field count:I
+      11: ifeq          71
+      14: aload_0
+      15: iload_2
+      16: invokespecial #36                 // Method getFirst:(I)Lnet/sf/ehcache/store/disk/HashEntry;
+      19: astore_3
+      20: aload_3
+      21: ifnull        71
+      24: aload_3
+      25: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+      28: iload_2
+      29: if_icmpne     63
+      32: aload_1
+      33: aload_3
+      34: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+      37: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      40: ifeq          63
+      43: aload_0
+      44: aload_3
+      45: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      48: invokespecial #41                 // Method decodeHit:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      51: astore        4
+      53: aload_0
+      54: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      57: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      60: aload         4
+      62: areturn
+      63: aload_3
+      64: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      67: astore_3
+      68: goto          20
+      71: aload_0
+      72: invokevirtual #44                 // Method miss:()V
+      75: aconst_null
+      76: astore_3
+      77: aload_0
+      78: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      81: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      84: aload_3
+      85: areturn
+      86: astore        5
+      88: aload_0
+      89: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      92: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      95: aload         5
+      97: athrow
+    Exception table:
+       from    to  target type
+           7    53    86   any
+          63    77    86   any
+          86    88    86   any
+
+  java.lang.Object unretrievedGet(java.lang.Object, int);
+    Code:
+       0: aload_0
+       1: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+       4: invokevirtual #34                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+       7: aload_0
+       8: getfield      #35                 // Field count:I
+      11: ifeq          67
+      14: aload_0
+      15: iload_2
+      16: invokespecial #36                 // Method getFirst:(I)Lnet/sf/ehcache/store/disk/HashEntry;
+      19: astore_3
+      20: aload_3
+      21: ifnull        67
+      24: aload_3
+      25: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+      28: iload_2
+      29: if_icmpne     59
+      32: aload_1
+      33: aload_3
+      34: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+      37: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      40: ifeq          59
+      43: aload_3
+      44: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      47: astore        4
+      49: aload_0
+      50: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      53: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      56: aload         4
+      58: areturn
+      59: aload_3
+      60: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      63: astore_3
+      64: goto          20
+      67: aload_0
+      68: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      71: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      74: goto          89
+      77: astore        5
+      79: aload_0
+      80: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      83: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      86: aload         5
+      88: athrow
+      89: aconst_null
+      90: areturn
+    Exception table:
+       from    to  target type
+           7    49    77   any
+          59    67    77   any
+          77    79    77   any
+
+  boolean containsKey(java.lang.Object, int);
+    Code:
+       0: aload_0
+       1: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+       4: invokevirtual #34                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+       7: aload_0
+       8: getfield      #35                 // Field count:I
+      11: ifeq          64
+      14: aload_0
+      15: iload_2
+      16: invokespecial #36                 // Method getFirst:(I)Lnet/sf/ehcache/store/disk/HashEntry;
+      19: astore_3
+      20: aload_3
+      21: ifnull        64
+      24: aload_3
+      25: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+      28: iload_2
+      29: if_icmpne     56
+      32: aload_1
+      33: aload_3
+      34: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+      37: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      40: ifeq          56
+      43: iconst_1
+      44: istore        4
+      46: aload_0
+      47: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      50: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      53: iload         4
+      55: ireturn
+      56: aload_3
+      57: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      60: astore_3
+      61: goto          20
+      64: iconst_0
+      65: istore_3
+      66: aload_0
+      67: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      70: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      73: iload_3
+      74: ireturn
+      75: astore        5
+      77: aload_0
+      78: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      81: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+      84: aload         5
+      86: athrow
+    Exception table:
+       from    to  target type
+           7    46    75   any
+          56    66    75   any
+          75    77    75   any
+
+  boolean replace(java.lang.Object, int, net.sf.ehcache.Element, net.sf.ehcache.Element, net.sf.ehcache.store.ElementValueComparator);
+    Code:
+       0: iconst_0
+       1: istore        6
+       3: aload_0
+       4: getfield      #16                 // Field disk:Lnet/sf/ehcache/store/disk/DiskStorageFactory;
+       7: aload         4
+       9: invokevirtual #45                 // Method net/sf/ehcache/store/disk/DiskStorageFactory.create:(Lnet/sf/ehcache/Element;)Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      12: astore        7
+      14: aload_0
+      15: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      18: invokevirtual #46                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+      21: aload_0
+      22: iload_2
+      23: invokespecial #36                 // Method getFirst:(I)Lnet/sf/ehcache/store/disk/HashEntry;
+      26: astore        8
+      28: aload         8
+      30: ifnull        64
+      33: aload         8
+      35: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+      38: iload_2
+      39: if_icmpne     54
+      42: aload_1
+      43: aload         8
+      45: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+      48: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      51: ifne          64
+      54: aload         8
+      56: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      59: astore        8
+      61: goto          28
+      64: iconst_0
+      65: istore        9
+      67: aload         8
+      69: ifnull        266
+      72: aload         5
+      74: aload_3
+      75: aload_0
+      76: aload         8
+      78: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      81: invokespecial #47                 // Method decode:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      84: invokeinterface #48,  3           // InterfaceMethod net/sf/ehcache/store/ElementValueComparator.equals:(Lnet/sf/ehcache/Element;Lnet/sf/ehcache/Element;)Z
+      89: ifeq          266
+      92: iconst_1
+      93: istore        9
+      95: aload         8
+      97: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     100: astore        10
+     102: aload_0
+     103: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     106: aload         10
+     108: getfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+     111: aload_1
+     112: aload         7
+     114: getstatic     #50                 // Field NULL_HASH_ENTRY:Lnet/sf/ehcache/store/disk/HashEntry;
+     117: aload_0
+     118: getfield      #18                 // Field cachePinned:Z
+     121: invokeinterface #51,  7           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.replace:(JLjava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+     126: lstore        11
+     128: lload         11
+     130: ldc2_w        #52                 // long 9223372036854775807l
+     133: lcmp
+     134: ifne          176
+     137: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     140: ldc           #55                 // String replace3 failed to add on heap
+     142: invokeinterface #56,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     147: aload_0
+     148: aload         7
+     150: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     153: iconst_0
+     154: istore        13
+     156: aload_0
+     157: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     160: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     163: iload         6
+     165: ifeq          173
+     168: aload         7
+     170: invokevirtual #59                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.installed:()V
+     173: iload         13
+     175: ireturn
+     176: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     179: ldc           #60                 // String replace3 added {} on heap
+     181: lload         11
+     183: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     186: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     191: aload         7
+     193: aload         10
+     195: getfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+     198: lload         11
+     200: ladd
+     201: putfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+     204: aload         8
+     206: aload         7
+     208: putfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     211: iconst_1
+     212: istore        6
+     214: aload_0
+     215: aload         10
+     217: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     220: aload         10
+     222: instanceof    #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     225: ifeq          263
+     228: aload_0
+     229: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     232: aload         10
+     234: checkcast     #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     237: invokevirtual #64                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.getSize:()I
+     240: i2l
+     241: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     246: lstore        13
+     248: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     251: ldc           #66                 // String replace3 removed {} from disk
+     253: lload         13
+     255: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     258: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     263: goto          272
+     266: aload_0
+     267: aload         7
+     269: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     272: iload         9
+     274: istore        10
+     276: aload_0
+     277: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     280: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     283: iload         6
+     285: ifeq          293
+     288: aload         7
+     290: invokevirtual #59                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.installed:()V
+     293: iload         10
+     295: ireturn
+     296: astore        15
+     298: aload_0
+     299: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     302: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     305: iload         6
+     307: ifeq          315
+     310: aload         7
+     312: invokevirtual #59                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.installed:()V
+     315: aload         15
+     317: athrow
+    Exception table:
+       from    to  target type
+          21   156   296   any
+         176   276   296   any
+         296   298   296   any
+
+  net.sf.ehcache.Element replace(java.lang.Object, int, net.sf.ehcache.Element);
+    Code:
+       0: iconst_0
+       1: istore        4
+       3: aload_0
+       4: getfield      #16                 // Field disk:Lnet/sf/ehcache/store/disk/DiskStorageFactory;
+       7: aload_3
+       8: invokevirtual #45                 // Method net/sf/ehcache/store/disk/DiskStorageFactory.create:(Lnet/sf/ehcache/Element;)Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      11: astore        5
+      13: aload_0
+      14: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      17: invokevirtual #46                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+      20: aload_0
+      21: iload_2
+      22: invokespecial #36                 // Method getFirst:(I)Lnet/sf/ehcache/store/disk/HashEntry;
+      25: astore        6
+      27: aload         6
+      29: ifnull        63
+      32: aload         6
+      34: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+      37: iload_2
+      38: if_icmpne     53
+      41: aload_1
+      42: aload         6
+      44: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+      47: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      50: ifne          63
+      53: aload         6
+      55: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      58: astore        6
+      60: goto          27
+      63: aconst_null
+      64: astore        7
+      66: aload         6
+      68: ifnull        250
+      71: aload         6
+      73: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      76: astore        8
+      78: aload_0
+      79: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      82: aload         8
+      84: getfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+      87: aload_1
+      88: aload         5
+      90: getstatic     #50                 // Field NULL_HASH_ENTRY:Lnet/sf/ehcache/store/disk/HashEntry;
+      93: aload_0
+      94: getfield      #18                 // Field cachePinned:Z
+      97: invokeinterface #51,  7           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.replace:(JLjava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+     102: lstore        9
+     104: lload         9
+     106: ldc2_w        #52                 // long 9223372036854775807l
+     109: lcmp
+     110: ifne          152
+     113: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     116: ldc           #67                 // String replace2 failed to add on heap
+     118: invokeinterface #56,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     123: aload_0
+     124: aload         5
+     126: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     129: aconst_null
+     130: astore        11
+     132: aload_0
+     133: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     136: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     139: iload         4
+     141: ifeq          149
+     144: aload         5
+     146: invokevirtual #59                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.installed:()V
+     149: aload         11
+     151: areturn
+     152: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     155: ldc           #68                 // String replace2 added {} on heap
+     157: lload         9
+     159: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     162: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     167: aload         5
+     169: aload         8
+     171: getfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+     174: lload         9
+     176: ladd
+     177: putfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+     180: aload         6
+     182: aload         5
+     184: putfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     187: iconst_1
+     188: istore        4
+     190: aload_0
+     191: aload         8
+     193: invokespecial #47                 // Method decode:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+     196: astore        7
+     198: aload_0
+     199: aload         8
+     201: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     204: aload         8
+     206: instanceof    #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     209: ifeq          247
+     212: aload_0
+     213: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     216: aload         8
+     218: checkcast     #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     221: invokevirtual #64                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.getSize:()I
+     224: i2l
+     225: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     230: lstore        11
+     232: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     235: ldc           #69                 // String replace2 removed {} from disk
+     237: lload         11
+     239: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     242: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     247: goto          256
+     250: aload_0
+     251: aload         5
+     253: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     256: aload         7
+     258: astore        8
+     260: aload_0
+     261: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     264: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     267: iload         4
+     269: ifeq          277
+     272: aload         5
+     274: invokevirtual #59                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.installed:()V
+     277: aload         8
+     279: areturn
+     280: astore        13
+     282: aload_0
+     283: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     286: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     289: iload         4
+     291: ifeq          299
+     294: aload         5
+     296: invokevirtual #59                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.installed:()V
+     299: aload         13
+     301: athrow
+    Exception table:
+       from    to  target type
+          20   132   280   any
+         152   260   280   any
+         280   282   280   any
+
+  net.sf.ehcache.Element put(java.lang.Object, int, net.sf.ehcache.Element, boolean);
+    Code:
+       0: iconst_0
+       1: istore        5
+       3: aload_0
+       4: getfield      #16                 // Field disk:Lnet/sf/ehcache/store/disk/DiskStorageFactory;
+       7: aload_3
+       8: invokevirtual #45                 // Method net/sf/ehcache/store/disk/DiskStorageFactory.create:(Lnet/sf/ehcache/Element;)Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      11: astore        6
+      13: aload_0
+      14: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      17: aload_1
+      18: aload         6
+      20: getstatic     #50                 // Field NULL_HASH_ENTRY:Lnet/sf/ehcache/store/disk/HashEntry;
+      23: aload_0
+      24: getfield      #18                 // Field cachePinned:Z
+      27: invokeinterface #70,  5           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.add:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+      32: lstore        7
+      34: lload         7
+      36: lconst_0
+      37: lcmp
+      38: ifge          53
+      41: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+      44: ldc           #71                 // String put failed to add on heap
+      46: invokeinterface #56,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      51: aconst_null
+      52: areturn
+      53: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+      56: ldc           #72                 // String put added {} on heap
+      58: lload         7
+      60: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      63: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      68: aload         6
+      70: lload         7
+      72: putfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+      75: aload_0
+      76: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      79: invokevirtual #46                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+      82: aload_0
+      83: getfield      #35                 // Field count:I
+      86: iconst_1
+      87: iadd
+      88: aload_0
+      89: getfield      #14                 // Field threshold:I
+      92: if_icmple     99
+      95: aload_0
+      96: invokespecial #73                 // Method rehash:()V
+      99: aload_0
+     100: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+     103: astore        9
+     105: iload_2
+     106: aload         9
+     108: arraylength
+     109: iconst_1
+     110: isub
+     111: iand
+     112: istore        10
+     114: aload         9
+     116: iload         10
+     118: aaload
+     119: astore        11
+     121: aload         11
+     123: astore        12
+     125: aload         12
+     127: ifnull        161
+     130: aload         12
+     132: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+     135: iload_2
+     136: if_icmpne     151
+     139: aload_1
+     140: aload         12
+     142: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+     145: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+     148: ifne          161
+     151: aload         12
+     153: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+     156: astore        12
+     158: goto          125
+     161: aload         12
+     163: ifnull        327
+     166: aload         12
+     168: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     171: astore        14
+     173: iload         4
+     175: ifne          279
+     178: aload         12
+     180: aload         6
+     182: putfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     185: iconst_1
+     186: istore        5
+     188: aload_0
+     189: aload         14
+     191: invokespecial #47                 // Method decode:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+     194: astore        13
+     196: aload_0
+     197: aload         14
+     199: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     202: aload_0
+     203: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     206: aload         14
+     208: getfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+     211: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     216: lstore        15
+     218: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     221: ldc           #74                 // String put updated, deleted {} on heap
+     223: lload         15
+     225: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     228: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     233: aload         14
+     235: instanceof    #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     238: ifeq          276
+     241: aload_0
+     242: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     245: aload         14
+     247: checkcast     #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     250: invokevirtual #64                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.getSize:()I
+     253: i2l
+     254: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     259: lstore        17
+     261: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     264: ldc           #75                 // String put updated, deleted {} on disk
+     266: lload         17
+     268: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     271: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     276: goto          324
+     279: aload_0
+     280: aload         14
+     282: invokespecial #47                 // Method decode:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+     285: astore        13
+     287: aload_0
+     288: aload         6
+     290: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     293: aload_0
+     294: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     297: aload         6
+     299: getfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+     302: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     307: lstore        15
+     309: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     312: ldc           #76                 // String put if absent failed, deleted {} on heap
+     314: lload         15
+     316: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     319: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     324: goto          371
+     327: aconst_null
+     328: astore        13
+     330: aload_0
+     331: dup
+     332: getfield      #15                 // Field modCount:I
+     335: iconst_1
+     336: iadd
+     337: putfield      #15                 // Field modCount:I
+     340: aload         9
+     342: iload         10
+     344: new           #13                 // class net/sf/ehcache/store/disk/HashEntry
+     347: dup
+     348: aload_1
+     349: iload_2
+     350: aload         11
+     352: aload         6
+     354: invokespecial #77                 // Method net/sf/ehcache/store/disk/HashEntry."<init>":(Ljava/lang/Object;ILnet/sf/ehcache/store/disk/HashEntry;Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;)V
+     357: aastore
+     358: iconst_1
+     359: istore        5
+     361: aload_0
+     362: aload_0
+     363: getfield      #35                 // Field count:I
+     366: iconst_1
+     367: iadd
+     368: putfield      #35                 // Field count:I
+     371: aload         13
+     373: astore        14
+     375: aload_0
+     376: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     379: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     382: iload         5
+     384: ifeq          392
+     387: aload         6
+     389: invokevirtual #59                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.installed:()V
+     392: aload         14
+     394: areturn
+     395: astore        19
+     397: aload_0
+     398: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     401: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     404: iload         5
+     406: ifeq          414
+     409: aload         6
+     411: invokevirtual #59                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.installed:()V
+     414: aload         19
+     416: athrow
+    Exception table:
+       from    to  target type
+          82   375   395   any
+         395   397   395   any
+
+  boolean putRawIfAbsent(java.lang.Object, int, net.sf.ehcache.store.disk.DiskStorageFactory$DiskMarker) throws java.lang.IllegalArgumentException;
+    Code:
+       0: aload_0
+       1: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #46                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+       7: aload_0
+       8: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      11: aload_1
+      12: aconst_null
+      13: aload_3
+      14: invokeinterface #78,  4           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.canAddWithoutEvicting:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Z
+      19: ifne          35
+      22: iconst_0
+      23: istore        4
+      25: aload_0
+      26: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      29: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      32: iload         4
+      34: ireturn
+      35: aload_0
+      36: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      39: aload_1
+      40: aload_3
+      41: getstatic     #50                 // Field NULL_HASH_ENTRY:Lnet/sf/ehcache/store/disk/HashEntry;
+      44: aload_0
+      45: getfield      #18                 // Field cachePinned:Z
+      48: invokeinterface #70,  5           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.add:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+      53: lstore        4
+      55: lload         4
+      57: lconst_0
+      58: lcmp
+      59: ifge          75
+      62: iconst_0
+      63: istore        6
+      65: aload_0
+      66: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      69: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      72: iload         6
+      74: ireturn
+      75: aload_3
+      76: lload         4
+      78: putfield      #79                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.onHeapSize:J
+      81: aload_0
+      82: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      85: aload_1
+      86: aconst_null
+      87: aload_3
+      88: aload_0
+      89: getfield      #18                 // Field cachePinned:Z
+      92: invokeinterface #70,  5           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.add:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+      97: lconst_0
+      98: lcmp
+      99: ifge          129
+     102: aload_0
+     103: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     106: aload_3
+     107: getfield      #79                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.onHeapSize:J
+     110: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     115: pop2
+     116: iconst_0
+     117: istore        6
+     119: aload_0
+     120: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     123: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     126: iload         6
+     128: ireturn
+     129: aload_0
+     130: getfield      #35                 // Field count:I
+     133: iconst_1
+     134: iadd
+     135: aload_0
+     136: getfield      #14                 // Field threshold:I
+     139: if_icmple     146
+     142: aload_0
+     143: invokespecial #73                 // Method rehash:()V
+     146: aload_0
+     147: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+     150: astore        6
+     152: iload_2
+     153: aload         6
+     155: arraylength
+     156: iconst_1
+     157: isub
+     158: iand
+     159: istore        7
+     161: aload         6
+     163: iload         7
+     165: aaload
+     166: astore        8
+     168: aload         8
+     170: astore        9
+     172: aload         9
+     174: ifnull        208
+     177: aload         9
+     179: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+     182: iload_2
+     183: if_icmpne     198
+     186: aload_1
+     187: aload         9
+     189: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+     192: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+     195: ifne          208
+     198: aload         9
+     200: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+     203: astore        9
+     205: goto          172
+     208: aload         9
+     210: ifnonnull     263
+     213: aload_0
+     214: dup
+     215: getfield      #15                 // Field modCount:I
+     218: iconst_1
+     219: iadd
+     220: putfield      #15                 // Field modCount:I
+     223: aload         6
+     225: iload         7
+     227: new           #13                 // class net/sf/ehcache/store/disk/HashEntry
+     230: dup
+     231: aload_1
+     232: iload_2
+     233: aload         8
+     235: aload_3
+     236: invokespecial #77                 // Method net/sf/ehcache/store/disk/HashEntry."<init>":(Ljava/lang/Object;ILnet/sf/ehcache/store/disk/HashEntry;Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;)V
+     239: aastore
+     240: aload_0
+     241: aload_0
+     242: getfield      #35                 // Field count:I
+     245: iconst_1
+     246: iadd
+     247: putfield      #35                 // Field count:I
+     250: iconst_1
+     251: istore        10
+     253: aload_0
+     254: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     257: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     260: iload         10
+     262: ireturn
+     263: aload_0
+     264: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     267: aload_3
+     268: getfield      #79                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.onHeapSize:J
+     271: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     276: pop2
+     277: aload_0
+     278: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     281: aload_3
+     282: invokevirtual #64                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.getSize:()I
+     285: i2l
+     286: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     291: pop2
+     292: new           #24                 // class java/lang/IllegalArgumentException
+     295: dup
+     296: ldc           #80                 // String Duplicate key detected
+     298: invokespecial #81                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     301: athrow
+     302: astore        11
+     304: aload_0
+     305: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     308: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     311: aload         11
+     313: athrow
+    Exception table:
+       from    to  target type
+           7    25   302   any
+          35    65   302   any
+          75   119   302   any
+         129   253   302   any
+         263   304   302   any
+
+  private void rehash();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+       4: astore_1
+       5: aload_1
+       6: arraylength
+       7: istore_2
+       8: iload_2
+       9: getstatic     #82                 // Field MAXIMUM_CAPACITY:I
+      12: if_icmplt     16
+      15: return
+      16: iload_2
+      17: iconst_1
+      18: ishl
+      19: anewarray     #13                 // class net/sf/ehcache/store/disk/HashEntry
+      22: astore_3
+      23: aload_0
+      24: aload_3
+      25: arraylength
+      26: i2f
+      27: ldc           #83                 // float 0.75f
+      29: fmul
+      30: f2i
+      31: putfield      #14                 // Field threshold:I
+      34: aload_3
+      35: arraylength
+      36: iconst_1
+      37: isub
+      38: istore        4
+      40: iconst_0
+      41: istore        5
+      43: iload         5
+      45: iload_2
+      46: if_icmpge     220
+      49: aload_1
+      50: iload         5
+      52: aaload
+      53: astore        6
+      55: aload         6
+      57: ifnull        214
+      60: aload         6
+      62: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      65: astore        7
+      67: aload         6
+      69: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+      72: iload         4
+      74: iand
+      75: istore        8
+      77: aload         7
+      79: ifnonnull     91
+      82: aload_3
+      83: iload         8
+      85: aload         6
+      87: aastore
+      88: goto          214
+      91: aload         6
+      93: astore        9
+      95: iload         8
+      97: istore        10
+      99: aload         7
+     101: astore        11
+     103: aload         11
+     105: ifnull        143
+     108: aload         11
+     110: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+     113: iload         4
+     115: iand
+     116: istore        12
+     118: iload         12
+     120: iload         10
+     122: if_icmpeq     133
+     125: iload         12
+     127: istore        10
+     129: aload         11
+     131: astore        9
+     133: aload         11
+     135: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+     138: astore        11
+     140: goto          103
+     143: aload_3
+     144: iload         10
+     146: aload         9
+     148: aastore
+     149: aload         6
+     151: astore        11
+     153: aload         11
+     155: aload         9
+     157: if_acmpeq     214
+     160: aload         11
+     162: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+     165: iload         4
+     167: iand
+     168: istore        12
+     170: aload_3
+     171: iload         12
+     173: aaload
+     174: astore        13
+     176: aload_3
+     177: iload         12
+     179: new           #13                 // class net/sf/ehcache/store/disk/HashEntry
+     182: dup
+     183: aload         11
+     185: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+     188: aload         11
+     190: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+     193: aload         13
+     195: aload         11
+     197: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     200: invokespecial #77                 // Method net/sf/ehcache/store/disk/HashEntry."<init>":(Ljava/lang/Object;ILnet/sf/ehcache/store/disk/HashEntry;Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;)V
+     203: aastore
+     204: aload         11
+     206: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+     209: astore        11
+     211: goto          153
+     214: iinc          5, 1
+     217: goto          43
+     220: aload_0
+     221: aload_3
+     222: putfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+     225: return
+
+  net.sf.ehcache.Element remove(java.lang.Object, int, net.sf.ehcache.Element, net.sf.ehcache.store.ElementValueComparator);
+    Code:
+       0: aload_0
+       1: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #46                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+       7: aload_0
+       8: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+      11: astore        5
+      13: iload_2
+      14: aload         5
+      16: arraylength
+      17: iconst_1
+      18: isub
+      19: iand
+      20: istore        6
+      22: aload         5
+      24: iload         6
+      26: aaload
+      27: astore        7
+      29: aload         7
+      31: astore        8
+      33: aload         8
+      35: ifnull        69
+      38: aload         8
+      40: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+      43: iload_2
+      44: if_icmpne     59
+      47: aload_1
+      48: aload         8
+      50: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+      53: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      56: ifne          69
+      59: aload         8
+      61: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      64: astore        8
+      66: goto          33
+      69: aconst_null
+      70: astore        9
+      72: aload         8
+      74: ifnull        279
+      77: aload_0
+      78: aload         8
+      80: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      83: invokespecial #47                 // Method decode:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      86: astore        9
+      88: aload_3
+      89: ifnull        105
+      92: aload         4
+      94: aload_3
+      95: aload         9
+      97: invokeinterface #48,  3           // InterfaceMethod net/sf/ehcache/store/ElementValueComparator.equals:(Lnet/sf/ehcache/Element;Lnet/sf/ehcache/Element;)Z
+     102: ifeq          276
+     105: aload_0
+     106: dup
+     107: getfield      #15                 // Field modCount:I
+     110: iconst_1
+     111: iadd
+     112: putfield      #15                 // Field modCount:I
+     115: aload         8
+     117: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+     120: astore        10
+     122: aload         7
+     124: astore        11
+     126: aload         11
+     128: aload         8
+     130: if_acmpeq     169
+     133: new           #13                 // class net/sf/ehcache/store/disk/HashEntry
+     136: dup
+     137: aload         11
+     139: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+     142: aload         11
+     144: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+     147: aload         10
+     149: aload         11
+     151: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     154: invokespecial #77                 // Method net/sf/ehcache/store/disk/HashEntry."<init>":(Ljava/lang/Object;ILnet/sf/ehcache/store/disk/HashEntry;Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;)V
+     157: astore        10
+     159: aload         11
+     161: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+     164: astore        11
+     166: goto          126
+     169: aload         5
+     171: iload         6
+     173: aload         10
+     175: aastore
+     176: aload         8
+     178: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     181: astore        11
+     183: aload_0
+     184: aload         11
+     186: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     189: aload_0
+     190: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     193: aload         11
+     195: getfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+     198: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     203: lstore        12
+     205: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     208: ldc           #84                 // String remove deleted {} from heap
+     210: lload         12
+     212: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     215: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     220: aload         11
+     222: instanceof    #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     225: ifeq          263
+     228: aload_0
+     229: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     232: aload         11
+     234: checkcast     #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     237: invokevirtual #64                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.getSize:()I
+     240: i2l
+     241: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     246: lstore        14
+     248: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     251: ldc           #85                 // String remove deleted {} from disk
+     253: lload         14
+     255: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     258: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     263: aload_0
+     264: aload_0
+     265: getfield      #35                 // Field count:I
+     268: iconst_1
+     269: isub
+     270: putfield      #35                 // Field count:I
+     273: goto          279
+     276: aconst_null
+     277: astore        9
+     279: aload         9
+     281: ifnonnull     294
+     284: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     287: ldc           #86                 // String remove deleted nothing
+     289: invokeinterface #56,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     294: aload         9
+     296: astore        10
+     298: aload_0
+     299: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     302: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     305: aload         10
+     307: areturn
+     308: astore        16
+     310: aload_0
+     311: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     314: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     317: aload         16
+     319: athrow
+    Exception table:
+       from    to  target type
+           7   298   308   any
+         308   310   308   any
+
+  void removeNoReturn(java.lang.Object, int);
+    Code:
+       0: aload_0
+       1: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #46                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+       7: aload_0
+       8: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+      11: astore_3
+      12: iload_2
+      13: aload_3
+      14: arraylength
+      15: iconst_1
+      16: isub
+      17: iand
+      18: istore        4
+      20: aload_3
+      21: iload         4
+      23: aaload
+      24: astore        5
+      26: aload         5
+      28: astore        6
+      30: aload         6
+      32: ifnull        66
+      35: aload         6
+      37: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+      40: iload_2
+      41: if_icmpne     56
+      44: aload_1
+      45: aload         6
+      47: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+      50: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      53: ifne          66
+      56: aload         6
+      58: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      61: astore        6
+      63: goto          30
+      66: aload         6
+      68: ifnull        238
+      71: aload_0
+      72: dup
+      73: getfield      #15                 // Field modCount:I
+      76: iconst_1
+      77: iadd
+      78: putfield      #15                 // Field modCount:I
+      81: aload         6
+      83: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      86: astore        7
+      88: aload         5
+      90: astore        8
+      92: aload         8
+      94: aload         6
+      96: if_acmpeq     135
+      99: new           #13                 // class net/sf/ehcache/store/disk/HashEntry
+     102: dup
+     103: aload         8
+     105: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+     108: aload         8
+     110: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+     113: aload         7
+     115: aload         8
+     117: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     120: invokespecial #77                 // Method net/sf/ehcache/store/disk/HashEntry."<init>":(Ljava/lang/Object;ILnet/sf/ehcache/store/disk/HashEntry;Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;)V
+     123: astore        7
+     125: aload         8
+     127: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+     130: astore        8
+     132: goto          92
+     135: aload_3
+     136: iload         4
+     138: aload         7
+     140: aastore
+     141: aload         6
+     143: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     146: astore        8
+     148: aload_0
+     149: aload         8
+     151: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     154: aload_0
+     155: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     158: aload         8
+     160: getfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+     163: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     168: lstore        9
+     170: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     173: ldc           #84                 // String remove deleted {} from heap
+     175: lload         9
+     177: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     180: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     185: aload         8
+     187: instanceof    #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     190: ifeq          228
+     193: aload_0
+     194: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     197: aload         8
+     199: checkcast     #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     202: invokevirtual #64                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.getSize:()I
+     205: i2l
+     206: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     211: lstore        11
+     213: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     216: ldc           #85                 // String remove deleted {} from disk
+     218: lload         11
+     220: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     223: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     228: aload_0
+     229: aload_0
+     230: getfield      #35                 // Field count:I
+     233: iconst_1
+     234: isub
+     235: putfield      #35                 // Field count:I
+     238: aload_0
+     239: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     242: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     245: goto          260
+     248: astore        13
+     250: aload_0
+     251: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     254: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     257: aload         13
+     259: athrow
+     260: return
+    Exception table:
+       from    to  target type
+           7   238   248   any
+         248   250   248   any
+
+  void clear();
+    Code:
+       0: aload_0
+       1: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #46                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+       7: aload_0
+       8: getfield      #35                 // Field count:I
+      11: ifeq          76
+      14: aload_0
+      15: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+      18: astore_1
+      19: iconst_0
+      20: istore_2
+      21: iload_2
+      22: aload_1
+      23: arraylength
+      24: if_icmpge     61
+      27: aload_1
+      28: iload_2
+      29: aaload
+      30: astore_3
+      31: aload_3
+      32: ifnull        51
+      35: aload_0
+      36: aload_3
+      37: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      40: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+      43: aload_3
+      44: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      47: astore_3
+      48: goto          31
+      51: aload_1
+      52: iload_2
+      53: aconst_null
+      54: aastore
+      55: iinc          2, 1
+      58: goto          21
+      61: aload_0
+      62: dup
+      63: getfield      #15                 // Field modCount:I
+      66: iconst_1
+      67: iadd
+      68: putfield      #15                 // Field modCount:I
+      71: aload_0
+      72: iconst_0
+      73: putfield      #35                 // Field count:I
+      76: aload_0
+      77: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      80: invokeinterface #87,  1           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.clear:()V
+      85: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+      88: ldc           #88                 // String cleared heap usage
+      90: invokeinterface #56,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      95: aload_0
+      96: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      99: invokeinterface #87,  1           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.clear:()V
+     104: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     107: ldc           #89                 // String cleared disk usage
+     109: invokeinterface #56,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     114: aload_0
+     115: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     118: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     121: goto          136
+     124: astore        4
+     126: aload_0
+     127: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     130: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     133: aload         4
+     135: athrow
+     136: return
+    Exception table:
+       from    to  target type
+           7   114   124   any
+         124   126   124   any
+
+  boolean fault(java.lang.Object, int, net.sf.ehcache.store.disk.DiskStorageFactory$Placeholder, net.sf.ehcache.store.disk.DiskStorageFactory$DiskMarker);
+    Code:
+       0: aload_0
+       1: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #46                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.lock:()V
+       7: aload_0
+       8: getfield      #35                 // Field count:I
+      11: ifeq          411
+      14: aload_0
+      15: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+      18: aload_3
+      19: getfield      #90                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$Placeholder.onHeapSize:J
+      22: aload_1
+      23: aload         4
+      25: getstatic     #50                 // Field NULL_HASH_ENTRY:Lnet/sf/ehcache/store/disk/HashEntry;
+      28: aload_0
+      29: getfield      #18                 // Field cachePinned:Z
+      32: invokeinterface #51,  7           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.replace:(JLjava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+      37: lstore        5
+      39: lload         5
+      41: ldc2_w        #52                 // long 9223372036854775807l
+      44: lcmp
+      45: ifne          70
+      48: aload_0
+      49: aload_1
+      50: iload_2
+      51: aconst_null
+      52: aconst_null
+      53: invokevirtual #91                 // Method remove:(Ljava/lang/Object;ILnet/sf/ehcache/Element;Lnet/sf/ehcache/store/ElementValueComparator;)Lnet/sf/ehcache/Element;
+      56: pop
+      57: iconst_0
+      58: istore        7
+      60: aload_0
+      61: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+      64: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+      67: iload         7
+      69: ireturn
+      70: aload         4
+      72: aload_3
+      73: getfield      #90                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$Placeholder.onHeapSize:J
+      76: lload         5
+      78: ladd
+      79: putfield      #79                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.onHeapSize:J
+      82: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+      85: ldc           #92                 // String fault removed {} from heap
+      87: lload         5
+      89: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      92: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      97: aload_0
+      98: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     101: aload_1
+     102: aconst_null
+     103: aload         4
+     105: aload_0
+     106: getfield      #18                 // Field cachePinned:Z
+     109: invokeinterface #70,  5           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.add:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+     114: lstore        7
+     116: lload         7
+     118: lconst_0
+     119: lcmp
+     120: ifge          243
+     123: aload_0
+     124: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     127: aload         4
+     129: getfield      #79                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.onHeapSize:J
+     132: aload_1
+     133: aload_3
+     134: getstatic     #50                 // Field NULL_HASH_ENTRY:Lnet/sf/ehcache/store/disk/HashEntry;
+     137: iconst_1
+     138: invokeinterface #51,  7           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.replace:(JLjava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+     143: lstore        9
+     145: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     148: ldc           #93                 // String fault failed to add on disk, deleted {} from heap
+     150: lload         9
+     152: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     155: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     160: aload_3
+     161: aload         4
+     163: getfield      #79                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.onHeapSize:J
+     166: lload         9
+     168: ladd
+     169: putfield      #90                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$Placeholder.onHeapSize:J
+     172: aload_0
+     173: aload_1
+     174: iload_2
+     175: invokevirtual #94                 // Method get:(Ljava/lang/Object;I)Lnet/sf/ehcache/Element;
+     178: astore        11
+     180: aload_0
+     181: getfield      #12                 // Field cacheEventNotificationService:Lnet/sf/ehcache/event/RegisteredEventListeners;
+     184: invokevirtual #95                 // Method net/sf/ehcache/event/RegisteredEventListeners.getFrontEndCacheTier:()Lnet/sf/ehcache/store/FrontEndCacheTier;
+     187: ifnull        205
+     190: aload_0
+     191: getfield      #12                 // Field cacheEventNotificationService:Lnet/sf/ehcache/event/RegisteredEventListeners;
+     194: invokevirtual #95                 // Method net/sf/ehcache/event/RegisteredEventListeners.getFrontEndCacheTier:()Lnet/sf/ehcache/store/FrontEndCacheTier;
+     197: aload         11
+     199: invokevirtual #96                 // Method net/sf/ehcache/store/FrontEndCacheTier.isEvictionCandidate:(Lnet/sf/ehcache/Element;)Z
+     202: ifeq          230
+     205: aload_0
+     206: aload_0
+     207: aload_1
+     208: iload_2
+     209: aconst_null
+     210: aconst_null
+     211: invokevirtual #91                 // Method remove:(Ljava/lang/Object;ILnet/sf/ehcache/Element;Lnet/sf/ehcache/store/ElementValueComparator;)Lnet/sf/ehcache/Element;
+     214: invokespecial #97                 // Method notifyEviction:(Lnet/sf/ehcache/Element;)V
+     217: iconst_0
+     218: istore        12
+     220: aload_0
+     221: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     224: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     227: iload         12
+     229: ireturn
+     230: iconst_1
+     231: istore        12
+     233: aload_0
+     234: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     237: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     240: iload         12
+     242: ireturn
+     243: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     246: ldc           #98                 // String fault added {} on disk
+     248: lload         7
+     250: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     253: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     258: aload_0
+     259: iload_2
+     260: invokespecial #36                 // Method getFirst:(I)Lnet/sf/ehcache/store/disk/HashEntry;
+     263: astore        9
+     265: aload         9
+     267: ifnull        335
+     270: aload         9
+     272: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+     275: iload_2
+     276: if_icmpne     325
+     279: aload_1
+     280: aload         9
+     282: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+     285: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+     288: ifeq          325
+     291: aload_3
+     292: aload         9
+     294: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     297: if_acmpne     325
+     300: aload         9
+     302: aload         4
+     304: putfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     307: aload_0
+     308: aload_3
+     309: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     312: iconst_1
+     313: istore        10
+     315: aload_0
+     316: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     319: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     322: iload         10
+     324: ireturn
+     325: aload         9
+     327: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+     330: astore        9
+     332: goto          265
+     335: aload_0
+     336: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     339: aload         4
+     341: getfield      #79                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.onHeapSize:J
+     344: aload_1
+     345: aload_3
+     346: getstatic     #50                 // Field NULL_HASH_ENTRY:Lnet/sf/ehcache/store/disk/HashEntry;
+     349: iconst_1
+     350: invokeinterface #51,  7           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.replace:(JLjava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Z)J
+     355: lstore        9
+     357: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     360: ldc           #99                 // String fault installation failed, deleted {} from heap
+     362: lload         9
+     364: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     367: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     372: aload_3
+     373: aload         4
+     375: getfield      #79                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.onHeapSize:J
+     378: lload         9
+     380: ladd
+     381: putfield      #90                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$Placeholder.onHeapSize:J
+     384: aload_0
+     385: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     388: lload         7
+     390: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     395: pop2
+     396: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     399: ldc           #100                // String fault installation failed deleted {} from disk
+     401: lload         7
+     403: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     406: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     411: aload_0
+     412: aload         4
+     414: iconst_1
+     415: invokespecial #30                 // Method free:(Ljava/lang/Object;Z)V
+     418: iconst_0
+     419: istore        5
+     421: aload_0
+     422: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     425: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     428: iload         5
+     430: ireturn
+     431: astore        13
+     433: aload_0
+     434: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     437: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     440: aload         13
+     442: athrow
+    Exception table:
+       from    to  target type
+           7    60   431   any
+          70   220   431   any
+         230   233   431   any
+         243   315   431   any
+         325   421   431   any
+         431   433   431   any
+
+  private void notifyEviction(net.sf.ehcache.Element);
+    Code:
+       0: aload_1
+       1: ifnull        13
+       4: aload_0
+       5: getfield      #12                 // Field cacheEventNotificationService:Lnet/sf/ehcache/event/RegisteredEventListeners;
+       8: aload_1
+       9: iconst_0
+      10: invokevirtual #101                // Method net/sf/ehcache/event/RegisteredEventListeners.notifyElementEvicted:(Lnet/sf/ehcache/Element;Z)V
+      13: return
+
+  net.sf.ehcache.Element evict(java.lang.Object, int, net.sf.ehcache.store.disk.DiskStorageFactory$DiskSubstitute);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: aload_3
+       4: iconst_1
+       5: invokevirtual #102                // Method evict:(Ljava/lang/Object;ILnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;Z)Lnet/sf/ehcache/Element;
+       8: areturn
+
+  net.sf.ehcache.Element evict(java.lang.Object, int, net.sf.ehcache.store.disk.DiskStorageFactory$DiskSubstitute, boolean);
+    Code:
+       0: aload_0
+       1: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+       4: invokevirtual #103                // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.tryLock:()Z
+       7: ifeq          374
+      10: aconst_null
+      11: astore        5
+      13: aload_0
+      14: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+      17: astore        6
+      19: iload_2
+      20: aload         6
+      22: arraylength
+      23: iconst_1
+      24: isub
+      25: iand
+      26: istore        7
+      28: aload         6
+      30: iload         7
+      32: aaload
+      33: astore        8
+      35: aload         8
+      37: astore        9
+      39: aload         9
+      41: ifnull        75
+      44: aload         9
+      46: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+      49: iload_2
+      50: if_icmpne     65
+      53: aload_1
+      54: aload         9
+      56: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+      59: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      62: ifne          75
+      65: aload         9
+      67: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      70: astore        9
+      72: goto          39
+      75: aload         9
+      77: ifnull        91
+      80: aload_0
+      81: aload         9
+      83: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      86: invokespecial #47                 // Method decode:(Ljava/lang/Object;)Lnet/sf/ehcache/Element;
+      89: astore        5
+      91: aload         9
+      93: ifnull        305
+      96: aload_3
+      97: ifnull        109
+     100: aload_3
+     101: aload         9
+     103: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     106: if_acmpne     305
+     109: aload_0
+     110: getfield      #12                 // Field cacheEventNotificationService:Lnet/sf/ehcache/event/RegisteredEventListeners;
+     113: invokevirtual #95                 // Method net/sf/ehcache/event/RegisteredEventListeners.getFrontEndCacheTier:()Lnet/sf/ehcache/store/FrontEndCacheTier;
+     116: ifnull        134
+     119: aload_0
+     120: getfield      #12                 // Field cacheEventNotificationService:Lnet/sf/ehcache/event/RegisteredEventListeners;
+     123: invokevirtual #95                 // Method net/sf/ehcache/event/RegisteredEventListeners.getFrontEndCacheTier:()Lnet/sf/ehcache/store/FrontEndCacheTier;
+     126: aload         5
+     128: invokevirtual #96                 // Method net/sf/ehcache/store/FrontEndCacheTier.isEvictionCandidate:(Lnet/sf/ehcache/Element;)Z
+     131: ifeq          305
+     134: aload_0
+     135: dup
+     136: getfield      #15                 // Field modCount:I
+     139: iconst_1
+     140: iadd
+     141: putfield      #15                 // Field modCount:I
+     144: aload         9
+     146: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+     149: astore        10
+     151: aload         8
+     153: astore        11
+     155: aload         11
+     157: aload         9
+     159: if_acmpeq     198
+     162: new           #13                 // class net/sf/ehcache/store/disk/HashEntry
+     165: dup
+     166: aload         11
+     168: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+     171: aload         11
+     173: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+     176: aload         10
+     178: aload         11
+     180: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     183: invokespecial #77                 // Method net/sf/ehcache/store/disk/HashEntry."<init>":(Ljava/lang/Object;ILnet/sf/ehcache/store/disk/HashEntry;Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;)V
+     186: astore        10
+     188: aload         11
+     190: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+     193: astore        11
+     195: goto          155
+     198: aload         6
+     200: iload         7
+     202: aload         10
+     204: aastore
+     205: aload         9
+     207: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+     210: astore        11
+     212: aload_0
+     213: aload         11
+     215: invokespecial #57                 // Method free:(Ljava/lang/Object;)V
+     218: aload         11
+     220: instanceof    #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     223: ifeq          261
+     226: aload_0
+     227: getfield      #11                 // Field onDiskPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     230: aload         11
+     232: checkcast     #63                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker
+     235: invokevirtual #64                 // Method net/sf/ehcache/store/disk/DiskStorageFactory$DiskMarker.getSize:()I
+     238: i2l
+     239: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     244: lstore        12
+     246: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     249: ldc           #104                // String evicted {} from disk
+     251: lload         12
+     253: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     256: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     261: aload_0
+     262: getfield      #10                 // Field onHeapPoolAccessor:Lnet/sf/ehcache/pool/PoolAccessor;
+     265: aload         11
+     267: getfield      #49                 // Field net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute.onHeapSize:J
+     270: invokeinterface #65,  3           // InterfaceMethod net/sf/ehcache/pool/PoolAccessor.delete:(J)J
+     275: lstore        12
+     277: getstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+     280: ldc           #105                // String evicted {} from heap
+     282: lload         12
+     284: invokestatic  #61                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     287: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     292: aload_0
+     293: aload_0
+     294: getfield      #35                 // Field count:I
+     297: iconst_1
+     298: isub
+     299: putfield      #35                 // Field count:I
+     302: goto          308
+     305: aconst_null
+     306: astore        5
+     308: aload         5
+     310: astore        10
+     312: aload_0
+     313: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     316: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     319: iload         4
+     321: ifeq          339
+     324: aload         5
+     326: ifnull        339
+     329: aload_0
+     330: getfield      #12                 // Field cacheEventNotificationService:Lnet/sf/ehcache/event/RegisteredEventListeners;
+     333: aload         5
+     335: iconst_0
+     336: invokevirtual #101                // Method net/sf/ehcache/event/RegisteredEventListeners.notifyElementEvicted:(Lnet/sf/ehcache/Element;Z)V
+     339: aload         10
+     341: areturn
+     342: astore        14
+     344: aload_0
+     345: invokevirtual #31                 // Method writeLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$WriteLock;
+     348: invokevirtual #58                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock.unlock:()V
+     351: iload         4
+     353: ifeq          371
+     356: aload         5
+     358: ifnull        371
+     361: aload_0
+     362: getfield      #12                 // Field cacheEventNotificationService:Lnet/sf/ehcache/event/RegisteredEventListeners;
+     365: aload         5
+     367: iconst_0
+     368: invokevirtual #101                // Method net/sf/ehcache/event/RegisteredEventListeners.notifyElementEvicted:(Lnet/sf/ehcache/Element;Z)V
+     371: aload         14
+     373: athrow
+     374: aconst_null
+     375: areturn
+    Exception table:
+       from    to  target type
+          13   312   342   any
+         342   344   342   any
+
+  void addRandomSample(net.sf.ehcache.store.disk.ElementSubstituteFilter, int, java.util.Collection<net.sf.ehcache.store.disk.DiskStorageFactory$DiskSubstitute>, int);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+       4: astore        5
+       6: iload         4
+       8: aload         5
+      10: arraylength
+      11: iconst_1
+      12: isub
+      13: iand
+      14: istore        6
+      16: iload         6
+      18: istore        7
+      20: aload         5
+      22: iload         7
+      24: aaload
+      25: astore        8
+      27: aload         8
+      29: ifnull        72
+      32: aload         8
+      34: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      37: astore        9
+      39: aload_1
+      40: aload         9
+      42: invokeinterface #106,  2          // InterfaceMethod net/sf/ehcache/store/disk/ElementSubstituteFilter.allows:(Ljava/lang/Object;)Z
+      47: ifeq          62
+      50: aload_3
+      51: aload         9
+      53: checkcast     #26                 // class net/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute
+      56: invokeinterface #107,  2          // InterfaceMethod java/util/Collection.add:(Ljava/lang/Object;)Z
+      61: pop
+      62: aload         8
+      64: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      67: astore        8
+      69: goto          27
+      72: aload_3
+      73: invokeinterface #108,  1          // InterfaceMethod java/util/Collection.size:()I
+      78: iload_2
+      79: if_icmplt     83
+      82: return
+      83: iload         7
+      85: iconst_1
+      86: iadd
+      87: aload         5
+      89: arraylength
+      90: iconst_1
+      91: isub
+      92: iand
+      93: istore        7
+      95: iload         7
+      97: iload         6
+      99: if_icmpne     20
+     102: return
+
+  java.util.Iterator<net.sf.ehcache.store.disk.HashEntry> hashIterator();
+    Code:
+       0: new           #109                // class net/sf/ehcache/store/disk/Segment$HashIterator
+       3: dup
+       4: aload_0
+       5: aconst_null
+       6: invokespecial #110                // Method net/sf/ehcache/store/disk/Segment$HashIterator."<init>":(Lnet/sf/ehcache/store/disk/Segment;Lnet/sf/ehcache/store/disk/Segment$1;)V
+       9: areturn
+
+  public java.lang.String toString();
+    Code:
+       0: new           #111                // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #112                // Method java/lang/StringBuilder."<init>":()V
+       7: aload_0
+       8: invokespecial #113                // Method java/util/concurrent/locks/ReentrantReadWriteLock.toString:()Ljava/lang/String;
+      11: invokevirtual #114                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      14: ldc           #115                // String  count:
+      16: invokevirtual #114                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      19: aload_0
+      20: getfield      #35                 // Field count:I
+      23: invokevirtual #116                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      26: invokevirtual #117                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      29: areturn
+
+  boolean cleanUpFailedMarker(java.io.Serializable, int);
+    Code:
+       0: iconst_0
+       1: istore_3
+       2: iconst_0
+       3: istore        4
+       5: aload_0
+       6: invokevirtual #118                // Method isWriteLockedByCurrentThread:()Z
+       9: ifne          21
+      12: aload_0
+      13: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+      16: invokevirtual #34                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.lock:()V
+      19: iconst_1
+      20: istore_3
+      21: aconst_null
+      22: astore        5
+      24: aload_0
+      25: getfield      #35                 // Field count:I
+      28: ifeq          102
+      31: aload_0
+      32: iload_2
+      33: invokespecial #36                 // Method getFirst:(I)Lnet/sf/ehcache/store/disk/HashEntry;
+      36: astore        6
+      38: aload         6
+      40: ifnull        102
+      43: aload         6
+      45: getfield      #37                 // Field net/sf/ehcache/store/disk/HashEntry.hash:I
+      48: iload_2
+      49: if_icmpne     92
+      52: aload_1
+      53: aload         6
+      55: getfield      #38                 // Field net/sf/ehcache/store/disk/HashEntry.key:Ljava/lang/Object;
+      58: invokevirtual #39                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      61: ifeq          92
+      64: aload         6
+      66: getfield      #40                 // Field net/sf/ehcache/store/disk/HashEntry.element:Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;
+      69: astore        5
+      71: aload         5
+      73: instanceof    #119                // class net/sf/ehcache/store/disk/DiskStorageFactory$Placeholder
+      76: ifeq          92
+      79: aload         5
+      81: checkcast     #119                // class net/sf/ehcache/store/disk/DiskStorageFactory$Placeholder
+      84: invokevirtual #120                // Method net/sf/ehcache/store/disk/DiskStorageFactory$Placeholder.hasFailedToFlush:()Z
+      87: istore        4
+      89: goto          102
+      92: aload         6
+      94: getfield      #43                 // Field net/sf/ehcache/store/disk/HashEntry.next:Lnet/sf/ehcache/store/disk/HashEntry;
+      97: astore        6
+      99: goto          38
+     102: iload_3
+     103: ifeq          132
+     106: aload_0
+     107: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     110: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     113: goto          132
+     116: astore        7
+     118: iload_3
+     119: ifeq          129
+     122: aload_0
+     123: invokevirtual #33                 // Method readLock:()Ljava/util/concurrent/locks/ReentrantReadWriteLock$ReadLock;
+     126: invokevirtual #42                 // Method java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock.unlock:()V
+     129: aload         7
+     131: athrow
+     132: iload         4
+     134: ifeq          153
+     137: aload_0
+     138: aload_1
+     139: iload_2
+     140: aload         5
+     142: iconst_0
+     143: invokevirtual #102                // Method evict:(Ljava/lang/Object;ILnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;Z)Lnet/sf/ehcache/Element;
+     146: ifnull        153
+     149: iconst_1
+     150: goto          154
+     153: iconst_0
+     154: ireturn
+    Exception table:
+       from    to  target type
+          24   102   116   any
+         116   118   116   any
+
+  public float getDiskHitRate();
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field diskHitRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+       4: invokeinterface #121,  1          // InterfaceMethod net/sf/ehcache/util/ratestatistics/RateStatistic.getRate:()F
+       9: freturn
+
+  public float getDiskMissRate();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field diskMissRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+       4: invokeinterface #121,  1          // InterfaceMethod net/sf/ehcache/util/ratestatistics/RateStatistic.getRate:()F
+       9: freturn
+
+  protected void diskHit();
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field diskHitRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+       4: invokeinterface #122,  1          // InterfaceMethod net/sf/ehcache/util/ratestatistics/RateStatistic.event:()V
+       9: return
+
+  protected void miss();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field diskMissRate:Lnet/sf/ehcache/util/ratestatistics/RateStatistic;
+       4: invokeinterface #122,  1          // InterfaceMethod net/sf/ehcache/util/ratestatistics/RateStatistic.event:()V
+       9: return
+
+  static net.sf.ehcache.store.disk.HashEntry[] access$100(net.sf.ehcache.store.disk.Segment);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field table:[Lnet/sf/ehcache/store/disk/HashEntry;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc_w         #123                // class net/sf/ehcache/store/disk/Segment
+       3: invokevirtual #124                // Method java/lang/Class.getName:()Ljava/lang/String;
+       6: invokestatic  #125                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/String;)Lorg/slf4j/Logger;
+       9: putstatic     #54                 // Field LOG:Lorg/slf4j/Logger;
+      12: new           #13                 // class net/sf/ehcache/store/disk/HashEntry
+      15: dup
+      16: aconst_null
+      17: iconst_0
+      18: aconst_null
+      19: aconst_null
+      20: invokespecial #77                 // Method net/sf/ehcache/store/disk/HashEntry."<init>":(Ljava/lang/Object;ILnet/sf/ehcache/store/disk/HashEntry;Lnet/sf/ehcache/store/disk/DiskStorageFactory$DiskSubstitute;)V
+      23: putstatic     #50                 // Field NULL_HASH_ENTRY:Lnet/sf/ehcache/store/disk/HashEntry;
+      26: ldc           #126                // int 2147483647
+      28: invokestatic  #127                // Method java/lang/Integer.highestOneBit:(I)I
+      31: putstatic     #82                 // Field MAXIMUM_CAPACITY:I
+      34: return
+}
