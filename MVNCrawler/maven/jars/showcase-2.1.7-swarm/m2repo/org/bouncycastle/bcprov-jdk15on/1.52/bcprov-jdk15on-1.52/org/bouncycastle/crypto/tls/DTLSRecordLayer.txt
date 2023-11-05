@@ -1,0 +1,893 @@
+class org.bouncycastle.crypto.tls.DTLSRecordLayer implements org.bouncycastle.crypto.tls.DatagramTransport {
+  private static final int RECORD_HEADER_LENGTH;
+
+  private static final int MAX_FRAGMENT_LENGTH;
+
+  private static final long TCP_MSL;
+
+  private static final long RETRANSMIT_TIMEOUT;
+
+  private final org.bouncycastle.crypto.tls.DatagramTransport transport;
+
+  private final org.bouncycastle.crypto.tls.TlsContext context;
+
+  private final org.bouncycastle.crypto.tls.TlsPeer peer;
+
+  private final org.bouncycastle.crypto.tls.ByteQueue recordQueue;
+
+  private volatile boolean closed;
+
+  private volatile boolean failed;
+
+  private volatile org.bouncycastle.crypto.tls.ProtocolVersion discoveredPeerVersion;
+
+  private volatile boolean inHandshake;
+
+  private volatile int plaintextLimit;
+
+  private org.bouncycastle.crypto.tls.DTLSEpoch currentEpoch;
+
+  private org.bouncycastle.crypto.tls.DTLSEpoch pendingEpoch;
+
+  private org.bouncycastle.crypto.tls.DTLSEpoch readEpoch;
+
+  private org.bouncycastle.crypto.tls.DTLSEpoch writeEpoch;
+
+  private org.bouncycastle.crypto.tls.DTLSHandshakeRetransmit retransmit;
+
+  private org.bouncycastle.crypto.tls.DTLSEpoch retransmitEpoch;
+
+  private long retransmitExpiry;
+
+  org.bouncycastle.crypto.tls.DTLSRecordLayer(org.bouncycastle.crypto.tls.DatagramTransport, org.bouncycastle.crypto.tls.TlsContext, org.bouncycastle.crypto.tls.TlsPeer, short);
+    Code:
+       0: aload_0
+       1: invokespecial #244                // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #130                // class org/bouncycastle/crypto/tls/ByteQueue
+       8: dup
+       9: invokespecial #248                // Method org/bouncycastle/crypto/tls/ByteQueue."<init>":()V
+      12: putfield      #231                // Field recordQueue:Lorg/bouncycastle/crypto/tls/ByteQueue;
+      15: aload_0
+      16: iconst_0
+      17: putfield      #228                // Field closed:Z
+      20: aload_0
+      21: iconst_0
+      22: putfield      #229                // Field failed:Z
+      25: aload_0
+      26: aconst_null
+      27: putfield      #239                // Field discoveredPeerVersion:Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+      30: aload_0
+      31: aconst_null
+      32: putfield      #237                // Field retransmit:Lorg/bouncycastle/crypto/tls/DTLSHandshakeRetransmit;
+      35: aload_0
+      36: aconst_null
+      37: putfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      40: aload_0
+      41: lconst_0
+      42: putfield      #227                // Field retransmitExpiry:J
+      45: aload_0
+      46: aload_1
+      47: putfield      #238                // Field transport:Lorg/bouncycastle/crypto/tls/DatagramTransport;
+      50: aload_0
+      51: aload_2
+      52: putfield      #240                // Field context:Lorg/bouncycastle/crypto/tls/TlsContext;
+      55: aload_0
+      56: aload_3
+      57: putfield      #241                // Field peer:Lorg/bouncycastle/crypto/tls/TlsPeer;
+      60: aload_0
+      61: iconst_1
+      62: putfield      #230                // Field inHandshake:Z
+      65: aload_0
+      66: new           #131                // class org/bouncycastle/crypto/tls/DTLSEpoch
+      69: dup
+      70: iconst_0
+      71: new           #140                // class org/bouncycastle/crypto/tls/TlsNullCipher
+      74: dup
+      75: aload_2
+      76: invokespecial #270                // Method org/bouncycastle/crypto/tls/TlsNullCipher."<init>":(Lorg/bouncycastle/crypto/tls/TlsContext;)V
+      79: invokespecial #256                // Method org/bouncycastle/crypto/tls/DTLSEpoch."<init>":(ILorg/bouncycastle/crypto/tls/TlsCipher;)V
+      82: putfield      #232                // Field currentEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      85: aload_0
+      86: aconst_null
+      87: putfield      #233                // Field pendingEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      90: aload_0
+      91: aload_0
+      92: getfield      #232                // Field currentEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      95: putfield      #234                // Field readEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      98: aload_0
+      99: aload_0
+     100: getfield      #232                // Field currentEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     103: putfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     106: aload_0
+     107: sipush        16384
+     110: invokevirtual #259                // Method setPlaintextLimit:(I)V
+     113: return
+
+  void setPlaintextLimit(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #226                // Field plaintextLimit:I
+       5: return
+
+  org.bouncycastle.crypto.tls.ProtocolVersion getDiscoveredPeerVersion();
+    Code:
+       0: aload_0
+       1: getfield      #239                // Field discoveredPeerVersion:Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+       4: areturn
+
+  org.bouncycastle.crypto.tls.ProtocolVersion resetDiscoveredPeerVersion();
+    Code:
+       0: aload_0
+       1: getfield      #239                // Field discoveredPeerVersion:Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+       4: astore_1
+       5: aload_0
+       6: aconst_null
+       7: putfield      #239                // Field discoveredPeerVersion:Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+      10: aload_1
+      11: areturn
+
+  void initPendingEpoch(org.bouncycastle.crypto.tls.TlsCipher);
+    Code:
+       0: aload_0
+       1: getfield      #233                // Field pendingEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+       4: ifnull        15
+       7: new           #126                // class java/lang/IllegalStateException
+      10: dup
+      11: invokespecial #242                // Method java/lang/IllegalStateException."<init>":()V
+      14: athrow
+      15: aload_0
+      16: new           #131                // class org/bouncycastle/crypto/tls/DTLSEpoch
+      19: dup
+      20: aload_0
+      21: getfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      24: invokevirtual #252                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getEpoch:()I
+      27: iconst_1
+      28: iadd
+      29: aload_1
+      30: invokespecial #256                // Method org/bouncycastle/crypto/tls/DTLSEpoch."<init>":(ILorg/bouncycastle/crypto/tls/TlsCipher;)V
+      33: putfield      #233                // Field pendingEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      36: return
+
+  void handshakeSuccessful(org.bouncycastle.crypto.tls.DTLSHandshakeRetransmit);
+    Code:
+       0: aload_0
+       1: getfield      #234                // Field readEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+       4: aload_0
+       5: getfield      #232                // Field currentEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+       8: if_acmpeq     22
+      11: aload_0
+      12: getfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      15: aload_0
+      16: getfield      #232                // Field currentEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      19: if_acmpne     30
+      22: new           #126                // class java/lang/IllegalStateException
+      25: dup
+      26: invokespecial #242                // Method java/lang/IllegalStateException."<init>":()V
+      29: athrow
+      30: aload_1
+      31: ifnull        58
+      34: aload_0
+      35: aload_1
+      36: putfield      #237                // Field retransmit:Lorg/bouncycastle/crypto/tls/DTLSHandshakeRetransmit;
+      39: aload_0
+      40: aload_0
+      41: getfield      #232                // Field currentEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      44: putfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      47: aload_0
+      48: invokestatic  #245                // Method java/lang/System.currentTimeMillis:()J
+      51: ldc2_w        #120                // long 240000l
+      54: ladd
+      55: putfield      #227                // Field retransmitExpiry:J
+      58: aload_0
+      59: iconst_0
+      60: putfield      #230                // Field inHandshake:Z
+      63: aload_0
+      64: aload_0
+      65: getfield      #233                // Field pendingEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      68: putfield      #232                // Field currentEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      71: aload_0
+      72: aconst_null
+      73: putfield      #233                // Field pendingEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      76: return
+
+  void resetWriteEpoch();
+    Code:
+       0: aload_0
+       1: getfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+       4: ifnull        18
+       7: aload_0
+       8: aload_0
+       9: getfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      12: putfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      15: goto          26
+      18: aload_0
+      19: aload_0
+      20: getfield      #232                // Field currentEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      23: putfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      26: return
+
+  public int getReceiveLimit() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #226                // Field plaintextLimit:I
+       4: aload_0
+       5: getfield      #234                // Field readEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+       8: invokevirtual #255                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getCipher:()Lorg/bouncycastle/crypto/tls/TlsCipher;
+      11: aload_0
+      12: getfield      #238                // Field transport:Lorg/bouncycastle/crypto/tls/DatagramTransport;
+      15: invokeinterface #280,  1          // InterfaceMethod org/bouncycastle/crypto/tls/DatagramTransport.getReceiveLimit:()I
+      20: bipush        13
+      22: isub
+      23: invokeinterface #285,  2          // InterfaceMethod org/bouncycastle/crypto/tls/TlsCipher.getPlaintextLimit:(I)I
+      28: invokestatic  #243                // Method java/lang/Math.min:(II)I
+      31: ireturn
+
+  public int getSendLimit() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #226                // Field plaintextLimit:I
+       4: aload_0
+       5: getfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+       8: invokevirtual #255                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getCipher:()Lorg/bouncycastle/crypto/tls/TlsCipher;
+      11: aload_0
+      12: getfield      #238                // Field transport:Lorg/bouncycastle/crypto/tls/DatagramTransport;
+      15: invokeinterface #281,  1          // InterfaceMethod org/bouncycastle/crypto/tls/DatagramTransport.getSendLimit:()I
+      20: bipush        13
+      22: isub
+      23: invokeinterface #285,  2          // InterfaceMethod org/bouncycastle/crypto/tls/TlsCipher.getPlaintextLimit:(I)I
+      28: invokestatic  #243                // Method java/lang/Math.min:(II)I
+      31: ireturn
+
+  public int receive(byte[], int, int, int) throws java.io.IOException;
+    Code:
+       0: aconst_null
+       1: astore        5
+       3: iload_3
+       4: aload_0
+       5: invokevirtual #257                // Method getReceiveLimit:()I
+       8: invokestatic  #243                // Method java/lang/Math.min:(II)I
+      11: bipush        13
+      13: iadd
+      14: istore        6
+      16: aload         5
+      18: ifnull        29
+      21: aload         5
+      23: arraylength
+      24: iload         6
+      26: if_icmpge     35
+      29: iload         6
+      31: newarray       byte
+      33: astore        5
+      35: aload_0
+      36: getfield      #237                // Field retransmit:Lorg/bouncycastle/crypto/tls/DTLSHandshakeRetransmit;
+      39: ifnull        63
+      42: invokestatic  #245                // Method java/lang/System.currentTimeMillis:()J
+      45: aload_0
+      46: getfield      #227                // Field retransmitExpiry:J
+      49: lcmp
+      50: ifle          63
+      53: aload_0
+      54: aconst_null
+      55: putfield      #237                // Field retransmit:Lorg/bouncycastle/crypto/tls/DTLSHandshakeRetransmit;
+      58: aload_0
+      59: aconst_null
+      60: putfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      63: aload_0
+      64: aload         5
+      66: iconst_0
+      67: iload         6
+      69: iload         4
+      71: invokespecial #263                // Method receiveRecord:([BIII)I
+      74: istore        7
+      76: iload         7
+      78: ifge          84
+      81: iload         7
+      83: ireturn
+      84: iload         7
+      86: bipush        13
+      88: if_icmpge     94
+      91: goto          3
+      94: aload         5
+      96: bipush        11
+      98: invokestatic  #274                // Method org/bouncycastle/crypto/tls/TlsUtils.readUint16:([BI)I
+     101: istore        8
+     103: iload         7
+     105: iload         8
+     107: bipush        13
+     109: iadd
+     110: if_icmpeq     116
+     113: goto          3
+     116: aload         5
+     118: iconst_0
+     119: invokestatic  #276                // Method org/bouncycastle/crypto/tls/TlsUtils.readUint8:([BI)S
+     122: istore        9
+     124: iload         9
+     126: tableswitch   { // 20 to 24
+                    20: 160
+                    21: 160
+                    22: 160
+                    23: 160
+                    24: 160
+               default: 163
+          }
+     160: goto          166
+     163: goto          3
+     166: aload         5
+     168: iconst_3
+     169: invokestatic  #274                // Method org/bouncycastle/crypto/tls/TlsUtils.readUint16:([BI)I
+     172: istore        10
+     174: aconst_null
+     175: astore        11
+     177: iload         10
+     179: aload_0
+     180: getfield      #234                // Field readEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     183: invokevirtual #252                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getEpoch:()I
+     186: if_icmpne     198
+     189: aload_0
+     190: getfield      #234                // Field readEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     193: astore        11
+     195: goto          230
+     198: iload         9
+     200: bipush        22
+     202: if_icmpne     230
+     205: aload_0
+     206: getfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     209: ifnull        230
+     212: iload         10
+     214: aload_0
+     215: getfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     218: invokevirtual #252                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getEpoch:()I
+     221: if_icmpne     230
+     224: aload_0
+     225: getfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     228: astore        11
+     230: aload         11
+     232: ifnonnull     238
+     235: goto          3
+     238: aload         5
+     240: iconst_5
+     241: invokestatic  #275                // Method org/bouncycastle/crypto/tls/TlsUtils.readUint48:([BI)J
+     244: lstore        12
+     246: aload         11
+     248: invokevirtual #254                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getReplayWindow:()Lorg/bouncycastle/crypto/tls/DTLSReplayWindow;
+     251: lload         12
+     253: invokevirtual #267                // Method org/bouncycastle/crypto/tls/DTLSReplayWindow.shouldDiscard:(J)Z
+     256: ifeq          262
+     259: goto          3
+     262: aload         5
+     264: iconst_1
+     265: invokestatic  #278                // Method org/bouncycastle/crypto/tls/TlsUtils.readVersion:([BI)Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+     268: astore        14
+     270: aload_0
+     271: getfield      #239                // Field discoveredPeerVersion:Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+     274: ifnull        292
+     277: aload_0
+     278: getfield      #239                // Field discoveredPeerVersion:Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+     281: aload         14
+     283: invokevirtual #268                // Method org/bouncycastle/crypto/tls/ProtocolVersion.equals:(Lorg/bouncycastle/crypto/tls/ProtocolVersion;)Z
+     286: ifne          292
+     289: goto          3
+     292: aload         11
+     294: invokevirtual #255                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getCipher:()Lorg/bouncycastle/crypto/tls/TlsCipher;
+     297: aload         11
+     299: invokevirtual #252                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getEpoch:()I
+     302: lload         12
+     304: invokestatic  #260                // Method getMacSequenceNumber:(IJ)J
+     307: iload         9
+     309: aload         5
+     311: bipush        13
+     313: iload         7
+     315: bipush        13
+     317: isub
+     318: invokeinterface #286,  7          // InterfaceMethod org/bouncycastle/crypto/tls/TlsCipher.decodeCiphertext:(JS[BII)[B
+     323: astore        15
+     325: aload         11
+     327: invokevirtual #254                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getReplayWindow:()Lorg/bouncycastle/crypto/tls/DTLSReplayWindow;
+     330: lload         12
+     332: invokevirtual #266                // Method org/bouncycastle/crypto/tls/DTLSReplayWindow.reportAuthenticated:(J)V
+     335: aload         15
+     337: arraylength
+     338: aload_0
+     339: getfield      #226                // Field plaintextLimit:I
+     342: if_icmple     348
+     345: goto          3
+     348: aload_0
+     349: getfield      #239                // Field discoveredPeerVersion:Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+     352: ifnonnull     361
+     355: aload_0
+     356: aload         14
+     358: putfield      #239                // Field discoveredPeerVersion:Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+     361: iload         9
+     363: tableswitch   { // 20 to 24
+                    20: 474
+                    21: 396
+                    22: 527
+                    23: 464
+                    24: 561
+               default: 564
+          }
+     396: aload         15
+     398: arraylength
+     399: iconst_2
+     400: if_icmpne     461
+     403: aload         15
+     405: iconst_0
+     406: baload
+     407: i2s
+     408: istore        16
+     410: aload         15
+     412: iconst_1
+     413: baload
+     414: i2s
+     415: istore        17
+     417: aload_0
+     418: getfield      #241                // Field peer:Lorg/bouncycastle/crypto/tls/TlsPeer;
+     421: iload         16
+     423: iload         17
+     425: invokeinterface #289,  3          // InterfaceMethod org/bouncycastle/crypto/tls/TlsPeer.notifyAlertReceived:(SS)V
+     430: iload         16
+     432: iconst_2
+     433: if_icmpne     452
+     436: aload_0
+     437: iload         17
+     439: invokevirtual #261                // Method fail:(S)V
+     442: new           #139                // class org/bouncycastle/crypto/tls/TlsFatalAlert
+     445: dup
+     446: iload         17
+     448: invokespecial #269                // Method org/bouncycastle/crypto/tls/TlsFatalAlert."<init>":(S)V
+     451: athrow
+     452: iload         17
+     454: ifne          461
+     457: aload_0
+     458: invokespecial #258                // Method closeTransport:()V
+     461: goto          3
+     464: aload_0
+     465: getfield      #230                // Field inHandshake:Z
+     468: ifeq          564
+     471: goto          3
+     474: iconst_0
+     475: istore        16
+     477: iload         16
+     479: aload         15
+     481: arraylength
+     482: if_icmpge     524
+     485: aload         15
+     487: iload         16
+     489: invokestatic  #276                // Method org/bouncycastle/crypto/tls/TlsUtils.readUint8:([BI)S
+     492: istore        17
+     494: iload         17
+     496: iconst_1
+     497: if_icmpeq     503
+     500: goto          518
+     503: aload_0
+     504: getfield      #233                // Field pendingEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     507: ifnull        518
+     510: aload_0
+     511: aload_0
+     512: getfield      #233                // Field pendingEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     515: putfield      #234                // Field readEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     518: iinc          16, 1
+     521: goto          477
+     524: goto          3
+     527: aload_0
+     528: getfield      #230                // Field inHandshake:Z
+     531: ifne          564
+     534: aload_0
+     535: getfield      #237                // Field retransmit:Lorg/bouncycastle/crypto/tls/DTLSHandshakeRetransmit;
+     538: ifnull        558
+     541: aload_0
+     542: getfield      #237                // Field retransmit:Lorg/bouncycastle/crypto/tls/DTLSHandshakeRetransmit;
+     545: iload         10
+     547: aload         15
+     549: iconst_0
+     550: aload         15
+     552: arraylength
+     553: invokeinterface #279,  5          // InterfaceMethod org/bouncycastle/crypto/tls/DTLSHandshakeRetransmit.receivedHandshakeRecord:(I[BII)V
+     558: goto          3
+     561: goto          3
+     564: aload_0
+     565: getfield      #230                // Field inHandshake:Z
+     568: ifne          588
+     571: aload_0
+     572: getfield      #237                // Field retransmit:Lorg/bouncycastle/crypto/tls/DTLSHandshakeRetransmit;
+     575: ifnull        588
+     578: aload_0
+     579: aconst_null
+     580: putfield      #237                // Field retransmit:Lorg/bouncycastle/crypto/tls/DTLSHandshakeRetransmit;
+     583: aload_0
+     584: aconst_null
+     585: putfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     588: aload         15
+     590: iconst_0
+     591: aload_1
+     592: iload_2
+     593: aload         15
+     595: arraylength
+     596: invokestatic  #246                // Method java/lang/System.arraycopy:(Ljava/lang/Object;ILjava/lang/Object;II)V
+     599: aload         15
+     601: arraylength
+     602: ireturn
+     603: astore        7
+     605: aload         7
+     607: athrow
+    Exception table:
+       from    to  target type
+          35    83   603   Class java/io/IOException
+          84    91   603   Class java/io/IOException
+          94   113   603   Class java/io/IOException
+         116   163   603   Class java/io/IOException
+         166   235   603   Class java/io/IOException
+         238   259   603   Class java/io/IOException
+         262   289   603   Class java/io/IOException
+         292   345   603   Class java/io/IOException
+         348   461   603   Class java/io/IOException
+         464   471   603   Class java/io/IOException
+         474   524   603   Class java/io/IOException
+         527   558   603   Class java/io/IOException
+         564   602   603   Class java/io/IOException
+
+  public void send(byte[], int, int) throws java.io.IOException;
+    Code:
+       0: bipush        23
+       2: istore        4
+       4: aload_0
+       5: getfield      #230                // Field inHandshake:Z
+       8: ifne          22
+      11: aload_0
+      12: getfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      15: aload_0
+      16: getfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      19: if_acmpne     116
+      22: bipush        22
+      24: istore        4
+      26: aload_1
+      27: iload_2
+      28: invokestatic  #276                // Method org/bouncycastle/crypto/tls/TlsUtils.readUint8:([BI)S
+      31: istore        5
+      33: iload         5
+      35: bipush        20
+      37: if_icmpne     116
+      40: aconst_null
+      41: astore        6
+      43: aload_0
+      44: getfield      #230                // Field inHandshake:Z
+      47: ifeq          59
+      50: aload_0
+      51: getfield      #233                // Field pendingEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      54: astore        6
+      56: goto          76
+      59: aload_0
+      60: getfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      63: aload_0
+      64: getfield      #235                // Field retransmitEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      67: if_acmpne     76
+      70: aload_0
+      71: getfield      #232                // Field currentEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      74: astore        6
+      76: aload         6
+      78: ifnonnull     89
+      81: new           #126                // class java/lang/IllegalStateException
+      84: dup
+      85: invokespecial #242                // Method java/lang/IllegalStateException."<init>":()V
+      88: athrow
+      89: iconst_1
+      90: newarray       byte
+      92: dup
+      93: iconst_0
+      94: iconst_1
+      95: bastore
+      96: astore        7
+      98: aload_0
+      99: bipush        20
+     101: aload         7
+     103: iconst_0
+     104: aload         7
+     106: arraylength
+     107: invokespecial #262                // Method sendRecord:(S[BII)V
+     110: aload_0
+     111: aload         6
+     113: putfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+     116: aload_0
+     117: iload         4
+     119: aload_1
+     120: iload_2
+     121: iload_3
+     122: invokespecial #262                // Method sendRecord:(S[BII)V
+     125: return
+
+  public void close() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #228                // Field closed:Z
+       4: ifne          26
+       7: aload_0
+       8: getfield      #230                // Field inHandshake:Z
+      11: ifeq          22
+      14: aload_0
+      15: bipush        90
+      17: ldc           #1                  // String User canceled handshake
+      19: invokevirtual #264                // Method warn:(SLjava/lang/String;)V
+      22: aload_0
+      23: invokespecial #258                // Method closeTransport:()V
+      26: return
+
+  void fail(short);
+    Code:
+       0: aload_0
+       1: getfield      #228                // Field closed:Z
+       4: ifne          28
+       7: aload_0
+       8: iconst_2
+       9: iload_1
+      10: aconst_null
+      11: aconst_null
+      12: invokespecial #265                // Method raiseAlert:(SSLjava/lang/String;Ljava/lang/Throwable;)V
+      15: goto          19
+      18: astore_2
+      19: aload_0
+      20: iconst_1
+      21: putfield      #229                // Field failed:Z
+      24: aload_0
+      25: invokespecial #258                // Method closeTransport:()V
+      28: return
+    Exception table:
+       from    to  target type
+           7    15    18   Class java/lang/Exception
+
+  void warn(short, java.lang.String) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: iload_1
+       3: aload_2
+       4: aconst_null
+       5: invokespecial #265                // Method raiseAlert:(SSLjava/lang/String;Ljava/lang/Throwable;)V
+       8: return
+
+  private void closeTransport();
+    Code:
+       0: aload_0
+       1: getfield      #228                // Field closed:Z
+       4: ifne          38
+       7: aload_0
+       8: getfield      #229                // Field failed:Z
+      11: ifne          20
+      14: aload_0
+      15: iconst_0
+      16: aconst_null
+      17: invokevirtual #264                // Method warn:(SLjava/lang/String;)V
+      20: aload_0
+      21: getfield      #238                // Field transport:Lorg/bouncycastle/crypto/tls/DatagramTransport;
+      24: invokeinterface #282,  1          // InterfaceMethod org/bouncycastle/crypto/tls/DatagramTransport.close:()V
+      29: goto          33
+      32: astore_1
+      33: aload_0
+      34: iconst_1
+      35: putfield      #228                // Field closed:Z
+      38: return
+    Exception table:
+       from    to  target type
+           7    29    32   Class java/lang/Exception
+
+  private void raiseAlert(short, short, java.lang.String, java.lang.Throwable) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #241                // Field peer:Lorg/bouncycastle/crypto/tls/TlsPeer;
+       4: iload_1
+       5: iload_2
+       6: aload_3
+       7: aload         4
+       9: invokeinterface #290,  5          // InterfaceMethod org/bouncycastle/crypto/tls/TlsPeer.notifyAlertRaised:(SSLjava/lang/String;Ljava/lang/Throwable;)V
+      14: iconst_2
+      15: newarray       byte
+      17: astore        5
+      19: aload         5
+      21: iconst_0
+      22: iload_1
+      23: i2b
+      24: bastore
+      25: aload         5
+      27: iconst_1
+      28: iload_2
+      29: i2b
+      30: bastore
+      31: aload_0
+      32: bipush        21
+      34: aload         5
+      36: iconst_0
+      37: iconst_2
+      38: invokespecial #262                // Method sendRecord:(S[BII)V
+      41: return
+
+  private int receiveRecord(byte[], int, int, int) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #231                // Field recordQueue:Lorg/bouncycastle/crypto/tls/ByteQueue;
+       4: invokevirtual #247                // Method org/bouncycastle/crypto/tls/ByteQueue.available:()I
+       7: ifle          83
+      10: iconst_0
+      11: istore        5
+      13: aload_0
+      14: getfield      #231                // Field recordQueue:Lorg/bouncycastle/crypto/tls/ByteQueue;
+      17: invokevirtual #247                // Method org/bouncycastle/crypto/tls/ByteQueue.available:()I
+      20: bipush        13
+      22: if_icmplt     51
+      25: iconst_2
+      26: newarray       byte
+      28: astore        6
+      30: aload_0
+      31: getfield      #231                // Field recordQueue:Lorg/bouncycastle/crypto/tls/ByteQueue;
+      34: aload         6
+      36: iconst_0
+      37: iconst_2
+      38: bipush        11
+      40: invokevirtual #250                // Method org/bouncycastle/crypto/tls/ByteQueue.read:([BIII)V
+      43: aload         6
+      45: iconst_0
+      46: invokestatic  #274                // Method org/bouncycastle/crypto/tls/TlsUtils.readUint16:([BI)I
+      49: istore        5
+      51: aload_0
+      52: getfield      #231                // Field recordQueue:Lorg/bouncycastle/crypto/tls/ByteQueue;
+      55: invokevirtual #247                // Method org/bouncycastle/crypto/tls/ByteQueue.available:()I
+      58: bipush        13
+      60: iload         5
+      62: iadd
+      63: invokestatic  #243                // Method java/lang/Math.min:(II)I
+      66: istore        6
+      68: aload_0
+      69: getfield      #231                // Field recordQueue:Lorg/bouncycastle/crypto/tls/ByteQueue;
+      72: aload_1
+      73: iload_2
+      74: iload         6
+      76: iconst_0
+      77: invokevirtual #251                // Method org/bouncycastle/crypto/tls/ByteQueue.removeData:([BIII)V
+      80: iload         6
+      82: ireturn
+      83: aload_0
+      84: getfield      #238                // Field transport:Lorg/bouncycastle/crypto/tls/DatagramTransport;
+      87: aload_1
+      88: iload_2
+      89: iload_3
+      90: iload         4
+      92: invokeinterface #284,  5          // InterfaceMethod org/bouncycastle/crypto/tls/DatagramTransport.receive:([BIII)I
+      97: istore        5
+      99: iload         5
+     101: bipush        13
+     103: if_icmplt     151
+     106: aload_1
+     107: iload_2
+     108: bipush        11
+     110: iadd
+     111: invokestatic  #274                // Method org/bouncycastle/crypto/tls/TlsUtils.readUint16:([BI)I
+     114: istore        6
+     116: bipush        13
+     118: iload         6
+     120: iadd
+     121: istore        7
+     123: iload         5
+     125: iload         7
+     127: if_icmple     151
+     130: aload_0
+     131: getfield      #231                // Field recordQueue:Lorg/bouncycastle/crypto/tls/ByteQueue;
+     134: aload_1
+     135: iload_2
+     136: iload         7
+     138: iadd
+     139: iload         5
+     141: iload         7
+     143: isub
+     144: invokevirtual #249                // Method org/bouncycastle/crypto/tls/ByteQueue.addData:([BII)V
+     147: iload         7
+     149: istore        5
+     151: iload         5
+     153: ireturn
+
+  private void sendRecord(short, byte[], int, int) throws java.io.IOException;
+    Code:
+       0: iload         4
+       2: aload_0
+       3: getfield      #226                // Field plaintextLimit:I
+       6: if_icmple     19
+       9: new           #139                // class org/bouncycastle/crypto/tls/TlsFatalAlert
+      12: dup
+      13: bipush        80
+      15: invokespecial #269                // Method org/bouncycastle/crypto/tls/TlsFatalAlert."<init>":(S)V
+      18: athrow
+      19: iload         4
+      21: iconst_1
+      22: if_icmpge     41
+      25: iload_1
+      26: bipush        23
+      28: if_icmpeq     41
+      31: new           #139                // class org/bouncycastle/crypto/tls/TlsFatalAlert
+      34: dup
+      35: bipush        80
+      37: invokespecial #269                // Method org/bouncycastle/crypto/tls/TlsFatalAlert."<init>":(S)V
+      40: athrow
+      41: aload_0
+      42: getfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      45: invokevirtual #252                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getEpoch:()I
+      48: istore        5
+      50: aload_0
+      51: getfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      54: invokevirtual #253                // Method org/bouncycastle/crypto/tls/DTLSEpoch.allocateSequenceNumber:()J
+      57: lstore        6
+      59: aload_0
+      60: getfield      #236                // Field writeEpoch:Lorg/bouncycastle/crypto/tls/DTLSEpoch;
+      63: invokevirtual #255                // Method org/bouncycastle/crypto/tls/DTLSEpoch.getCipher:()Lorg/bouncycastle/crypto/tls/TlsCipher;
+      66: iload         5
+      68: lload         6
+      70: invokestatic  #260                // Method getMacSequenceNumber:(IJ)J
+      73: iload_1
+      74: aload_2
+      75: iload_3
+      76: iload         4
+      78: invokeinterface #287,  7          // InterfaceMethod org/bouncycastle/crypto/tls/TlsCipher.encodePlaintext:(JS[BII)[B
+      83: astore        8
+      85: aload         8
+      87: arraylength
+      88: bipush        13
+      90: iadd
+      91: newarray       byte
+      93: astore        9
+      95: iload_1
+      96: aload         9
+      98: iconst_0
+      99: invokestatic  #273                // Method org/bouncycastle/crypto/tls/TlsUtils.writeUint8:(S[BI)V
+     102: aload_0
+     103: getfield      #239                // Field discoveredPeerVersion:Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+     106: ifnull        116
+     109: aload_0
+     110: getfield      #239                // Field discoveredPeerVersion:Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+     113: goto          125
+     116: aload_0
+     117: getfield      #240                // Field context:Lorg/bouncycastle/crypto/tls/TlsContext;
+     120: invokeinterface #288,  1          // InterfaceMethod org/bouncycastle/crypto/tls/TlsContext.getClientVersion:()Lorg/bouncycastle/crypto/tls/ProtocolVersion;
+     125: astore        10
+     127: aload         10
+     129: aload         9
+     131: iconst_1
+     132: invokestatic  #277                // Method org/bouncycastle/crypto/tls/TlsUtils.writeVersion:(Lorg/bouncycastle/crypto/tls/ProtocolVersion;[BI)V
+     135: iload         5
+     137: aload         9
+     139: iconst_3
+     140: invokestatic  #271                // Method org/bouncycastle/crypto/tls/TlsUtils.writeUint16:(I[BI)V
+     143: lload         6
+     145: aload         9
+     147: iconst_5
+     148: invokestatic  #272                // Method org/bouncycastle/crypto/tls/TlsUtils.writeUint48:(J[BI)V
+     151: aload         8
+     153: arraylength
+     154: aload         9
+     156: bipush        11
+     158: invokestatic  #271                // Method org/bouncycastle/crypto/tls/TlsUtils.writeUint16:(I[BI)V
+     161: aload         8
+     163: iconst_0
+     164: aload         9
+     166: bipush        13
+     168: aload         8
+     170: arraylength
+     171: invokestatic  #246                // Method java/lang/System.arraycopy:(Ljava/lang/Object;ILjava/lang/Object;II)V
+     174: aload_0
+     175: getfield      #238                // Field transport:Lorg/bouncycastle/crypto/tls/DatagramTransport;
+     178: aload         9
+     180: iconst_0
+     181: aload         9
+     183: arraylength
+     184: invokeinterface #283,  4          // InterfaceMethod org/bouncycastle/crypto/tls/DatagramTransport.send:([BII)V
+     189: return
+
+  private static long getMacSequenceNumber(int, long);
+    Code:
+       0: iload_0
+       1: i2l
+       2: ldc2_w        #122                // long 4294967295l
+       5: land
+       6: bipush        48
+       8: lshl
+       9: lload_1
+      10: lor
+      11: lreturn
+}

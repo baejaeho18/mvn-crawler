@@ -1,0 +1,1962 @@
+Compiled from "SingleFileStore.java"
+public class org.infinispan.persistence.file.SingleFileStore<K, V> implements org.infinispan.persistence.spi.AdvancedLoadWriteStore<K, V> {
+  private static final org.infinispan.util.logging.Log log;
+
+  private static final boolean trace;
+
+  private static final byte[] MAGIC;
+
+  private static final byte[] ZERO_INT;
+
+  private static final int KEYLEN_POS;
+
+  private static final int KEY_POS;
+
+  private static final int SMALLEST_ENTRY_SIZE;
+
+  private org.infinispan.configuration.cache.SingleFileStoreConfiguration configuration;
+
+  protected org.infinispan.persistence.spi.InitializationContext ctx;
+
+  private java.nio.channels.FileChannel channel;
+
+  private java.util.Map<K, org.infinispan.persistence.file.SingleFileStore$FileEntry> entries;
+
+  private java.util.SortedSet<org.infinispan.persistence.file.SingleFileStore$FileEntry> freeList;
+
+  private long filePos;
+
+  private java.io.File file;
+
+  private float fragmentationFactor;
+
+  private java.util.concurrent.locks.ReadWriteLock resizeLock;
+
+  private org.infinispan.util.TimeService timeService;
+
+  public org.infinispan.persistence.file.SingleFileStore();
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: getstatic     #10                 // Field MAGIC:[B
+       8: arraylength
+       9: i2l
+      10: putfield      #11                 // Field filePos:J
+      13: aload_0
+      14: ldc           #12                 // float 0.75f
+      16: putfield      #13                 // Field fragmentationFactor:F
+      19: aload_0
+      20: new           #14                 // class java/util/concurrent/locks/ReentrantReadWriteLock
+      23: dup
+      24: invokespecial #15                 // Method java/util/concurrent/locks/ReentrantReadWriteLock."<init>":()V
+      27: putfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+      30: return
+
+  public void init(org.infinispan.persistence.spi.InitializationContext);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #16                 // Field ctx:Lorg/infinispan/persistence/spi/InitializationContext;
+       5: aload_0
+       6: aload_1
+       7: invokeinterface #17,  1           // InterfaceMethod org/infinispan/persistence/spi/InitializationContext.getConfiguration:()Lorg/infinispan/configuration/cache/StoreConfiguration;
+      12: checkcast     #18                 // class org/infinispan/configuration/cache/SingleFileStoreConfiguration
+      15: putfield      #19                 // Field configuration:Lorg/infinispan/configuration/cache/SingleFileStoreConfiguration;
+      18: aload_0
+      19: aload_1
+      20: invokeinterface #20,  1           // InterfaceMethod org/infinispan/persistence/spi/InitializationContext.getTimeService:()Lorg/infinispan/util/TimeService;
+      25: putfield      #6                  // Field timeService:Lorg/infinispan/util/TimeService;
+      28: return
+
+  public void start();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field configuration:Lorg/infinispan/configuration/cache/SingleFileStoreConfiguration;
+       4: invokevirtual #21                 // Method org/infinispan/configuration/cache/SingleFileStoreConfiguration.location:()Ljava/lang/String;
+       7: astore_1
+       8: aload_1
+       9: ifnull        22
+      12: aload_1
+      13: invokevirtual #22                 // Method java/lang/String.trim:()Ljava/lang/String;
+      16: invokevirtual #23                 // Method java/lang/String.length:()I
+      19: ifne          25
+      22: ldc           #24                 // String Infinispan-SingleFileStore
+      24: astore_1
+      25: aload_0
+      26: new           #25                 // class java/io/File
+      29: dup
+      30: aload_1
+      31: new           #26                 // class java/lang/StringBuilder
+      34: dup
+      35: invokespecial #27                 // Method java/lang/StringBuilder."<init>":()V
+      38: aload_0
+      39: getfield      #16                 // Field ctx:Lorg/infinispan/persistence/spi/InitializationContext;
+      42: invokeinterface #28,  1           // InterfaceMethod org/infinispan/persistence/spi/InitializationContext.getCache:()Lorg/infinispan/Cache;
+      47: invokeinterface #29,  1           // InterfaceMethod org/infinispan/Cache.getName:()Ljava/lang/String;
+      52: invokevirtual #30                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      55: ldc           #31                 // String .dat
+      57: invokevirtual #30                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      60: invokevirtual #32                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      63: invokespecial #33                 // Method java/io/File."<init>":(Ljava/lang/String;Ljava/lang/String;)V
+      66: putfield      #34                 // Field file:Ljava/io/File;
+      69: aload_0
+      70: getfield      #34                 // Field file:Ljava/io/File;
+      73: invokevirtual #35                 // Method java/io/File.exists:()Z
+      76: ifne          114
+      79: aload_0
+      80: getfield      #34                 // Field file:Ljava/io/File;
+      83: invokevirtual #36                 // Method java/io/File.getParentFile:()Ljava/io/File;
+      86: astore_2
+      87: aload_2
+      88: invokevirtual #37                 // Method java/io/File.mkdirs:()Z
+      91: ifne          114
+      94: aload_2
+      95: invokevirtual #35                 // Method java/io/File.exists:()Z
+      98: ifne          114
+     101: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     104: aload_2
+     105: invokevirtual #38                 // Method java/io/File.getAbsolutePath:()Ljava/lang/String;
+     108: invokeinterface #39,  2           // InterfaceMethod org/infinispan/util/logging/Log.directoryCannotBeCreated:(Ljava/lang/String;)Lorg/infinispan/commons/CacheConfigurationException;
+     113: athrow
+     114: aload_0
+     115: new           #40                 // class java/io/RandomAccessFile
+     118: dup
+     119: aload_0
+     120: getfield      #34                 // Field file:Ljava/io/File;
+     123: ldc           #41                 // String rw
+     125: invokespecial #42                 // Method java/io/RandomAccessFile."<init>":(Ljava/io/File;Ljava/lang/String;)V
+     128: invokevirtual #43                 // Method java/io/RandomAccessFile.getChannel:()Ljava/nio/channels/FileChannel;
+     131: putfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+     134: aload_0
+     135: aload_0
+     136: invokespecial #45                 // Method newEntryMap:()Ljava/util/Map;
+     139: putfield      #5                  // Field entries:Ljava/util/Map;
+     142: aload_0
+     143: new           #46                 // class java/util/TreeSet
+     146: dup
+     147: invokespecial #47                 // Method java/util/TreeSet."<init>":()V
+     150: invokestatic  #48                 // Method java/util/Collections.synchronizedSortedSet:(Ljava/util/SortedSet;)Ljava/util/SortedSet;
+     153: putfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     156: getstatic     #10                 // Field MAGIC:[B
+     159: arraylength
+     160: newarray       byte
+     162: astore_2
+     163: aload_0
+     164: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+     167: aload_2
+     168: invokestatic  #49                 // Method java/nio/ByteBuffer.wrap:([B)Ljava/nio/ByteBuffer;
+     171: lconst_0
+     172: invokevirtual #50                 // Method java/nio/channels/FileChannel.read:(Ljava/nio/ByteBuffer;J)I
+     175: getstatic     #10                 // Field MAGIC:[B
+     178: arraylength
+     179: if_icmpne     203
+     182: getstatic     #10                 // Field MAGIC:[B
+     185: aload_2
+     186: invokestatic  #51                 // Method java/util/Arrays.equals:([B[B)Z
+     189: ifeq          203
+     192: aload_0
+     193: invokespecial #52                 // Method rebuildIndex:()V
+     196: aload_0
+     197: invokespecial #1                  // Method processFreeEntries:()V
+     200: goto          207
+     203: aload_0
+     204: invokevirtual #53                 // Method clear:()V
+     207: aload_0
+     208: aload_0
+     209: getfield      #19                 // Field configuration:Lorg/infinispan/configuration/cache/SingleFileStoreConfiguration;
+     212: invokevirtual #54                 // Method org/infinispan/configuration/cache/SingleFileStoreConfiguration.fragmentationFactor:()F
+     215: putfield      #13                 // Field fragmentationFactor:F
+     218: goto          231
+     221: astore_1
+     222: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+     225: dup
+     226: aload_1
+     227: invokespecial #57                 // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/Throwable;)V
+     230: athrow
+     231: return
+    Exception table:
+       from    to  target type
+           0   218   221   Class java/lang/Exception
+
+  private <Key> java.util.Map<Key, org.infinispan.persistence.file.SingleFileStore$FileEntry> newEntryMap();
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field ctx:Lorg/infinispan/persistence/spi/InitializationContext;
+       4: invokeinterface #28,  1           // InterfaceMethod org/infinispan/persistence/spi/InitializationContext.getCache:()Lorg/infinispan/Cache;
+       9: invokeinterface #58,  1           // InterfaceMethod org/infinispan/Cache.getCacheConfiguration:()Lorg/infinispan/configuration/cache/Configuration;
+      14: invokevirtual #59                 // Method org/infinispan/configuration/cache/Configuration.dataContainer:()Lorg/infinispan/configuration/cache/DataContainerConfiguration;
+      17: invokevirtual #60                 // Method org/infinispan/configuration/cache/DataContainerConfiguration.keyEquivalence:()Lorg/infinispan/commons/equivalence/Equivalence;
+      20: astore_2
+      21: aload_0
+      22: getfield      #19                 // Field configuration:Lorg/infinispan/configuration/cache/SingleFileStoreConfiguration;
+      25: invokevirtual #61                 // Method org/infinispan/configuration/cache/SingleFileStoreConfiguration.maxEntries:()I
+      28: ifle          49
+      31: bipush        16
+      33: ldc           #12                 // float 0.75f
+      35: getstatic     #62                 // Field org/infinispan/commons/equivalence/EquivalentLinkedHashMap$IterationOrder.ACCESS_ORDER:Lorg/infinispan/commons/equivalence/EquivalentLinkedHashMap$IterationOrder;
+      38: aload_2
+      39: invokestatic  #63                 // Method org/infinispan/commons/equivalence/AnyEquivalence.getInstance:()Lorg/infinispan/commons/equivalence/AnyEquivalence;
+      42: invokestatic  #64                 // Method org/infinispan/commons/util/CollectionFactory.makeLinkedMap:(IFLorg/infinispan/commons/equivalence/EquivalentLinkedHashMap$IterationOrder;Lorg/infinispan/commons/equivalence/Equivalence;Lorg/infinispan/commons/equivalence/Equivalence;)Ljava/util/Map;
+      45: astore_1
+      46: goto          57
+      49: aload_2
+      50: invokestatic  #63                 // Method org/infinispan/commons/equivalence/AnyEquivalence.getInstance:()Lorg/infinispan/commons/equivalence/AnyEquivalence;
+      53: invokestatic  #65                 // Method org/infinispan/commons/util/CollectionFactory.makeMap:(Lorg/infinispan/commons/equivalence/Equivalence;Lorg/infinispan/commons/equivalence/Equivalence;)Ljava/util/Map;
+      56: astore_1
+      57: aload_1
+      58: invokestatic  #66                 // Method java/util/Collections.synchronizedMap:(Ljava/util/Map;)Ljava/util/Map;
+      61: areturn
+
+  public void stop();
+    Code:
+       0: aload_0
+       1: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+       4: ifnull        84
+       7: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+      10: ldc           #67                 // String Stopping store %s, size = %d, file size = %d
+      12: aload_0
+      13: getfield      #16                 // Field ctx:Lorg/infinispan/persistence/spi/InitializationContext;
+      16: invokeinterface #28,  1           // InterfaceMethod org/infinispan/persistence/spi/InitializationContext.getCache:()Lorg/infinispan/Cache;
+      21: invokeinterface #29,  1           // InterfaceMethod org/infinispan/Cache.getName:()Ljava/lang/String;
+      26: aload_0
+      27: getfield      #5                  // Field entries:Ljava/util/Map;
+      30: invokeinterface #68,  1           // InterfaceMethod java/util/Map.size:()I
+      35: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      38: aload_0
+      39: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+      42: invokevirtual #70                 // Method java/nio/channels/FileChannel.size:()J
+      45: invokestatic  #71                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      48: invokeinterface #72,  5           // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V
+      53: aload_0
+      54: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+      57: invokevirtual #73                 // Method java/nio/channels/FileChannel.close:()V
+      60: aload_0
+      61: aconst_null
+      62: putfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+      65: aload_0
+      66: aconst_null
+      67: putfield      #5                  // Field entries:Ljava/util/Map;
+      70: aload_0
+      71: aconst_null
+      72: putfield      #2                  // Field freeList:Ljava/util/SortedSet;
+      75: aload_0
+      76: getstatic     #10                 // Field MAGIC:[B
+      79: arraylength
+      80: i2l
+      81: putfield      #11                 // Field filePos:J
+      84: goto          97
+      87: astore_1
+      88: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+      91: dup
+      92: aload_1
+      93: invokespecial #57                 // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/Throwable;)V
+      96: athrow
+      97: return
+    Exception table:
+       from    to  target type
+           0    84    87   Class java/lang/Exception
+
+  private void rebuildIndex() throws java.lang.Exception;
+    Code:
+       0: bipush        24
+       2: invokestatic  #75                 // Method java/nio/ByteBuffer.allocate:(I)Ljava/nio/ByteBuffer;
+       5: astore_1
+       6: aload_1
+       7: invokevirtual #76                 // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+      10: bipush        24
+      12: invokevirtual #77                 // Method java/nio/Buffer.limit:(I)Ljava/nio/Buffer;
+      15: pop
+      16: aload_0
+      17: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+      20: aload_1
+      21: aload_0
+      22: getfield      #11                 // Field filePos:J
+      25: invokevirtual #50                 // Method java/nio/channels/FileChannel.read:(Ljava/nio/ByteBuffer;J)I
+      28: pop
+      29: aload_1
+      30: invokevirtual #78                 // Method java/nio/ByteBuffer.remaining:()I
+      33: ifle          37
+      36: return
+      37: aload_1
+      38: invokevirtual #79                 // Method java/nio/ByteBuffer.flip:()Ljava/nio/Buffer;
+      41: pop
+      42: aload_1
+      43: invokevirtual #80                 // Method java/nio/ByteBuffer.getInt:()I
+      46: istore_2
+      47: aload_1
+      48: invokevirtual #80                 // Method java/nio/ByteBuffer.getInt:()I
+      51: istore_3
+      52: aload_1
+      53: invokevirtual #80                 // Method java/nio/ByteBuffer.getInt:()I
+      56: istore        4
+      58: aload_1
+      59: invokevirtual #80                 // Method java/nio/ByteBuffer.getInt:()I
+      62: istore        5
+      64: aload_1
+      65: invokevirtual #81                 // Method java/nio/ByteBuffer.getLong:()J
+      68: lstore        6
+      70: new           #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      73: dup
+      74: aload_0
+      75: getfield      #11                 // Field filePos:J
+      78: iload_2
+      79: iload_3
+      80: iload         4
+      82: iload         5
+      84: lload         6
+      86: invokespecial #83                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry."<init>":(JIIIIJ)V
+      89: astore        8
+      91: aload         8
+      93: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+      96: bipush        24
+      98: aload         8
+     100: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     103: iadd
+     104: aload         8
+     106: invokestatic  #86                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$200:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     109: iadd
+     110: aload         8
+     112: invokestatic  #87                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$300:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     115: iadd
+     116: if_icmpge     139
+     119: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     122: aload_0
+     123: getfield      #34                 // Field file:Ljava/io/File;
+     126: invokevirtual #88                 // Method java/io/File.getPath:()Ljava/lang/String;
+     129: aload_0
+     130: getfield      #11                 // Field filePos:J
+     133: invokeinterface #89,  4           // InterfaceMethod org/infinispan/util/logging/Log.errorReadingFileStore:(Ljava/lang/String;J)Lorg/infinispan/persistence/spi/PersistenceException;
+     138: athrow
+     139: aload_0
+     140: dup
+     141: getfield      #11                 // Field filePos:J
+     144: aload         8
+     146: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     149: i2l
+     150: ladd
+     151: putfield      #11                 // Field filePos:J
+     154: aload         8
+     156: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     159: ifle          257
+     162: aload_1
+     163: invokevirtual #90                 // Method java/nio/ByteBuffer.capacity:()I
+     166: aload         8
+     168: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     171: if_icmpge     183
+     174: aload         8
+     176: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     179: invokestatic  #75                 // Method java/nio/ByteBuffer.allocate:(I)Ljava/nio/ByteBuffer;
+     182: astore_1
+     183: aload_1
+     184: invokevirtual #76                 // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+     187: aload         8
+     189: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     192: invokevirtual #77                 // Method java/nio/Buffer.limit:(I)Ljava/nio/Buffer;
+     195: pop
+     196: aload_0
+     197: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+     200: aload_1
+     201: aload         8
+     203: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     206: ldc2_w        #92                 // long 24l
+     209: ladd
+     210: invokevirtual #50                 // Method java/nio/channels/FileChannel.read:(Ljava/nio/ByteBuffer;J)I
+     213: pop
+     214: aload_0
+     215: getfield      #16                 // Field ctx:Lorg/infinispan/persistence/spi/InitializationContext;
+     218: invokeinterface #94,  1           // InterfaceMethod org/infinispan/persistence/spi/InitializationContext.getMarshaller:()Lorg/infinispan/commons/marshall/StreamingMarshaller;
+     223: aload_1
+     224: invokevirtual #95                 // Method java/nio/ByteBuffer.array:()[B
+     227: iconst_0
+     228: aload         8
+     230: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     233: invokeinterface #96,  4           // InterfaceMethod org/infinispan/commons/marshall/StreamingMarshaller.objectFromByteBuffer:([BII)Ljava/lang/Object;
+     238: astore        9
+     240: aload_0
+     241: getfield      #5                  // Field entries:Ljava/util/Map;
+     244: aload         9
+     246: aload         8
+     248: invokeinterface #97,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     253: pop
+     254: goto          269
+     257: aload_0
+     258: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     261: aload         8
+     263: invokeinterface #98,  2           // InterfaceMethod java/util/SortedSet.add:(Ljava/lang/Object;)Z
+     268: pop
+     269: goto          6
+
+  public boolean contains(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field entries:Ljava/util/Map;
+       4: aload_1
+       5: invokeinterface #99,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      13: astore_2
+      14: aload_2
+      15: ifnull        38
+      18: aload_2
+      19: aload_0
+      20: getfield      #6                  // Field timeService:Lorg/infinispan/util/TimeService;
+      23: invokeinterface #100,  1          // InterfaceMethod org/infinispan/util/TimeService.wallClockTime:()J
+      28: invokevirtual #101                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.isExpired:(J)Z
+      31: ifne          38
+      34: iconst_1
+      35: goto          39
+      38: iconst_0
+      39: ireturn
+
+  private org.infinispan.persistence.file.SingleFileStore$FileEntry allocate(int);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+       4: dup
+       5: astore_2
+       6: monitorenter
+       7: aload_0
+       8: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+      11: new           #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      14: dup
+      15: lconst_0
+      16: iload_1
+      17: invokespecial #102                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry."<init>":(JI)V
+      20: invokeinterface #103,  2          // InterfaceMethod java/util/SortedSet.tailSet:(Ljava/lang/Object;)Ljava/util/SortedSet;
+      25: astore_3
+      26: aload_3
+      27: invokeinterface #104,  1          // InterfaceMethod java/util/SortedSet.iterator:()Ljava/util/Iterator;
+      32: astore        4
+      34: aload         4
+      36: invokeinterface #105,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      41: ifeq          84
+      44: aload         4
+      46: invokeinterface #106,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      51: checkcast     #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      54: astore        5
+      56: aload         5
+      58: invokevirtual #107                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.isLocked:()Z
+      61: ifeq          67
+      64: goto          34
+      67: aload         4
+      69: invokeinterface #108,  1          // InterfaceMethod java/util/Iterator.remove:()V
+      74: aload_0
+      75: aload         5
+      77: iload_1
+      78: invokespecial #109                // Method allocateExistingEntry:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;I)Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;
+      81: aload_2
+      82: monitorexit
+      83: areturn
+      84: new           #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      87: dup
+      88: aload_0
+      89: getfield      #11                 // Field filePos:J
+      92: iload_1
+      93: invokespecial #102                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry."<init>":(JI)V
+      96: astore        4
+      98: aload_0
+      99: dup
+     100: getfield      #11                 // Field filePos:J
+     103: iload_1
+     104: i2l
+     105: ladd
+     106: putfield      #11                 // Field filePos:J
+     109: getstatic     #110                // Field trace:Z
+     112: ifeq          176
+     115: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     118: ldc           #111                // String New entry allocated at %d:%d, %d free entries, file size is %d
+     120: iconst_4
+     121: anewarray     #112                // class java/lang/Object
+     124: dup
+     125: iconst_0
+     126: aload         4
+     128: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     131: invokestatic  #71                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     134: aastore
+     135: dup
+     136: iconst_1
+     137: aload         4
+     139: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     142: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     145: aastore
+     146: dup
+     147: iconst_2
+     148: aload_0
+     149: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     152: invokeinterface #113,  1          // InterfaceMethod java/util/SortedSet.size:()I
+     157: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     160: aastore
+     161: dup
+     162: iconst_3
+     163: aload_0
+     164: getfield      #11                 // Field filePos:J
+     167: invokestatic  #71                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     170: aastore
+     171: invokeinterface #114,  3          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;[Ljava/lang/Object;)V
+     176: aload         4
+     178: aload_2
+     179: monitorexit
+     180: areturn
+     181: astore        6
+     183: aload_2
+     184: monitorexit
+     185: aload         6
+     187: athrow
+    Exception table:
+       from    to  target type
+           7    83   181   any
+          84   180   181   any
+         181   185   181   any
+
+  private org.infinispan.persistence.file.SingleFileStore$FileEntry allocateExistingEntry(org.infinispan.persistence.file.SingleFileStore$FileEntry, int);
+    Code:
+       0: aload_1
+       1: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+       4: iload_2
+       5: isub
+       6: istore_3
+       7: iload_3
+       8: sipush        128
+      11: if_icmplt     185
+      14: iload_2
+      15: i2f
+      16: aload_1
+      17: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+      20: i2f
+      21: aload_0
+      22: getfield      #13                 // Field fragmentationFactor:F
+      25: fmul
+      26: fcmpg
+      27: ifgt          185
+      30: new           #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      33: dup
+      34: aload_1
+      35: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+      38: iload_2
+      39: i2l
+      40: ladd
+      41: iload_3
+      42: invokespecial #102                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry."<init>":(JI)V
+      45: astore        4
+      47: aload_0
+      48: aload         4
+      50: invokespecial #115                // Method addNewFreeEntry:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)V
+      53: new           #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      56: dup
+      57: aload_1
+      58: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+      61: iload_2
+      62: invokespecial #102                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry."<init>":(JI)V
+      65: astore        5
+      67: getstatic     #110                // Field trace:Z
+      70: ifeq          168
+      73: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+      76: ldc           #116                // String Split entry at %d:%d, allocated %d:%d, free %d:%d, %d free entries
+      78: bipush        7
+      80: anewarray     #112                // class java/lang/Object
+      83: dup
+      84: iconst_0
+      85: aload_1
+      86: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+      89: invokestatic  #71                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      92: aastore
+      93: dup
+      94: iconst_1
+      95: aload_1
+      96: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+      99: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     102: aastore
+     103: dup
+     104: iconst_2
+     105: aload         5
+     107: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     110: invokestatic  #71                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     113: aastore
+     114: dup
+     115: iconst_3
+     116: aload         5
+     118: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     121: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     124: aastore
+     125: dup
+     126: iconst_4
+     127: aload         4
+     129: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     132: invokestatic  #71                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     135: aastore
+     136: dup
+     137: iconst_5
+     138: aload         4
+     140: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     143: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     146: aastore
+     147: dup
+     148: bipush        6
+     150: aload_0
+     151: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     154: invokeinterface #113,  1          // InterfaceMethod java/util/SortedSet.size:()I
+     159: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     162: aastore
+     163: invokeinterface #114,  3          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;[Ljava/lang/Object;)V
+     168: aload         5
+     170: areturn
+     171: astore        4
+     173: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+     176: dup
+     177: ldc           #118                // String Cannot add new free entry
+     179: aload         4
+     181: invokespecial #119                // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     184: athrow
+     185: getstatic     #110                // Field trace:Z
+     188: ifeq          220
+     191: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     194: ldc           #120                // String Existing free entry allocated at %d:%d, %d free entries
+     196: aload_1
+     197: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     200: aload_1
+     201: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     204: i2l
+     205: aload_0
+     206: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     209: invokeinterface #113,  1          // InterfaceMethod java/util/SortedSet.size:()I
+     214: i2l
+     215: invokeinterface #121,  8          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;JJJ)V
+     220: aload_1
+     221: areturn
+    Exception table:
+       from    to  target type
+          30   170   171   Class java/io/IOException
+
+  private void addNewFreeEntry(org.infinispan.persistence.file.SingleFileStore$FileEntry) throws java.io.IOException;
+    Code:
+       0: bipush        24
+       2: invokestatic  #75                 // Method java/nio/ByteBuffer.allocate:(I)Ljava/nio/ByteBuffer;
+       5: astore_2
+       6: aload_2
+       7: aload_1
+       8: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+      11: invokevirtual #122                // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+      14: pop
+      15: aload_2
+      16: iconst_0
+      17: invokevirtual #122                // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+      20: pop
+      21: aload_2
+      22: iconst_0
+      23: invokevirtual #122                // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+      26: pop
+      27: aload_2
+      28: iconst_0
+      29: invokevirtual #122                // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+      32: pop
+      33: aload_2
+      34: ldc2_w        #123                // long -1l
+      37: invokevirtual #125                // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+      40: pop
+      41: aload_2
+      42: invokevirtual #79                 // Method java/nio/ByteBuffer.flip:()Ljava/nio/Buffer;
+      45: pop
+      46: aload_0
+      47: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+      50: aload_2
+      51: aload_1
+      52: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+      55: invokevirtual #126                // Method java/nio/channels/FileChannel.write:(Ljava/nio/ByteBuffer;J)I
+      58: pop
+      59: aload_0
+      60: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+      63: aload_1
+      64: invokeinterface #98,  2           // InterfaceMethod java/util/SortedSet.add:(Ljava/lang/Object;)Z
+      69: pop
+      70: return
+
+  private void free(org.infinispan.persistence.file.SingleFileStore$FileEntry) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: ifnull        95
+       4: aload_0
+       5: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+       8: getstatic     #127                // Field ZERO_INT:[B
+      11: invokestatic  #49                 // Method java/nio/ByteBuffer.wrap:([B)Ljava/nio/ByteBuffer;
+      14: aload_1
+      15: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+      18: ldc2_w        #128                // long 4l
+      21: ladd
+      22: invokevirtual #126                // Method java/nio/channels/FileChannel.write:(Ljava/nio/ByteBuffer;J)I
+      25: pop
+      26: aload_0
+      27: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+      30: aload_1
+      31: invokeinterface #98,  2           // InterfaceMethod java/util/SortedSet.add:(Ljava/lang/Object;)Z
+      36: ifne          60
+      39: new           #130                // class java/lang/IllegalStateException
+      42: dup
+      43: ldc           #131                // String Trying to free an entry that was not allocated: %s
+      45: iconst_1
+      46: anewarray     #112                // class java/lang/Object
+      49: dup
+      50: iconst_0
+      51: aload_1
+      52: aastore
+      53: invokestatic  #132                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      56: invokespecial #133                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      59: athrow
+      60: getstatic     #110                // Field trace:Z
+      63: ifeq          95
+      66: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+      69: ldc           #134                // String Deleted entry at %d:%d, there are now %d free entries
+      71: aload_1
+      72: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+      75: aload_1
+      76: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+      79: i2l
+      80: aload_0
+      81: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+      84: invokeinterface #113,  1          // InterfaceMethod java/util/SortedSet.size:()I
+      89: i2l
+      90: invokeinterface #121,  8          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;JJJ)V
+      95: return
+
+  public void write(org.infinispan.marshall.core.MarshalledEntry<? extends K, ? extends V>);
+    Code:
+       0: aload_1
+       1: invokeinterface #135,  1          // InterfaceMethod org/infinispan/marshall/core/MarshalledEntry.getKeyBytes:()Lorg/infinispan/commons/io/ByteBuffer;
+       6: astore_2
+       7: aload_1
+       8: invokeinterface #136,  1          // InterfaceMethod org/infinispan/marshall/core/MarshalledEntry.getValueBytes:()Lorg/infinispan/commons/io/ByteBuffer;
+      13: astore_3
+      14: aload_1
+      15: invokeinterface #137,  1          // InterfaceMethod org/infinispan/marshall/core/MarshalledEntry.getMetadataBytes:()Lorg/infinispan/commons/io/ByteBuffer;
+      20: astore        4
+      22: aload         4
+      24: ifnonnull     31
+      27: iconst_0
+      28: goto          38
+      31: aload         4
+      33: invokeinterface #138,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getLength:()I
+      38: istore        5
+      40: bipush        24
+      42: aload_2
+      43: invokeinterface #138,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getLength:()I
+      48: iadd
+      49: aload_3
+      50: invokeinterface #138,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getLength:()I
+      55: iadd
+      56: iload         5
+      58: iadd
+      59: istore        6
+      61: aconst_null
+      62: astore        8
+      64: aload_0
+      65: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+      68: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+      73: invokeinterface #140,  1          // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      78: aload_0
+      79: iload         6
+      81: invokespecial #141                // Method allocate:(I)Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;
+      84: astore        7
+      86: aload         4
+      88: ifnull        105
+      91: aload_1
+      92: invokeinterface #142,  1          // InterfaceMethod org/infinispan/marshall/core/MarshalledEntry.getMetadata:()Lorg/infinispan/metadata/InternalMetadata;
+      97: invokeinterface #143,  1          // InterfaceMethod org/infinispan/metadata/InternalMetadata.expiryTime:()J
+     102: goto          108
+     105: ldc2_w        #123                // long -1l
+     108: lstore        9
+     110: new           #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+     113: dup
+     114: aload         7
+     116: aload_2
+     117: invokeinterface #138,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getLength:()I
+     122: aload_3
+     123: invokeinterface #138,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getLength:()I
+     128: iload         5
+     130: lload         9
+     132: invokespecial #144                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry."<init>":(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;IIIJ)V
+     135: astore        7
+     137: iload         6
+     139: invokestatic  #75                 // Method java/nio/ByteBuffer.allocate:(I)Ljava/nio/ByteBuffer;
+     142: astore        11
+     144: aload         11
+     146: aload         7
+     148: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     151: invokevirtual #122                // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+     154: pop
+     155: aload         11
+     157: aload         7
+     159: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     162: invokevirtual #122                // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+     165: pop
+     166: aload         11
+     168: aload         7
+     170: invokestatic  #86                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$200:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     173: invokevirtual #122                // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+     176: pop
+     177: aload         11
+     179: aload         7
+     181: invokestatic  #87                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$300:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     184: invokevirtual #122                // Method java/nio/ByteBuffer.putInt:(I)Ljava/nio/ByteBuffer;
+     187: pop
+     188: aload         11
+     190: aload         7
+     192: invokestatic  #145                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$500:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     195: invokevirtual #125                // Method java/nio/ByteBuffer.putLong:(J)Ljava/nio/ByteBuffer;
+     198: pop
+     199: aload         11
+     201: aload_2
+     202: invokeinterface #146,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getBuf:()[B
+     207: aload_2
+     208: invokeinterface #147,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getOffset:()I
+     213: aload_2
+     214: invokeinterface #138,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getLength:()I
+     219: invokevirtual #148                // Method java/nio/ByteBuffer.put:([BII)Ljava/nio/ByteBuffer;
+     222: pop
+     223: aload         11
+     225: aload_3
+     226: invokeinterface #146,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getBuf:()[B
+     231: aload_3
+     232: invokeinterface #147,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getOffset:()I
+     237: aload_3
+     238: invokeinterface #138,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getLength:()I
+     243: invokevirtual #148                // Method java/nio/ByteBuffer.put:([BII)Ljava/nio/ByteBuffer;
+     246: pop
+     247: aload         4
+     249: ifnull        279
+     252: aload         11
+     254: aload         4
+     256: invokeinterface #146,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getBuf:()[B
+     261: aload         4
+     263: invokeinterface #147,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getOffset:()I
+     268: aload         4
+     270: invokeinterface #138,  1          // InterfaceMethod org/infinispan/commons/io/ByteBuffer.getLength:()I
+     275: invokevirtual #148                // Method java/nio/ByteBuffer.put:([BII)Ljava/nio/ByteBuffer;
+     278: pop
+     279: aload         11
+     281: invokevirtual #79                 // Method java/nio/ByteBuffer.flip:()Ljava/nio/Buffer;
+     284: pop
+     285: aload_0
+     286: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+     289: aload         11
+     291: aload         7
+     293: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     296: invokevirtual #126                // Method java/nio/channels/FileChannel.write:(Ljava/nio/ByteBuffer;J)I
+     299: pop
+     300: getstatic     #110                // Field trace:Z
+     303: ifeq          359
+     306: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     309: ldc           #149                // String Wrote entry %s:%d at %d:%d
+     311: iconst_4
+     312: anewarray     #112                // class java/lang/Object
+     315: dup
+     316: iconst_0
+     317: aload_1
+     318: invokeinterface #150,  1          // InterfaceMethod org/infinispan/marshall/core/MarshalledEntry.getKey:()Ljava/lang/Object;
+     323: aastore
+     324: dup
+     325: iconst_1
+     326: iload         6
+     328: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     331: aastore
+     332: dup
+     333: iconst_2
+     334: aload         7
+     336: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     339: invokestatic  #71                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     342: aastore
+     343: dup
+     344: iconst_3
+     345: aload         7
+     347: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     350: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     353: aastore
+     354: invokeinterface #114,  3          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;[Ljava/lang/Object;)V
+     359: aload_0
+     360: getfield      #5                  // Field entries:Ljava/util/Map;
+     363: aload_1
+     364: invokeinterface #150,  1          // InterfaceMethod org/infinispan/marshall/core/MarshalledEntry.getKey:()Ljava/lang/Object;
+     369: aload         7
+     371: invokeinterface #97,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     376: checkcast     #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+     379: astore        8
+     381: aload         8
+     383: ifnonnull     392
+     386: aload_0
+     387: invokespecial #151                // Method evict:()Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;
+     390: astore        8
+     392: aload_0
+     393: aload         8
+     395: invokespecial #3                  // Method free:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)V
+     398: aload_0
+     399: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+     402: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+     407: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     412: goto          434
+     415: astore        12
+     417: aload_0
+     418: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+     421: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+     426: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     431: aload         12
+     433: athrow
+     434: goto          484
+     437: astore        13
+     439: aload_0
+     440: aload         8
+     442: invokespecial #3                  // Method free:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)V
+     445: aload_0
+     446: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+     449: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+     454: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     459: goto          481
+     462: astore        14
+     464: aload_0
+     465: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+     468: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+     473: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     478: aload         14
+     480: athrow
+     481: aload         13
+     483: athrow
+     484: goto          497
+     487: astore_2
+     488: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+     491: dup
+     492: aload_2
+     493: invokespecial #57                 // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/Throwable;)V
+     496: athrow
+     497: return
+    Exception table:
+       from    to  target type
+         392   398   415   any
+         415   417   415   any
+          78   392   437   any
+         439   445   462   any
+         462   464   462   any
+         437   439   437   any
+           0   484   487   Class java/lang/Exception
+
+  private org.infinispan.persistence.file.SingleFileStore$FileEntry evict();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field configuration:Lorg/infinispan/configuration/cache/SingleFileStoreConfiguration;
+       4: invokevirtual #61                 // Method org/infinispan/configuration/cache/SingleFileStoreConfiguration.maxEntries:()I
+       7: ifle          83
+      10: aload_0
+      11: getfield      #5                  // Field entries:Ljava/util/Map;
+      14: dup
+      15: astore_1
+      16: monitorenter
+      17: aload_0
+      18: getfield      #5                  // Field entries:Ljava/util/Map;
+      21: invokeinterface #68,  1           // InterfaceMethod java/util/Map.size:()I
+      26: aload_0
+      27: getfield      #19                 // Field configuration:Lorg/infinispan/configuration/cache/SingleFileStoreConfiguration;
+      30: invokevirtual #61                 // Method org/infinispan/configuration/cache/SingleFileStoreConfiguration.maxEntries:()I
+      33: if_icmple     71
+      36: aload_0
+      37: getfield      #5                  // Field entries:Ljava/util/Map;
+      40: invokeinterface #153,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      45: invokeinterface #154,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      50: astore_2
+      51: aload_2
+      52: invokeinterface #106,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      57: checkcast     #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      60: astore_3
+      61: aload_2
+      62: invokeinterface #108,  1          // InterfaceMethod java/util/Iterator.remove:()V
+      67: aload_3
+      68: aload_1
+      69: monitorexit
+      70: areturn
+      71: aload_1
+      72: monitorexit
+      73: goto          83
+      76: astore        4
+      78: aload_1
+      79: monitorexit
+      80: aload         4
+      82: athrow
+      83: aconst_null
+      84: areturn
+    Exception table:
+       from    to  target type
+          17    70    76   any
+          71    73    76   any
+          76    80    76   any
+
+  public void clear();
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+       4: invokeinterface #155,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.writeLock:()Ljava/util/concurrent/locks/Lock;
+       9: invokeinterface #140,  1          // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      14: aload_0
+      15: getfield      #5                  // Field entries:Ljava/util/Map;
+      18: dup
+      19: astore_1
+      20: monitorenter
+      21: aload_0
+      22: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+      25: dup
+      26: astore_2
+      27: monitorenter
+      28: aload_0
+      29: getfield      #5                  // Field entries:Ljava/util/Map;
+      32: invokeinterface #153,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      37: invokeinterface #154,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      42: astore_3
+      43: aload_3
+      44: invokeinterface #105,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      49: ifeq          71
+      52: aload_3
+      53: invokeinterface #106,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      58: checkcast     #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      61: astore        4
+      63: aload         4
+      65: invokevirtual #156                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.waitUnlocked:()V
+      68: goto          43
+      71: aload_0
+      72: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+      75: invokeinterface #104,  1          // InterfaceMethod java/util/SortedSet.iterator:()Ljava/util/Iterator;
+      80: astore_3
+      81: aload_3
+      82: invokeinterface #105,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      87: ifeq          109
+      90: aload_3
+      91: invokeinterface #106,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      96: checkcast     #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      99: astore        4
+     101: aload         4
+     103: invokevirtual #156                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.waitUnlocked:()V
+     106: goto          81
+     109: aload_0
+     110: getfield      #5                  // Field entries:Ljava/util/Map;
+     113: invokeinterface #157,  1          // InterfaceMethod java/util/Map.clear:()V
+     118: aload_0
+     119: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     122: invokeinterface #158,  1          // InterfaceMethod java/util/SortedSet.clear:()V
+     127: getstatic     #110                // Field trace:Z
+     130: ifeq          147
+     133: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     136: ldc           #159                // String Truncating file, current size is %d
+     138: aload_0
+     139: getfield      #11                 // Field filePos:J
+     142: invokeinterface #160,  4          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;J)V
+     147: aload_0
+     148: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+     151: lconst_0
+     152: invokevirtual #161                // Method java/nio/channels/FileChannel.truncate:(J)Ljava/nio/channels/FileChannel;
+     155: pop
+     156: aload_0
+     157: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+     160: getstatic     #10                 // Field MAGIC:[B
+     163: invokestatic  #49                 // Method java/nio/ByteBuffer.wrap:([B)Ljava/nio/ByteBuffer;
+     166: lconst_0
+     167: invokevirtual #126                // Method java/nio/channels/FileChannel.write:(Ljava/nio/ByteBuffer;J)I
+     170: pop
+     171: aload_0
+     172: getstatic     #10                 // Field MAGIC:[B
+     175: arraylength
+     176: i2l
+     177: putfield      #11                 // Field filePos:J
+     180: aload_2
+     181: monitorexit
+     182: goto          192
+     185: astore        5
+     187: aload_2
+     188: monitorexit
+     189: aload         5
+     191: athrow
+     192: aload_1
+     193: monitorexit
+     194: goto          204
+     197: astore        6
+     199: aload_1
+     200: monitorexit
+     201: aload         6
+     203: athrow
+     204: aload_0
+     205: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+     208: invokeinterface #155,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.writeLock:()Ljava/util/concurrent/locks/Lock;
+     213: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     218: goto          250
+     221: astore_1
+     222: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+     225: dup
+     226: aload_1
+     227: invokespecial #57                 // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/Throwable;)V
+     230: athrow
+     231: astore        7
+     233: aload_0
+     234: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+     237: invokeinterface #155,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.writeLock:()Ljava/util/concurrent/locks/Lock;
+     242: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     247: aload         7
+     249: athrow
+     250: return
+    Exception table:
+       from    to  target type
+          28   182   185   any
+         185   189   185   any
+          21   194   197   any
+         197   201   197   any
+          14   204   221   Class java/lang/Exception
+          14   204   231   any
+         221   233   231   any
+
+  public boolean delete(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+       4: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+       9: invokeinterface #140,  1          // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      14: aload_0
+      15: getfield      #5                  // Field entries:Ljava/util/Map;
+      18: aload_1
+      19: invokeinterface #162,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      24: checkcast     #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      27: astore_2
+      28: aload_0
+      29: aload_2
+      30: invokespecial #3                  // Method free:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)V
+      33: aload_2
+      34: ifnull        41
+      37: iconst_1
+      38: goto          42
+      41: iconst_0
+      42: istore_3
+      43: aload_0
+      44: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+      47: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+      52: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      57: iload_3
+      58: ireturn
+      59: astore_2
+      60: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+      63: dup
+      64: aload_2
+      65: invokespecial #57                 // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/Throwable;)V
+      68: athrow
+      69: astore        4
+      71: aload_0
+      72: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+      75: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+      80: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      85: aload         4
+      87: athrow
+    Exception table:
+       from    to  target type
+          14    43    59   Class java/lang/Exception
+          14    43    69   any
+          59    71    69   any
+
+  public org.infinispan.marshall.core.MarshalledEntry<K, V> load(java.lang.Object);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iconst_1
+       3: iconst_1
+       4: invokespecial #8                  // Method _load:(Ljava/lang/Object;ZZ)Lorg/infinispan/marshall/core/MarshalledEntry;
+       7: areturn
+
+  private org.infinispan.marshall.core.MarshalledEntry<K, V> _load(java.lang.Object, boolean, boolean);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+       4: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+       9: invokeinterface #140,  1          // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      14: aload_0
+      15: getfield      #5                  // Field entries:Ljava/util/Map;
+      18: dup
+      19: astore        5
+      21: monitorenter
+      22: aload_0
+      23: getfield      #5                  // Field entries:Ljava/util/Map;
+      26: aload_1
+      27: invokeinterface #99,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      32: checkcast     #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      35: astore        4
+      37: aload         4
+      39: ifnonnull     65
+      42: aconst_null
+      43: astore        6
+      45: aload         5
+      47: monitorexit
+      48: aload_0
+      49: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+      52: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+      57: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+      62: aload         6
+      64: areturn
+      65: aload         4
+      67: aload_0
+      68: getfield      #6                  // Field timeService:Lorg/infinispan/util/TimeService;
+      71: invokeinterface #100,  1          // InterfaceMethod org/infinispan/util/TimeService.wallClockTime:()J
+      76: invokevirtual #101                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.isExpired:(J)Z
+      79: ifeq          105
+      82: aconst_null
+      83: astore        6
+      85: aload         5
+      87: monitorexit
+      88: aload_0
+      89: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+      92: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+      97: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     102: aload         6
+     104: areturn
+     105: aload         4
+     107: invokevirtual #163                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.lock:()V
+     110: aload         5
+     112: monitorexit
+     113: goto          124
+     116: astore        7
+     118: aload         5
+     120: monitorexit
+     121: aload         7
+     123: athrow
+     124: aload_0
+     125: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+     128: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+     133: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     138: goto          160
+     141: astore        8
+     143: aload_0
+     144: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+     147: invokeinterface #139,  1          // InterfaceMethod java/util/concurrent/locks/ReadWriteLock.readLock:()Ljava/util/concurrent/locks/Lock;
+     152: invokeinterface #152,  1          // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     157: aload         8
+     159: athrow
+     160: aconst_null
+     161: astore        5
+     163: aconst_null
+     164: astore        6
+     166: iload_2
+     167: ifne          213
+     170: iload_3
+     171: ifne          213
+     174: aload_0
+     175: getfield      #16                 // Field ctx:Lorg/infinispan/persistence/spi/InitializationContext;
+     178: invokeinterface #164,  1          // InterfaceMethod org/infinispan/persistence/spi/InitializationContext.getMarshalledEntryFactory:()Lorg/infinispan/marshall/core/MarshalledEntryFactory;
+     183: aload_1
+     184: aload         5
+     186: aload         6
+     188: invokeinterface #165,  4          // InterfaceMethod org/infinispan/marshall/core/MarshalledEntryFactory.newMarshalledEntry:(Ljava/lang/Object;Lorg/infinispan/commons/io/ByteBuffer;Lorg/infinispan/commons/io/ByteBuffer;)Lorg/infinispan/marshall/core/MarshalledEntry;
+     193: astore        7
+     195: aload         4
+     197: invokevirtual #166                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.unlock:()V
+     200: aload         7
+     202: areturn
+     203: astore        9
+     205: aload         4
+     207: invokevirtual #166                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.unlock:()V
+     210: aload         9
+     212: athrow
+     213: aload         4
+     215: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     218: aload         4
+     220: invokestatic  #86                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$200:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     223: iadd
+     224: iload_3
+     225: ifeq          236
+     228: aload         4
+     230: invokestatic  #87                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$300:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     233: goto          237
+     236: iconst_0
+     237: iadd
+     238: newarray       byte
+     240: astore        7
+     242: aload_0
+     243: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+     246: aload         7
+     248: invokestatic  #49                 // Method java/nio/ByteBuffer.wrap:([B)Ljava/nio/ByteBuffer;
+     251: aload         4
+     253: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     256: ldc2_w        #92                 // long 24l
+     259: ladd
+     260: invokevirtual #50                 // Method java/nio/channels/FileChannel.read:(Ljava/nio/ByteBuffer;J)I
+     263: pop
+     264: aload         4
+     266: invokevirtual #166                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.unlock:()V
+     269: goto          294
+     272: astore        8
+     274: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+     277: dup
+     278: aload         8
+     280: invokespecial #57                 // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/Throwable;)V
+     283: athrow
+     284: astore        10
+     286: aload         4
+     288: invokevirtual #166                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.unlock:()V
+     291: aload         10
+     293: athrow
+     294: getstatic     #110                // Field trace:Z
+     297: ifeq          327
+     300: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     303: ldc           #167                // String Read entry %s at %d:%d
+     305: aload_1
+     306: aload         4
+     308: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     311: invokestatic  #71                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     314: aload         4
+     316: invokevirtual #168                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.actualSize:()I
+     319: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     322: invokeinterface #72,  5           // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V
+     327: aload_0
+     328: getfield      #16                 // Field ctx:Lorg/infinispan/persistence/spi/InitializationContext;
+     331: invokeinterface #169,  1          // InterfaceMethod org/infinispan/persistence/spi/InitializationContext.getByteBufferFactory:()Lorg/infinispan/commons/io/ByteBufferFactory;
+     336: astore        8
+     338: aload         8
+     340: aload         7
+     342: iconst_0
+     343: aload         4
+     345: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     348: invokeinterface #170,  4          // InterfaceMethod org/infinispan/commons/io/ByteBufferFactory.newByteBuffer:([BII)Lorg/infinispan/commons/io/ByteBuffer;
+     353: astore        9
+     355: iload_2
+     356: ifeq          380
+     359: aload         8
+     361: aload         7
+     363: aload         4
+     365: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     368: aload         4
+     370: invokestatic  #86                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$200:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     373: invokeinterface #170,  4          // InterfaceMethod org/infinispan/commons/io/ByteBufferFactory.newByteBuffer:([BII)Lorg/infinispan/commons/io/ByteBuffer;
+     378: astore        5
+     380: iload_3
+     381: ifeq          419
+     384: aload         4
+     386: invokestatic  #87                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$300:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     389: ifle          419
+     392: aload         8
+     394: aload         7
+     396: aload         4
+     398: invokestatic  #85                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$100:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     401: aload         4
+     403: invokestatic  #86                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$200:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     406: iadd
+     407: aload         4
+     409: invokestatic  #87                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$300:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     412: invokeinterface #170,  4          // InterfaceMethod org/infinispan/commons/io/ByteBufferFactory.newByteBuffer:([BII)Lorg/infinispan/commons/io/ByteBuffer;
+     417: astore        6
+     419: aload_0
+     420: getfield      #16                 // Field ctx:Lorg/infinispan/persistence/spi/InitializationContext;
+     423: invokeinterface #164,  1          // InterfaceMethod org/infinispan/persistence/spi/InitializationContext.getMarshalledEntryFactory:()Lorg/infinispan/marshall/core/MarshalledEntryFactory;
+     428: aload         9
+     430: aload         5
+     432: aload         6
+     434: invokeinterface #171,  4          // InterfaceMethod org/infinispan/marshall/core/MarshalledEntryFactory.newMarshalledEntry:(Lorg/infinispan/commons/io/ByteBuffer;Lorg/infinispan/commons/io/ByteBuffer;Lorg/infinispan/commons/io/ByteBuffer;)Lorg/infinispan/marshall/core/MarshalledEntry;
+     439: areturn
+    Exception table:
+       from    to  target type
+          22    48   116   any
+          65    88   116   any
+         105   113   116   any
+         116   121   116   any
+          14    48   141   any
+          65    88   141   any
+         105   124   141   any
+         141   143   141   any
+         174   195   203   any
+         203   205   203   any
+         213   264   272   Class java/lang/Exception
+         213   264   284   any
+         272   286   284   any
+
+  public void process(org.infinispan.filter.KeyFilter<? super K>, org.infinispan.persistence.spi.AdvancedCacheLoader$CacheLoaderTask<K, V>, java.util.concurrent.Executor, boolean, boolean);
+    Code:
+       0: aload_1
+       1: invokestatic  #172                // Method org/infinispan/persistence/PersistenceUtil.notNull:(Lorg/infinispan/filter/KeyFilter;)Lorg/infinispan/filter/KeyFilter;
+       4: astore_1
+       5: new           #173                // class java/util/ArrayList
+       8: dup
+       9: aload_0
+      10: getfield      #5                  // Field entries:Ljava/util/Map;
+      13: invokeinterface #68,  1           // InterfaceMethod java/util/Map.size:()I
+      18: invokespecial #174                // Method java/util/ArrayList."<init>":(I)V
+      21: astore        6
+      23: aload_0
+      24: getfield      #5                  // Field entries:Ljava/util/Map;
+      27: dup
+      28: astore        7
+      30: monitorenter
+      31: aload_0
+      32: getfield      #5                  // Field entries:Ljava/util/Map;
+      35: invokeinterface #175,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+      40: invokeinterface #176,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      45: astore        8
+      47: aload         8
+      49: invokeinterface #105,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      54: ifeq          115
+      57: aload         8
+      59: invokeinterface #106,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      64: checkcast     #177                // class java/util/Map$Entry
+      67: astore        9
+      69: aload_1
+      70: aload         9
+      72: invokeinterface #178,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      77: invokeinterface #179,  2          // InterfaceMethod org/infinispan/filter/KeyFilter.accept:(Ljava/lang/Object;)Z
+      82: ifeq          112
+      85: aload         6
+      87: new           #180                // class org/infinispan/util/KeyValuePair
+      90: dup
+      91: aload         9
+      93: invokeinterface #178,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      98: aload         9
+     100: invokeinterface #181,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     105: invokespecial #182                // Method org/infinispan/util/KeyValuePair."<init>":(Ljava/lang/Object;Ljava/lang/Object;)V
+     108: invokevirtual #183                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+     111: pop
+     112: goto          47
+     115: aload         6
+     117: new           #184                // class org/infinispan/persistence/file/SingleFileStore$1
+     120: dup
+     121: aload_0
+     122: invokespecial #185                // Method org/infinispan/persistence/file/SingleFileStore$1."<init>":(Lorg/infinispan/persistence/file/SingleFileStore;)V
+     125: invokestatic  #186                // Method java/util/Collections.sort:(Ljava/util/List;Ljava/util/Comparator;)V
+     128: aload         7
+     130: monitorexit
+     131: goto          142
+     134: astore        10
+     136: aload         7
+     138: monitorexit
+     139: aload         10
+     141: athrow
+     142: new           #187                // class org/infinispan/executors/ExecutorAllCompletionService
+     145: dup
+     146: aload_3
+     147: invokespecial #188                // Method org/infinispan/executors/ExecutorAllCompletionService."<init>":(Ljava/util/concurrent/Executor;)V
+     150: astore        7
+     152: new           #189                // class org/infinispan/persistence/TaskContextImpl
+     155: dup
+     156: invokespecial #190                // Method org/infinispan/persistence/TaskContextImpl."<init>":()V
+     159: astore        8
+     161: aload         6
+     163: invokevirtual #191                // Method java/util/ArrayList.iterator:()Ljava/util/Iterator;
+     166: astore        9
+     168: aload         9
+     170: invokeinterface #105,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     175: ifeq          234
+     178: aload         9
+     180: invokeinterface #106,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     185: checkcast     #180                // class org/infinispan/util/KeyValuePair
+     188: astore        10
+     190: aload         8
+     192: invokevirtual #192                // Method org/infinispan/persistence/TaskContextImpl.isStopped:()Z
+     195: ifeq          201
+     198: goto          234
+     201: aload         10
+     203: invokevirtual #193                // Method org/infinispan/util/KeyValuePair.getKey:()Ljava/lang/Object;
+     206: astore        11
+     208: aload         7
+     210: new           #194                // class org/infinispan/persistence/file/SingleFileStore$2
+     213: dup
+     214: aload_0
+     215: aload         11
+     217: iload         4
+     219: iload         5
+     221: aload_2
+     222: aload         8
+     224: invokespecial #195                // Method org/infinispan/persistence/file/SingleFileStore$2."<init>":(Lorg/infinispan/persistence/file/SingleFileStore;Ljava/lang/Object;ZZLorg/infinispan/persistence/spi/AdvancedCacheLoader$CacheLoaderTask;Lorg/infinispan/persistence/TaskContextImpl;)V
+     227: invokevirtual #196                // Method org/infinispan/executors/ExecutorAllCompletionService.submit:(Ljava/util/concurrent/Callable;)Ljava/util/concurrent/Future;
+     230: pop
+     231: goto          168
+     234: aload         7
+     236: invokevirtual #197                // Method org/infinispan/executors/ExecutorAllCompletionService.waitUntilAllCompleted:()V
+     239: aload         7
+     241: invokevirtual #198                // Method org/infinispan/executors/ExecutorAllCompletionService.isExceptionThrown:()Z
+     244: ifeq          262
+     247: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+     250: dup
+     251: ldc           #199                // String Execution exception!
+     253: aload         7
+     255: invokevirtual #200                // Method org/infinispan/executors/ExecutorAllCompletionService.getFirstException:()Ljava/util/concurrent/ExecutionException;
+     258: invokespecial #119                // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     261: athrow
+     262: return
+    Exception table:
+       from    to  target type
+          31   131   134   any
+         134   139   134   any
+
+  private void processFreeEntries();
+    Code:
+       0: new           #173                // class java/util/ArrayList
+       3: dup
+       4: aload_0
+       5: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+       8: invokespecial #201                // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+      11: astore_1
+      12: aload_1
+      13: new           #202                // class org/infinispan/persistence/file/SingleFileStore$FileEntryByOffsetComparator
+      16: dup
+      17: aconst_null
+      18: invokespecial #203                // Method org/infinispan/persistence/file/SingleFileStore$FileEntryByOffsetComparator."<init>":(Lorg/infinispan/persistence/file/SingleFileStore$1;)V
+      21: invokestatic  #186                // Method java/util/Collections.sort:(Ljava/util/List;Ljava/util/Comparator;)V
+      24: aload_0
+      25: aload_1
+      26: invokespecial #204                // Method truncateFile:(Ljava/util/List;)V
+      29: aload_0
+      30: aload_1
+      31: invokespecial #205                // Method mergeFreeEntries:(Ljava/util/List;)V
+      34: return
+
+  private void truncateFile(java.util.List<org.infinispan.persistence.file.SingleFileStore$FileEntry>);
+    Code:
+       0: lconst_0
+       1: lstore_2
+       2: getstatic     #110                // Field trace:Z
+       5: ifeq          18
+       8: aload_0
+       9: getfield      #6                  // Field timeService:Lorg/infinispan/util/TimeService;
+      12: invokeinterface #100,  1          // InterfaceMethod org/infinispan/util/TimeService.wallClockTime:()J
+      17: lstore_2
+      18: iconst_0
+      19: istore        4
+      21: iconst_0
+      22: istore        5
+      24: ldc2_w        #123                // long -1l
+      27: lstore        6
+      29: aload_1
+      30: invokeinterface #206,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      35: astore        8
+      37: aload         8
+      39: invokeinterface #105,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      44: ifeq          138
+      47: aload         8
+      49: invokeinterface #106,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      54: checkcast     #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      57: astore        9
+      59: aload         9
+      61: invokevirtual #107                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.isLocked:()Z
+      64: ifne          138
+      67: aload         9
+      69: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+      72: aload         9
+      74: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+      77: i2l
+      78: ladd
+      79: aload_0
+      80: getfield      #11                 // Field filePos:J
+      83: lcmp
+      84: ifne          138
+      87: aload         9
+      89: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+      92: lstore        6
+      94: aload_0
+      95: aload         9
+      97: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     100: putfield      #11                 // Field filePos:J
+     103: aload_0
+     104: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     107: aload         9
+     109: invokeinterface #207,  2          // InterfaceMethod java/util/SortedSet.remove:(Ljava/lang/Object;)Z
+     114: pop
+     115: aload         8
+     117: invokeinterface #108,  1          // InterfaceMethod java/util/Iterator.remove:()V
+     122: iload         4
+     124: aload         9
+     126: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     129: iadd
+     130: istore        4
+     132: iinc          5, 1
+     135: goto          37
+     138: lload         6
+     140: lconst_0
+     141: lcmp
+     142: ifle          172
+     145: aload_0
+     146: getfield      #44                 // Field channel:Ljava/nio/channels/FileChannel;
+     149: lload         6
+     151: invokevirtual #161                // Method java/nio/channels/FileChannel.truncate:(J)Ljava/nio/channels/FileChannel;
+     154: pop
+     155: goto          172
+     158: astore        8
+     160: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+     163: dup
+     164: ldc           #208                // String Error while truncating file
+     166: aload         8
+     168: invokespecial #119                // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     171: athrow
+     172: getstatic     #110                // Field trace:Z
+     175: ifeq          266
+     178: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     181: new           #26                 // class java/lang/StringBuilder
+     184: dup
+     185: invokespecial #27                 // Method java/lang/StringBuilder."<init>":()V
+     188: ldc           #209                // String Removed entries:
+     190: invokevirtual #30                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     193: iload         5
+     195: invokevirtual #210                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     198: ldc           #211                // String , Reclaimed Space:
+     200: invokevirtual #30                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     203: iload         4
+     205: invokevirtual #210                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     208: invokevirtual #32                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     211: iconst_0
+     212: anewarray     #112                // class java/lang/Object
+     215: invokeinterface #114,  3          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;[Ljava/lang/Object;)V
+     220: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     223: new           #26                 // class java/lang/StringBuilder
+     226: dup
+     227: invokespecial #27                 // Method java/lang/StringBuilder."<init>":()V
+     230: ldc           #212                // String Time taken for truncateFile:
+     232: invokevirtual #30                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     235: aload_0
+     236: getfield      #6                  // Field timeService:Lorg/infinispan/util/TimeService;
+     239: invokeinterface #100,  1          // InterfaceMethod org/infinispan/util/TimeService.wallClockTime:()J
+     244: lload_2
+     245: lsub
+     246: invokevirtual #213                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     249: ldc           #214                // String  (ms)
+     251: invokevirtual #30                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     254: invokevirtual #32                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     257: iconst_0
+     258: anewarray     #112                // class java/lang/Object
+     261: invokeinterface #114,  3          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;[Ljava/lang/Object;)V
+     266: return
+    Exception table:
+       from    to  target type
+         145   155   158   Class java/io/IOException
+
+  private void mergeFreeEntries(java.util.List<org.infinispan.persistence.file.SingleFileStore$FileEntry>);
+    Code:
+       0: lconst_0
+       1: lstore_2
+       2: getstatic     #110                // Field trace:Z
+       5: ifeq          18
+       8: aload_0
+       9: getfield      #6                  // Field timeService:Lorg/infinispan/util/TimeService;
+      12: invokeinterface #100,  1          // InterfaceMethod org/infinispan/util/TimeService.wallClockTime:()J
+      17: lstore_2
+      18: aconst_null
+      19: astore        4
+      21: aconst_null
+      22: astore        5
+      24: iconst_0
+      25: istore        6
+      27: aload_1
+      28: invokeinterface #206,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      33: astore        7
+      35: aload         7
+      37: invokeinterface #105,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      42: ifeq          291
+      45: aload         7
+      47: invokeinterface #106,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      52: checkcast     #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+      55: astore        8
+      57: aload         8
+      59: invokevirtual #107                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.isLocked:()Z
+      62: ifeq          68
+      65: goto          35
+      68: aload         4
+      70: ifnull        185
+      73: aload         4
+      75: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+      78: aload         8
+      80: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+      83: aload         8
+      85: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+      88: i2l
+      89: ladd
+      90: lcmp
+      91: ifne          185
+      94: aload         5
+      96: ifnonnull     142
+      99: new           #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+     102: dup
+     103: aload         8
+     105: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     108: aload         8
+     110: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     113: aload         4
+     115: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     118: iadd
+     119: invokespecial #102                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry."<init>":(JI)V
+     122: astore        5
+     124: aload_0
+     125: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     128: aload         4
+     130: invokeinterface #207,  2          // InterfaceMethod java/util/SortedSet.remove:(Ljava/lang/Object;)Z
+     135: pop
+     136: iinc          6, 1
+     139: goto          167
+     142: new           #82                 // class org/infinispan/persistence/file/SingleFileStore$FileEntry
+     145: dup
+     146: aload         8
+     148: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     151: aload         8
+     153: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     156: aload         5
+     158: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     161: iadd
+     162: invokespecial #102                // Method org/infinispan/persistence/file/SingleFileStore$FileEntry."<init>":(JI)V
+     165: astore        5
+     167: aload_0
+     168: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     171: aload         8
+     173: invokeinterface #207,  2          // InterfaceMethod java/util/SortedSet.remove:(Ljava/lang/Object;)Z
+     178: pop
+     179: iinc          6, 1
+     182: goto          284
+     185: aload         5
+     187: ifnull        284
+     190: aload_0
+     191: aload         5
+     193: invokespecial #115                // Method addNewFreeEntry:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)V
+     196: getstatic     #110                // Field trace:Z
+     199: ifeq          261
+     202: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     205: ldc           #215                // String Merged %d entries at %d:%d, %d free entries
+     207: iconst_4
+     208: anewarray     #112                // class java/lang/Object
+     211: dup
+     212: iconst_0
+     213: iload         6
+     215: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     218: aastore
+     219: dup
+     220: iconst_1
+     221: aload         5
+     223: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     226: invokestatic  #71                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     229: aastore
+     230: dup
+     231: iconst_2
+     232: aload         5
+     234: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     237: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     240: aastore
+     241: dup
+     242: iconst_3
+     243: aload_0
+     244: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     247: invokeinterface #113,  1          // InterfaceMethod java/util/SortedSet.size:()I
+     252: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     255: aastore
+     256: invokeinterface #114,  3          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;[Ljava/lang/Object;)V
+     261: goto          278
+     264: astore        9
+     266: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+     269: dup
+     270: ldc           #216                // String Could not add new merged entry
+     272: aload         9
+     274: invokespecial #119                // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     277: athrow
+     278: aconst_null
+     279: astore        5
+     281: iconst_0
+     282: istore        6
+     284: aload         8
+     286: astore        4
+     288: goto          35
+     291: aload         5
+     293: ifnull        384
+     296: aload_0
+     297: aload         5
+     299: invokespecial #115                // Method addNewFreeEntry:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)V
+     302: getstatic     #110                // Field trace:Z
+     305: ifeq          367
+     308: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     311: ldc           #215                // String Merged %d entries at %d:%d, %d free entries
+     313: iconst_4
+     314: anewarray     #112                // class java/lang/Object
+     317: dup
+     318: iconst_0
+     319: iload         6
+     321: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     324: aastore
+     325: dup
+     326: iconst_1
+     327: aload         5
+     329: invokestatic  #91                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$400:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)J
+     332: invokestatic  #71                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     335: aastore
+     336: dup
+     337: iconst_2
+     338: aload         5
+     340: invokestatic  #84                 // Method org/infinispan/persistence/file/SingleFileStore$FileEntry.access$000:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)I
+     343: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     346: aastore
+     347: dup
+     348: iconst_3
+     349: aload_0
+     350: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+     353: invokeinterface #113,  1          // InterfaceMethod java/util/SortedSet.size:()I
+     358: invokestatic  #69                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     361: aastore
+     362: invokeinterface #114,  3          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;[Ljava/lang/Object;)V
+     367: goto          384
+     370: astore        7
+     372: new           #56                 // class org/infinispan/persistence/spi/PersistenceException
+     375: dup
+     376: ldc           #216                // String Could not add new merged entry
+     378: aload         7
+     380: invokespecial #119                // Method org/infinispan/persistence/spi/PersistenceException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     383: athrow
+     384: getstatic     #110                // Field trace:Z
+     387: ifeq          436
+     390: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+     393: new           #26                 // class java/lang/StringBuilder
+     396: dup
+     397: invokespecial #27                 // Method java/lang/StringBuilder."<init>":()V
+     400: ldc           #217                // String Total time taken for mergeFreeEntries:
+     402: invokevirtual #30                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     405: aload_0
+     406: getfield      #6                  // Field timeService:Lorg/infinispan/util/TimeService;
+     409: invokeinterface #100,  1          // InterfaceMethod org/infinispan/util/TimeService.wallClockTime:()J
+     414: lload_2
+     415: lsub
+     416: invokevirtual #213                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     419: ldc           #214                // String  (ms)
+     421: invokevirtual #30                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     424: invokevirtual #32                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     427: iconst_0
+     428: anewarray     #112                // class java/lang/Object
+     431: invokeinterface #114,  3          // InterfaceMethod org/infinispan/util/logging/Log.tracef:(Ljava/lang/String;[Ljava/lang/Object;)V
+     436: return
+    Exception table:
+       from    to  target type
+         190   261   264   Class java/io/IOException
+         296   367   370   Class java/io/IOException
+
+  public void purge(java.util.concurrent.Executor, org.infinispan.persistence.spi.AdvancedCacheWriter$PurgeListener);
+    Code:
+       0: aload_1
+       1: new           #218                // class org/infinispan/persistence/file/SingleFileStore$3
+       4: dup
+       5: aload_0
+       6: aload_2
+       7: invokespecial #219                // Method org/infinispan/persistence/file/SingleFileStore$3."<init>":(Lorg/infinispan/persistence/file/SingleFileStore;Lorg/infinispan/persistence/spi/AdvancedCacheWriter$PurgeListener;)V
+      10: invokeinterface #220,  2          // InterfaceMethod java/util/concurrent/Executor.execute:(Ljava/lang/Runnable;)V
+      15: return
+
+  public int size();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field entries:Ljava/util/Map;
+       4: invokeinterface #68,  1           // InterfaceMethod java/util/Map.size:()I
+       9: ireturn
+
+  java.util.Map<K, org.infinispan.persistence.file.SingleFileStore$FileEntry> getEntries();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field entries:Ljava/util/Map;
+       4: areturn
+
+  java.util.SortedSet<org.infinispan.persistence.file.SingleFileStore$FileEntry> getFreeList();
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+       4: areturn
+
+  long getFileSize();
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field filePos:J
+       4: lreturn
+
+  public org.infinispan.configuration.cache.SingleFileStoreConfiguration getConfiguration();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field configuration:Lorg/infinispan/configuration/cache/SingleFileStoreConfiguration;
+       4: areturn
+
+  static org.infinispan.marshall.core.MarshalledEntry access$600(org.infinispan.persistence.file.SingleFileStore, java.lang.Object, boolean, boolean);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: iload_3
+       4: invokespecial #8                  // Method _load:(Ljava/lang/Object;ZZ)Lorg/infinispan/marshall/core/MarshalledEntry;
+       7: areturn
+
+  static org.infinispan.util.logging.Log access$700();
+    Code:
+       0: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+       3: areturn
+
+  static org.infinispan.util.TimeService access$900(org.infinispan.persistence.file.SingleFileStore);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field timeService:Lorg/infinispan/util/TimeService;
+       4: areturn
+
+  static java.util.Map access$1000(org.infinispan.persistence.file.SingleFileStore);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field entries:Ljava/util/Map;
+       4: areturn
+
+  static java.util.concurrent.locks.ReadWriteLock access$1100(org.infinispan.persistence.file.SingleFileStore);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field resizeLock:Ljava/util/concurrent/locks/ReadWriteLock;
+       4: areturn
+
+  static void access$1200(org.infinispan.persistence.file.SingleFileStore, org.infinispan.persistence.file.SingleFileStore$FileEntry) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #3                  // Method free:(Lorg/infinispan/persistence/file/SingleFileStore$FileEntry;)V
+       5: return
+
+  static java.util.SortedSet access$1300(org.infinispan.persistence.file.SingleFileStore);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field freeList:Ljava/util/SortedSet;
+       4: areturn
+
+  static void access$1400(org.infinispan.persistence.file.SingleFileStore);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method processFreeEntries:()V
+       4: return
+
+  static {};
+    Code:
+       0: ldc           #74                 // class org/infinispan/persistence/file/SingleFileStore
+       2: invokestatic  #221                // Method org/infinispan/util/logging/LogFactory.getLog:(Ljava/lang/Class;)Lorg/infinispan/util/logging/Log;
+       5: putstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+       8: getstatic     #7                  // Field log:Lorg/infinispan/util/logging/Log;
+      11: invokeinterface #222,  1          // InterfaceMethod org/infinispan/util/logging/Log.isTraceEnabled:()Z
+      16: putstatic     #110                // Field trace:Z
+      19: iconst_4
+      20: newarray       byte
+      22: dup
+      23: iconst_0
+      24: bipush        70
+      26: bastore
+      27: dup
+      28: iconst_1
+      29: bipush        67
+      31: bastore
+      32: dup
+      33: iconst_2
+      34: bipush        83
+      36: bastore
+      37: dup
+      38: iconst_3
+      39: bipush        49
+      41: bastore
+      42: putstatic     #10                 // Field MAGIC:[B
+      45: iconst_4
+      46: newarray       byte
+      48: dup
+      49: iconst_0
+      50: iconst_0
+      51: bastore
+      52: dup
+      53: iconst_1
+      54: iconst_0
+      55: bastore
+      56: dup
+      57: iconst_2
+      58: iconst_0
+      59: bastore
+      60: dup
+      61: iconst_3
+      62: iconst_0
+      63: bastore
+      64: putstatic     #127                // Field ZERO_INT:[B
+      67: return
+}

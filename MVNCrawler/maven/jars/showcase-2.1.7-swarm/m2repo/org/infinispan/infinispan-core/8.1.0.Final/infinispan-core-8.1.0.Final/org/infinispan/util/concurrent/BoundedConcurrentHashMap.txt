@@ -1,0 +1,1372 @@
+Compiled from "BoundedConcurrentHashMap.java"
+public class org.infinispan.util.concurrent.BoundedConcurrentHashMap<K, V> extends java.util.AbstractMap<K, V> implements java.util.concurrent.ConcurrentMap<K, V>, org.infinispan.commons.util.concurrent.ParallelIterableMap<K, V>, java.io.Serializable {
+  private static final org.infinispan.util.logging.Log log;
+
+  private static final boolean trace;
+
+  private static final long serialVersionUID;
+
+  static final int DEFAULT_MAXIMUM_CAPACITY;
+
+  static final float DEFAULT_LOAD_FACTOR;
+
+  static final int DEFAULT_CONCURRENCY_LEVEL;
+
+  static final int MAXIMUM_CAPACITY;
+
+  static final int MAX_SEGMENTS;
+
+  static final int RETRIES_BEFORE_LOCK;
+
+  private static final int CANCELLATION_CHECK_FREQUENCY;
+
+  final int segmentMask;
+
+  final int segmentShift;
+
+  final org.infinispan.util.concurrent.BoundedConcurrentHashMap$Segment<K, V>[] segments;
+
+  transient java.util.Set<K> keySet;
+
+  transient java.util.Set<java.util.Map$Entry<K, V>> entrySet;
+
+  transient java.util.Collection<V> values;
+
+  private final transient org.infinispan.commons.equivalence.Equivalence<? super K> keyEquivalence;
+
+  private final transient org.infinispan.commons.equivalence.Equivalence<? super V> valueEquivalence;
+
+  private final transient org.infinispan.util.concurrent.BoundedConcurrentHashMap$EvictionListener<? super K, ? super V> evictionListener;
+
+  private final int evictCap;
+
+  private final java.util.concurrent.ExecutorService executor;
+
+  private static int hash(int);
+    Code:
+       0: iload_0
+       1: iload_0
+       2: bipush        15
+       4: ishl
+       5: sipush        -12931
+       8: ixor
+       9: iadd
+      10: istore_0
+      11: iload_0
+      12: iload_0
+      13: bipush        10
+      15: iushr
+      16: ixor
+      17: istore_0
+      18: iload_0
+      19: iload_0
+      20: iconst_3
+      21: ishl
+      22: iadd
+      23: istore_0
+      24: iload_0
+      25: iload_0
+      26: bipush        6
+      28: iushr
+      29: ixor
+      30: istore_0
+      31: iload_0
+      32: iload_0
+      33: iconst_2
+      34: ishl
+      35: iload_0
+      36: bipush        14
+      38: ishl
+      39: iadd
+      40: iadd
+      41: istore_0
+      42: iload_0
+      43: iload_0
+      44: bipush        16
+      46: iushr
+      47: ixor
+      48: ireturn
+
+  final org.infinispan.util.concurrent.BoundedConcurrentHashMap$Segment<K, V> segmentFor(int);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+       4: iload_1
+       5: aload_0
+       6: getfield      #8                  // Field segmentShift:I
+       9: iushr
+      10: aload_0
+      11: getfield      #9                  // Field segmentMask:I
+      14: iand
+      15: aaload
+      16: areturn
+
+  public org.infinispan.util.concurrent.BoundedConcurrentHashMap(int, int, org.infinispan.util.concurrent.BoundedConcurrentHashMap$Eviction, org.infinispan.util.concurrent.BoundedConcurrentHashMap$EvictionListener<? super K, ? super V>, org.infinispan.commons.equivalence.Equivalence<? super K>, org.infinispan.commons.equivalence.Equivalence<? super V>);
+    Code:
+       0: aload_0
+       1: invokespecial #10                 // Method java/util/AbstractMap."<init>":()V
+       4: aload_0
+       5: aload         5
+       7: putfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+      10: aload_0
+      11: aload         6
+      13: putfield      #5                  // Field valueEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+      16: iload_1
+      17: iflt          24
+      20: iload_2
+      21: ifgt          32
+      24: new           #11                 // class java/lang/IllegalArgumentException
+      27: dup
+      28: invokespecial #12                 // Method java/lang/IllegalArgumentException."<init>":()V
+      31: athrow
+      32: iload_1
+      33: iconst_2
+      34: idiv
+      35: iload_2
+      36: invokestatic  #13                 // Method java/lang/Math.min:(II)I
+      39: istore_2
+      40: iload_2
+      41: iconst_1
+      42: invokestatic  #14                 // Method java/lang/Math.max:(II)I
+      45: istore_2
+      46: iload_1
+      47: iload_2
+      48: iconst_2
+      49: imul
+      50: if_icmpge     68
+      53: iload_1
+      54: iconst_1
+      55: if_icmpeq     68
+      58: new           #11                 // class java/lang/IllegalArgumentException
+      61: dup
+      62: ldc           #15                 // String Maximum capacity has to be at least twice the concurrencyLevel
+      64: invokespecial #16                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      67: athrow
+      68: aload_3
+      69: ifnull        77
+      72: aload         4
+      74: ifnonnull     85
+      77: new           #11                 // class java/lang/IllegalArgumentException
+      80: dup
+      81: invokespecial #12                 // Method java/lang/IllegalArgumentException."<init>":()V
+      84: athrow
+      85: aload_0
+      86: invokestatic  #17                 // Method java/util/concurrent/ForkJoinPool.commonPool:()Ljava/util/concurrent/ForkJoinPool;
+      89: putfield      #18                 // Field executor:Ljava/util/concurrent/ExecutorService;
+      92: aload_0
+      93: aload         4
+      95: putfield      #3                  // Field evictionListener:Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$EvictionListener;
+      98: iload_2
+      99: ldc           #20                 // int 65536
+     101: if_icmple     107
+     104: ldc           #20                 // int 65536
+     106: istore_2
+     107: iconst_0
+     108: istore        7
+     110: iconst_1
+     111: istore        8
+     113: iload         8
+     115: iload_2
+     116: if_icmpge     131
+     119: iinc          7, 1
+     122: iload         8
+     124: iconst_1
+     125: ishl
+     126: istore        8
+     128: goto          113
+     131: aload_0
+     132: bipush        32
+     134: iload         7
+     136: isub
+     137: putfield      #8                  // Field segmentShift:I
+     140: aload_0
+     141: iload         8
+     143: iconst_1
+     144: isub
+     145: putfield      #9                  // Field segmentMask:I
+     148: aload_0
+     149: iload         8
+     151: invokestatic  #21                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.newArray:(I)[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+     154: putfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+     157: iload_1
+     158: ldc           #22                 // int 1073741824
+     160: if_icmple     166
+     163: ldc           #22                 // int 1073741824
+     165: istore_1
+     166: iload_1
+     167: iload         8
+     169: idiv
+     170: istore        9
+     172: iconst_1
+     173: istore        10
+     175: iload         10
+     177: iload         9
+     179: if_icmpge     191
+     182: iload         10
+     184: iconst_1
+     185: ishl
+     186: istore        10
+     188: goto          175
+     191: aload_0
+     192: iload         9
+     194: putfield      #4                  // Field evictCap:I
+     197: iconst_0
+     198: istore        11
+     200: iload         11
+     202: aload_0
+     203: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+     206: arraylength
+     207: if_icmpge     236
+     210: aload_0
+     211: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+     214: iload         11
+     216: new           #23                 // class org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment
+     219: dup
+     220: iload         10
+     222: ldc           #24                 // float 0.75f
+     224: aload_3
+     225: aload_0
+     226: invokespecial #25                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment."<init>":(IFLorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Eviction;Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap;)V
+     229: aastore
+     230: iinc          11, 1
+     233: goto          200
+     236: return
+
+  public org.infinispan.util.concurrent.BoundedConcurrentHashMap(int, int, org.infinispan.commons.equivalence.Equivalence<? super K>, org.infinispan.commons.equivalence.Equivalence<? super V>);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iload_2
+       3: getstatic     #26                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Eviction.LRU:Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Eviction;
+       6: aload_3
+       7: aload         4
+       9: invokespecial #27                 // Method "<init>":(IILorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Eviction;Lorg/infinispan/commons/equivalence/Equivalence;Lorg/infinispan/commons/equivalence/Equivalence;)V
+      12: return
+
+  public org.infinispan.util.concurrent.BoundedConcurrentHashMap(int, int, org.infinispan.util.concurrent.BoundedConcurrentHashMap$Eviction, org.infinispan.commons.equivalence.Equivalence<? super K>, org.infinispan.commons.equivalence.Equivalence<? super V>);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: iload_2
+       3: aload_3
+       4: new           #28                 // class org/infinispan/util/concurrent/BoundedConcurrentHashMap$NullEvictionListener
+       7: dup
+       8: invokespecial #29                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$NullEvictionListener."<init>":()V
+      11: aload         4
+      13: aload         5
+      15: invokespecial #30                 // Method "<init>":(IILorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Eviction;Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$EvictionListener;Lorg/infinispan/commons/equivalence/Equivalence;Lorg/infinispan/commons/equivalence/Equivalence;)V
+      18: return
+
+  public org.infinispan.util.concurrent.BoundedConcurrentHashMap(int, org.infinispan.commons.equivalence.Equivalence<? super K>, org.infinispan.commons.equivalence.Equivalence<? super V>);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: bipush        16
+       4: aload_2
+       5: aload_3
+       6: invokespecial #31                 // Method "<init>":(IILorg/infinispan/commons/equivalence/Equivalence;Lorg/infinispan/commons/equivalence/Equivalence;)V
+       9: return
+
+  public org.infinispan.util.concurrent.BoundedConcurrentHashMap(org.infinispan.commons.equivalence.Equivalence<? super K>, org.infinispan.commons.equivalence.Equivalence<? super V>);
+    Code:
+       0: aload_0
+       1: sipush        512
+       4: bipush        16
+       6: aload_1
+       7: aload_2
+       8: invokespecial #31                 // Method "<init>":(IILorg/infinispan/commons/equivalence/Equivalence;Lorg/infinispan/commons/equivalence/Equivalence;)V
+      11: return
+
+  public boolean isEmpty();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+       4: astore_1
+       5: aload_1
+       6: arraylength
+       7: newarray       int
+       9: astore_2
+      10: iconst_0
+      11: istore_3
+      12: iconst_0
+      13: istore        4
+      15: iload         4
+      17: aload_1
+      18: arraylength
+      19: if_icmpge     55
+      22: aload_1
+      23: iload         4
+      25: aaload
+      26: getfield      #32                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.count:I
+      29: ifeq          34
+      32: iconst_0
+      33: ireturn
+      34: iload_3
+      35: aload_2
+      36: iload         4
+      38: aload_1
+      39: iload         4
+      41: aaload
+      42: getfield      #33                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.modCount:I
+      45: dup_x2
+      46: iastore
+      47: iadd
+      48: istore_3
+      49: iinc          4, 1
+      52: goto          15
+      55: iload_3
+      56: ifeq          101
+      59: iconst_0
+      60: istore        4
+      62: iload         4
+      64: aload_1
+      65: arraylength
+      66: if_icmpge     101
+      69: aload_1
+      70: iload         4
+      72: aaload
+      73: getfield      #32                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.count:I
+      76: ifne          93
+      79: aload_2
+      80: iload         4
+      82: iaload
+      83: aload_1
+      84: iload         4
+      86: aaload
+      87: getfield      #33                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.modCount:I
+      90: if_icmpeq     95
+      93: iconst_0
+      94: ireturn
+      95: iinc          4, 1
+      98: goto          62
+     101: iconst_1
+     102: ireturn
+
+  public int size();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+       4: astore_1
+       5: lconst_0
+       6: lstore_2
+       7: lconst_0
+       8: lstore        4
+      10: aload_1
+      11: arraylength
+      12: newarray       int
+      14: astore        6
+      16: iconst_0
+      17: istore        7
+      19: iload         7
+      21: iconst_2
+      22: if_icmpge     151
+      25: lconst_0
+      26: lstore        4
+      28: lconst_0
+      29: lstore_2
+      30: iconst_0
+      31: istore        8
+      33: iconst_0
+      34: istore        9
+      36: iload         9
+      38: aload_1
+      39: arraylength
+      40: if_icmpge     78
+      43: lload_2
+      44: aload_1
+      45: iload         9
+      47: aaload
+      48: getfield      #32                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.count:I
+      51: i2l
+      52: ladd
+      53: lstore_2
+      54: iload         8
+      56: aload         6
+      58: iload         9
+      60: aload_1
+      61: iload         9
+      63: aaload
+      64: getfield      #33                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.modCount:I
+      67: dup_x2
+      68: iastore
+      69: iadd
+      70: istore        8
+      72: iinc          9, 1
+      75: goto          36
+      78: iload         8
+      80: ifeq          135
+      83: iconst_0
+      84: istore        9
+      86: iload         9
+      88: aload_1
+      89: arraylength
+      90: if_icmpge     135
+      93: lload         4
+      95: aload_1
+      96: iload         9
+      98: aaload
+      99: getfield      #32                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.count:I
+     102: i2l
+     103: ladd
+     104: lstore        4
+     106: aload         6
+     108: iload         9
+     110: iaload
+     111: aload_1
+     112: iload         9
+     114: aaload
+     115: getfield      #33                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.modCount:I
+     118: if_icmpeq     129
+     121: ldc2_w        #34                 // long -1l
+     124: lstore        4
+     126: goto          135
+     129: iinc          9, 1
+     132: goto          86
+     135: lload         4
+     137: lload_2
+     138: lcmp
+     139: ifne          145
+     142: goto          151
+     145: iinc          7, 1
+     148: goto          19
+     151: lload         4
+     153: lload_2
+     154: lcmp
+     155: ifeq          264
+     158: lconst_0
+     159: lstore_2
+     160: iconst_0
+     161: istore        7
+     163: iload         7
+     165: aload_1
+     166: arraylength
+     167: if_icmpge     183
+     170: aload_1
+     171: iload         7
+     173: aaload
+     174: invokevirtual #36                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.lock:()V
+     177: iinc          7, 1
+     180: goto          163
+     183: iconst_0
+     184: istore        7
+     186: iload         7
+     188: aload_1
+     189: arraylength
+     190: if_icmpge     210
+     193: lload_2
+     194: aload_1
+     195: iload         7
+     197: aaload
+     198: getfield      #32                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.count:I
+     201: i2l
+     202: ladd
+     203: lstore_2
+     204: iinc          7, 1
+     207: goto          186
+     210: iconst_0
+     211: istore        7
+     213: iload         7
+     215: aload_1
+     216: arraylength
+     217: if_icmpge     233
+     220: aload_1
+     221: iload         7
+     223: aaload
+     224: invokevirtual #37                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.unlock:()V
+     227: iinc          7, 1
+     230: goto          213
+     233: goto          264
+     236: astore        10
+     238: iconst_0
+     239: istore        11
+     241: iload         11
+     243: aload_1
+     244: arraylength
+     245: if_icmpge     261
+     248: aload_1
+     249: iload         11
+     251: aaload
+     252: invokevirtual #37                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.unlock:()V
+     255: iinc          11, 1
+     258: goto          241
+     261: aload         10
+     263: athrow
+     264: lload_2
+     265: ldc2_w        #39                 // long 2147483647l
+     268: lcmp
+     269: ifle          275
+     272: ldc           #41                 // int 2147483647
+     274: ireturn
+     275: lload_2
+     276: l2i
+     277: ireturn
+    Exception table:
+       from    to  target type
+         183   210   236   any
+         236   238   236   any
+
+  public V get(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+       4: aload_1
+       5: invokeinterface #42,  2           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.hashCode:(Ljava/lang/Object;)I
+      10: invokestatic  #43                 // Method hash:(I)I
+      13: istore_2
+      14: aload_0
+      15: iload_2
+      16: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      19: aload_1
+      20: iload_2
+      21: invokevirtual #45                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.get:(Ljava/lang/Object;I)Ljava/lang/Object;
+      24: areturn
+
+  public boolean containsKey(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+       4: aload_1
+       5: invokeinterface #42,  2           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.hashCode:(Ljava/lang/Object;)I
+      10: invokestatic  #43                 // Method hash:(I)I
+      13: istore_2
+      14: aload_0
+      15: iload_2
+      16: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      19: aload_1
+      20: iload_2
+      21: invokevirtual #46                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.containsKey:(Ljava/lang/Object;I)Z
+      24: ireturn
+
+  public boolean containsValue(java.lang.Object);
+    Code:
+       0: aload_1
+       1: ifnonnull     12
+       4: new           #47                 // class java/lang/NullPointerException
+       7: dup
+       8: invokespecial #48                 // Method java/lang/NullPointerException."<init>":()V
+      11: athrow
+      12: aload_0
+      13: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      16: astore_2
+      17: aload_2
+      18: arraylength
+      19: newarray       int
+      21: astore_3
+      22: iconst_0
+      23: istore        4
+      25: iload         4
+      27: iconst_2
+      28: if_icmpge     155
+      31: iconst_0
+      32: istore        5
+      34: iconst_0
+      35: istore        6
+      37: iload         6
+      39: aload_2
+      40: arraylength
+      41: if_icmpge     89
+      44: aload_2
+      45: iload         6
+      47: aaload
+      48: getfield      #32                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.count:I
+      51: istore        7
+      53: iload         5
+      55: aload_3
+      56: iload         6
+      58: aload_2
+      59: iload         6
+      61: aaload
+      62: getfield      #33                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.modCount:I
+      65: dup_x2
+      66: iastore
+      67: iadd
+      68: istore        5
+      70: aload_2
+      71: iload         6
+      73: aaload
+      74: aload_1
+      75: invokevirtual #49                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.containsValue:(Ljava/lang/Object;)Z
+      78: ifeq          83
+      81: iconst_1
+      82: ireturn
+      83: iinc          6, 1
+      86: goto          37
+      89: iconst_1
+      90: istore        6
+      92: iload         5
+      94: ifeq          142
+      97: iconst_0
+      98: istore        7
+     100: iload         7
+     102: aload_2
+     103: arraylength
+     104: if_icmpge     142
+     107: aload_2
+     108: iload         7
+     110: aaload
+     111: getfield      #32                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.count:I
+     114: istore        8
+     116: aload_3
+     117: iload         7
+     119: iaload
+     120: aload_2
+     121: iload         7
+     123: aaload
+     124: getfield      #33                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.modCount:I
+     127: if_icmpeq     136
+     130: iconst_0
+     131: istore        6
+     133: goto          142
+     136: iinc          7, 1
+     139: goto          100
+     142: iload         6
+     144: ifeq          149
+     147: iconst_0
+     148: ireturn
+     149: iinc          4, 1
+     152: goto          25
+     155: iconst_0
+     156: istore        4
+     158: iload         4
+     160: aload_2
+     161: arraylength
+     162: if_icmpge     178
+     165: aload_2
+     166: iload         4
+     168: aaload
+     169: invokevirtual #36                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.lock:()V
+     172: iinc          4, 1
+     175: goto          158
+     178: iconst_0
+     179: istore        4
+     181: iconst_0
+     182: istore        5
+     184: iload         5
+     186: aload_2
+     187: arraylength
+     188: if_icmpge     214
+     191: aload_2
+     192: iload         5
+     194: aaload
+     195: aload_1
+     196: invokevirtual #49                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.containsValue:(Ljava/lang/Object;)Z
+     199: ifeq          208
+     202: iconst_1
+     203: istore        4
+     205: goto          214
+     208: iinc          5, 1
+     211: goto          184
+     214: iconst_0
+     215: istore        5
+     217: iload         5
+     219: aload_2
+     220: arraylength
+     221: if_icmpge     237
+     224: aload_2
+     225: iload         5
+     227: aaload
+     228: invokevirtual #37                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.unlock:()V
+     231: iinc          5, 1
+     234: goto          217
+     237: goto          268
+     240: astore        9
+     242: iconst_0
+     243: istore        10
+     245: iload         10
+     247: aload_2
+     248: arraylength
+     249: if_icmpge     265
+     252: aload_2
+     253: iload         10
+     255: aaload
+     256: invokevirtual #37                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.unlock:()V
+     259: iinc          10, 1
+     262: goto          245
+     265: aload         9
+     267: athrow
+     268: iload         4
+     270: ireturn
+    Exception table:
+       from    to  target type
+         181   214   240   any
+         240   242   240   any
+
+  public boolean contains(java.lang.Object);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #50                 // Method containsValue:(Ljava/lang/Object;)Z
+       5: ireturn
+
+  public V put(K, V);
+    Code:
+       0: aload_2
+       1: ifnonnull     12
+       4: new           #47                 // class java/lang/NullPointerException
+       7: dup
+       8: invokespecial #48                 // Method java/lang/NullPointerException."<init>":()V
+      11: athrow
+      12: aload_0
+      13: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+      16: aload_1
+      17: invokeinterface #42,  2           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.hashCode:(Ljava/lang/Object;)I
+      22: invokestatic  #43                 // Method hash:(I)I
+      25: istore_3
+      26: aload_0
+      27: iload_3
+      28: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      31: aload_1
+      32: iload_3
+      33: aload_2
+      34: iconst_0
+      35: invokevirtual #51                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.put:(Ljava/lang/Object;ILjava/lang/Object;Z)Ljava/lang/Object;
+      38: areturn
+
+  public V putIfAbsent(K, V);
+    Code:
+       0: aload_2
+       1: ifnonnull     12
+       4: new           #47                 // class java/lang/NullPointerException
+       7: dup
+       8: invokespecial #48                 // Method java/lang/NullPointerException."<init>":()V
+      11: athrow
+      12: aload_0
+      13: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+      16: aload_1
+      17: invokeinterface #42,  2           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.hashCode:(Ljava/lang/Object;)I
+      22: invokestatic  #43                 // Method hash:(I)I
+      25: istore_3
+      26: aload_0
+      27: iload_3
+      28: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      31: aload_1
+      32: iload_3
+      33: aload_2
+      34: iconst_1
+      35: invokevirtual #51                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.put:(Ljava/lang/Object;ILjava/lang/Object;Z)Ljava/lang/Object;
+      38: areturn
+
+  public void putAll(java.util.Map<? extends K, ? extends V>);
+    Code:
+       0: aload_1
+       1: invokeinterface #52,  1           // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+       6: invokeinterface #53,  1           // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      11: astore_2
+      12: aload_2
+      13: invokeinterface #54,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      18: ifeq          51
+      21: aload_2
+      22: invokeinterface #55,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      27: checkcast     #56                 // class java/util/Map$Entry
+      30: astore_3
+      31: aload_0
+      32: aload_3
+      33: invokeinterface #57,  1           // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      38: aload_3
+      39: invokeinterface #58,  1           // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      44: invokevirtual #59                 // Method put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      47: pop
+      48: goto          12
+      51: return
+
+  public V remove(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+       4: aload_1
+       5: invokeinterface #42,  2           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.hashCode:(Ljava/lang/Object;)I
+      10: invokestatic  #43                 // Method hash:(I)I
+      13: istore_2
+      14: aload_0
+      15: iload_2
+      16: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      19: aload_1
+      20: iload_2
+      21: aconst_null
+      22: iconst_0
+      23: invokevirtual #60                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.remove:(Ljava/lang/Object;ILjava/lang/Object;Z)Ljava/lang/Object;
+      26: areturn
+
+  public void evict(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+       4: aload_1
+       5: invokeinterface #42,  2           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.hashCode:(Ljava/lang/Object;)I
+      10: invokestatic  #43                 // Method hash:(I)I
+      13: istore_2
+      14: aload_0
+      15: iload_2
+      16: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      19: aload_1
+      20: iload_2
+      21: aconst_null
+      22: iconst_1
+      23: invokevirtual #60                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.remove:(Ljava/lang/Object;ILjava/lang/Object;Z)Ljava/lang/Object;
+      26: pop
+      27: return
+
+  public void lock(java.lang.Object);
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+       5: aload_1
+       6: invokeinterface #42,  2           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.hashCode:(Ljava/lang/Object;)I
+      11: invokestatic  #43                 // Method hash:(I)I
+      14: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      17: invokevirtual #36                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.lock:()V
+      20: return
+
+  public void unlock(java.lang.Object);
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+       5: aload_1
+       6: invokeinterface #42,  2           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.hashCode:(Ljava/lang/Object;)I
+      11: invokestatic  #43                 // Method hash:(I)I
+      14: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      17: invokevirtual #37                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.unlock:()V
+      20: return
+
+  public boolean remove(java.lang.Object, java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+       4: aload_1
+       5: invokeinterface #42,  2           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.hashCode:(Ljava/lang/Object;)I
+      10: invokestatic  #43                 // Method hash:(I)I
+      13: istore_3
+      14: aload_2
+      15: ifnonnull     20
+      18: iconst_0
+      19: ireturn
+      20: aload_0
+      21: iload_3
+      22: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      25: aload_1
+      26: iload_3
+      27: aload_2
+      28: iconst_0
+      29: invokevirtual #60                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.remove:(Ljava/lang/Object;ILjava/lang/Object;Z)Ljava/lang/Object;
+      32: ifnull        39
+      35: iconst_1
+      36: goto          40
+      39: iconst_0
+      40: ireturn
+
+  public boolean replace(K, V, V);
+    Code:
+       0: aload_2
+       1: ifnull        8
+       4: aload_3
+       5: ifnonnull     16
+       8: new           #47                 // class java/lang/NullPointerException
+      11: dup
+      12: invokespecial #48                 // Method java/lang/NullPointerException."<init>":()V
+      15: athrow
+      16: aload_0
+      17: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+      20: aload_1
+      21: invokeinterface #42,  2           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.hashCode:(Ljava/lang/Object;)I
+      26: invokestatic  #43                 // Method hash:(I)I
+      29: istore        4
+      31: aload_0
+      32: iload         4
+      34: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      37: aload_1
+      38: iload         4
+      40: aload_2
+      41: aload_3
+      42: invokevirtual #61                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.replace:(Ljava/lang/Object;ILjava/lang/Object;Ljava/lang/Object;)Z
+      45: ireturn
+
+  public V replace(K, V);
+    Code:
+       0: aload_2
+       1: ifnonnull     12
+       4: new           #47                 // class java/lang/NullPointerException
+       7: dup
+       8: invokespecial #48                 // Method java/lang/NullPointerException."<init>":()V
+      11: athrow
+      12: aload_1
+      13: invokevirtual #62                 // Method java/lang/Object.hashCode:()I
+      16: invokestatic  #43                 // Method hash:(I)I
+      19: istore_3
+      20: aload_0
+      21: iload_3
+      22: invokevirtual #44                 // Method segmentFor:(I)Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      25: aload_1
+      26: iload_3
+      27: aload_2
+      28: invokevirtual #63                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.replace:(Ljava/lang/Object;ILjava/lang/Object;)Ljava/lang/Object;
+      31: areturn
+
+  public void clear();
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: iload_1
+       3: aload_0
+       4: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+       7: arraylength
+       8: if_icmpge     26
+      11: aload_0
+      12: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      15: iload_1
+      16: aaload
+      17: invokevirtual #64                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.clear:()V
+      20: iinc          1, 1
+      23: goto          2
+      26: return
+
+  public java.util.Set<K> keySet();
+    Code:
+       0: aload_0
+       1: getfield      #65                 // Field keySet:Ljava/util/Set;
+       4: astore_1
+       5: aload_1
+       6: ifnull        13
+       9: aload_1
+      10: goto          26
+      13: aload_0
+      14: new           #66                 // class org/infinispan/util/concurrent/BoundedConcurrentHashMap$KeySet
+      17: dup
+      18: aload_0
+      19: invokespecial #67                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$KeySet."<init>":(Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap;)V
+      22: dup_x1
+      23: putfield      #65                 // Field keySet:Ljava/util/Set;
+      26: areturn
+
+  public java.util.Collection<V> values();
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field values:Ljava/util/Collection;
+       4: astore_1
+       5: aload_1
+       6: ifnull        13
+       9: aload_1
+      10: goto          26
+      13: aload_0
+      14: new           #69                 // class org/infinispan/util/concurrent/BoundedConcurrentHashMap$Values
+      17: dup
+      18: aload_0
+      19: invokespecial #70                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Values."<init>":(Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap;)V
+      22: dup_x1
+      23: putfield      #68                 // Field values:Ljava/util/Collection;
+      26: areturn
+
+  public java.util.Set<java.util.Map$Entry<K, V>> entrySet();
+    Code:
+       0: aload_0
+       1: getfield      #71                 // Field entrySet:Ljava/util/Set;
+       4: astore_1
+       5: aload_1
+       6: ifnull        13
+       9: aload_1
+      10: goto          26
+      13: aload_0
+      14: new           #72                 // class org/infinispan/util/concurrent/BoundedConcurrentHashMap$EntrySet
+      17: dup
+      18: aload_0
+      19: invokespecial #73                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$EntrySet."<init>":(Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap;)V
+      22: dup_x1
+      23: putfield      #71                 // Field entrySet:Ljava/util/Set;
+      26: areturn
+
+  public java.util.Enumeration<K> keys();
+    Code:
+       0: new           #74                 // class org/infinispan/util/concurrent/BoundedConcurrentHashMap$KeyIterator
+       3: dup
+       4: aload_0
+       5: invokespecial #75                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$KeyIterator."<init>":(Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap;)V
+       8: areturn
+
+  public java.util.Enumeration<V> elements();
+    Code:
+       0: new           #76                 // class org/infinispan/util/concurrent/BoundedConcurrentHashMap$ValueIterator
+       3: dup
+       4: aload_0
+       5: invokespecial #77                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$ValueIterator."<init>":(Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap;)V
+       8: areturn
+
+  public boolean equals(java.lang.Object);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: if_acmpne     7
+       5: iconst_1
+       6: ireturn
+       7: aload_1
+       8: instanceof    #78                 // class java/util/Map
+      11: ifne          16
+      14: iconst_0
+      15: ireturn
+      16: aload_1
+      17: checkcast     #78                 // class java/util/Map
+      20: astore_2
+      21: aload_2
+      22: invokeinterface #79,  1           // InterfaceMethod java/util/Map.size:()I
+      27: aload_0
+      28: invokevirtual #80                 // Method size:()I
+      31: if_icmpeq     36
+      34: iconst_0
+      35: ireturn
+      36: aload_0
+      37: invokevirtual #81                 // Method entrySet:()Ljava/util/Set;
+      40: invokeinterface #53,  1           // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      45: astore_3
+      46: aload_3
+      47: invokeinterface #54,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      52: ifeq          140
+      55: aload_3
+      56: invokeinterface #55,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      61: checkcast     #56                 // class java/util/Map$Entry
+      64: astore        4
+      66: aload         4
+      68: invokeinterface #57,  1           // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      73: astore        5
+      75: aload         4
+      77: invokeinterface #58,  1           // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      82: astore        6
+      84: aload         6
+      86: ifnonnull     113
+      89: aload_2
+      90: aload         5
+      92: invokeinterface #82,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      97: ifnonnull     111
+     100: aload_2
+     101: aload         5
+     103: invokeinterface #83,  2           // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     108: ifne          137
+     111: iconst_0
+     112: ireturn
+     113: aload_0
+     114: getfield      #5                  // Field valueEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+     117: aload         6
+     119: aload_2
+     120: aload         5
+     122: invokeinterface #82,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     127: invokeinterface #84,  3           // InterfaceMethod org/infinispan/commons/equivalence/Equivalence.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z
+     132: ifne          137
+     135: iconst_0
+     136: ireturn
+     137: goto          46
+     140: goto          149
+     143: astore_3
+     144: iconst_0
+     145: ireturn
+     146: astore_3
+     147: iconst_0
+     148: ireturn
+     149: iconst_1
+     150: ireturn
+    Exception table:
+       from    to  target type
+          36   112   143   Class java/lang/ClassCastException
+         113   136   143   Class java/lang/ClassCastException
+         137   140   143   Class java/lang/ClassCastException
+          36   112   146   Class java/lang/NullPointerException
+         113   136   146   Class java/lang/NullPointerException
+         137   140   146   Class java/lang/NullPointerException
+
+  public int hashCode();
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: aload_0
+       3: invokevirtual #81                 // Method entrySet:()Ljava/util/Set;
+       6: invokeinterface #53,  1           // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      11: astore_2
+      12: aload_2
+      13: invokeinterface #54,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      18: ifeq          41
+      21: iload_1
+      22: aload_2
+      23: invokeinterface #55,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      28: checkcast     #56                 // class java/util/Map$Entry
+      31: invokeinterface #86,  1           // InterfaceMethod java/util/Map$Entry.hashCode:()I
+      36: iadd
+      37: istore_1
+      38: goto          12
+      41: iload_1
+      42: ireturn
+
+  private void writeObject(java.io.ObjectOutputStream) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokevirtual #87                 // Method java/io/ObjectOutputStream.defaultWriteObject:()V
+       4: iconst_0
+       5: istore_2
+       6: iload_2
+       7: aload_0
+       8: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      11: arraylength
+      12: if_icmpge     111
+      15: aload_0
+      16: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      19: iload_2
+      20: aaload
+      21: astore_3
+      22: aload_3
+      23: invokevirtual #36                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.lock:()V
+      26: aload_3
+      27: getfield      #88                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.table:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$HashEntry;
+      30: astore        4
+      32: iconst_0
+      33: istore        5
+      35: iload         5
+      37: aload         4
+      39: arraylength
+      40: if_icmpge     89
+      43: aload         4
+      45: iload         5
+      47: aaload
+      48: astore        6
+      50: aload         6
+      52: ifnull        83
+      55: aload_1
+      56: aload         6
+      58: getfield      #89                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$HashEntry.key:Ljava/lang/Object;
+      61: invokevirtual #90                 // Method java/io/ObjectOutputStream.writeObject:(Ljava/lang/Object;)V
+      64: aload_1
+      65: aload         6
+      67: getfield      #91                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$HashEntry.value:Ljava/lang/Object;
+      70: invokevirtual #90                 // Method java/io/ObjectOutputStream.writeObject:(Ljava/lang/Object;)V
+      73: aload         6
+      75: getfield      #92                 // Field org/infinispan/util/concurrent/BoundedConcurrentHashMap$HashEntry.next:Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$HashEntry;
+      78: astore        6
+      80: goto          50
+      83: iinc          5, 1
+      86: goto          35
+      89: aload_3
+      90: invokevirtual #37                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.unlock:()V
+      93: goto          105
+      96: astore        7
+      98: aload_3
+      99: invokevirtual #37                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.unlock:()V
+     102: aload         7
+     104: athrow
+     105: iinc          2, 1
+     108: goto          6
+     111: aload_1
+     112: aconst_null
+     113: invokevirtual #90                 // Method java/io/ObjectOutputStream.writeObject:(Ljava/lang/Object;)V
+     116: aload_1
+     117: aconst_null
+     118: invokevirtual #90                 // Method java/io/ObjectOutputStream.writeObject:(Ljava/lang/Object;)V
+     121: return
+    Exception table:
+       from    to  target type
+          26    89    96   any
+          96    98    96   any
+
+  private void readObject(java.io.ObjectInputStream) throws java.io.IOException, java.lang.ClassNotFoundException;
+    Code:
+       0: aload_1
+       1: invokevirtual #93                 // Method java/io/ObjectInputStream.defaultReadObject:()V
+       4: iconst_0
+       5: istore_2
+       6: iload_2
+       7: aload_0
+       8: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      11: arraylength
+      12: if_icmpge     34
+      15: aload_0
+      16: getfield      #7                  // Field segments:[Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment;
+      19: iload_2
+      20: aaload
+      21: iconst_1
+      22: anewarray     #94                 // class org/infinispan/util/concurrent/BoundedConcurrentHashMap$HashEntry
+      25: invokevirtual #95                 // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Segment.setTable:([Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$HashEntry;)V
+      28: iinc          2, 1
+      31: goto          6
+      34: aload_1
+      35: invokevirtual #96                 // Method java/io/ObjectInputStream.readObject:()Ljava/lang/Object;
+      38: astore_2
+      39: aload_1
+      40: invokevirtual #96                 // Method java/io/ObjectInputStream.readObject:()Ljava/lang/Object;
+      43: astore_3
+      44: aload_2
+      45: ifnonnull     51
+      48: goto          61
+      51: aload_0
+      52: aload_2
+      53: aload_3
+      54: invokevirtual #59                 // Method put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      57: pop
+      58: goto          34
+      61: return
+
+  public void forEach(long, java.util.function.BiConsumer<? super K, ? super V>) throws java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: invokevirtual #80                 // Method size:()I
+       4: i2l
+       5: lload_1
+       6: lcmp
+       7: ifle          22
+      10: aload_0
+      11: aload_0
+      12: getfield      #18                 // Field executor:Ljava/util/concurrent/ExecutorService;
+      15: aload_3
+      16: invokespecial #97                 // Method execute:(Ljava/util/concurrent/ExecutorService;Ljava/util/function/BiConsumer;)V
+      19: goto          34
+      22: aload_0
+      23: new           #98                 // class org/infinispan/util/concurrent/WithinThreadExecutor
+      26: dup
+      27: invokespecial #99                 // Method org/infinispan/util/concurrent/WithinThreadExecutor."<init>":()V
+      30: aload_3
+      31: invokespecial #97                 // Method execute:(Ljava/util/concurrent/ExecutorService;Ljava/util/function/BiConsumer;)V
+      34: return
+
+  private void execute(java.util.concurrent.ExecutorService, java.util.function.BiConsumer<? super K, ? super V>) throws java.lang.InterruptedException;
+    Code:
+       0: new           #100                // class java/util/ArrayList
+       3: dup
+       4: aload_0
+       5: invokevirtual #81                 // Method entrySet:()Ljava/util/Set;
+       8: invokespecial #101                // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+      11: astore_3
+      12: invokestatic  #102                // Method java/lang/Runtime.getRuntime:()Ljava/lang/Runtime;
+      15: invokevirtual #103                // Method java/lang/Runtime.availableProcessors:()I
+      18: istore        4
+      20: aload_3
+      21: invokeinterface #104,  1          // InterfaceMethod java/util/List.size:()I
+      26: iload         4
+      28: iconst_2
+      29: ishl
+      30: idiv
+      31: sipush        128
+      34: invokestatic  #14                 // Method java/lang/Math.max:(II)I
+      37: istore        5
+      39: aload_0
+      40: aload_3
+      41: iload         5
+      43: invokevirtual #105                // Method splitIntoLists:(Ljava/util/List;I)Ljava/util/List;
+      46: astore        6
+      48: new           #106                // class org/infinispan/executors/ExecutorAllCompletionService
+      51: dup
+      52: aload_0
+      53: getfield      #18                 // Field executor:Ljava/util/concurrent/ExecutorService;
+      56: invokespecial #107                // Method org/infinispan/executors/ExecutorAllCompletionService."<init>":(Ljava/util/concurrent/Executor;)V
+      59: astore        7
+      61: aload         6
+      63: invokeinterface #108,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      68: astore        8
+      70: aload         8
+      72: invokeinterface #54,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      77: ifeq          113
+      80: aload         8
+      82: invokeinterface #55,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      87: checkcast     #109                // class java/util/List
+      90: astore        9
+      92: aload         7
+      94: new           #110                // class org/infinispan/util/concurrent/BoundedConcurrentHashMap$1
+      97: dup
+      98: aload_0
+      99: aload         9
+     101: aload_2
+     102: invokespecial #111                // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$1."<init>":(Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap;Ljava/util/List;Ljava/util/function/BiConsumer;)V
+     105: aconst_null
+     106: invokevirtual #112                // Method org/infinispan/executors/ExecutorAllCompletionService.submit:(Ljava/lang/Runnable;Ljava/lang/Void;)Ljava/util/concurrent/Future;
+     109: pop
+     110: goto          70
+     113: aload         7
+     115: invokevirtual #113                // Method org/infinispan/executors/ExecutorAllCompletionService.waitUntilAllCompleted:()V
+     118: return
+
+  static boolean checkInterrupt(int);
+    Code:
+       0: iload_0
+       1: bipush        64
+       3: irem
+       4: ifne          11
+       7: iconst_1
+       8: goto          12
+      11: iconst_0
+      12: ireturn
+
+  protected <T> java.util.List<java.util.List<T>> splitIntoLists(java.util.List<T>, int);
+    Code:
+       0: aload_1
+       1: ifnonnull     31
+       4: new           #47                 // class java/lang/NullPointerException
+       7: dup
+       8: new           #114                // class java/lang/StringBuilder
+      11: dup
+      12: invokespecial #115                // Method java/lang/StringBuilder."<init>":()V
+      15: ldc           #116                // String Invalid list
+      17: invokevirtual #117                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      20: aload_1
+      21: invokevirtual #118                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      24: invokevirtual #119                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      27: invokespecial #120                // Method java/lang/NullPointerException."<init>":(Ljava/lang/String;)V
+      30: athrow
+      31: iload_2
+      32: iconst_1
+      33: if_icmpge     63
+      36: new           #11                 // class java/lang/IllegalArgumentException
+      39: dup
+      40: new           #114                // class java/lang/StringBuilder
+      43: dup
+      44: invokespecial #115                // Method java/lang/StringBuilder."<init>":()V
+      47: ldc           #121                // String Invalid size
+      49: invokevirtual #117                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      52: iload_2
+      53: invokevirtual #122                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      56: invokevirtual #119                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      59: invokespecial #16                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      62: athrow
+      63: new           #123                // class org/infinispan/util/concurrent/BoundedConcurrentHashMap$Partition
+      66: dup
+      67: aload_1
+      68: iload_2
+      69: invokespecial #124                // Method org/infinispan/util/concurrent/BoundedConcurrentHashMap$Partition."<init>":(Ljava/util/List;I)V
+      72: areturn
+
+  static org.infinispan.commons.equivalence.Equivalence access$100(org.infinispan.util.concurrent.BoundedConcurrentHashMap);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field keyEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+       4: areturn
+
+  static org.infinispan.commons.equivalence.Equivalence access$200(org.infinispan.util.concurrent.BoundedConcurrentHashMap);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field valueEquivalence:Lorg/infinispan/commons/equivalence/Equivalence;
+       4: areturn
+
+  static int access$1900(org.infinispan.util.concurrent.BoundedConcurrentHashMap);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field evictCap:I
+       4: ireturn
+
+  static org.infinispan.util.concurrent.BoundedConcurrentHashMap$EvictionListener access$2000(org.infinispan.util.concurrent.BoundedConcurrentHashMap);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field evictionListener:Lorg/infinispan/util/concurrent/BoundedConcurrentHashMap$EvictionListener;
+       4: areturn
+
+  static boolean access$2100();
+    Code:
+       0: getstatic     #2                  // Field trace:Z
+       3: ireturn
+
+  static org.infinispan.util.logging.Log access$2200();
+    Code:
+       0: getstatic     #1                  // Field log:Lorg/infinispan/util/logging/Log;
+       3: areturn
+
+  static {};
+    Code:
+       0: ldc           #19                 // class org/infinispan/util/concurrent/BoundedConcurrentHashMap
+       2: invokestatic  #125                // Method org/infinispan/util/logging/LogFactory.getLog:(Ljava/lang/Class;)Lorg/infinispan/util/logging/Log;
+       5: putstatic     #1                  // Field log:Lorg/infinispan/util/logging/Log;
+       8: getstatic     #1                  // Field log:Lorg/infinispan/util/logging/Log;
+      11: invokeinterface #126,  1          // InterfaceMethod org/infinispan/util/logging/Log.isTraceEnabled:()Z
+      16: putstatic     #2                  // Field trace:Z
+      19: return
+}
