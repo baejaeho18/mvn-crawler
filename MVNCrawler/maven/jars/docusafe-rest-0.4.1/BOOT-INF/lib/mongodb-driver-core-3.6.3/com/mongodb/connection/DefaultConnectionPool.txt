@@ -1,0 +1,894 @@
+Compiled from "DefaultConnectionPool.java"
+class com.mongodb.connection.DefaultConnectionPool implements com.mongodb.connection.ConnectionPool {
+  private static final com.mongodb.diagnostics.logging.Logger LOGGER;
+
+  private final com.mongodb.internal.connection.ConcurrentPool<com.mongodb.connection.UsageTrackingInternalConnection> pool;
+
+  private final com.mongodb.connection.ConnectionPoolSettings settings;
+
+  private final java.util.concurrent.atomic.AtomicInteger waitQueueSize;
+
+  private final java.util.concurrent.atomic.AtomicInteger generation;
+
+  private final java.util.concurrent.ExecutorService sizeMaintenanceTimer;
+
+  private java.util.concurrent.ExecutorService asyncGetter;
+
+  private final java.lang.Runnable maintenanceTask;
+
+  private final com.mongodb.event.ConnectionPoolListener connectionPoolListener;
+
+  private final com.mongodb.connection.ServerId serverId;
+
+  private volatile boolean closed;
+
+  com.mongodb.connection.DefaultConnectionPool(com.mongodb.connection.ServerId, com.mongodb.connection.InternalConnectionFactory, com.mongodb.connection.ConnectionPoolSettings);
+    Code:
+       0: aload_0
+       1: invokespecial #20                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #21                 // class java/util/concurrent/atomic/AtomicInteger
+       8: dup
+       9: iconst_0
+      10: invokespecial #22                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      13: putfield      #16                 // Field waitQueueSize:Ljava/util/concurrent/atomic/AtomicInteger;
+      16: aload_0
+      17: new           #21                 // class java/util/concurrent/atomic/AtomicInteger
+      20: dup
+      21: iconst_0
+      22: invokespecial #22                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      25: putfield      #4                  // Field generation:Ljava/util/concurrent/atomic/AtomicInteger;
+      28: aload_0
+      29: ldc           #23                 // String serverId
+      31: aload_1
+      32: invokestatic  #24                 // Method com/mongodb/assertions/Assertions.notNull:(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;
+      35: checkcast     #25                 // class com/mongodb/connection/ServerId
+      38: putfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+      41: aload_0
+      42: ldc           #26                 // String settings
+      44: aload_3
+      45: invokestatic  #24                 // Method com/mongodb/assertions/Assertions.notNull:(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;
+      48: checkcast     #27                 // class com/mongodb/connection/ConnectionPoolSettings
+      51: putfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+      54: new           #28                 // class com/mongodb/connection/DefaultConnectionPool$UsageTrackingInternalConnectionItemFactory
+      57: dup
+      58: aload_0
+      59: aload_2
+      60: invokespecial #29                 // Method com/mongodb/connection/DefaultConnectionPool$UsageTrackingInternalConnectionItemFactory."<init>":(Lcom/mongodb/connection/DefaultConnectionPool;Lcom/mongodb/connection/InternalConnectionFactory;)V
+      63: astore        4
+      65: aload_0
+      66: new           #30                 // class com/mongodb/internal/connection/ConcurrentPool
+      69: dup
+      70: aload_3
+      71: invokevirtual #31                 // Method com/mongodb/connection/ConnectionPoolSettings.getMaxSize:()I
+      74: aload         4
+      76: invokespecial #32                 // Method com/mongodb/internal/connection/ConcurrentPool."<init>":(ILcom/mongodb/internal/connection/ConcurrentPool$ItemFactory;)V
+      79: putfield      #11                 // Field pool:Lcom/mongodb/internal/connection/ConcurrentPool;
+      82: aload_0
+      83: aload_0
+      84: invokespecial #33                 // Method createMaintenanceTask:()Ljava/lang/Runnable;
+      87: putfield      #34                 // Field maintenanceTask:Ljava/lang/Runnable;
+      90: aload_0
+      91: aload_0
+      92: invokespecial #35                 // Method createMaintenanceTimer:()Ljava/util/concurrent/ExecutorService;
+      95: putfield      #36                 // Field sizeMaintenanceTimer:Ljava/util/concurrent/ExecutorService;
+      98: aload_0
+      99: aload_3
+     100: invokestatic  #37                 // Method com/mongodb/internal/event/EventListenerHelper.getConnectionPoolListener:(Lcom/mongodb/connection/ConnectionPoolSettings;)Lcom/mongodb/event/ConnectionPoolListener;
+     103: putfield      #14                 // Field connectionPoolListener:Lcom/mongodb/event/ConnectionPoolListener;
+     106: aload_0
+     107: getfield      #14                 // Field connectionPoolListener:Lcom/mongodb/event/ConnectionPoolListener;
+     110: new           #38                 // class com/mongodb/event/ConnectionPoolOpenedEvent
+     113: dup
+     114: aload_1
+     115: aload_3
+     116: invokespecial #39                 // Method com/mongodb/event/ConnectionPoolOpenedEvent."<init>":(Lcom/mongodb/connection/ServerId;Lcom/mongodb/connection/ConnectionPoolSettings;)V
+     119: invokeinterface #40,  2           // InterfaceMethod com/mongodb/event/ConnectionPoolListener.connectionPoolOpened:(Lcom/mongodb/event/ConnectionPoolOpenedEvent;)V
+     124: return
+
+  public com.mongodb.connection.InternalConnection get();
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+       5: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+       8: invokevirtual #42                 // Method com/mongodb/connection/ConnectionPoolSettings.getMaxWaitTime:(Ljava/util/concurrent/TimeUnit;)J
+      11: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      14: invokevirtual #43                 // Method get:(JLjava/util/concurrent/TimeUnit;)Lcom/mongodb/connection/InternalConnection;
+      17: areturn
+
+  public com.mongodb.connection.InternalConnection get(long, java.util.concurrent.TimeUnit);
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field waitQueueSize:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+       7: aload_0
+       8: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+      11: invokevirtual #45                 // Method com/mongodb/connection/ConnectionPoolSettings.getMaxWaitQueueSize:()I
+      14: if_icmple     22
+      17: aload_0
+      18: invokespecial #46                 // Method createWaitQueueFullException:()Lcom/mongodb/MongoWaitQueueFullException;
+      21: athrow
+      22: aload_0
+      23: getfield      #14                 // Field connectionPoolListener:Lcom/mongodb/event/ConnectionPoolListener;
+      26: new           #47                 // class com/mongodb/event/ConnectionPoolWaitQueueEnteredEvent
+      29: dup
+      30: aload_0
+      31: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+      34: invokespecial #48                 // Method com/mongodb/event/ConnectionPoolWaitQueueEnteredEvent."<init>":(Lcom/mongodb/connection/ServerId;)V
+      37: invokeinterface #49,  2           // InterfaceMethod com/mongodb/event/ConnectionPoolListener.waitQueueEntered:(Lcom/mongodb/event/ConnectionPoolWaitQueueEnteredEvent;)V
+      42: aload_0
+      43: lload_1
+      44: aload_3
+      45: invokespecial #18                 // Method getPooledConnection:(JLjava/util/concurrent/TimeUnit;)Lcom/mongodb/connection/DefaultConnectionPool$PooledConnection;
+      48: astore        4
+      50: aload         4
+      52: invokevirtual #50                 // Method com/mongodb/connection/DefaultConnectionPool$PooledConnection.opened:()Z
+      55: ifne          110
+      58: aload         4
+      60: invokevirtual #51                 // Method com/mongodb/connection/DefaultConnectionPool$PooledConnection.open:()V
+      63: goto          110
+      66: astore        5
+      68: aload_0
+      69: getfield      #11                 // Field pool:Lcom/mongodb/internal/connection/ConcurrentPool;
+      72: aload         4
+      74: invokestatic  #53                 // Method com/mongodb/connection/DefaultConnectionPool$PooledConnection.access$000:(Lcom/mongodb/connection/DefaultConnectionPool$PooledConnection;)Lcom/mongodb/connection/UsageTrackingInternalConnection;
+      77: iconst_1
+      78: invokevirtual #54                 // Method com/mongodb/internal/connection/ConcurrentPool.release:(Ljava/lang/Object;Z)V
+      81: aload         5
+      83: instanceof    #55                 // class com/mongodb/MongoException
+      86: ifeq          95
+      89: aload         5
+      91: checkcast     #55                 // class com/mongodb/MongoException
+      94: athrow
+      95: new           #56                 // class com/mongodb/MongoInternalException
+      98: dup
+      99: aload         5
+     101: invokevirtual #57                 // Method java/lang/Throwable.toString:()Ljava/lang/String;
+     104: aload         5
+     106: invokespecial #58                 // Method com/mongodb/MongoInternalException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     109: athrow
+     110: aload         4
+     112: astore        5
+     114: aload_0
+     115: getfield      #14                 // Field connectionPoolListener:Lcom/mongodb/event/ConnectionPoolListener;
+     118: new           #59                 // class com/mongodb/event/ConnectionPoolWaitQueueExitedEvent
+     121: dup
+     122: aload_0
+     123: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+     126: invokespecial #60                 // Method com/mongodb/event/ConnectionPoolWaitQueueExitedEvent."<init>":(Lcom/mongodb/connection/ServerId;)V
+     129: invokeinterface #61,  2           // InterfaceMethod com/mongodb/event/ConnectionPoolListener.waitQueueExited:(Lcom/mongodb/event/ConnectionPoolWaitQueueExitedEvent;)V
+     134: aload_0
+     135: getfield      #16                 // Field waitQueueSize:Ljava/util/concurrent/atomic/AtomicInteger;
+     138: invokevirtual #62                 // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+     141: pop
+     142: aload         5
+     144: areturn
+     145: astore        6
+     147: aload_0
+     148: getfield      #14                 // Field connectionPoolListener:Lcom/mongodb/event/ConnectionPoolListener;
+     151: new           #59                 // class com/mongodb/event/ConnectionPoolWaitQueueExitedEvent
+     154: dup
+     155: aload_0
+     156: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+     159: invokespecial #60                 // Method com/mongodb/event/ConnectionPoolWaitQueueExitedEvent."<init>":(Lcom/mongodb/connection/ServerId;)V
+     162: invokeinterface #61,  2           // InterfaceMethod com/mongodb/event/ConnectionPoolListener.waitQueueExited:(Lcom/mongodb/event/ConnectionPoolWaitQueueExitedEvent;)V
+     167: aload         6
+     169: athrow
+     170: astore        7
+     172: aload_0
+     173: getfield      #16                 // Field waitQueueSize:Ljava/util/concurrent/atomic/AtomicInteger;
+     176: invokevirtual #62                 // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+     179: pop
+     180: aload         7
+     182: athrow
+    Exception table:
+       from    to  target type
+          58    63    66   Class java/lang/Throwable
+          22   114   145   any
+         145   147   145   any
+           0   134   170   any
+         145   172   170   any
+
+  public void getAsync(com.mongodb.async.SingleResultCallback<com.mongodb.connection.InternalConnection>);
+    Code:
+       0: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+       3: invokeinterface #63,  1           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.isTraceEnabled:()Z
+       8: ifeq          35
+      11: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      14: ldc           #64                 // String Asynchronously getting a connection from the pool for server %s
+      16: iconst_1
+      17: anewarray     #65                 // class java/lang/Object
+      20: dup
+      21: iconst_0
+      22: aload_0
+      23: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+      26: aastore
+      27: invokestatic  #66                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      30: invokeinterface #67,  2           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.trace:(Ljava/lang/String;)V
+      35: aload_1
+      36: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      39: invokestatic  #68                 // Method com/mongodb/internal/async/ErrorHandlingResultCallback.errorHandlingCallback:(Lcom/mongodb/async/SingleResultCallback;Lcom/mongodb/diagnostics/logging/Logger;)Lcom/mongodb/async/SingleResultCallback;
+      42: astore_2
+      43: aconst_null
+      44: astore_3
+      45: aload_0
+      46: lconst_0
+      47: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      50: invokespecial #18                 // Method getPooledConnection:(JLjava/util/concurrent/TimeUnit;)Lcom/mongodb/connection/DefaultConnectionPool$PooledConnection;
+      53: astore_3
+      54: goto          74
+      57: astore        4
+      59: goto          74
+      62: astore        4
+      64: aload_1
+      65: aconst_null
+      66: aload         4
+      68: invokeinterface #70,  3           // InterfaceMethod com/mongodb/async/SingleResultCallback.onResult:(Ljava/lang/Object;Ljava/lang/Throwable;)V
+      73: return
+      74: aload_3
+      75: ifnull        132
+      78: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      81: invokeinterface #63,  1           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.isTraceEnabled:()Z
+      86: ifeq          123
+      89: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      92: ldc           #71                 // String Asynchronously opening pooled connection %s to server %s
+      94: iconst_2
+      95: anewarray     #65                 // class java/lang/Object
+      98: dup
+      99: iconst_0
+     100: aload_3
+     101: invokevirtual #72                 // Method com/mongodb/connection/DefaultConnectionPool$PooledConnection.getDescription:()Lcom/mongodb/connection/ConnectionDescription;
+     104: invokevirtual #73                 // Method com/mongodb/connection/ConnectionDescription.getConnectionId:()Lcom/mongodb/connection/ConnectionId;
+     107: aastore
+     108: dup
+     109: iconst_1
+     110: aload_0
+     111: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+     114: aastore
+     115: invokestatic  #66                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     118: invokeinterface #67,  2           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.trace:(Ljava/lang/String;)V
+     123: aload_0
+     124: aload_3
+     125: aload_2
+     126: invokespecial #17                 // Method openAsync:(Lcom/mongodb/connection/DefaultConnectionPool$PooledConnection;Lcom/mongodb/async/SingleResultCallback;)V
+     129: goto          252
+     132: aload_0
+     133: getfield      #16                 // Field waitQueueSize:Ljava/util/concurrent/atomic/AtomicInteger;
+     136: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+     139: aload_0
+     140: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+     143: invokevirtual #45                 // Method com/mongodb/connection/ConnectionPoolSettings.getMaxWaitQueueSize:()I
+     146: if_icmple     206
+     149: aload_0
+     150: getfield      #16                 // Field waitQueueSize:Ljava/util/concurrent/atomic/AtomicInteger;
+     153: invokevirtual #62                 // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+     156: pop
+     157: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+     160: invokeinterface #63,  1           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.isTraceEnabled:()Z
+     165: ifeq          192
+     168: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+     171: ldc           #74                 // String Asynchronously failing to get a pooled connection to %s because the wait queue is full
+     173: iconst_1
+     174: anewarray     #65                 // class java/lang/Object
+     177: dup
+     178: iconst_0
+     179: aload_0
+     180: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+     183: aastore
+     184: invokestatic  #66                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     187: invokeinterface #67,  2           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.trace:(Ljava/lang/String;)V
+     192: aload_1
+     193: aconst_null
+     194: aload_0
+     195: invokespecial #46                 // Method createWaitQueueFullException:()Lcom/mongodb/MongoWaitQueueFullException;
+     198: invokeinterface #70,  3           // InterfaceMethod com/mongodb/async/SingleResultCallback.onResult:(Ljava/lang/Object;Ljava/lang/Throwable;)V
+     203: goto          252
+     206: invokestatic  #75                 // Method java/lang/System.currentTimeMillis:()J
+     209: lstore        4
+     211: aload_0
+     212: getfield      #14                 // Field connectionPoolListener:Lcom/mongodb/event/ConnectionPoolListener;
+     215: new           #47                 // class com/mongodb/event/ConnectionPoolWaitQueueEnteredEvent
+     218: dup
+     219: aload_0
+     220: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+     223: invokespecial #48                 // Method com/mongodb/event/ConnectionPoolWaitQueueEnteredEvent."<init>":(Lcom/mongodb/connection/ServerId;)V
+     226: invokeinterface #49,  2           // InterfaceMethod com/mongodb/event/ConnectionPoolListener.waitQueueEntered:(Lcom/mongodb/event/ConnectionPoolWaitQueueEnteredEvent;)V
+     231: aload_0
+     232: invokespecial #76                 // Method getAsyncGetter:()Ljava/util/concurrent/ExecutorService;
+     235: new           #77                 // class com/mongodb/connection/DefaultConnectionPool$1
+     238: dup
+     239: aload_0
+     240: aload_2
+     241: lload         4
+     243: invokespecial #78                 // Method com/mongodb/connection/DefaultConnectionPool$1."<init>":(Lcom/mongodb/connection/DefaultConnectionPool;Lcom/mongodb/async/SingleResultCallback;J)V
+     246: invokeinterface #79,  2           // InterfaceMethod java/util/concurrent/ExecutorService.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+     251: pop
+     252: return
+    Exception table:
+       from    to  target type
+          45    54    57   Class com/mongodb/MongoTimeoutException
+          45    54    62   Class java/lang/Throwable
+
+  private void openAsync(com.mongodb.connection.DefaultConnectionPool$PooledConnection, com.mongodb.async.SingleResultCallback<com.mongodb.connection.InternalConnection>);
+    Code:
+       0: aload_1
+       1: invokevirtual #50                 // Method com/mongodb/connection/DefaultConnectionPool$PooledConnection.opened:()Z
+       4: ifeq          63
+       7: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      10: invokeinterface #63,  1           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.isTraceEnabled:()Z
+      15: ifeq          52
+      18: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      21: ldc           #80                 // String Pooled connection %s to server %s is already open
+      23: iconst_2
+      24: anewarray     #65                 // class java/lang/Object
+      27: dup
+      28: iconst_0
+      29: aload_1
+      30: invokevirtual #72                 // Method com/mongodb/connection/DefaultConnectionPool$PooledConnection.getDescription:()Lcom/mongodb/connection/ConnectionDescription;
+      33: invokevirtual #73                 // Method com/mongodb/connection/ConnectionDescription.getConnectionId:()Lcom/mongodb/connection/ConnectionId;
+      36: aastore
+      37: dup
+      38: iconst_1
+      39: aload_0
+      40: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+      43: aastore
+      44: invokestatic  #66                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      47: invokeinterface #67,  2           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.trace:(Ljava/lang/String;)V
+      52: aload_2
+      53: aload_1
+      54: aconst_null
+      55: invokeinterface #70,  3           // InterfaceMethod com/mongodb/async/SingleResultCallback.onResult:(Ljava/lang/Object;Ljava/lang/Throwable;)V
+      60: goto          122
+      63: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      66: invokeinterface #63,  1           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.isTraceEnabled:()Z
+      71: ifeq          108
+      74: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      77: ldc           #81                 // String Pooled connection %s to server %s is not yet open
+      79: iconst_2
+      80: anewarray     #65                 // class java/lang/Object
+      83: dup
+      84: iconst_0
+      85: aload_1
+      86: invokevirtual #72                 // Method com/mongodb/connection/DefaultConnectionPool$PooledConnection.getDescription:()Lcom/mongodb/connection/ConnectionDescription;
+      89: invokevirtual #73                 // Method com/mongodb/connection/ConnectionDescription.getConnectionId:()Lcom/mongodb/connection/ConnectionId;
+      92: aastore
+      93: dup
+      94: iconst_1
+      95: aload_0
+      96: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+      99: aastore
+     100: invokestatic  #66                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     103: invokeinterface #67,  2           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.trace:(Ljava/lang/String;)V
+     108: aload_1
+     109: new           #82                 // class com/mongodb/connection/DefaultConnectionPool$2
+     112: dup
+     113: aload_0
+     114: aload_1
+     115: aload_2
+     116: invokespecial #83                 // Method com/mongodb/connection/DefaultConnectionPool$2."<init>":(Lcom/mongodb/connection/DefaultConnectionPool;Lcom/mongodb/connection/DefaultConnectionPool$PooledConnection;Lcom/mongodb/async/SingleResultCallback;)V
+     119: invokevirtual #84                 // Method com/mongodb/connection/DefaultConnectionPool$PooledConnection.openAsync:(Lcom/mongodb/async/SingleResultCallback;)V
+     122: return
+
+  private synchronized java.util.concurrent.ExecutorService getAsyncGetter();
+    Code:
+       0: aload_0
+       1: getfield      #85                 // Field asyncGetter:Ljava/util/concurrent/ExecutorService;
+       4: ifnonnull     23
+       7: aload_0
+       8: new           #86                 // class com/mongodb/internal/thread/DaemonThreadFactory
+      11: dup
+      12: ldc           #87                 // String AsyncGetter
+      14: invokespecial #88                 // Method com/mongodb/internal/thread/DaemonThreadFactory."<init>":(Ljava/lang/String;)V
+      17: invokestatic  #89                 // Method java/util/concurrent/Executors.newSingleThreadExecutor:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+      20: putfield      #85                 // Field asyncGetter:Ljava/util/concurrent/ExecutorService;
+      23: aload_0
+      24: getfield      #85                 // Field asyncGetter:Ljava/util/concurrent/ExecutorService;
+      27: areturn
+
+  private synchronized void shutdownAsyncGetter();
+    Code:
+       0: aload_0
+       1: getfield      #85                 // Field asyncGetter:Ljava/util/concurrent/ExecutorService;
+       4: ifnull        17
+       7: aload_0
+       8: getfield      #85                 // Field asyncGetter:Ljava/util/concurrent/ExecutorService;
+      11: invokeinterface #90,  1           // InterfaceMethod java/util/concurrent/ExecutorService.shutdownNow:()Ljava/util/List;
+      16: pop
+      17: return
+
+  public void invalidate();
+    Code:
+       0: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+       3: ldc           #91                 // String Invalidating the connection pool
+       5: invokeinterface #92,  2           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.debug:(Ljava/lang/String;)V
+      10: aload_0
+      11: getfield      #4                  // Field generation:Ljava/util/concurrent/atomic/AtomicInteger;
+      14: invokevirtual #44                 // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+      17: pop
+      18: return
+
+  public void close();
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field closed:Z
+       4: ifne          60
+       7: aload_0
+       8: getfield      #11                 // Field pool:Lcom/mongodb/internal/connection/ConcurrentPool;
+      11: invokevirtual #93                 // Method com/mongodb/internal/connection/ConcurrentPool.close:()V
+      14: aload_0
+      15: getfield      #36                 // Field sizeMaintenanceTimer:Ljava/util/concurrent/ExecutorService;
+      18: ifnull        31
+      21: aload_0
+      22: getfield      #36                 // Field sizeMaintenanceTimer:Ljava/util/concurrent/ExecutorService;
+      25: invokeinterface #90,  1           // InterfaceMethod java/util/concurrent/ExecutorService.shutdownNow:()Ljava/util/List;
+      30: pop
+      31: aload_0
+      32: invokespecial #94                 // Method shutdownAsyncGetter:()V
+      35: aload_0
+      36: iconst_1
+      37: putfield      #8                  // Field closed:Z
+      40: aload_0
+      41: getfield      #14                 // Field connectionPoolListener:Lcom/mongodb/event/ConnectionPoolListener;
+      44: new           #95                 // class com/mongodb/event/ConnectionPoolClosedEvent
+      47: dup
+      48: aload_0
+      49: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+      52: invokespecial #96                 // Method com/mongodb/event/ConnectionPoolClosedEvent."<init>":(Lcom/mongodb/connection/ServerId;)V
+      55: invokeinterface #97,  2           // InterfaceMethod com/mongodb/event/ConnectionPoolListener.connectionPoolClosed:(Lcom/mongodb/event/ConnectionPoolClosedEvent;)V
+      60: return
+
+  public void doMaintenance();
+    Code:
+       0: aload_0
+       1: getfield      #34                 // Field maintenanceTask:Ljava/lang/Runnable;
+       4: ifnull        16
+       7: aload_0
+       8: getfield      #34                 // Field maintenanceTask:Ljava/lang/Runnable;
+      11: invokeinterface #98,  1           // InterfaceMethod java/lang/Runnable.run:()V
+      16: return
+
+  private com.mongodb.connection.DefaultConnectionPool$PooledConnection getPooledConnection(long, java.util.concurrent.TimeUnit);
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field pool:Lcom/mongodb/internal/connection/ConcurrentPool;
+       4: lload_1
+       5: aload_3
+       6: invokevirtual #99                 // Method com/mongodb/internal/connection/ConcurrentPool.get:(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;
+       9: checkcast     #100                // class com/mongodb/connection/UsageTrackingInternalConnection
+      12: astore        4
+      14: aload_0
+      15: aload         4
+      17: invokespecial #6                  // Method shouldPrune:(Lcom/mongodb/connection/UsageTrackingInternalConnection;)Z
+      20: ifeq          50
+      23: aload_0
+      24: getfield      #11                 // Field pool:Lcom/mongodb/internal/connection/ConcurrentPool;
+      27: aload         4
+      29: iconst_1
+      30: invokevirtual #54                 // Method com/mongodb/internal/connection/ConcurrentPool.release:(Ljava/lang/Object;Z)V
+      33: aload_0
+      34: getfield      #11                 // Field pool:Lcom/mongodb/internal/connection/ConcurrentPool;
+      37: lload_1
+      38: aload_3
+      39: invokevirtual #99                 // Method com/mongodb/internal/connection/ConcurrentPool.get:(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;
+      42: checkcast     #100                // class com/mongodb/connection/UsageTrackingInternalConnection
+      45: astore        4
+      47: goto          14
+      50: aload_0
+      51: getfield      #14                 // Field connectionPoolListener:Lcom/mongodb/event/ConnectionPoolListener;
+      54: new           #101                // class com/mongodb/event/ConnectionCheckedOutEvent
+      57: dup
+      58: aload         4
+      60: invokevirtual #102                // Method com/mongodb/connection/UsageTrackingInternalConnection.getDescription:()Lcom/mongodb/connection/ConnectionDescription;
+      63: invokevirtual #73                 // Method com/mongodb/connection/ConnectionDescription.getConnectionId:()Lcom/mongodb/connection/ConnectionId;
+      66: invokespecial #103                // Method com/mongodb/event/ConnectionCheckedOutEvent."<init>":(Lcom/mongodb/connection/ConnectionId;)V
+      69: invokeinterface #104,  2          // InterfaceMethod com/mongodb/event/ConnectionPoolListener.connectionCheckedOut:(Lcom/mongodb/event/ConnectionCheckedOutEvent;)V
+      74: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      77: invokeinterface #63,  1           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.isTraceEnabled:()Z
+      82: ifeq          121
+      85: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      88: ldc           #105                // String Checked out connection [%s] to server %s
+      90: iconst_2
+      91: anewarray     #65                 // class java/lang/Object
+      94: dup
+      95: iconst_0
+      96: aload_0
+      97: aload         4
+      99: invokespecial #7                  // Method getId:(Lcom/mongodb/connection/InternalConnection;)Lcom/mongodb/connection/ConnectionId;
+     102: aastore
+     103: dup
+     104: iconst_1
+     105: aload_0
+     106: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+     109: invokevirtual #106                // Method com/mongodb/connection/ServerId.getAddress:()Lcom/mongodb/ServerAddress;
+     112: aastore
+     113: invokestatic  #66                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     116: invokeinterface #67,  2           // InterfaceMethod com/mongodb/diagnostics/logging/Logger.trace:(Ljava/lang/String;)V
+     121: new           #107                // class com/mongodb/connection/DefaultConnectionPool$PooledConnection
+     124: dup
+     125: aload_0
+     126: aload         4
+     128: invokespecial #108                // Method com/mongodb/connection/DefaultConnectionPool$PooledConnection."<init>":(Lcom/mongodb/connection/DefaultConnectionPool;Lcom/mongodb/connection/UsageTrackingInternalConnection;)V
+     131: areturn
+
+  private com.mongodb.MongoTimeoutException createTimeoutException();
+    Code:
+       0: new           #69                 // class com/mongodb/MongoTimeoutException
+       3: dup
+       4: ldc           #109                // String Timed out after %d ms while waiting for a connection to server %s.
+       6: iconst_2
+       7: anewarray     #65                 // class java/lang/Object
+      10: dup
+      11: iconst_0
+      12: aload_0
+      13: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+      16: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      19: invokevirtual #42                 // Method com/mongodb/connection/ConnectionPoolSettings.getMaxWaitTime:(Ljava/util/concurrent/TimeUnit;)J
+      22: invokestatic  #110                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      25: aastore
+      26: dup
+      27: iconst_1
+      28: aload_0
+      29: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+      32: invokevirtual #106                // Method com/mongodb/connection/ServerId.getAddress:()Lcom/mongodb/ServerAddress;
+      35: aastore
+      36: invokestatic  #66                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      39: invokespecial #111                // Method com/mongodb/MongoTimeoutException."<init>":(Ljava/lang/String;)V
+      42: areturn
+
+  private com.mongodb.MongoWaitQueueFullException createWaitQueueFullException();
+    Code:
+       0: new           #112                // class com/mongodb/MongoWaitQueueFullException
+       3: dup
+       4: ldc           #113                // String Too many threads are already waiting for a connection. Max number of threads (maxWaitQueueSize) of %d has been exceeded.
+       6: iconst_1
+       7: anewarray     #65                 // class java/lang/Object
+      10: dup
+      11: iconst_0
+      12: aload_0
+      13: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+      16: invokevirtual #45                 // Method com/mongodb/connection/ConnectionPoolSettings.getMaxWaitQueueSize:()I
+      19: invokestatic  #114                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      22: aastore
+      23: invokestatic  #66                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      26: invokespecial #115                // Method com/mongodb/MongoWaitQueueFullException."<init>":(Ljava/lang/String;)V
+      29: areturn
+
+  com.mongodb.internal.connection.ConcurrentPool<com.mongodb.connection.UsageTrackingInternalConnection> getPool();
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field pool:Lcom/mongodb/internal/connection/ConcurrentPool;
+       4: areturn
+
+  private java.lang.Runnable createMaintenanceTask();
+    Code:
+       0: aconst_null
+       1: astore_1
+       2: aload_0
+       3: invokespecial #10                 // Method shouldPrune:()Z
+       6: ifne          16
+       9: aload_0
+      10: invokespecial #9                  // Method shouldEnsureMinSize:()Z
+      13: ifeq          25
+      16: new           #116                // class com/mongodb/connection/DefaultConnectionPool$3
+      19: dup
+      20: aload_0
+      21: invokespecial #117                // Method com/mongodb/connection/DefaultConnectionPool$3."<init>":(Lcom/mongodb/connection/DefaultConnectionPool;)V
+      24: astore_1
+      25: aload_1
+      26: areturn
+
+  private java.util.concurrent.ExecutorService createMaintenanceTimer();
+    Code:
+       0: aload_0
+       1: getfield      #34                 // Field maintenanceTask:Ljava/lang/Runnable;
+       4: ifnonnull     9
+       7: aconst_null
+       8: areturn
+       9: new           #86                 // class com/mongodb/internal/thread/DaemonThreadFactory
+      12: dup
+      13: ldc           #118                // String MaintenanceTimer
+      15: invokespecial #88                 // Method com/mongodb/internal/thread/DaemonThreadFactory."<init>":(Ljava/lang/String;)V
+      18: invokestatic  #119                // Method java/util/concurrent/Executors.newSingleThreadScheduledExecutor:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ScheduledExecutorService;
+      21: astore_1
+      22: aload_1
+      23: aload_0
+      24: getfield      #34                 // Field maintenanceTask:Ljava/lang/Runnable;
+      27: aload_0
+      28: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+      31: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      34: invokevirtual #120                // Method com/mongodb/connection/ConnectionPoolSettings.getMaintenanceInitialDelay:(Ljava/util/concurrent/TimeUnit;)J
+      37: aload_0
+      38: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+      41: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      44: invokevirtual #121                // Method com/mongodb/connection/ConnectionPoolSettings.getMaintenanceFrequency:(Ljava/util/concurrent/TimeUnit;)J
+      47: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      50: invokeinterface #122,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+      55: pop
+      56: aload_1
+      57: areturn
+
+  private boolean shouldEnsureMinSize();
+    Code:
+       0: aload_0
+       1: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+       4: invokevirtual #123                // Method com/mongodb/connection/ConnectionPoolSettings.getMinSize:()I
+       7: ifle          14
+      10: iconst_1
+      11: goto          15
+      14: iconst_0
+      15: ireturn
+
+  private boolean shouldPrune();
+    Code:
+       0: aload_0
+       1: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+       4: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+       7: invokevirtual #124                // Method com/mongodb/connection/ConnectionPoolSettings.getMaxConnectionIdleTime:(Ljava/util/concurrent/TimeUnit;)J
+      10: lconst_0
+      11: lcmp
+      12: ifgt          30
+      15: aload_0
+      16: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+      19: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      22: invokevirtual #125                // Method com/mongodb/connection/ConnectionPoolSettings.getMaxConnectionLifeTime:(Ljava/util/concurrent/TimeUnit;)J
+      25: lconst_0
+      26: lcmp
+      27: ifle          34
+      30: iconst_1
+      31: goto          35
+      34: iconst_0
+      35: ireturn
+
+  private boolean shouldPrune(com.mongodb.connection.UsageTrackingInternalConnection);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #3                  // Method fromPreviousGeneration:(Lcom/mongodb/connection/UsageTrackingInternalConnection;)Z
+       5: ifne          24
+       8: aload_0
+       9: aload_1
+      10: invokespecial #2                  // Method pastMaxLifeTime:(Lcom/mongodb/connection/UsageTrackingInternalConnection;)Z
+      13: ifne          24
+      16: aload_0
+      17: aload_1
+      18: invokespecial #1                  // Method pastMaxIdleTime:(Lcom/mongodb/connection/UsageTrackingInternalConnection;)Z
+      21: ifeq          28
+      24: iconst_1
+      25: goto          29
+      28: iconst_0
+      29: ireturn
+
+  private boolean pastMaxIdleTime(com.mongodb.connection.UsageTrackingInternalConnection);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #126                // Method com/mongodb/connection/UsageTrackingInternalConnection.getLastUsedAt:()J
+       5: invokestatic  #75                 // Method java/lang/System.currentTimeMillis:()J
+       8: aload_0
+       9: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+      12: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      15: invokevirtual #124                // Method com/mongodb/connection/ConnectionPoolSettings.getMaxConnectionIdleTime:(Ljava/util/concurrent/TimeUnit;)J
+      18: invokespecial #127                // Method expired:(JJJ)Z
+      21: ireturn
+
+  private boolean pastMaxLifeTime(com.mongodb.connection.UsageTrackingInternalConnection);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #128                // Method com/mongodb/connection/UsageTrackingInternalConnection.getOpenedAt:()J
+       5: invokestatic  #75                 // Method java/lang/System.currentTimeMillis:()J
+       8: aload_0
+       9: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+      12: getstatic     #41                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      15: invokevirtual #125                // Method com/mongodb/connection/ConnectionPoolSettings.getMaxConnectionLifeTime:(Ljava/util/concurrent/TimeUnit;)J
+      18: invokespecial #127                // Method expired:(JJJ)Z
+      21: ireturn
+
+  private boolean fromPreviousGeneration(com.mongodb.connection.UsageTrackingInternalConnection);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field generation:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #129                // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+       7: aload_1
+       8: invokevirtual #130                // Method com/mongodb/connection/UsageTrackingInternalConnection.getGeneration:()I
+      11: if_icmple     18
+      14: iconst_1
+      15: goto          19
+      18: iconst_0
+      19: ireturn
+
+  private boolean expired(long, long, long);
+    Code:
+       0: lload         5
+       2: lconst_0
+       3: lcmp
+       4: ifeq          20
+       7: lload_3
+       8: lload_1
+       9: lsub
+      10: lload         5
+      12: lcmp
+      13: ifle          20
+      16: iconst_1
+      17: goto          21
+      20: iconst_0
+      21: ireturn
+
+  private void incrementGenerationOnSocketException(com.mongodb.connection.InternalConnection, java.lang.Throwable);
+    Code:
+       0: aload_2
+       1: instanceof    #131                // class com/mongodb/MongoSocketException
+       4: ifeq          74
+       7: aload_2
+       8: instanceof    #132                // class com/mongodb/MongoSocketReadTimeoutException
+      11: ifne          74
+      14: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      17: invokeinterface #133,  1          // InterfaceMethod com/mongodb/diagnostics/logging/Logger.isWarnEnabled:()Z
+      22: ifeq          70
+      25: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+      28: ldc           #134                // String Got socket exception on connection [%s] to %s. All connections to %s will be closed.
+      30: iconst_3
+      31: anewarray     #65                 // class java/lang/Object
+      34: dup
+      35: iconst_0
+      36: aload_0
+      37: aload_1
+      38: invokespecial #7                  // Method getId:(Lcom/mongodb/connection/InternalConnection;)Lcom/mongodb/connection/ConnectionId;
+      41: aastore
+      42: dup
+      43: iconst_1
+      44: aload_0
+      45: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+      48: invokevirtual #106                // Method com/mongodb/connection/ServerId.getAddress:()Lcom/mongodb/ServerAddress;
+      51: aastore
+      52: dup
+      53: iconst_2
+      54: aload_0
+      55: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+      58: invokevirtual #106                // Method com/mongodb/connection/ServerId.getAddress:()Lcom/mongodb/ServerAddress;
+      61: aastore
+      62: invokestatic  #66                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      65: invokeinterface #135,  2          // InterfaceMethod com/mongodb/diagnostics/logging/Logger.warn:(Ljava/lang/String;)V
+      70: aload_0
+      71: invokevirtual #136                // Method invalidate:()V
+      74: return
+
+  private com.mongodb.connection.ConnectionId getId(com.mongodb.connection.InternalConnection);
+    Code:
+       0: aload_1
+       1: invokeinterface #137,  1          // InterfaceMethod com/mongodb/connection/InternalConnection.getDescription:()Lcom/mongodb/connection/ConnectionDescription;
+       6: invokevirtual #73                 // Method com/mongodb/connection/ConnectionDescription.getConnectionId:()Lcom/mongodb/connection/ConnectionId;
+       9: areturn
+
+  static com.mongodb.MongoTimeoutException access$100(com.mongodb.connection.DefaultConnectionPool);
+    Code:
+       0: aload_0
+       1: invokespecial #19                 // Method createTimeoutException:()Lcom/mongodb/MongoTimeoutException;
+       4: areturn
+
+  static com.mongodb.connection.DefaultConnectionPool$PooledConnection access$200(com.mongodb.connection.DefaultConnectionPool, long, java.util.concurrent.TimeUnit);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: aload_3
+       3: invokespecial #18                 // Method getPooledConnection:(JLjava/util/concurrent/TimeUnit;)Lcom/mongodb/connection/DefaultConnectionPool$PooledConnection;
+       6: areturn
+
+  static void access$300(com.mongodb.connection.DefaultConnectionPool, com.mongodb.connection.DefaultConnectionPool$PooledConnection, com.mongodb.async.SingleResultCallback);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #17                 // Method openAsync:(Lcom/mongodb/connection/DefaultConnectionPool$PooledConnection;Lcom/mongodb/async/SingleResultCallback;)V
+       6: return
+
+  static java.util.concurrent.atomic.AtomicInteger access$400(com.mongodb.connection.DefaultConnectionPool);
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field waitQueueSize:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static com.mongodb.connection.ServerId access$500(com.mongodb.connection.DefaultConnectionPool);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field serverId:Lcom/mongodb/connection/ServerId;
+       4: areturn
+
+  static com.mongodb.event.ConnectionPoolListener access$600(com.mongodb.connection.DefaultConnectionPool);
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field connectionPoolListener:Lcom/mongodb/event/ConnectionPoolListener;
+       4: areturn
+
+  static com.mongodb.connection.ConnectionPoolSettings access$700(com.mongodb.connection.DefaultConnectionPool);
+    Code:
+       0: aload_0
+       1: getfield      #13                 // Field settings:Lcom/mongodb/connection/ConnectionPoolSettings;
+       4: areturn
+
+  static com.mongodb.diagnostics.logging.Logger access$800();
+    Code:
+       0: getstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+       3: areturn
+
+  static com.mongodb.internal.connection.ConcurrentPool access$900(com.mongodb.connection.DefaultConnectionPool);
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field pool:Lcom/mongodb/internal/connection/ConcurrentPool;
+       4: areturn
+
+  static boolean access$1000(com.mongodb.connection.DefaultConnectionPool);
+    Code:
+       0: aload_0
+       1: invokespecial #10                 // Method shouldPrune:()Z
+       4: ireturn
+
+  static boolean access$1100(com.mongodb.connection.DefaultConnectionPool);
+    Code:
+       0: aload_0
+       1: invokespecial #9                  // Method shouldEnsureMinSize:()Z
+       4: ireturn
+
+  static boolean access$1200(com.mongodb.connection.DefaultConnectionPool);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field closed:Z
+       4: ireturn
+
+  static com.mongodb.connection.ConnectionId access$1300(com.mongodb.connection.DefaultConnectionPool, com.mongodb.connection.InternalConnection);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #7                  // Method getId:(Lcom/mongodb/connection/InternalConnection;)Lcom/mongodb/connection/ConnectionId;
+       5: areturn
+
+  static boolean access$1400(com.mongodb.connection.DefaultConnectionPool, com.mongodb.connection.UsageTrackingInternalConnection);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #6                  // Method shouldPrune:(Lcom/mongodb/connection/UsageTrackingInternalConnection;)Z
+       5: ireturn
+
+  static void access$1500(com.mongodb.connection.DefaultConnectionPool, com.mongodb.connection.InternalConnection, java.lang.Throwable);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #5                  // Method incrementGenerationOnSocketException:(Lcom/mongodb/connection/InternalConnection;Ljava/lang/Throwable;)V
+       6: return
+
+  static java.util.concurrent.atomic.AtomicInteger access$1600(com.mongodb.connection.DefaultConnectionPool);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field generation:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static boolean access$1700(com.mongodb.connection.DefaultConnectionPool, com.mongodb.connection.UsageTrackingInternalConnection);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #3                  // Method fromPreviousGeneration:(Lcom/mongodb/connection/UsageTrackingInternalConnection;)Z
+       5: ireturn
+
+  static boolean access$1800(com.mongodb.connection.DefaultConnectionPool, com.mongodb.connection.UsageTrackingInternalConnection);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #2                  // Method pastMaxLifeTime:(Lcom/mongodb/connection/UsageTrackingInternalConnection;)Z
+       5: ireturn
+
+  static boolean access$1900(com.mongodb.connection.DefaultConnectionPool, com.mongodb.connection.UsageTrackingInternalConnection);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #1                  // Method pastMaxIdleTime:(Lcom/mongodb/connection/UsageTrackingInternalConnection;)Z
+       5: ireturn
+
+  static {};
+    Code:
+       0: ldc           #138                // String connection
+       2: invokestatic  #139                // Method com/mongodb/diagnostics/logging/Loggers.getLogger:(Ljava/lang/String;)Lcom/mongodb/diagnostics/logging/Logger;
+       5: putstatic     #12                 // Field LOGGER:Lcom/mongodb/diagnostics/logging/Logger;
+       8: return
+}

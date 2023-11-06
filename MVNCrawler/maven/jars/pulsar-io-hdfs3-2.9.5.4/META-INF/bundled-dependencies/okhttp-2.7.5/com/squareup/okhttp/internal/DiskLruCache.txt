@@ -1,0 +1,1580 @@
+Compiled from "DiskLruCache.java"
+public final class com.squareup.okhttp.internal.DiskLruCache implements java.io.Closeable {
+  static final java.lang.String JOURNAL_FILE;
+
+  static final java.lang.String JOURNAL_FILE_TEMP;
+
+  static final java.lang.String JOURNAL_FILE_BACKUP;
+
+  static final java.lang.String MAGIC;
+
+  static final java.lang.String VERSION_1;
+
+  static final long ANY_SEQUENCE_NUMBER;
+
+  static final java.util.regex.Pattern LEGAL_KEY_PATTERN;
+
+  private static final java.lang.String CLEAN;
+
+  private static final java.lang.String DIRTY;
+
+  private static final java.lang.String REMOVE;
+
+  private static final java.lang.String READ;
+
+  private final com.squareup.okhttp.internal.io.FileSystem fileSystem;
+
+  private final java.io.File directory;
+
+  private final java.io.File journalFile;
+
+  private final java.io.File journalFileTmp;
+
+  private final java.io.File journalFileBackup;
+
+  private final int appVersion;
+
+  private long maxSize;
+
+  private final int valueCount;
+
+  private long size;
+
+  private okio.BufferedSink journalWriter;
+
+  private final java.util.LinkedHashMap<java.lang.String, com.squareup.okhttp.internal.DiskLruCache$Entry> lruEntries;
+
+  private int redundantOpCount;
+
+  private boolean hasJournalErrors;
+
+  private boolean initialized;
+
+  private boolean closed;
+
+  private long nextSequenceNumber;
+
+  private final java.util.concurrent.Executor executor;
+
+  private final java.lang.Runnable cleanupRunnable;
+
+  private static final okio.Sink NULL_SINK;
+
+  static final boolean $assertionsDisabled;
+
+  com.squareup.okhttp.internal.DiskLruCache(com.squareup.okhttp.internal.io.FileSystem, java.io.File, int, int, long, java.util.concurrent.Executor);
+    Code:
+       0: aload_0
+       1: invokespecial #16                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: lconst_0
+       6: putfield      #17                 // Field size:J
+       9: aload_0
+      10: new           #18                 // class java/util/LinkedHashMap
+      13: dup
+      14: iconst_0
+      15: ldc           #19                 // float 0.75f
+      17: iconst_1
+      18: invokespecial #20                 // Method java/util/LinkedHashMap."<init>":(IFZ)V
+      21: putfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      24: aload_0
+      25: lconst_0
+      26: putfield      #21                 // Field nextSequenceNumber:J
+      29: aload_0
+      30: new           #22                 // class com/squareup/okhttp/internal/DiskLruCache$1
+      33: dup
+      34: aload_0
+      35: invokespecial #23                 // Method com/squareup/okhttp/internal/DiskLruCache$1."<init>":(Lcom/squareup/okhttp/internal/DiskLruCache;)V
+      38: putfield      #24                 // Field cleanupRunnable:Ljava/lang/Runnable;
+      41: aload_0
+      42: aload_1
+      43: putfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+      46: aload_0
+      47: aload_2
+      48: putfield      #1                  // Field directory:Ljava/io/File;
+      51: aload_0
+      52: iload_3
+      53: putfield      #25                 // Field appVersion:I
+      56: aload_0
+      57: new           #26                 // class java/io/File
+      60: dup
+      61: aload_2
+      62: ldc           #28                 // String journal
+      64: invokespecial #29                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      67: putfield      #30                 // Field journalFile:Ljava/io/File;
+      70: aload_0
+      71: new           #26                 // class java/io/File
+      74: dup
+      75: aload_2
+      76: ldc           #31                 // String journal.tmp
+      78: invokespecial #29                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      81: putfield      #32                 // Field journalFileTmp:Ljava/io/File;
+      84: aload_0
+      85: new           #26                 // class java/io/File
+      88: dup
+      89: aload_2
+      90: ldc           #33                 // String journal.bkp
+      92: invokespecial #29                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      95: putfield      #34                 // Field journalFileBackup:Ljava/io/File;
+      98: aload_0
+      99: iload         4
+     101: putfield      #6                  // Field valueCount:I
+     104: aload_0
+     105: lload         5
+     107: putfield      #35                 // Field maxSize:J
+     110: aload_0
+     111: aload         7
+     113: putfield      #36                 // Field executor:Ljava/util/concurrent/Executor;
+     116: return
+
+  public synchronized void initialize() throws java.io.IOException;
+    Code:
+       0: getstatic     #37                 // Field $assertionsDisabled:Z
+       3: ifne          21
+       6: aload_0
+       7: invokestatic  #38                 // Method java/lang/Thread.holdsLock:(Ljava/lang/Object;)Z
+      10: ifne          21
+      13: new           #39                 // class java/lang/AssertionError
+      16: dup
+      17: invokespecial #40                 // Method java/lang/AssertionError."<init>":()V
+      20: athrow
+      21: aload_0
+      22: getfield      #15                 // Field initialized:Z
+      25: ifeq          29
+      28: return
+      29: aload_0
+      30: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+      33: aload_0
+      34: getfield      #34                 // Field journalFileBackup:Ljava/io/File;
+      37: invokeinterface #41,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.exists:(Ljava/io/File;)Z
+      42: ifeq          94
+      45: aload_0
+      46: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+      49: aload_0
+      50: getfield      #30                 // Field journalFile:Ljava/io/File;
+      53: invokeinterface #41,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.exists:(Ljava/io/File;)Z
+      58: ifeq          77
+      61: aload_0
+      62: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+      65: aload_0
+      66: getfield      #34                 // Field journalFileBackup:Ljava/io/File;
+      69: invokeinterface #42,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.delete:(Ljava/io/File;)V
+      74: goto          94
+      77: aload_0
+      78: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+      81: aload_0
+      82: getfield      #34                 // Field journalFileBackup:Ljava/io/File;
+      85: aload_0
+      86: getfield      #30                 // Field journalFile:Ljava/io/File;
+      89: invokeinterface #43,  3           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.rename:(Ljava/io/File;Ljava/io/File;)V
+      94: aload_0
+      95: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+      98: aload_0
+      99: getfield      #30                 // Field journalFile:Ljava/io/File;
+     102: invokeinterface #41,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.exists:(Ljava/io/File;)Z
+     107: ifeq          179
+     110: aload_0
+     111: invokespecial #44                 // Method readJournal:()V
+     114: aload_0
+     115: invokespecial #45                 // Method processJournal:()V
+     118: aload_0
+     119: iconst_1
+     120: putfield      #15                 // Field initialized:Z
+     123: return
+     124: astore_1
+     125: invokestatic  #47                 // Method com/squareup/okhttp/internal/Platform.get:()Lcom/squareup/okhttp/internal/Platform;
+     128: new           #48                 // class java/lang/StringBuilder
+     131: dup
+     132: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     135: ldc           #50                 // String DiskLruCache
+     137: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     140: aload_0
+     141: getfield      #1                  // Field directory:Ljava/io/File;
+     144: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     147: ldc           #53                 // String  is corrupt:
+     149: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     152: aload_1
+     153: invokevirtual #54                 // Method java/io/IOException.getMessage:()Ljava/lang/String;
+     156: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     159: ldc           #55                 // String , removing
+     161: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     164: invokevirtual #56                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     167: invokevirtual #57                 // Method com/squareup/okhttp/internal/Platform.logW:(Ljava/lang/String;)V
+     170: aload_0
+     171: invokevirtual #58                 // Method delete:()V
+     174: aload_0
+     175: iconst_0
+     176: putfield      #14                 // Field closed:Z
+     179: aload_0
+     180: invokespecial #11                 // Method rebuildJournal:()V
+     183: aload_0
+     184: iconst_1
+     185: putfield      #15                 // Field initialized:Z
+     188: return
+    Exception table:
+       from    to  target type
+         110   123   124   Class java/io/IOException
+
+  public static com.squareup.okhttp.internal.DiskLruCache create(com.squareup.okhttp.internal.io.FileSystem, java.io.File, int, int, long);
+    Code:
+       0: lload         4
+       2: lconst_0
+       3: lcmp
+       4: ifgt          17
+       7: new           #59                 // class java/lang/IllegalArgumentException
+      10: dup
+      11: ldc           #60                 // String maxSize <= 0
+      13: invokespecial #61                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      16: athrow
+      17: iload_3
+      18: ifgt          31
+      21: new           #59                 // class java/lang/IllegalArgumentException
+      24: dup
+      25: ldc           #62                 // String valueCount <= 0
+      27: invokespecial #61                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      30: athrow
+      31: new           #63                 // class java/util/concurrent/ThreadPoolExecutor
+      34: dup
+      35: iconst_0
+      36: iconst_1
+      37: ldc2_w        #64                 // long 60l
+      40: getstatic     #66                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      43: new           #67                 // class java/util/concurrent/LinkedBlockingQueue
+      46: dup
+      47: invokespecial #68                 // Method java/util/concurrent/LinkedBlockingQueue."<init>":()V
+      50: ldc           #69                 // String OkHttp DiskLruCache
+      52: iconst_1
+      53: invokestatic  #70                 // Method com/squareup/okhttp/internal/Util.threadFactory:(Ljava/lang/String;Z)Ljava/util/concurrent/ThreadFactory;
+      56: invokespecial #71                 // Method java/util/concurrent/ThreadPoolExecutor."<init>":(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/ThreadFactory;)V
+      59: astore        6
+      61: new           #27                 // class com/squareup/okhttp/internal/DiskLruCache
+      64: dup
+      65: aload_0
+      66: aload_1
+      67: iload_2
+      68: iload_3
+      69: lload         4
+      71: aload         6
+      73: invokespecial #72                 // Method "<init>":(Lcom/squareup/okhttp/internal/io/FileSystem;Ljava/io/File;IIJLjava/util/concurrent/Executor;)V
+      76: areturn
+
+  private void readJournal() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+       4: aload_0
+       5: getfield      #30                 // Field journalFile:Ljava/io/File;
+       8: invokeinterface #73,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.source:(Ljava/io/File;)Lokio/Source;
+      13: invokestatic  #74                 // Method okio/Okio.buffer:(Lokio/Source;)Lokio/BufferedSource;
+      16: astore_1
+      17: aload_1
+      18: invokeinterface #75,  1           // InterfaceMethod okio/BufferedSource.readUtf8LineStrict:()Ljava/lang/String;
+      23: astore_2
+      24: aload_1
+      25: invokeinterface #75,  1           // InterfaceMethod okio/BufferedSource.readUtf8LineStrict:()Ljava/lang/String;
+      30: astore_3
+      31: aload_1
+      32: invokeinterface #75,  1           // InterfaceMethod okio/BufferedSource.readUtf8LineStrict:()Ljava/lang/String;
+      37: astore        4
+      39: aload_1
+      40: invokeinterface #75,  1           // InterfaceMethod okio/BufferedSource.readUtf8LineStrict:()Ljava/lang/String;
+      45: astore        5
+      47: aload_1
+      48: invokeinterface #75,  1           // InterfaceMethod okio/BufferedSource.readUtf8LineStrict:()Ljava/lang/String;
+      53: astore        6
+      55: ldc           #76                 // String libcore.io.DiskLruCache
+      57: aload_2
+      58: invokevirtual #77                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      61: ifeq          113
+      64: ldc           #78                 // String 1
+      66: aload_3
+      67: invokevirtual #77                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      70: ifeq          113
+      73: aload_0
+      74: getfield      #25                 // Field appVersion:I
+      77: invokestatic  #79                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+      80: aload         4
+      82: invokevirtual #77                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      85: ifeq          113
+      88: aload_0
+      89: getfield      #6                  // Field valueCount:I
+      92: invokestatic  #79                 // Method java/lang/Integer.toString:(I)Ljava/lang/String;
+      95: aload         5
+      97: invokevirtual #77                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     100: ifeq          113
+     103: ldc           #80                 // String
+     105: aload         6
+     107: invokevirtual #77                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     110: ifne          174
+     113: new           #46                 // class java/io/IOException
+     116: dup
+     117: new           #48                 // class java/lang/StringBuilder
+     120: dup
+     121: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     124: ldc           #81                 // String unexpected journal header: [
+     126: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     129: aload_2
+     130: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     133: ldc           #82                 // String ,
+     135: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     138: aload_3
+     139: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     142: ldc           #82                 // String ,
+     144: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     147: aload         5
+     149: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     152: ldc           #82                 // String ,
+     154: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     157: aload         6
+     159: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     162: ldc           #83                 // String ]
+     164: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     167: invokevirtual #56                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     170: invokespecial #84                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     173: athrow
+     174: iconst_0
+     175: istore        7
+     177: aload_0
+     178: aload_1
+     179: invokeinterface #75,  1           // InterfaceMethod okio/BufferedSource.readUtf8LineStrict:()Ljava/lang/String;
+     184: invokespecial #85                 // Method readJournalLine:(Ljava/lang/String;)V
+     187: iinc          7, 1
+     190: goto          177
+     193: astore        8
+     195: goto          198
+     198: aload_0
+     199: iload         7
+     201: aload_0
+     202: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+     205: invokevirtual #87                 // Method java/util/LinkedHashMap.size:()I
+     208: isub
+     209: putfield      #10                 // Field redundantOpCount:I
+     212: aload_1
+     213: invokeinterface #88,  1           // InterfaceMethod okio/BufferedSource.exhausted:()Z
+     218: ifne          228
+     221: aload_0
+     222: invokespecial #11                 // Method rebuildJournal:()V
+     225: goto          236
+     228: aload_0
+     229: aload_0
+     230: invokespecial #89                 // Method newJournalWriter:()Lokio/BufferedSink;
+     233: putfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     236: aload_1
+     237: invokestatic  #91                 // Method com/squareup/okhttp/internal/Util.closeQuietly:(Ljava/io/Closeable;)V
+     240: goto          252
+     243: astore        9
+     245: aload_1
+     246: invokestatic  #91                 // Method com/squareup/okhttp/internal/Util.closeQuietly:(Ljava/io/Closeable;)V
+     249: aload         9
+     251: athrow
+     252: return
+    Exception table:
+       from    to  target type
+         177   190   193   Class java/io/EOFException
+          17   236   243   any
+         243   245   243   any
+
+  private okio.BufferedSink newJournalWriter() throws java.io.FileNotFoundException;
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+       4: aload_0
+       5: getfield      #30                 // Field journalFile:Ljava/io/File;
+       8: invokeinterface #92,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.appendingSink:(Ljava/io/File;)Lokio/Sink;
+      13: astore_1
+      14: new           #93                 // class com/squareup/okhttp/internal/DiskLruCache$2
+      17: dup
+      18: aload_0
+      19: aload_1
+      20: invokespecial #94                 // Method com/squareup/okhttp/internal/DiskLruCache$2."<init>":(Lcom/squareup/okhttp/internal/DiskLruCache;Lokio/Sink;)V
+      23: astore_2
+      24: aload_2
+      25: invokestatic  #95                 // Method okio/Okio.buffer:(Lokio/Sink;)Lokio/BufferedSink;
+      28: areturn
+
+  private void readJournalLine(java.lang.String) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: bipush        32
+       3: invokevirtual #96                 // Method java/lang/String.indexOf:(I)I
+       6: istore_2
+       7: iload_2
+       8: iconst_m1
+       9: if_icmpne     39
+      12: new           #46                 // class java/io/IOException
+      15: dup
+      16: new           #48                 // class java/lang/StringBuilder
+      19: dup
+      20: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      23: ldc           #97                 // String unexpected journal line:
+      25: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      28: aload_1
+      29: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      32: invokevirtual #56                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      35: invokespecial #84                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+      38: athrow
+      39: iload_2
+      40: iconst_1
+      41: iadd
+      42: istore_3
+      43: aload_1
+      44: bipush        32
+      46: iload_3
+      47: invokevirtual #98                 // Method java/lang/String.indexOf:(II)I
+      50: istore        4
+      52: iload         4
+      54: iconst_m1
+      55: if_icmpne     94
+      58: aload_1
+      59: iload_3
+      60: invokevirtual #99                 // Method java/lang/String.substring:(I)Ljava/lang/String;
+      63: astore        5
+      65: iload_2
+      66: ldc           #100                // String REMOVE
+      68: invokevirtual #101                // Method java/lang/String.length:()I
+      71: if_icmpne     103
+      74: aload_1
+      75: ldc           #100                // String REMOVE
+      77: invokevirtual #102                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+      80: ifeq          103
+      83: aload_0
+      84: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      87: aload         5
+      89: invokevirtual #103                // Method java/util/LinkedHashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      92: pop
+      93: return
+      94: aload_1
+      95: iload_3
+      96: iload         4
+      98: invokevirtual #104                // Method java/lang/String.substring:(II)Ljava/lang/String;
+     101: astore        5
+     103: aload_0
+     104: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+     107: aload         5
+     109: invokevirtual #105                // Method java/util/LinkedHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     112: checkcast     #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+     115: astore        6
+     117: aload         6
+     119: ifnonnull     147
+     122: new           #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+     125: dup
+     126: aload_0
+     127: aload         5
+     129: aconst_null
+     130: invokespecial #107                // Method com/squareup/okhttp/internal/DiskLruCache$Entry."<init>":(Lcom/squareup/okhttp/internal/DiskLruCache;Ljava/lang/String;Lcom/squareup/okhttp/internal/DiskLruCache$1;)V
+     133: astore        6
+     135: aload_0
+     136: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+     139: aload         5
+     141: aload         6
+     143: invokevirtual #108                // Method java/util/LinkedHashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     146: pop
+     147: iload         4
+     149: iconst_m1
+     150: if_icmpeq     210
+     153: iload_2
+     154: ldc           #109                // String CLEAN
+     156: invokevirtual #101                // Method java/lang/String.length:()I
+     159: if_icmpne     210
+     162: aload_1
+     163: ldc           #109                // String CLEAN
+     165: invokevirtual #102                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+     168: ifeq          210
+     171: aload_1
+     172: iload         4
+     174: iconst_1
+     175: iadd
+     176: invokevirtual #99                 // Method java/lang/String.substring:(I)Ljava/lang/String;
+     179: ldc           #110                // String
+     181: invokevirtual #111                // Method java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+     184: astore        7
+     186: aload         6
+     188: iconst_1
+     189: invokestatic  #112                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$802:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;Z)Z
+     192: pop
+     193: aload         6
+     195: aconst_null
+     196: invokestatic  #113                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$902:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;Lcom/squareup/okhttp/internal/DiskLruCache$Editor;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+     199: pop
+     200: aload         6
+     202: aload         7
+     204: invokestatic  #114                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1000:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;[Ljava/lang/String;)V
+     207: goto          308
+     210: iload         4
+     212: iconst_m1
+     213: if_icmpne     254
+     216: iload_2
+     217: ldc           #115                // String DIRTY
+     219: invokevirtual #101                // Method java/lang/String.length:()I
+     222: if_icmpne     254
+     225: aload_1
+     226: ldc           #115                // String DIRTY
+     228: invokevirtual #102                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+     231: ifeq          254
+     234: aload         6
+     236: new           #116                // class com/squareup/okhttp/internal/DiskLruCache$Editor
+     239: dup
+     240: aload_0
+     241: aload         6
+     243: aconst_null
+     244: invokespecial #117                // Method com/squareup/okhttp/internal/DiskLruCache$Editor."<init>":(Lcom/squareup/okhttp/internal/DiskLruCache;Lcom/squareup/okhttp/internal/DiskLruCache$Entry;Lcom/squareup/okhttp/internal/DiskLruCache$1;)V
+     247: invokestatic  #113                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$902:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;Lcom/squareup/okhttp/internal/DiskLruCache$Editor;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+     250: pop
+     251: goto          308
+     254: iload         4
+     256: iconst_m1
+     257: if_icmpne     281
+     260: iload_2
+     261: ldc           #118                // String READ
+     263: invokevirtual #101                // Method java/lang/String.length:()I
+     266: if_icmpne     281
+     269: aload_1
+     270: ldc           #118                // String READ
+     272: invokevirtual #102                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+     275: ifeq          281
+     278: goto          308
+     281: new           #46                 // class java/io/IOException
+     284: dup
+     285: new           #48                 // class java/lang/StringBuilder
+     288: dup
+     289: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+     292: ldc           #97                 // String unexpected journal line:
+     294: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     297: aload_1
+     298: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     301: invokevirtual #56                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     304: invokespecial #84                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     307: athrow
+     308: return
+
+  private void processJournal() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+       4: aload_0
+       5: getfield      #32                 // Field journalFileTmp:Ljava/io/File;
+       8: invokeinterface #42,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.delete:(Ljava/io/File;)V
+      13: aload_0
+      14: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      17: invokevirtual #119                // Method java/util/LinkedHashMap.values:()Ljava/util/Collection;
+      20: invokeinterface #120,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      25: astore_1
+      26: aload_1
+      27: invokeinterface #121,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      32: ifeq          147
+      35: aload_1
+      36: invokeinterface #122,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      41: checkcast     #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+      44: astore_2
+      45: aload_2
+      46: invokestatic  #123                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$900:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+      49: ifnonnull     86
+      52: iconst_0
+      53: istore_3
+      54: iload_3
+      55: aload_0
+      56: getfield      #6                  // Field valueCount:I
+      59: if_icmpge     83
+      62: aload_0
+      63: dup
+      64: getfield      #17                 // Field size:J
+      67: aload_2
+      68: invokestatic  #124                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1200:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[J
+      71: iload_3
+      72: laload
+      73: ladd
+      74: putfield      #17                 // Field size:J
+      77: iinc          3, 1
+      80: goto          54
+      83: goto          144
+      86: aload_2
+      87: aconst_null
+      88: invokestatic  #113                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$902:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;Lcom/squareup/okhttp/internal/DiskLruCache$Editor;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+      91: pop
+      92: iconst_0
+      93: istore_3
+      94: iload_3
+      95: aload_0
+      96: getfield      #6                  // Field valueCount:I
+      99: if_icmpge     138
+     102: aload_0
+     103: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+     106: aload_2
+     107: invokestatic  #125                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1300:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[Ljava/io/File;
+     110: iload_3
+     111: aaload
+     112: invokeinterface #42,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.delete:(Ljava/io/File;)V
+     117: aload_0
+     118: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+     121: aload_2
+     122: invokestatic  #126                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1400:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[Ljava/io/File;
+     125: iload_3
+     126: aaload
+     127: invokeinterface #42,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.delete:(Ljava/io/File;)V
+     132: iinc          3, 1
+     135: goto          94
+     138: aload_1
+     139: invokeinterface #127,  1          // InterfaceMethod java/util/Iterator.remove:()V
+     144: goto          26
+     147: return
+
+  private synchronized void rebuildJournal() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+       4: ifnull        16
+       7: aload_0
+       8: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+      11: invokeinterface #128,  1          // InterfaceMethod okio/BufferedSink.close:()V
+      16: aload_0
+      17: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+      20: aload_0
+      21: getfield      #32                 // Field journalFileTmp:Ljava/io/File;
+      24: invokeinterface #129,  2          // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.sink:(Ljava/io/File;)Lokio/Sink;
+      29: invokestatic  #95                 // Method okio/Okio.buffer:(Lokio/Sink;)Lokio/BufferedSink;
+      32: astore_1
+      33: aload_1
+      34: ldc           #76                 // String libcore.io.DiskLruCache
+      36: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+      41: bipush        10
+      43: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+      48: pop
+      49: aload_1
+      50: ldc           #78                 // String 1
+      52: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+      57: bipush        10
+      59: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+      64: pop
+      65: aload_1
+      66: aload_0
+      67: getfield      #25                 // Field appVersion:I
+      70: i2l
+      71: invokeinterface #132,  3          // InterfaceMethod okio/BufferedSink.writeDecimalLong:(J)Lokio/BufferedSink;
+      76: bipush        10
+      78: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+      83: pop
+      84: aload_1
+      85: aload_0
+      86: getfield      #6                  // Field valueCount:I
+      89: i2l
+      90: invokeinterface #132,  3          // InterfaceMethod okio/BufferedSink.writeDecimalLong:(J)Lokio/BufferedSink;
+      95: bipush        10
+      97: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     102: pop
+     103: aload_1
+     104: bipush        10
+     106: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     111: pop
+     112: aload_0
+     113: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+     116: invokevirtual #119                // Method java/util/LinkedHashMap.values:()Ljava/util/Collection;
+     119: invokeinterface #120,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+     124: astore_2
+     125: aload_2
+     126: invokeinterface #121,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     131: ifeq          234
+     134: aload_2
+     135: invokeinterface #122,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     140: checkcast     #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+     143: astore_3
+     144: aload_3
+     145: invokestatic  #123                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$900:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+     148: ifnull        190
+     151: aload_1
+     152: ldc           #115                // String DIRTY
+     154: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+     159: bipush        32
+     161: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     166: pop
+     167: aload_1
+     168: aload_3
+     169: invokestatic  #133                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1500:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Ljava/lang/String;
+     172: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+     177: pop
+     178: aload_1
+     179: bipush        10
+     181: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     186: pop
+     187: goto          231
+     190: aload_1
+     191: ldc           #109                // String CLEAN
+     193: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+     198: bipush        32
+     200: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     205: pop
+     206: aload_1
+     207: aload_3
+     208: invokestatic  #133                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1500:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Ljava/lang/String;
+     211: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+     216: pop
+     217: aload_3
+     218: aload_1
+     219: invokevirtual #134                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.writeLengths:(Lokio/BufferedSink;)V
+     222: aload_1
+     223: bipush        10
+     225: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     230: pop
+     231: goto          125
+     234: aload_1
+     235: invokeinterface #128,  1          // InterfaceMethod okio/BufferedSink.close:()V
+     240: goto          254
+     243: astore        4
+     245: aload_1
+     246: invokeinterface #128,  1          // InterfaceMethod okio/BufferedSink.close:()V
+     251: aload         4
+     253: athrow
+     254: aload_0
+     255: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+     258: aload_0
+     259: getfield      #30                 // Field journalFile:Ljava/io/File;
+     262: invokeinterface #41,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.exists:(Ljava/io/File;)Z
+     267: ifeq          287
+     270: aload_0
+     271: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+     274: aload_0
+     275: getfield      #30                 // Field journalFile:Ljava/io/File;
+     278: aload_0
+     279: getfield      #34                 // Field journalFileBackup:Ljava/io/File;
+     282: invokeinterface #43,  3           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.rename:(Ljava/io/File;Ljava/io/File;)V
+     287: aload_0
+     288: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+     291: aload_0
+     292: getfield      #32                 // Field journalFileTmp:Ljava/io/File;
+     295: aload_0
+     296: getfield      #30                 // Field journalFile:Ljava/io/File;
+     299: invokeinterface #43,  3           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.rename:(Ljava/io/File;Ljava/io/File;)V
+     304: aload_0
+     305: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+     308: aload_0
+     309: getfield      #34                 // Field journalFileBackup:Ljava/io/File;
+     312: invokeinterface #42,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.delete:(Ljava/io/File;)V
+     317: aload_0
+     318: aload_0
+     319: invokespecial #89                 // Method newJournalWriter:()Lokio/BufferedSink;
+     322: putfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     325: aload_0
+     326: iconst_0
+     327: putfield      #9                  // Field hasJournalErrors:Z
+     330: return
+    Exception table:
+       from    to  target type
+          33   234   243   any
+         243   245   243   any
+
+  public synchronized com.squareup.okhttp.internal.DiskLruCache$Snapshot get(java.lang.String) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #135                // Method initialize:()V
+       4: aload_0
+       5: invokespecial #136                // Method checkNotClosed:()V
+       8: aload_0
+       9: aload_1
+      10: invokespecial #137                // Method validateKey:(Ljava/lang/String;)V
+      13: aload_0
+      14: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      17: aload_1
+      18: invokevirtual #105                // Method java/util/LinkedHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      21: checkcast     #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+      24: astore_2
+      25: aload_2
+      26: ifnull        36
+      29: aload_2
+      30: invokestatic  #138                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$800:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Z
+      33: ifne          38
+      36: aconst_null
+      37: areturn
+      38: aload_2
+      39: invokevirtual #139                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.snapshot:()Lcom/squareup/okhttp/internal/DiskLruCache$Snapshot;
+      42: astore_3
+      43: aload_3
+      44: ifnonnull     49
+      47: aconst_null
+      48: areturn
+      49: aload_0
+      50: dup
+      51: getfield      #10                 // Field redundantOpCount:I
+      54: iconst_1
+      55: iadd
+      56: putfield      #10                 // Field redundantOpCount:I
+      59: aload_0
+      60: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+      63: ldc           #118                // String READ
+      65: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+      70: bipush        32
+      72: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+      77: aload_1
+      78: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+      83: bipush        10
+      85: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+      90: pop
+      91: aload_0
+      92: invokespecial #12                 // Method journalRebuildRequired:()Z
+      95: ifeq          111
+      98: aload_0
+      99: getfield      #36                 // Field executor:Ljava/util/concurrent/Executor;
+     102: aload_0
+     103: getfield      #24                 // Field cleanupRunnable:Ljava/lang/Runnable;
+     106: invokeinterface #140,  2          // InterfaceMethod java/util/concurrent/Executor.execute:(Ljava/lang/Runnable;)V
+     111: aload_3
+     112: areturn
+
+  public com.squareup.okhttp.internal.DiskLruCache$Editor edit(java.lang.String) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: ldc2_w        #141                // long -1l
+       5: invokespecial #7                  // Method edit:(Ljava/lang/String;J)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+       8: areturn
+
+  private synchronized com.squareup.okhttp.internal.DiskLruCache$Editor edit(java.lang.String, long) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #135                // Method initialize:()V
+       4: aload_0
+       5: invokespecial #136                // Method checkNotClosed:()V
+       8: aload_0
+       9: aload_1
+      10: invokespecial #137                // Method validateKey:(Ljava/lang/String;)V
+      13: aload_0
+      14: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      17: aload_1
+      18: invokevirtual #105                // Method java/util/LinkedHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      21: checkcast     #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+      24: astore        4
+      26: lload_2
+      27: ldc2_w        #141                // long -1l
+      30: lcmp
+      31: ifeq          51
+      34: aload         4
+      36: ifnull        49
+      39: aload         4
+      41: invokestatic  #143                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1600:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)J
+      44: lload_2
+      45: lcmp
+      46: ifeq          51
+      49: aconst_null
+      50: areturn
+      51: aload         4
+      53: ifnull        66
+      56: aload         4
+      58: invokestatic  #123                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$900:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+      61: ifnull        66
+      64: aconst_null
+      65: areturn
+      66: aload_0
+      67: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+      70: ldc           #115                // String DIRTY
+      72: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+      77: bipush        32
+      79: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+      84: aload_1
+      85: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+      90: bipush        10
+      92: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+      97: pop
+      98: aload_0
+      99: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     102: invokeinterface #144,  1          // InterfaceMethod okio/BufferedSink.flush:()V
+     107: aload_0
+     108: getfield      #9                  // Field hasJournalErrors:Z
+     111: ifeq          116
+     114: aconst_null
+     115: areturn
+     116: aload         4
+     118: ifnonnull     144
+     121: new           #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+     124: dup
+     125: aload_0
+     126: aload_1
+     127: aconst_null
+     128: invokespecial #107                // Method com/squareup/okhttp/internal/DiskLruCache$Entry."<init>":(Lcom/squareup/okhttp/internal/DiskLruCache;Ljava/lang/String;Lcom/squareup/okhttp/internal/DiskLruCache$1;)V
+     131: astore        4
+     133: aload_0
+     134: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+     137: aload_1
+     138: aload         4
+     140: invokevirtual #108                // Method java/util/LinkedHashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     143: pop
+     144: new           #116                // class com/squareup/okhttp/internal/DiskLruCache$Editor
+     147: dup
+     148: aload_0
+     149: aload         4
+     151: aconst_null
+     152: invokespecial #117                // Method com/squareup/okhttp/internal/DiskLruCache$Editor."<init>":(Lcom/squareup/okhttp/internal/DiskLruCache;Lcom/squareup/okhttp/internal/DiskLruCache$Entry;Lcom/squareup/okhttp/internal/DiskLruCache$1;)V
+     155: astore        5
+     157: aload         4
+     159: aload         5
+     161: invokestatic  #113                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$902:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;Lcom/squareup/okhttp/internal/DiskLruCache$Editor;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+     164: pop
+     165: aload         5
+     167: areturn
+
+  public java.io.File getDirectory();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field directory:Ljava/io/File;
+       4: areturn
+
+  public synchronized long getMaxSize();
+    Code:
+       0: aload_0
+       1: getfield      #35                 // Field maxSize:J
+       4: lreturn
+
+  public synchronized void setMaxSize(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: putfield      #35                 // Field maxSize:J
+       5: aload_0
+       6: getfield      #15                 // Field initialized:Z
+       9: ifeq          25
+      12: aload_0
+      13: getfield      #36                 // Field executor:Ljava/util/concurrent/Executor;
+      16: aload_0
+      17: getfield      #24                 // Field cleanupRunnable:Ljava/lang/Runnable;
+      20: invokeinterface #140,  2          // InterfaceMethod java/util/concurrent/Executor.execute:(Ljava/lang/Runnable;)V
+      25: return
+
+  public synchronized long size() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #135                // Method initialize:()V
+       4: aload_0
+       5: getfield      #17                 // Field size:J
+       8: lreturn
+
+  private synchronized void completeEdit(com.squareup.okhttp.internal.DiskLruCache$Editor, boolean) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokestatic  #145                // Method com/squareup/okhttp/internal/DiskLruCache$Editor.access$1700:(Lcom/squareup/okhttp/internal/DiskLruCache$Editor;)Lcom/squareup/okhttp/internal/DiskLruCache$Entry;
+       4: astore_3
+       5: aload_3
+       6: invokestatic  #123                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$900:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+       9: aload_1
+      10: if_acmpeq     21
+      13: new           #146                // class java/lang/IllegalStateException
+      16: dup
+      17: invokespecial #147                // Method java/lang/IllegalStateException."<init>":()V
+      20: athrow
+      21: iload_2
+      22: ifeq          116
+      25: aload_3
+      26: invokestatic  #138                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$800:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Z
+      29: ifne          116
+      32: iconst_0
+      33: istore        4
+      35: iload         4
+      37: aload_0
+      38: getfield      #6                  // Field valueCount:I
+      41: if_icmpge     116
+      44: aload_1
+      45: invokestatic  #148                // Method com/squareup/okhttp/internal/DiskLruCache$Editor.access$1800:(Lcom/squareup/okhttp/internal/DiskLruCache$Editor;)[Z
+      48: iload         4
+      50: baload
+      51: ifne          86
+      54: aload_1
+      55: invokevirtual #149                // Method com/squareup/okhttp/internal/DiskLruCache$Editor.abort:()V
+      58: new           #146                // class java/lang/IllegalStateException
+      61: dup
+      62: new           #48                 // class java/lang/StringBuilder
+      65: dup
+      66: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      69: ldc           #150                // String Newly created entry didn\'t create value for index
+      71: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      74: iload         4
+      76: invokevirtual #151                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      79: invokevirtual #56                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      82: invokespecial #152                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      85: athrow
+      86: aload_0
+      87: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+      90: aload_3
+      91: invokestatic  #126                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1400:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[Ljava/io/File;
+      94: iload         4
+      96: aaload
+      97: invokeinterface #41,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.exists:(Ljava/io/File;)Z
+     102: ifne          110
+     105: aload_1
+     106: invokevirtual #149                // Method com/squareup/okhttp/internal/DiskLruCache$Editor.abort:()V
+     109: return
+     110: iinc          4, 1
+     113: goto          35
+     116: iconst_0
+     117: istore        4
+     119: iload         4
+     121: aload_0
+     122: getfield      #6                  // Field valueCount:I
+     125: if_icmpge     242
+     128: aload_3
+     129: invokestatic  #126                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1400:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[Ljava/io/File;
+     132: iload         4
+     134: aaload
+     135: astore        5
+     137: iload_2
+     138: ifeq          225
+     141: aload_0
+     142: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+     145: aload         5
+     147: invokeinterface #41,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.exists:(Ljava/io/File;)Z
+     152: ifeq          236
+     155: aload_3
+     156: invokestatic  #125                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1300:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[Ljava/io/File;
+     159: iload         4
+     161: aaload
+     162: astore        6
+     164: aload_0
+     165: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+     168: aload         5
+     170: aload         6
+     172: invokeinterface #43,  3           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.rename:(Ljava/io/File;Ljava/io/File;)V
+     177: aload_3
+     178: invokestatic  #124                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1200:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[J
+     181: iload         4
+     183: laload
+     184: lstore        7
+     186: aload_0
+     187: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+     190: aload         6
+     192: invokeinterface #153,  2          // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.size:(Ljava/io/File;)J
+     197: lstore        9
+     199: aload_3
+     200: invokestatic  #124                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1200:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[J
+     203: iload         4
+     205: lload         9
+     207: lastore
+     208: aload_0
+     209: aload_0
+     210: getfield      #17                 // Field size:J
+     213: lload         7
+     215: lsub
+     216: lload         9
+     218: ladd
+     219: putfield      #17                 // Field size:J
+     222: goto          236
+     225: aload_0
+     226: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+     229: aload         5
+     231: invokeinterface #42,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.delete:(Ljava/io/File;)V
+     236: iinc          4, 1
+     239: goto          119
+     242: aload_0
+     243: dup
+     244: getfield      #10                 // Field redundantOpCount:I
+     247: iconst_1
+     248: iadd
+     249: putfield      #10                 // Field redundantOpCount:I
+     252: aload_3
+     253: aconst_null
+     254: invokestatic  #113                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$902:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;Lcom/squareup/okhttp/internal/DiskLruCache$Editor;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+     257: pop
+     258: aload_3
+     259: invokestatic  #138                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$800:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Z
+     262: iload_2
+     263: ior
+     264: ifeq          349
+     267: aload_3
+     268: iconst_1
+     269: invokestatic  #112                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$802:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;Z)Z
+     272: pop
+     273: aload_0
+     274: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     277: ldc           #109                // String CLEAN
+     279: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+     284: bipush        32
+     286: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     291: pop
+     292: aload_0
+     293: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     296: aload_3
+     297: invokestatic  #133                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1500:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Ljava/lang/String;
+     300: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+     305: pop
+     306: aload_3
+     307: aload_0
+     308: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     311: invokevirtual #134                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.writeLengths:(Lokio/BufferedSink;)V
+     314: aload_0
+     315: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     318: bipush        10
+     320: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     325: pop
+     326: iload_2
+     327: ifeq          406
+     330: aload_3
+     331: aload_0
+     332: dup
+     333: getfield      #21                 // Field nextSequenceNumber:J
+     336: dup2_x1
+     337: lconst_1
+     338: ladd
+     339: putfield      #21                 // Field nextSequenceNumber:J
+     342: invokestatic  #154                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1602:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;J)J
+     345: pop2
+     346: goto          406
+     349: aload_0
+     350: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+     353: aload_3
+     354: invokestatic  #133                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1500:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Ljava/lang/String;
+     357: invokevirtual #103                // Method java/util/LinkedHashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     360: pop
+     361: aload_0
+     362: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     365: ldc           #100                // String REMOVE
+     367: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+     372: bipush        32
+     374: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     379: pop
+     380: aload_0
+     381: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     384: aload_3
+     385: invokestatic  #133                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1500:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Ljava/lang/String;
+     388: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+     393: pop
+     394: aload_0
+     395: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     398: bipush        10
+     400: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     405: pop
+     406: aload_0
+     407: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     410: invokeinterface #144,  1          // InterfaceMethod okio/BufferedSink.flush:()V
+     415: aload_0
+     416: getfield      #17                 // Field size:J
+     419: aload_0
+     420: getfield      #35                 // Field maxSize:J
+     423: lcmp
+     424: ifgt          434
+     427: aload_0
+     428: invokespecial #12                 // Method journalRebuildRequired:()Z
+     431: ifeq          447
+     434: aload_0
+     435: getfield      #36                 // Field executor:Ljava/util/concurrent/Executor;
+     438: aload_0
+     439: getfield      #24                 // Field cleanupRunnable:Ljava/lang/Runnable;
+     442: invokeinterface #140,  2          // InterfaceMethod java/util/concurrent/Executor.execute:(Ljava/lang/Runnable;)V
+     447: return
+
+  private boolean journalRebuildRequired();
+    Code:
+       0: sipush        2000
+       3: istore_1
+       4: aload_0
+       5: getfield      #10                 // Field redundantOpCount:I
+       8: sipush        2000
+      11: if_icmplt     32
+      14: aload_0
+      15: getfield      #10                 // Field redundantOpCount:I
+      18: aload_0
+      19: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      22: invokevirtual #87                 // Method java/util/LinkedHashMap.size:()I
+      25: if_icmplt     32
+      28: iconst_1
+      29: goto          33
+      32: iconst_0
+      33: ireturn
+
+  public synchronized boolean remove(java.lang.String) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #135                // Method initialize:()V
+       4: aload_0
+       5: invokespecial #136                // Method checkNotClosed:()V
+       8: aload_0
+       9: aload_1
+      10: invokespecial #137                // Method validateKey:(Ljava/lang/String;)V
+      13: aload_0
+      14: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      17: aload_1
+      18: invokevirtual #105                // Method java/util/LinkedHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      21: checkcast     #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+      24: astore_2
+      25: aload_2
+      26: ifnonnull     31
+      29: iconst_0
+      30: ireturn
+      31: aload_0
+      32: aload_2
+      33: invokespecial #2                  // Method removeEntry:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Z
+      36: ireturn
+
+  private boolean removeEntry(com.squareup.okhttp.internal.DiskLruCache$Entry) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokestatic  #123                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$900:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+       4: ifnull        16
+       7: aload_1
+       8: invokestatic  #123                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$900:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+      11: iconst_1
+      12: invokestatic  #155                // Method com/squareup/okhttp/internal/DiskLruCache$Editor.access$1902:(Lcom/squareup/okhttp/internal/DiskLruCache$Editor;Z)Z
+      15: pop
+      16: iconst_0
+      17: istore_2
+      18: iload_2
+      19: aload_0
+      20: getfield      #6                  // Field valueCount:I
+      23: if_icmpge     69
+      26: aload_0
+      27: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+      30: aload_1
+      31: invokestatic  #125                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1300:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[Ljava/io/File;
+      34: iload_2
+      35: aaload
+      36: invokeinterface #42,  2           // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.delete:(Ljava/io/File;)V
+      41: aload_0
+      42: dup
+      43: getfield      #17                 // Field size:J
+      46: aload_1
+      47: invokestatic  #124                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1200:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[J
+      50: iload_2
+      51: laload
+      52: lsub
+      53: putfield      #17                 // Field size:J
+      56: aload_1
+      57: invokestatic  #124                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1200:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)[J
+      60: iload_2
+      61: lconst_0
+      62: lastore
+      63: iinc          2, 1
+      66: goto          18
+      69: aload_0
+      70: dup
+      71: getfield      #10                 // Field redundantOpCount:I
+      74: iconst_1
+      75: iadd
+      76: putfield      #10                 // Field redundantOpCount:I
+      79: aload_0
+      80: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+      83: ldc           #100                // String REMOVE
+      85: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+      90: bipush        32
+      92: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+      97: aload_1
+      98: invokestatic  #133                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1500:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Ljava/lang/String;
+     101: invokeinterface #130,  2          // InterfaceMethod okio/BufferedSink.writeUtf8:(Ljava/lang/String;)Lokio/BufferedSink;
+     106: bipush        10
+     108: invokeinterface #131,  2          // InterfaceMethod okio/BufferedSink.writeByte:(I)Lokio/BufferedSink;
+     113: pop
+     114: aload_0
+     115: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+     118: aload_1
+     119: invokestatic  #133                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$1500:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Ljava/lang/String;
+     122: invokevirtual #103                // Method java/util/LinkedHashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     125: pop
+     126: aload_0
+     127: invokespecial #12                 // Method journalRebuildRequired:()Z
+     130: ifeq          146
+     133: aload_0
+     134: getfield      #36                 // Field executor:Ljava/util/concurrent/Executor;
+     137: aload_0
+     138: getfield      #24                 // Field cleanupRunnable:Ljava/lang/Runnable;
+     141: invokeinterface #140,  2          // InterfaceMethod java/util/concurrent/Executor.execute:(Ljava/lang/Runnable;)V
+     146: iconst_1
+     147: ireturn
+
+  public synchronized boolean isClosed();
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field closed:Z
+       4: ireturn
+
+  private synchronized void checkNotClosed();
+    Code:
+       0: aload_0
+       1: invokevirtual #156                // Method isClosed:()Z
+       4: ifeq          17
+       7: new           #146                // class java/lang/IllegalStateException
+      10: dup
+      11: ldc           #157                // String cache is closed
+      13: invokespecial #152                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      16: athrow
+      17: return
+
+  public synchronized void flush() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field initialized:Z
+       4: ifne          8
+       7: return
+       8: aload_0
+       9: invokespecial #136                // Method checkNotClosed:()V
+      12: aload_0
+      13: invokespecial #13                 // Method trimToSize:()V
+      16: aload_0
+      17: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+      20: invokeinterface #144,  1          // InterfaceMethod okio/BufferedSink.flush:()V
+      25: return
+
+  public synchronized void close() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field initialized:Z
+       4: ifeq          14
+       7: aload_0
+       8: getfield      #14                 // Field closed:Z
+      11: ifeq          20
+      14: aload_0
+      15: iconst_1
+      16: putfield      #14                 // Field closed:Z
+      19: return
+      20: aload_0
+      21: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      24: invokevirtual #119                // Method java/util/LinkedHashMap.values:()Ljava/util/Collection;
+      27: aload_0
+      28: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      31: invokevirtual #87                 // Method java/util/LinkedHashMap.size:()I
+      34: anewarray     #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+      37: invokeinterface #158,  2          // InterfaceMethod java/util/Collection.toArray:([Ljava/lang/Object;)[Ljava/lang/Object;
+      42: checkcast     #159                // class "[Lcom/squareup/okhttp/internal/DiskLruCache$Entry;"
+      45: astore_1
+      46: aload_1
+      47: arraylength
+      48: istore_2
+      49: iconst_0
+      50: istore_3
+      51: iload_3
+      52: iload_2
+      53: if_icmpge     83
+      56: aload_1
+      57: iload_3
+      58: aaload
+      59: astore        4
+      61: aload         4
+      63: invokestatic  #123                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$900:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+      66: ifnull        77
+      69: aload         4
+      71: invokestatic  #123                // Method com/squareup/okhttp/internal/DiskLruCache$Entry.access$900:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+      74: invokevirtual #149                // Method com/squareup/okhttp/internal/DiskLruCache$Editor.abort:()V
+      77: iinc          3, 1
+      80: goto          51
+      83: aload_0
+      84: invokespecial #13                 // Method trimToSize:()V
+      87: aload_0
+      88: getfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+      91: invokeinterface #128,  1          // InterfaceMethod okio/BufferedSink.close:()V
+      96: aload_0
+      97: aconst_null
+      98: putfield      #90                 // Field journalWriter:Lokio/BufferedSink;
+     101: aload_0
+     102: iconst_1
+     103: putfield      #14                 // Field closed:Z
+     106: return
+
+  private void trimToSize() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field size:J
+       4: aload_0
+       5: getfield      #35                 // Field maxSize:J
+       8: lcmp
+       9: ifle          42
+      12: aload_0
+      13: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      16: invokevirtual #119                // Method java/util/LinkedHashMap.values:()Ljava/util/Collection;
+      19: invokeinterface #120,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      24: invokeinterface #122,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      29: checkcast     #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+      32: astore_1
+      33: aload_0
+      34: aload_1
+      35: invokespecial #2                  // Method removeEntry:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Z
+      38: pop
+      39: goto          0
+      42: return
+
+  public void delete() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #160                // Method close:()V
+       4: aload_0
+       5: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+       8: aload_0
+       9: getfield      #1                  // Field directory:Ljava/io/File;
+      12: invokeinterface #161,  2          // InterfaceMethod com/squareup/okhttp/internal/io/FileSystem.deleteContents:(Ljava/io/File;)V
+      17: return
+
+  public synchronized void evictAll() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #135                // Method initialize:()V
+       4: aload_0
+       5: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+       8: invokevirtual #119                // Method java/util/LinkedHashMap.values:()Ljava/util/Collection;
+      11: aload_0
+      12: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+      15: invokevirtual #87                 // Method java/util/LinkedHashMap.size:()I
+      18: anewarray     #106                // class com/squareup/okhttp/internal/DiskLruCache$Entry
+      21: invokeinterface #158,  2          // InterfaceMethod java/util/Collection.toArray:([Ljava/lang/Object;)[Ljava/lang/Object;
+      26: checkcast     #159                // class "[Lcom/squareup/okhttp/internal/DiskLruCache$Entry;"
+      29: astore_1
+      30: aload_1
+      31: arraylength
+      32: istore_2
+      33: iconst_0
+      34: istore_3
+      35: iload_3
+      36: iload_2
+      37: if_icmpge     58
+      40: aload_1
+      41: iload_3
+      42: aaload
+      43: astore        4
+      45: aload_0
+      46: aload         4
+      48: invokespecial #2                  // Method removeEntry:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Z
+      51: pop
+      52: iinc          3, 1
+      55: goto          35
+      58: return
+
+  private void validateKey(java.lang.String);
+    Code:
+       0: getstatic     #162                // Field LEGAL_KEY_PATTERN:Ljava/util/regex/Pattern;
+       3: aload_1
+       4: invokevirtual #163                // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+       7: astore_2
+       8: aload_2
+       9: invokevirtual #164                // Method java/util/regex/Matcher.matches:()Z
+      12: ifne          47
+      15: new           #59                 // class java/lang/IllegalArgumentException
+      18: dup
+      19: new           #48                 // class java/lang/StringBuilder
+      22: dup
+      23: invokespecial #49                 // Method java/lang/StringBuilder."<init>":()V
+      26: ldc           #165                // String keys must match regex [a-z0-9_-]{1,120}: \"
+      28: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      31: aload_1
+      32: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      35: ldc           #166                // String \"
+      37: invokevirtual #51                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      40: invokevirtual #56                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      43: invokespecial #61                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      46: athrow
+      47: return
+
+  public synchronized java.util.Iterator<com.squareup.okhttp.internal.DiskLruCache$Snapshot> snapshots() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #135                // Method initialize:()V
+       4: new           #167                // class com/squareup/okhttp/internal/DiskLruCache$3
+       7: dup
+       8: aload_0
+       9: invokespecial #168                // Method com/squareup/okhttp/internal/DiskLruCache$3."<init>":(Lcom/squareup/okhttp/internal/DiskLruCache;)V
+      12: areturn
+
+  static boolean access$000(com.squareup.okhttp.internal.DiskLruCache);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field initialized:Z
+       4: ireturn
+
+  static boolean access$100(com.squareup.okhttp.internal.DiskLruCache);
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field closed:Z
+       4: ireturn
+
+  static void access$200(com.squareup.okhttp.internal.DiskLruCache) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #13                 // Method trimToSize:()V
+       4: return
+
+  static boolean access$300(com.squareup.okhttp.internal.DiskLruCache);
+    Code:
+       0: aload_0
+       1: invokespecial #12                 // Method journalRebuildRequired:()Z
+       4: ireturn
+
+  static void access$400(com.squareup.okhttp.internal.DiskLruCache) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #11                 // Method rebuildJournal:()V
+       4: return
+
+  static int access$502(com.squareup.okhttp.internal.DiskLruCache, int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: dup_x1
+       3: putfield      #10                 // Field redundantOpCount:I
+       6: ireturn
+
+  static boolean access$602(com.squareup.okhttp.internal.DiskLruCache, boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: dup_x1
+       3: putfield      #9                  // Field hasJournalErrors:Z
+       6: ireturn
+
+  static java.util.LinkedHashMap access$2000(com.squareup.okhttp.internal.DiskLruCache);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field lruEntries:Ljava/util/LinkedHashMap;
+       4: areturn
+
+  static com.squareup.okhttp.internal.DiskLruCache$Editor access$2200(com.squareup.okhttp.internal.DiskLruCache, java.lang.String, long) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_2
+       3: invokespecial #7                  // Method edit:(Ljava/lang/String;J)Lcom/squareup/okhttp/internal/DiskLruCache$Editor;
+       6: areturn
+
+  static int access$2300(com.squareup.okhttp.internal.DiskLruCache);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field valueCount:I
+       4: ireturn
+
+  static com.squareup.okhttp.internal.io.FileSystem access$2400(com.squareup.okhttp.internal.DiskLruCache);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field fileSystem:Lcom/squareup/okhttp/internal/io/FileSystem;
+       4: areturn
+
+  static okio.Sink access$2500();
+    Code:
+       0: getstatic     #4                  // Field NULL_SINK:Lokio/Sink;
+       3: areturn
+
+  static void access$2600(com.squareup.okhttp.internal.DiskLruCache, com.squareup.okhttp.internal.DiskLruCache$Editor, boolean) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: invokespecial #3                  // Method completeEdit:(Lcom/squareup/okhttp/internal/DiskLruCache$Editor;Z)V
+       6: return
+
+  static boolean access$2700(com.squareup.okhttp.internal.DiskLruCache, com.squareup.okhttp.internal.DiskLruCache$Entry) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #2                  // Method removeEntry:(Lcom/squareup/okhttp/internal/DiskLruCache$Entry;)Z
+       5: ireturn
+
+  static java.io.File access$2800(com.squareup.okhttp.internal.DiskLruCache);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field directory:Ljava/io/File;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc           #27                 // class com/squareup/okhttp/internal/DiskLruCache
+       2: invokevirtual #169                // Method java/lang/Class.desiredAssertionStatus:()Z
+       5: ifne          12
+       8: iconst_1
+       9: goto          13
+      12: iconst_0
+      13: putstatic     #37                 // Field $assertionsDisabled:Z
+      16: ldc           #170                // String [a-z0-9_-]{1,120}
+      18: invokestatic  #171                // Method java/util/regex/Pattern.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+      21: putstatic     #162                // Field LEGAL_KEY_PATTERN:Ljava/util/regex/Pattern;
+      24: new           #172                // class com/squareup/okhttp/internal/DiskLruCache$4
+      27: dup
+      28: invokespecial #173                // Method com/squareup/okhttp/internal/DiskLruCache$4."<init>":()V
+      31: putstatic     #4                  // Field NULL_SINK:Lokio/Sink;
+      34: return
+}
