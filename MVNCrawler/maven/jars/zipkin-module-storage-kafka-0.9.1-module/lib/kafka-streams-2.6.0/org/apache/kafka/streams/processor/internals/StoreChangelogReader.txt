@@ -1,0 +1,1986 @@
+Compiled from "StoreChangelogReader.java"
+public class org.apache.kafka.streams.processor.internals.StoreChangelogReader implements org.apache.kafka.streams.processor.internals.ChangelogReader {
+  private static final long RESTORE_LOG_INTERVAL_MS;
+
+  private long lastRestoreLogTime;
+
+  private static final long DEFAULT_OFFSET_UPDATE_MS;
+
+  private org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogReaderState state;
+
+  private final org.apache.kafka.common.utils.Time time;
+
+  private final org.slf4j.Logger log;
+
+  private final java.time.Duration pollTime;
+
+  private final long updateOffsetIntervalMs;
+
+  private final org.apache.kafka.clients.consumer.Consumer<byte[], byte[]> restoreConsumer;
+
+  private final org.apache.kafka.streams.processor.StateRestoreListener stateRestoreListener;
+
+  private final java.util.Map<org.apache.kafka.common.TopicPartition, org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata> changelogs;
+
+  private org.apache.kafka.clients.consumer.Consumer<byte[], byte[]> mainConsumer;
+
+  private final org.apache.kafka.clients.admin.Admin adminClient;
+
+  private long lastUpdateOffsetTime;
+
+  void setMainConsumer(org.apache.kafka.clients.consumer.Consumer<byte[], byte[]>);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #1                  // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+       5: return
+
+  public org.apache.kafka.streams.processor.internals.StoreChangelogReader(org.apache.kafka.common.utils.Time, org.apache.kafka.streams.StreamsConfig, org.apache.kafka.common.utils.LogContext, org.apache.kafka.clients.admin.Admin, org.apache.kafka.clients.consumer.Consumer<byte[], byte[]>, org.apache.kafka.streams.processor.StateRestoreListener);
+    Code:
+       0: aload_0
+       1: invokespecial #2                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: lconst_0
+       6: putfield      #3                  // Field lastRestoreLogTime:J
+       9: aload_0
+      10: aload_1
+      11: putfield      #4                  // Field time:Lorg/apache/kafka/common/utils/Time;
+      14: aload_0
+      15: aload_3
+      16: ldc           #5                  // class org/apache/kafka/streams/processor/internals/StoreChangelogReader
+      18: invokevirtual #6                  // Method org/apache/kafka/common/utils/LogContext.logger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      21: putfield      #7                  // Field log:Lorg/slf4j/Logger;
+      24: aload_0
+      25: getstatic     #8                  // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState.ACTIVE_RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      28: putfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      31: aload_0
+      32: aload         4
+      34: putfield      #10                 // Field adminClient:Lorg/apache/kafka/clients/admin/Admin;
+      37: aload_0
+      38: aload         5
+      40: putfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      43: aload_0
+      44: aload         6
+      46: putfield      #12                 // Field stateRestoreListener:Lorg/apache/kafka/streams/processor/StateRestoreListener;
+      49: aload_0
+      50: aload_2
+      51: ldc           #14                 // String poll.ms
+      53: invokevirtual #15                 // Method org/apache/kafka/streams/StreamsConfig.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+      56: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+      59: invokestatic  #17                 // Method java/time/Duration.ofMillis:(J)Ljava/time/Duration;
+      62: putfield      #18                 // Field pollTime:Ljava/time/Duration;
+      65: aload_0
+      66: aload_2
+      67: ldc           #19                 // String commit.interval.ms
+      69: invokevirtual #15                 // Method org/apache/kafka/streams/StreamsConfig.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+      72: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+      75: ldc2_w        #21                 // long 9223372036854775807l
+      78: lcmp
+      79: ifne          88
+      82: getstatic     #23                 // Field DEFAULT_OFFSET_UPDATE_MS:J
+      85: goto          97
+      88: aload_2
+      89: ldc           #19                 // String commit.interval.ms
+      91: invokevirtual #15                 // Method org/apache/kafka/streams/StreamsConfig.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+      94: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+      97: putfield      #24                 // Field updateOffsetIntervalMs:J
+     100: aload_0
+     101: lconst_0
+     102: putfield      #25                 // Field lastUpdateOffsetTime:J
+     105: aload_0
+     106: new           #26                 // class java/util/HashMap
+     109: dup
+     110: invokespecial #27                 // Method java/util/HashMap."<init>":()V
+     113: putfield      #28                 // Field changelogs:Ljava/util/Map;
+     116: return
+
+  private static java.lang.String recordEndOffset(java.lang.Long);
+    Code:
+       0: aload_0
+       1: ifnonnull     9
+       4: ldc           #29                 // String UNKNOWN (since it is for standby task)
+       6: goto          13
+       9: aload_0
+      10: invokevirtual #30                 // Method java/lang/Long.toString:()Ljava/lang/String;
+      13: areturn
+
+  private boolean hasRestoredToEnd(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_1
+       1: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+       4: astore_2
+       5: aload_2
+       6: ifnonnull     41
+       9: new           #32                 // class java/lang/IllegalStateException
+      12: dup
+      13: new           #33                 // class java/lang/StringBuilder
+      16: dup
+      17: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+      20: ldc           #35                 // String End offset for changelog
+      22: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      25: aload_1
+      26: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      29: ldc           #38                 // String  is unknown when deciding if it has completed restoration, this should never happen.
+      31: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      37: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      40: athrow
+      41: aload_2
+      42: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+      45: lconst_0
+      46: lcmp
+      47: ifne          52
+      50: iconst_1
+      51: ireturn
+      52: aload_1
+      53: invokestatic  #41                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$200:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/util/List;
+      56: invokeinterface #42,  1           // InterfaceMethod java/util/List.isEmpty:()Z
+      61: ifeq          131
+      64: aload_1
+      65: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+      68: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+      71: astore_3
+      72: aload_0
+      73: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      76: aload_3
+      77: invokeinterface #45,  2           // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.position:(Lorg/apache/kafka/common/TopicPartition;)J
+      82: aload_2
+      83: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+      86: lcmp
+      87: iflt          94
+      90: iconst_1
+      91: goto          95
+      94: iconst_0
+      95: ireturn
+      96: astore        4
+      98: iconst_0
+      99: ireturn
+     100: astore        4
+     102: new           #48                 // class org/apache/kafka/streams/errors/StreamsException
+     105: dup
+     106: new           #33                 // class java/lang/StringBuilder
+     109: dup
+     110: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+     113: ldc           #49                 // String Restore consumer get unexpected error trying to get the position  of
+     115: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     118: aload_3
+     119: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     122: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     125: aload         4
+     127: invokespecial #50                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     130: athrow
+     131: aload_1
+     132: invokestatic  #41                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$200:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/util/List;
+     135: iconst_0
+     136: invokeinterface #51,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     141: checkcast     #52                 // class org/apache/kafka/clients/consumer/ConsumerRecord
+     144: invokevirtual #53                 // Method org/apache/kafka/clients/consumer/ConsumerRecord.offset:()J
+     147: aload_2
+     148: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+     151: lcmp
+     152: iflt          159
+     155: iconst_1
+     156: goto          160
+     159: iconst_0
+     160: ireturn
+    Exception table:
+       from    to  target type
+          72    95    96   Class org/apache/kafka/common/errors/TimeoutException
+          72    95   100   Class org/apache/kafka/common/KafkaException
+
+  public void enforceRestoreActive();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+       4: getstatic     #8                  // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState.ACTIVE_RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+       7: if_acmpeq     45
+      10: aload_0
+      11: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      14: ldc           #54                 // String Transiting to restore active tasks: {}
+      16: aload_0
+      17: getfield      #28                 // Field changelogs:Ljava/util/Map;
+      20: invokeinterface #55,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      25: aload_0
+      26: lconst_0
+      27: putfield      #3                  // Field lastRestoreLogTime:J
+      30: aload_0
+      31: aload_0
+      32: invokespecial #56                 // Method standbyRestoringChangelogs:()Ljava/util/Set;
+      35: invokespecial #57                 // Method pauseChangelogsFromRestoreConsumer:(Ljava/util/Collection;)V
+      38: aload_0
+      39: getstatic     #8                  // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState.ACTIVE_RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      42: putfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      45: return
+
+  public void transitToUpdateStandby();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+       4: getstatic     #8                  // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState.ACTIVE_RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+       7: if_acmpeq     52
+      10: new           #32                 // class java/lang/IllegalStateException
+      13: dup
+      14: new           #33                 // class java/lang/StringBuilder
+      17: dup
+      18: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+      21: ldc           #58                 // String The changelog reader is not restoring active tasks (is
+      23: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: aload_0
+      27: getfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      30: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      33: ldc           #59                 // String ) while trying to transit to update standby tasks:
+      35: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      38: aload_0
+      39: getfield      #28                 // Field changelogs:Ljava/util/Map;
+      42: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      45: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      48: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      51: athrow
+      52: aload_0
+      53: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      56: ldc           #60                 // String Transiting to update standby tasks: {}
+      58: aload_0
+      59: getfield      #28                 // Field changelogs:Ljava/util/Map;
+      62: invokeinterface #55,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      67: aload_0
+      68: aload_0
+      69: invokespecial #56                 // Method standbyRestoringChangelogs:()Ljava/util/Set;
+      72: invokespecial #61                 // Method resumeChangelogsFromRestoreConsumer:(Ljava/util/Collection;)V
+      75: aload_0
+      76: getstatic     #62                 // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState.STANDBY_UPDATING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      79: putfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      82: return
+
+  public void register(org.apache.kafka.common.TopicPartition, org.apache.kafka.streams.processor.internals.ProcessorStateManager);
+    Code:
+       0: aload_2
+       1: aload_1
+       2: invokevirtual #63                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.storeMetadata:(Lorg/apache/kafka/common/TopicPartition;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+       5: astore_3
+       6: aload_3
+       7: ifnonnull     37
+      10: new           #32                 // class java/lang/IllegalStateException
+      13: dup
+      14: new           #33                 // class java/lang/StringBuilder
+      17: dup
+      18: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+      21: ldc           #64                 // String Cannot find the corresponding state store metadata for changelog
+      23: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: aload_1
+      27: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      30: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      33: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      36: athrow
+      37: new           #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+      40: dup
+      41: aload_3
+      42: aload_2
+      43: aconst_null
+      44: invokespecial #66                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata."<init>":(Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$1;)V
+      47: astore        4
+      49: aload_2
+      50: invokevirtual #67                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.taskType:()Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      53: getstatic     #68                 // Field org/apache/kafka/streams/processor/internals/Task$TaskType.STANDBY:Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      56: if_acmpne     77
+      59: aload_2
+      60: aload_1
+      61: invokevirtual #69                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.changelogAsSource:(Lorg/apache/kafka/common/TopicPartition;)Z
+      64: ifeq          77
+      67: aload         4
+      69: lconst_0
+      70: invokestatic  #70                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      73: invokestatic  #71                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$102:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;Ljava/lang/Long;)Ljava/lang/Long;
+      76: pop
+      77: aload_0
+      78: getfield      #28                 // Field changelogs:Ljava/util/Map;
+      81: aload_1
+      82: aload         4
+      84: invokeinterface #72,  3           // InterfaceMethod java/util/Map.putIfAbsent:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      89: ifnull        131
+      92: new           #32                 // class java/lang/IllegalStateException
+      95: dup
+      96: new           #33                 // class java/lang/StringBuilder
+      99: dup
+     100: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+     103: ldc           #73                 // String There is already a changelog registered for
+     105: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     108: aload_1
+     109: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     112: ldc           #74                 // String , this should not happen:
+     114: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     117: aload_0
+     118: getfield      #28                 // Field changelogs:Ljava/util/Map;
+     121: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     124: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     127: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+     130: athrow
+     131: return
+
+  private org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata restoringChangelogByPartition(org.apache.kafka.common.TopicPartition);
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: aload_1
+       5: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+      13: astore_2
+      14: aload_2
+      15: ifnonnull     50
+      18: new           #32                 // class java/lang/IllegalStateException
+      21: dup
+      22: new           #33                 // class java/lang/StringBuilder
+      25: dup
+      26: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+      29: ldc           #76                 // String The corresponding changelog restorer for
+      31: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: aload_1
+      35: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      38: ldc           #77                 // String  does not exist, this should not happen.
+      40: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      43: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      46: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      49: athrow
+      50: aload_2
+      51: invokestatic  #78                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$500:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+      54: getstatic     #79                 // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+      57: if_acmpeq     92
+      60: new           #32                 // class java/lang/IllegalStateException
+      63: dup
+      64: new           #33                 // class java/lang/StringBuilder
+      67: dup
+      68: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+      71: ldc           #76                 // String The corresponding changelog restorer for
+      73: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      76: aload_1
+      77: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      80: ldc           #80                 // String  has already transited to completed state, this should not happen.
+      82: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      85: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      88: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      91: athrow
+      92: aload_2
+      93: areturn
+
+  private java.util.Set<org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata> registeredChangelogs();
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: invokeinterface #81,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+       9: invokeinterface #82,  1           // InterfaceMethod java/util/Collection.stream:()Ljava/util/stream/Stream;
+      14: invokedynamic #83,  0             // InvokeDynamic #0:test:()Ljava/util/function/Predicate;
+      19: invokeinterface #84,  2           // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      24: invokestatic  #85                 // Method java/util/stream/Collectors.toSet:()Ljava/util/stream/Collector;
+      27: invokeinterface #86,  2           // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+      32: checkcast     #87                 // class java/util/Set
+      35: areturn
+
+  private java.util.Set<org.apache.kafka.common.TopicPartition> restoringChangelogs();
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: invokeinterface #81,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+       9: invokeinterface #82,  1           // InterfaceMethod java/util/Collection.stream:()Ljava/util/stream/Stream;
+      14: invokedynamic #88,  0             // InvokeDynamic #1:test:()Ljava/util/function/Predicate;
+      19: invokeinterface #84,  2           // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      24: invokedynamic #89,  0             // InvokeDynamic #2:apply:()Ljava/util/function/Function;
+      29: invokeinterface #90,  2           // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+      34: invokestatic  #85                 // Method java/util/stream/Collectors.toSet:()Ljava/util/stream/Collector;
+      37: invokeinterface #86,  2           // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+      42: checkcast     #87                 // class java/util/Set
+      45: areturn
+
+  private java.util.Set<org.apache.kafka.common.TopicPartition> activeRestoringChangelogs();
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: invokeinterface #81,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+       9: invokeinterface #82,  1           // InterfaceMethod java/util/Collection.stream:()Ljava/util/stream/Stream;
+      14: invokedynamic #91,  0             // InvokeDynamic #3:test:()Ljava/util/function/Predicate;
+      19: invokeinterface #84,  2           // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      24: invokedynamic #92,  0             // InvokeDynamic #4:apply:()Ljava/util/function/Function;
+      29: invokeinterface #90,  2           // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+      34: invokestatic  #85                 // Method java/util/stream/Collectors.toSet:()Ljava/util/stream/Collector;
+      37: invokeinterface #86,  2           // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+      42: checkcast     #87                 // class java/util/Set
+      45: areturn
+
+  private java.util.Set<org.apache.kafka.common.TopicPartition> standbyRestoringChangelogs();
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: invokeinterface #81,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+       9: invokeinterface #82,  1           // InterfaceMethod java/util/Collection.stream:()Ljava/util/stream/Stream;
+      14: invokedynamic #93,  0             // InvokeDynamic #5:test:()Ljava/util/function/Predicate;
+      19: invokeinterface #84,  2           // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      24: invokedynamic #94,  0             // InvokeDynamic #6:apply:()Ljava/util/function/Function;
+      29: invokeinterface #90,  2           // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+      34: invokestatic  #85                 // Method java/util/stream/Collectors.toSet:()Ljava/util/stream/Collector;
+      37: invokeinterface #86,  2           // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+      42: checkcast     #87                 // class java/util/Set
+      45: areturn
+
+  private boolean allChangelogsCompleted();
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: invokeinterface #81,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+       9: invokeinterface #82,  1           // InterfaceMethod java/util/Collection.stream:()Ljava/util/stream/Stream;
+      14: invokedynamic #95,  0             // InvokeDynamic #7:test:()Ljava/util/function/Predicate;
+      19: invokeinterface #96,  2           // InterfaceMethod java/util/stream/Stream.allMatch:(Ljava/util/function/Predicate;)Z
+      24: ireturn
+
+  public java.util.Set<org.apache.kafka.common.TopicPartition> completedChangelogs();
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: invokeinterface #81,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+       9: invokeinterface #82,  1           // InterfaceMethod java/util/Collection.stream:()Ljava/util/stream/Stream;
+      14: invokedynamic #97,  0             // InvokeDynamic #8:test:()Ljava/util/function/Predicate;
+      19: invokeinterface #84,  2           // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      24: invokedynamic #98,  0             // InvokeDynamic #9:apply:()Ljava/util/function/Function;
+      29: invokeinterface #90,  2           // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+      34: invokestatic  #85                 // Method java/util/stream/Collectors.toSet:()Ljava/util/stream/Collector;
+      37: invokeinterface #86,  2           // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+      42: checkcast     #87                 // class java/util/Set
+      45: areturn
+
+  public void restore();
+    Code:
+       0: aload_0
+       1: aload_0
+       2: invokespecial #99                 // Method registeredChangelogs:()Ljava/util/Set;
+       5: invokespecial #100                // Method initializeChangelogs:(Ljava/util/Set;)V
+       8: aload_0
+       9: invokespecial #101                // Method activeRestoringChangelogs:()Ljava/util/Set;
+      12: invokeinterface #102,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+      17: ifne          40
+      20: aload_0
+      21: getfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      24: getstatic     #62                 // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState.STANDBY_UPDATING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      27: if_acmpne     40
+      30: new           #32                 // class java/lang/IllegalStateException
+      33: dup
+      34: ldc           #103                // String Should not be in standby updating state if there are still un-completed active changelogs
+      36: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      39: athrow
+      40: aload_0
+      41: invokespecial #104                // Method allChangelogsCompleted:()Z
+      44: ifeq          68
+      47: aload_0
+      48: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      51: ldc           #105                // String Finished restoring all changelogs {}
+      53: aload_0
+      54: getfield      #28                 // Field changelogs:Ljava/util/Map;
+      57: invokeinterface #106,  1          // InterfaceMethod java/util/Map.keySet:()Ljava/util/Set;
+      62: invokeinterface #55,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      67: return
+      68: aload_0
+      69: invokespecial #107                // Method restoringChangelogs:()Ljava/util/Set;
+      72: astore_1
+      73: aload_1
+      74: invokeinterface #102,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+      79: ifne          388
+      82: aload_0
+      83: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      86: aload_0
+      87: getfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      90: getstatic     #62                 // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState.STANDBY_UPDATING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+      93: if_acmpne     102
+      96: getstatic     #108                // Field java/time/Duration.ZERO:Ljava/time/Duration;
+      99: goto          106
+     102: aload_0
+     103: getfield      #18                 // Field pollTime:Ljava/time/Duration;
+     106: invokeinterface #109,  2          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.poll:(Ljava/time/Duration;)Lorg/apache/kafka/clients/consumer/ConsumerRecords;
+     111: astore_2
+     112: goto          283
+     115: astore_3
+     116: aload_0
+     117: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     120: new           #33                 // class java/lang/StringBuilder
+     123: dup
+     124: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+     127: ldc           #111                // String Encountered
+     129: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     132: aload_3
+     133: invokevirtual #112                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     136: invokevirtual #113                // Method java/lang/Class.getName:()Ljava/lang/String;
+     139: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     142: ldc           #114                // String  fetching records from restore consumer for partitions
+     144: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     147: aload_3
+     148: invokevirtual #115                // Method org/apache/kafka/clients/consumer/InvalidOffsetException.partitions:()Ljava/util/Set;
+     151: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     154: ldc           #116                // String , it is likely that the consumer\'s position has fallen out of the topic partition offset range because the topic was truncated or compacted on the broker, marking the corresponding tasks as corrupted and re-initializing it later.
+     156: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     159: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     162: aload_3
+     163: invokeinterface #117,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     168: new           #26                 // class java/util/HashMap
+     171: dup
+     172: invokespecial #27                 // Method java/util/HashMap."<init>":()V
+     175: astore        4
+     177: aload_3
+     178: invokevirtual #115                // Method org/apache/kafka/clients/consumer/InvalidOffsetException.partitions:()Ljava/util/Set;
+     181: invokeinterface #118,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     186: astore        5
+     188: aload         5
+     190: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     195: ifeq          260
+     198: aload         5
+     200: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     205: checkcast     #121                // class org/apache/kafka/common/TopicPartition
+     208: astore        6
+     210: aload_0
+     211: getfield      #28                 // Field changelogs:Ljava/util/Map;
+     214: aload         6
+     216: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     221: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+     224: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+     227: invokevirtual #123                // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.taskId:()Lorg/apache/kafka/streams/processor/TaskId;
+     230: astore        7
+     232: aload         4
+     234: aload         7
+     236: invokedynamic #124,  0            // InvokeDynamic #10:apply:()Ljava/util/function/Function;
+     241: invokeinterface #125,  3          // InterfaceMethod java/util/Map.computeIfAbsent:(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;
+     246: checkcast     #126                // class java/util/Collection
+     249: aload         6
+     251: invokeinterface #127,  2          // InterfaceMethod java/util/Collection.add:(Ljava/lang/Object;)Z
+     256: pop
+     257: goto          188
+     260: new           #128                // class org/apache/kafka/streams/errors/TaskCorruptedException
+     263: dup
+     264: aload         4
+     266: aload_3
+     267: invokespecial #129                // Method org/apache/kafka/streams/errors/TaskCorruptedException."<init>":(Ljava/util/Map;Lorg/apache/kafka/clients/consumer/InvalidOffsetException;)V
+     270: athrow
+     271: astore_3
+     272: new           #48                 // class org/apache/kafka/streams/errors/StreamsException
+     275: dup
+     276: ldc           #130                // String Restore consumer get unexpected error polling records.
+     278: aload_3
+     279: invokespecial #50                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     282: athrow
+     283: aload_2
+     284: invokevirtual #131                // Method org/apache/kafka/clients/consumer/ConsumerRecords.partitions:()Ljava/util/Set;
+     287: invokeinterface #118,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     292: astore_3
+     293: aload_3
+     294: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     299: ifeq          332
+     302: aload_3
+     303: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     308: checkcast     #121                // class org/apache/kafka/common/TopicPartition
+     311: astore        4
+     313: aload_0
+     314: aload_0
+     315: aload         4
+     317: invokespecial #132                // Method restoringChangelogByPartition:(Lorg/apache/kafka/common/TopicPartition;)Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;
+     320: aload_2
+     321: aload         4
+     323: invokevirtual #133                // Method org/apache/kafka/clients/consumer/ConsumerRecords.records:(Lorg/apache/kafka/common/TopicPartition;)Ljava/util/List;
+     326: invokespecial #134                // Method bufferChangelogRecords:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;Ljava/util/List;)V
+     329: goto          293
+     332: aload_1
+     333: invokeinterface #118,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     338: astore_3
+     339: aload_3
+     340: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     345: ifeq          380
+     348: aload_3
+     349: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     354: checkcast     #121                // class org/apache/kafka/common/TopicPartition
+     357: astore        4
+     359: aload_0
+     360: aload_0
+     361: getfield      #28                 // Field changelogs:Ljava/util/Map;
+     364: aload         4
+     366: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     371: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+     374: invokespecial #135                // Method restoreChangelog:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)V
+     377: goto          339
+     380: aload_0
+     381: invokespecial #136                // Method maybeUpdateLimitOffsetsForStandbyChangelogs:()V
+     384: aload_0
+     385: invokespecial #137                // Method maybeLogRestorationProgress:()V
+     388: return
+    Exception table:
+       from    to  target type
+          82   112   115   Class org/apache/kafka/clients/consumer/InvalidOffsetException
+          82   112   271   Class org/apache/kafka/common/KafkaException
+
+  private void maybeLogRestorationProgress();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+       4: getstatic     #8                  // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState.ACTIVE_RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+       7: if_acmpne     202
+      10: aload_0
+      11: getfield      #4                  // Field time:Lorg/apache/kafka/common/utils/Time;
+      14: invokeinterface #138,  1          // InterfaceMethod org/apache/kafka/common/utils/Time.milliseconds:()J
+      19: aload_0
+      20: getfield      #3                  // Field lastRestoreLogTime:J
+      23: lsub
+      24: ldc2_w        #139                // long 10000l
+      27: lcmp
+      28: ifle          207
+      31: aload_0
+      32: invokespecial #101                // Method activeRestoringChangelogs:()Ljava/util/Set;
+      35: astore_1
+      36: aload_1
+      37: invokeinterface #102,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+      42: ifne          199
+      45: new           #33                 // class java/lang/StringBuilder
+      48: dup
+      49: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+      52: ldc           #141                // String Restoration in progress for
+      54: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      57: aload_1
+      58: invokeinterface #142,  1          // InterfaceMethod java/util/Set.size:()I
+      63: invokevirtual #143                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      66: ldc           #144                // String  partitions.
+      68: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      71: astore_2
+      72: aload_1
+      73: invokeinterface #118,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      78: astore_3
+      79: aload_3
+      80: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      85: ifeq          173
+      88: aload_3
+      89: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      94: checkcast     #121                // class org/apache/kafka/common/TopicPartition
+      97: astore        4
+      99: aload_0
+     100: aload         4
+     102: invokespecial #132                // Method restoringChangelogByPartition:(Lorg/apache/kafka/common/TopicPartition;)Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;
+     105: astore        5
+     107: aload_2
+     108: ldc           #145                // String  {
+     110: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     113: aload         4
+     115: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     118: ldc           #146                // String :
+     120: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     123: ldc           #147                // String position=
+     125: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     128: aload         4
+     130: aload         5
+     132: invokestatic  #148                // Method getPositionString:(Lorg/apache/kafka/common/TopicPartition;Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/String;
+     135: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     138: ldc           #149                // String , end=
+     140: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     143: aload         5
+     145: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+     148: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     151: ldc           #150                // String , totalRestored=
+     153: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     156: aload         5
+     158: invokestatic  #151                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$700:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)J
+     161: invokevirtual #152                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     164: ldc           #153                // String }
+     166: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     169: pop
+     170: goto          79
+     173: aload_0
+     174: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     177: aload_2
+     178: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     181: invokeinterface #154,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     186: aload_0
+     187: aload_0
+     188: getfield      #4                  // Field time:Lorg/apache/kafka/common/utils/Time;
+     191: invokeinterface #138,  1          // InterfaceMethod org/apache/kafka/common/utils/Time.milliseconds:()J
+     196: putfield      #3                  // Field lastRestoreLogTime:J
+     199: goto          207
+     202: aload_0
+     203: lconst_0
+     204: putfield      #3                  // Field lastRestoreLogTime:J
+     207: return
+
+  private static java.lang.String getPositionString(org.apache.kafka.common.TopicPartition, org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_1
+       1: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+       4: astore_2
+       5: aload_2
+       6: invokevirtual #155                // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.changelogOffsets:()Ljava/util/Map;
+       9: aload_0
+      10: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      15: checkcast     #20                 // class java/lang/Long
+      18: astore_3
+      19: aload_3
+      20: ifnonnull     28
+      23: ldc           #156                // String unknown
+      25: goto          32
+      28: aload_3
+      29: invokestatic  #157                // Method java/lang/String.valueOf:(Ljava/lang/Object;)Ljava/lang/String;
+      32: areturn
+
+  private void maybeUpdateLimitOffsetsForStandbyChangelogs();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+       4: getstatic     #62                 // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState.STANDBY_UPDATING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+       7: if_acmpne     143
+      10: aload_0
+      11: getfield      #24                 // Field updateOffsetIntervalMs:J
+      14: aload_0
+      15: getfield      #4                  // Field time:Lorg/apache/kafka/common/utils/Time;
+      18: invokeinterface #138,  1          // InterfaceMethod org/apache/kafka/common/utils/Time.milliseconds:()J
+      23: aload_0
+      24: getfield      #25                 // Field lastUpdateOffsetTime:J
+      27: lsub
+      28: lcmp
+      29: ifge          143
+      32: aload_0
+      33: getfield      #28                 // Field changelogs:Ljava/util/Map;
+      36: invokeinterface #158,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+      41: invokeinterface #159,  1          // InterfaceMethod java/util/Set.stream:()Ljava/util/stream/Stream;
+      46: invokedynamic #160,  0            // InvokeDynamic #11:test:()Ljava/util/function/Predicate;
+      51: invokeinterface #84,  2           // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+      56: invokedynamic #161,  0            // InvokeDynamic #12:apply:()Ljava/util/function/Function;
+      61: invokeinterface #90,  2           // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+      66: invokestatic  #85                 // Method java/util/stream/Collectors.toSet:()Ljava/util/stream/Collector;
+      69: invokeinterface #86,  2           // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+      74: checkcast     #87                 // class java/util/Set
+      77: astore_1
+      78: aload_1
+      79: invokeinterface #118,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      84: astore_2
+      85: aload_2
+      86: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      91: ifeq          143
+      94: aload_2
+      95: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     100: checkcast     #121                // class org/apache/kafka/common/TopicPartition
+     103: astore_3
+     104: aload_0
+     105: getfield      #28                 // Field changelogs:Ljava/util/Map;
+     108: aload_3
+     109: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     114: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+     117: invokevirtual #162                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.bufferedRecords:()Ljava/util/List;
+     120: invokeinterface #42,  1           // InterfaceMethod java/util/List.isEmpty:()Z
+     125: ifne          140
+     128: aload_0
+     129: aload_0
+     130: aload_1
+     131: invokespecial #163                // Method committedOffsetForChangelogs:(Ljava/util/Set;)Ljava/util/Map;
+     134: invokespecial #164                // Method updateLimitOffsetsForStandbyChangelogs:(Ljava/util/Map;)V
+     137: goto          143
+     140: goto          85
+     143: return
+
+  private void bufferChangelogRecords(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata, java.util.List<org.apache.kafka.clients.consumer.ConsumerRecord<byte[], byte[]>>);
+    Code:
+       0: aload_2
+       1: invokeinterface #165,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+       6: astore_3
+       7: aload_3
+       8: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      13: ifeq          120
+      16: aload_3
+      17: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      22: checkcast     #52                 // class org/apache/kafka/clients/consumer/ConsumerRecord
+      25: astore        4
+      27: aload         4
+      29: invokevirtual #166                // Method org/apache/kafka/clients/consumer/ConsumerRecord.key:()Ljava/lang/Object;
+      32: ifnonnull     64
+      35: aload_0
+      36: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      39: ldc           #167                // String Read changelog record with null key from changelog {} at offset {}, skipping it for restoration
+      41: aload_1
+      42: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+      45: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+      48: aload         4
+      50: invokevirtual #53                 // Method org/apache/kafka/clients/consumer/ConsumerRecord.offset:()J
+      53: invokestatic  #70                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      56: invokeinterface #168,  4          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      61: goto          117
+      64: aload_1
+      65: invokestatic  #41                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$200:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/util/List;
+      68: aload         4
+      70: invokeinterface #169,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      75: pop
+      76: aload         4
+      78: invokevirtual #53                 // Method org/apache/kafka/clients/consumer/ConsumerRecord.offset:()J
+      81: lstore        5
+      83: aload_1
+      84: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+      87: ifnull        103
+      90: lload         5
+      92: aload_1
+      93: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+      96: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+      99: lcmp
+     100: ifge          117
+     103: aload_1
+     104: aload_1
+     105: invokestatic  #41                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$200:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/util/List;
+     108: invokeinterface #170,  1          // InterfaceMethod java/util/List.size:()I
+     113: invokestatic  #171                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$802:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;I)I
+     116: pop
+     117: goto          7
+     120: return
+
+  private void restoreChangelog(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_1
+       1: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+       4: astore_2
+       5: aload_1
+       6: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+       9: astore_3
+      10: aload_3
+      11: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+      14: astore        4
+      16: aload_3
+      17: invokevirtual #172                // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.store:()Lorg/apache/kafka/streams/processor/StateStore;
+      20: invokeinterface #173,  1          // InterfaceMethod org/apache/kafka/streams/processor/StateStore.name:()Ljava/lang/String;
+      25: astore        5
+      27: aload_1
+      28: invokestatic  #174                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$800:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)I
+      31: istore        6
+      33: iload         6
+      35: ifeq          216
+      38: aload_1
+      39: invokestatic  #41                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$200:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/util/List;
+      42: iconst_0
+      43: iload         6
+      45: invokeinterface #175,  3          // InterfaceMethod java/util/List.subList:(II)Ljava/util/List;
+      50: astore        7
+      52: aload_2
+      53: aload_3
+      54: aload         7
+      56: invokevirtual #176                // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.restore:(Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;Ljava/util/List;)V
+      59: iload         6
+      61: aload_1
+      62: invokestatic  #41                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$200:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/util/List;
+      65: invokeinterface #170,  1          // InterfaceMethod java/util/List.size:()I
+      70: if_icmpge     83
+      73: aload         7
+      75: invokeinterface #177,  1          // InterfaceMethod java/util/List.clear:()V
+      80: goto          92
+      83: aload_1
+      84: invokestatic  #41                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$200:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/util/List;
+      87: invokeinterface #177,  1          // InterfaceMethod java/util/List.clear:()V
+      92: aload_3
+      93: invokevirtual #178                // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.offset:()Ljava/lang/Long;
+      96: astore        8
+      98: aload_0
+      99: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     102: ldc           #179                // String Restored {} records from changelog {} to store {}, end offset is {}, current offset is {}
+     104: iconst_5
+     105: anewarray     #180                // class java/lang/Object
+     108: dup
+     109: iconst_0
+     110: aload         4
+     112: aastore
+     113: dup
+     114: iconst_1
+     115: aload         5
+     117: aastore
+     118: dup
+     119: iconst_2
+     120: iload         6
+     122: invokestatic  #181                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     125: aastore
+     126: dup
+     127: iconst_3
+     128: aload_1
+     129: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+     132: invokestatic  #182                // Method recordEndOffset:(Ljava/lang/Long;)Ljava/lang/String;
+     135: aastore
+     136: dup
+     137: iconst_4
+     138: aload         8
+     140: aastore
+     141: invokeinterface #183,  3          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+     146: aload_1
+     147: iconst_0
+     148: invokestatic  #171                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$802:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;I)I
+     151: pop
+     152: aload_1
+     153: aload_1
+     154: invokestatic  #151                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$700:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)J
+     157: iload         6
+     159: i2l
+     160: ladd
+     161: invokestatic  #184                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$702:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;J)J
+     164: pop2
+     165: aload_1
+     166: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+     169: invokevirtual #67                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.taskType:()Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+     172: getstatic     #185                // Field org/apache/kafka/streams/processor/internals/Task$TaskType.ACTIVE:Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+     175: if_acmpne     216
+     178: aload_0
+     179: getfield      #12                 // Field stateRestoreListener:Lorg/apache/kafka/streams/processor/StateRestoreListener;
+     182: aload         4
+     184: aload         5
+     186: aload         8
+     188: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+     191: iload         6
+     193: i2l
+     194: invokeinterface #186,  7          // InterfaceMethod org/apache/kafka/streams/processor/StateRestoreListener.onBatchRestored:(Lorg/apache/kafka/common/TopicPartition;Ljava/lang/String;JJ)V
+     199: goto          216
+     202: astore        9
+     204: new           #48                 // class org/apache/kafka/streams/errors/StreamsException
+     207: dup
+     208: ldc           #188                // String State restore listener failed on batch restored
+     210: aload         9
+     212: invokespecial #50                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     215: athrow
+     216: aload_1
+     217: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+     220: invokevirtual #67                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.taskType:()Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+     223: getstatic     #185                // Field org/apache/kafka/streams/processor/internals/Task$TaskType.ACTIVE:Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+     226: if_acmpne     322
+     229: aload_0
+     230: aload_1
+     231: invokespecial #189                // Method hasRestoredToEnd:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Z
+     234: ifeq          322
+     237: aload_0
+     238: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     241: ldc           #190                // String Finished restoring changelog {} to store {} with a total number of {} records
+     243: iconst_3
+     244: anewarray     #180                // class java/lang/Object
+     247: dup
+     248: iconst_0
+     249: aload         4
+     251: aastore
+     252: dup
+     253: iconst_1
+     254: aload         5
+     256: aastore
+     257: dup
+     258: iconst_2
+     259: aload_1
+     260: invokestatic  #151                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$700:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)J
+     263: invokestatic  #70                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     266: aastore
+     267: invokeinterface #191,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+     272: aload_1
+     273: getstatic     #192                // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.COMPLETED:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+     276: invokestatic  #193                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$900:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;)V
+     279: aload_0
+     280: aload         4
+     282: invokestatic  #194                // Method java/util/Collections.singleton:(Ljava/lang/Object;)Ljava/util/Set;
+     285: invokespecial #57                 // Method pauseChangelogsFromRestoreConsumer:(Ljava/util/Collection;)V
+     288: aload_0
+     289: getfield      #12                 // Field stateRestoreListener:Lorg/apache/kafka/streams/processor/StateRestoreListener;
+     292: aload         4
+     294: aload         5
+     296: aload_1
+     297: invokestatic  #151                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$700:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)J
+     300: invokeinterface #195,  5          // InterfaceMethod org/apache/kafka/streams/processor/StateRestoreListener.onRestoreEnd:(Lorg/apache/kafka/common/TopicPartition;Ljava/lang/String;J)V
+     305: goto          322
+     308: astore        7
+     310: new           #48                 // class org/apache/kafka/streams/errors/StreamsException
+     313: dup
+     314: ldc           #196                // String State restore listener failed on restore completed
+     316: aload         7
+     318: invokespecial #50                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     321: athrow
+     322: return
+    Exception table:
+       from    to  target type
+         178   199   202   Class java/lang/Exception
+         288   305   308   Class java/lang/Exception
+
+  private java.util.Map<org.apache.kafka.common.TopicPartition, java.lang.Long> committedOffsetForChangelogs(java.util.Set<org.apache.kafka.common.TopicPartition>);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: getfield      #1                  // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+       5: invokestatic  #197                // Method org/apache/kafka/streams/processor/internals/ClientUtils.fetchCommittedOffsets:(Ljava/util/Set;Lorg/apache/kafka/clients/consumer/Consumer;)Ljava/util/Map;
+       8: astore_2
+       9: goto          17
+      12: astore_3
+      13: invokestatic  #198                // Method java/util/Collections.emptyMap:()Ljava/util/Map;
+      16: areturn
+      17: aload_0
+      18: aload_0
+      19: getfield      #4                  // Field time:Lorg/apache/kafka/common/utils/Time;
+      22: invokeinterface #138,  1          // InterfaceMethod org/apache/kafka/common/utils/Time.milliseconds:()J
+      27: putfield      #25                 // Field lastUpdateOffsetTime:J
+      30: aload_2
+      31: areturn
+    Exception table:
+       from    to  target type
+           0     9    12   Class org/apache/kafka/common/errors/TimeoutException
+
+  private java.util.Map<org.apache.kafka.common.TopicPartition, java.lang.Long> endOffsetForChangelogs(java.util.Set<org.apache.kafka.common.TopicPartition>);
+    Code:
+       0: aload_1
+       1: invokeinterface #102,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+       6: ifeq          13
+       9: invokestatic  #198                // Method java/util/Collections.emptyMap:()Ljava/util/Map;
+      12: areturn
+      13: aload_0
+      14: getfield      #10                 // Field adminClient:Lorg/apache/kafka/clients/admin/Admin;
+      17: aload_1
+      18: invokeinterface #159,  1          // InterfaceMethod java/util/Set.stream:()Ljava/util/stream/Stream;
+      23: invokestatic  #199                // InterfaceMethod java/util/function/Function.identity:()Ljava/util/function/Function;
+      26: invokedynamic #200,  0            // InvokeDynamic #13:apply:()Ljava/util/function/Function;
+      31: invokestatic  #201                // Method java/util/stream/Collectors.toMap:(Ljava/util/function/Function;Ljava/util/function/Function;)Ljava/util/stream/Collector;
+      34: invokeinterface #86,  2           // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+      39: checkcast     #202                // class java/util/Map
+      42: new           #203                // class org/apache/kafka/clients/admin/ListOffsetsOptions
+      45: dup
+      46: getstatic     #204                // Field org/apache/kafka/common/IsolationLevel.READ_UNCOMMITTED:Lorg/apache/kafka/common/IsolationLevel;
+      49: invokespecial #205                // Method org/apache/kafka/clients/admin/ListOffsetsOptions."<init>":(Lorg/apache/kafka/common/IsolationLevel;)V
+      52: invokeinterface #206,  3          // InterfaceMethod org/apache/kafka/clients/admin/Admin.listOffsets:(Ljava/util/Map;Lorg/apache/kafka/clients/admin/ListOffsetsOptions;)Lorg/apache/kafka/clients/admin/ListOffsetsResult;
+      57: astore_2
+      58: aload_2
+      59: invokevirtual #207                // Method org/apache/kafka/clients/admin/ListOffsetsResult.all:()Lorg/apache/kafka/common/KafkaFuture;
+      62: invokevirtual #208                // Method org/apache/kafka/common/KafkaFuture.get:()Ljava/lang/Object;
+      65: checkcast     #202                // class java/util/Map
+      68: invokeinterface #158,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+      73: invokeinterface #159,  1          // InterfaceMethod java/util/Set.stream:()Ljava/util/stream/Stream;
+      78: invokedynamic #161,  0            // InvokeDynamic #12:apply:()Ljava/util/function/Function;
+      83: invokedynamic #209,  0            // InvokeDynamic #14:apply:()Ljava/util/function/Function;
+      88: invokestatic  #201                // Method java/util/stream/Collectors.toMap:(Ljava/util/function/Function;Ljava/util/function/Function;)Ljava/util/stream/Collector;
+      91: invokeinterface #86,  2           // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+      96: checkcast     #202                // class java/util/Map
+      99: areturn
+     100: astore_2
+     101: aload_0
+     102: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     105: ldc           #212                // String Could not fetch all end offsets for {}, will retry in the next run loop
+     107: aload_1
+     108: invokeinterface #55,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     113: invokestatic  #198                // Method java/util/Collections.emptyMap:()Ljava/util/Map;
+     116: areturn
+     117: astore_2
+     118: new           #48                 // class org/apache/kafka/streams/errors/StreamsException
+     121: dup
+     122: ldc           #213                // String Failed to retrieve end offsets for %s
+     124: iconst_1
+     125: anewarray     #180                // class java/lang/Object
+     128: dup
+     129: iconst_0
+     130: aload_1
+     131: aastore
+     132: invokestatic  #214                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     135: aload_2
+     136: invokespecial #50                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     139: athrow
+    Exception table:
+       from    to  target type
+          13    99   100   Class org/apache/kafka/common/errors/TimeoutException
+          13    99   100   Class java/lang/InterruptedException
+          13    99   100   Class java/util/concurrent/ExecutionException
+          13    99   117   Class org/apache/kafka/common/KafkaException
+
+  private void updateLimitOffsetsForStandbyChangelogs(java.util.Map<org.apache.kafka.common.TopicPartition, java.lang.Long>);
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: invokeinterface #81,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+       9: invokeinterface #215,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      14: astore_2
+      15: aload_2
+      16: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      21: ifeq          229
+      24: aload_2
+      25: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      30: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+      33: astore_3
+      34: aload_3
+      35: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+      38: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+      41: astore        4
+      43: aload_3
+      44: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+      47: invokevirtual #67                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.taskType:()Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      50: getstatic     #68                 // Field org/apache/kafka/streams/processor/internals/Task$TaskType.STANDBY:Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      53: if_acmpne     226
+      56: aload_3
+      57: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+      60: aload         4
+      62: invokevirtual #69                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.changelogAsSource:(Lorg/apache/kafka/common/TopicPartition;)Z
+      65: ifeq          226
+      68: aload_1
+      69: aload         4
+      71: invokeinterface #216,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+      76: ifeq          226
+      79: aload_1
+      80: aload         4
+      82: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      87: checkcast     #20                 // class java/lang/Long
+      90: astore        5
+      92: aload_3
+      93: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+      96: astore        6
+      98: aload         6
+     100: ifnull        165
+     103: aload         6
+     105: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+     108: aload         5
+     110: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+     113: lcmp
+     114: ifle          165
+     117: new           #32                 // class java/lang/IllegalStateException
+     120: dup
+     121: new           #33                 // class java/lang/StringBuilder
+     124: dup
+     125: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+     128: ldc           #217                // String Offset limit should monotonically increase, but was reduced for partition
+     130: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     133: aload         4
+     135: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     138: ldc           #218                // String . New limit:
+     140: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     143: aload         5
+     145: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     148: ldc           #219                // String . Previous limit:
+     150: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     153: aload         6
+     155: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     158: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     161: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+     164: athrow
+     165: aload_3
+     166: aload         5
+     168: invokestatic  #71                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$102:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;Ljava/lang/Long;)Ljava/lang/Long;
+     171: pop
+     172: aload_3
+     173: invokestatic  #174                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$800:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)I
+     176: aload_3
+     177: invokestatic  #41                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$200:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/util/List;
+     180: invokeinterface #170,  1          // InterfaceMethod java/util/List.size:()I
+     185: if_icmpge     226
+     188: aload_3
+     189: invokestatic  #41                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$200:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/util/List;
+     192: aload_3
+     193: invokestatic  #174                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$800:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)I
+     196: invokeinterface #51,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     201: checkcast     #52                 // class org/apache/kafka/clients/consumer/ConsumerRecord
+     204: invokevirtual #53                 // Method org/apache/kafka/clients/consumer/ConsumerRecord.offset:()J
+     207: aload_3
+     208: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+     211: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+     214: lcmp
+     215: ifge          226
+     218: aload_3
+     219: invokestatic  #220                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$808:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)I
+     222: pop
+     223: goto          172
+     226: goto          15
+     229: return
+
+  private void initializeChangelogs(java.util.Set<org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata>);
+    Code:
+       0: aload_1
+       1: invokeinterface #102,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+       6: ifeq          10
+       9: return
+      10: new           #221                // class java/util/HashSet
+      13: dup
+      14: invokespecial #222                // Method java/util/HashSet."<init>":()V
+      17: astore_2
+      18: new           #221                // class java/util/HashSet
+      21: dup
+      22: invokespecial #222                // Method java/util/HashSet."<init>":()V
+      25: astore_3
+      26: aload_1
+      27: invokeinterface #118,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      32: astore        4
+      34: aload         4
+      36: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      41: ifeq          114
+      44: aload         4
+      46: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      51: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+      54: astore        5
+      56: aload         5
+      58: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+      61: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+      64: astore        6
+      66: aload         5
+      68: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+      71: invokevirtual #67                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.taskType:()Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      74: getstatic     #185                // Field org/apache/kafka/streams/processor/internals/Task$TaskType.ACTIVE:Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      77: if_acmpne     89
+      80: aload_2
+      81: aload         6
+      83: invokeinterface #223,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      88: pop
+      89: aload         5
+      91: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+      94: aload         6
+      96: invokevirtual #69                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.changelogAsSource:(Lorg/apache/kafka/common/TopicPartition;)Z
+      99: ifeq          111
+     102: aload_3
+     103: aload         6
+     105: invokeinterface #223,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     110: pop
+     111: goto          34
+     114: aload_0
+     115: aload_2
+     116: invokespecial #224                // Method endOffsetForChangelogs:(Ljava/util/Set;)Ljava/util/Map;
+     119: astore        4
+     121: aload_0
+     122: aload_3
+     123: invokespecial #163                // Method committedOffsetForChangelogs:(Ljava/util/Set;)Ljava/util/Map;
+     126: astore        5
+     128: aload_2
+     129: invokeinterface #118,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     134: astore        6
+     136: aload         6
+     138: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     143: ifeq          418
+     146: aload         6
+     148: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     153: checkcast     #121                // class org/apache/kafka/common/TopicPartition
+     156: astore        7
+     158: aload_0
+     159: getfield      #28                 // Field changelogs:Ljava/util/Map;
+     162: aload         7
+     164: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     169: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+     172: astore        8
+     174: aload         4
+     176: aload         7
+     178: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     183: checkcast     #20                 // class java/lang/Long
+     186: astore        9
+     188: aload_3
+     189: aload         7
+     191: invokeinterface #225,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+     196: ifeq          214
+     199: aload         5
+     201: aload         7
+     203: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     208: checkcast     #20                 // class java/lang/Long
+     211: goto          220
+     214: ldc2_w        #21                 // long 9223372036854775807l
+     217: invokestatic  #70                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     220: astore        10
+     222: aload         9
+     224: ifnull        349
+     227: aload         10
+     229: ifnull        349
+     232: aload         8
+     234: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+     237: ifnull        306
+     240: new           #32                 // class java/lang/IllegalStateException
+     243: dup
+     244: new           #33                 // class java/lang/StringBuilder
+     247: dup
+     248: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+     251: ldc           #226                // String End offset for
+     253: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     256: aload         7
+     258: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     261: ldc           #227                // String  should only be initialized once. Existing value:
+     263: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     266: aload         8
+     268: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+     271: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     274: ldc           #228                // String , new value: (
+     276: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     279: aload         9
+     281: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     284: ldc           #229                // String ,
+     286: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     289: aload         10
+     291: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     294: ldc           #230                // String )
+     296: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     299: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     302: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+     305: athrow
+     306: aload         8
+     308: aload         9
+     310: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+     313: aload         10
+     315: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+     318: invokestatic  #231                // Method java/lang/Math.min:(JJ)J
+     321: invokestatic  #70                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     324: invokestatic  #71                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$102:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;Ljava/lang/Long;)Ljava/lang/Long;
+     327: pop
+     328: aload_0
+     329: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     332: ldc           #232                // String End offset for changelog {} initialized as {}.
+     334: aload         7
+     336: aload         8
+     338: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+     341: invokeinterface #233,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     346: goto          415
+     349: aload_1
+     350: aload         8
+     352: invokeinterface #234,  2          // InterfaceMethod java/util/Set.remove:(Ljava/lang/Object;)Z
+     357: ifne          402
+     360: new           #32                 // class java/lang/IllegalStateException
+     363: dup
+     364: new           #33                 // class java/lang/StringBuilder
+     367: dup
+     368: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+     371: ldc           #235                // String New changelogs to restore
+     373: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     376: aload_1
+     377: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     380: ldc           #236                // String  does not contain the one looking for end offset:
+     382: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     385: aload         7
+     387: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     390: ldc           #237                // String , this should not happen.
+     392: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     395: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     398: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+     401: athrow
+     402: aload_0
+     403: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     406: ldc           #238                // String End offset for changelog {} cannot be found; will retry in the next time.
+     408: aload         7
+     410: invokeinterface #239,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     415: goto          136
+     418: aload         5
+     420: invokeinterface #240,  1          // InterfaceMethod java/util/Map.isEmpty:()Z
+     425: ifne          434
+     428: aload_0
+     429: aload         5
+     431: invokespecial #164                // Method updateLimitOffsetsForStandbyChangelogs:(Ljava/util/Map;)V
+     434: aload_0
+     435: aload_1
+     436: invokeinterface #159,  1          // InterfaceMethod java/util/Set.stream:()Ljava/util/stream/Stream;
+     441: invokedynamic #241,  0            // InvokeDynamic #15:apply:()Ljava/util/function/Function;
+     446: invokeinterface #90,  2           // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+     451: invokestatic  #85                 // Method java/util/stream/Collectors.toSet:()Ljava/util/stream/Collector;
+     454: invokeinterface #86,  2           // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+     459: checkcast     #87                 // class java/util/Set
+     462: invokespecial #242                // Method addChangelogsToRestoreConsumer:(Ljava/util/Set;)V
+     465: aload_1
+     466: invokedynamic #243,  0            // InvokeDynamic #16:accept:()Ljava/util/function/Consumer;
+     471: invokeinterface #244,  2          // InterfaceMethod java/util/Set.forEach:(Ljava/util/function/Consumer;)V
+     476: aload_0
+     477: getfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+     480: getstatic     #8                  // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState.ACTIVE_RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+     483: if_acmpne     494
+     486: aload_0
+     487: aload_0
+     488: invokespecial #56                 // Method standbyRestoringChangelogs:()Ljava/util/Set;
+     491: invokespecial #57                 // Method pauseChangelogsFromRestoreConsumer:(Ljava/util/Collection;)V
+     494: aload_0
+     495: aload_1
+     496: invokespecial #245                // Method prepareChangelogs:(Ljava/util/Set;)V
+     499: return
+
+  private void addChangelogsToRestoreConsumer(java.util.Set<org.apache.kafka.common.TopicPartition>);
+    Code:
+       0: new           #221                // class java/util/HashSet
+       3: dup
+       4: aload_0
+       5: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+       8: invokeinterface #246,  1          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.assignment:()Ljava/util/Set;
+      13: invokespecial #247                // Method java/util/HashSet."<init>":(Ljava/util/Collection;)V
+      16: astore_2
+      17: aload_2
+      18: aload_1
+      19: invokeinterface #248,  2          // InterfaceMethod java/util/Set.removeAll:(Ljava/util/Collection;)Z
+      24: ifeq          71
+      27: new           #32                 // class java/lang/IllegalStateException
+      30: dup
+      31: new           #33                 // class java/lang/StringBuilder
+      34: dup
+      35: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+      38: ldc           #249                // String The current assignment
+      40: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      43: aload_0
+      44: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      47: invokeinterface #246,  1          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.assignment:()Ljava/util/Set;
+      52: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      55: ldc           #250                // String  already contains some of the new partitions
+      57: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      60: aload_1
+      61: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      64: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      67: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      70: athrow
+      71: aload_2
+      72: aload_1
+      73: invokeinterface #251,  2          // InterfaceMethod java/util/Set.addAll:(Ljava/util/Collection;)Z
+      78: pop
+      79: aload_0
+      80: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      83: aload_2
+      84: invokeinterface #252,  2          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.assign:(Ljava/util/Collection;)V
+      89: aload_0
+      90: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      93: ldc           #253                // String Added partitions {} to the restore consumer, current assignment is {}
+      95: aload_1
+      96: aload_2
+      97: invokeinterface #233,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     102: return
+
+  private void pauseChangelogsFromRestoreConsumer(java.util.Collection<org.apache.kafka.common.TopicPartition>);
+    Code:
+       0: new           #221                // class java/util/HashSet
+       3: dup
+       4: aload_0
+       5: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+       8: invokeinterface #246,  1          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.assignment:()Ljava/util/Set;
+      13: invokespecial #247                // Method java/util/HashSet."<init>":(Ljava/util/Collection;)V
+      16: astore_2
+      17: aload_2
+      18: aload_1
+      19: invokeinterface #254,  2          // InterfaceMethod java/util/Set.containsAll:(Ljava/util/Collection;)Z
+      24: ifne          69
+      27: new           #32                 // class java/lang/IllegalStateException
+      30: dup
+      31: new           #33                 // class java/lang/StringBuilder
+      34: dup
+      35: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+      38: ldc           #249                // String The current assignment
+      40: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      43: aload_2
+      44: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      47: ldc           #255                // String  does not contain some of the partitions
+      49: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      52: aload_1
+      53: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      56: ldc_w         #256                // String  for pausing.
+      59: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      62: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      65: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      68: athrow
+      69: aload_0
+      70: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      73: aload_1
+      74: invokeinterface #257,  2          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.pause:(Ljava/util/Collection;)V
+      79: aload_0
+      80: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      83: ldc_w         #258                // String Paused partitions {} from the restore consumer
+      86: aload_1
+      87: invokeinterface #55,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      92: return
+
+  private void removeChangelogsFromRestoreConsumer(java.util.Collection<org.apache.kafka.common.TopicPartition>);
+    Code:
+       0: new           #221                // class java/util/HashSet
+       3: dup
+       4: aload_0
+       5: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+       8: invokeinterface #246,  1          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.assignment:()Ljava/util/Set;
+      13: invokespecial #247                // Method java/util/HashSet."<init>":(Ljava/util/Collection;)V
+      16: astore_2
+      17: aload_2
+      18: aload_1
+      19: invokeinterface #254,  2          // InterfaceMethod java/util/Set.containsAll:(Ljava/util/Collection;)Z
+      24: ifne          69
+      27: new           #32                 // class java/lang/IllegalStateException
+      30: dup
+      31: new           #33                 // class java/lang/StringBuilder
+      34: dup
+      35: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+      38: ldc           #249                // String The current assignment
+      40: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      43: aload_2
+      44: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      47: ldc           #255                // String  does not contain some of the partitions
+      49: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      52: aload_1
+      53: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      56: ldc_w         #259                // String  for removing.
+      59: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      62: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      65: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      68: athrow
+      69: aload_2
+      70: aload_1
+      71: invokeinterface #248,  2          // InterfaceMethod java/util/Set.removeAll:(Ljava/util/Collection;)Z
+      76: pop
+      77: aload_0
+      78: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      81: aload_2
+      82: invokeinterface #252,  2          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.assign:(Ljava/util/Collection;)V
+      87: return
+
+  private void resumeChangelogsFromRestoreConsumer(java.util.Collection<org.apache.kafka.common.TopicPartition>);
+    Code:
+       0: new           #221                // class java/util/HashSet
+       3: dup
+       4: aload_0
+       5: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+       8: invokeinterface #246,  1          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.assignment:()Ljava/util/Set;
+      13: invokespecial #247                // Method java/util/HashSet."<init>":(Ljava/util/Collection;)V
+      16: astore_2
+      17: aload_2
+      18: aload_1
+      19: invokeinterface #254,  2          // InterfaceMethod java/util/Set.containsAll:(Ljava/util/Collection;)Z
+      24: ifne          69
+      27: new           #32                 // class java/lang/IllegalStateException
+      30: dup
+      31: new           #33                 // class java/lang/StringBuilder
+      34: dup
+      35: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+      38: ldc           #249                // String The current assignment
+      40: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      43: aload_2
+      44: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      47: ldc           #255                // String  does not contain some of the partitions
+      49: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      52: aload_1
+      53: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      56: ldc_w         #260                // String  for resuming.
+      59: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      62: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      65: invokespecial #40                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      68: athrow
+      69: aload_0
+      70: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      73: aload_1
+      74: invokeinterface #261,  2          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.resume:(Ljava/util/Collection;)V
+      79: aload_0
+      80: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      83: ldc_w         #262                // String Resumed partitions {} from the restore consumer
+      86: aload_1
+      87: invokeinterface #55,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      92: return
+
+  private void prepareChangelogs(java.util.Set<org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata>);
+    Code:
+       0: new           #221                // class java/util/HashSet
+       3: dup
+       4: invokespecial #222                // Method java/util/HashSet."<init>":()V
+       7: astore_2
+       8: aload_1
+       9: invokeinterface #118,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      14: astore_3
+      15: aload_3
+      16: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      21: ifeq          166
+      24: aload_3
+      25: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      30: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+      33: astore        4
+      35: aload         4
+      37: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+      40: astore        5
+      42: aload         5
+      44: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+      47: astore        6
+      49: aload         5
+      51: invokevirtual #178                // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.offset:()Ljava/lang/Long;
+      54: astore        7
+      56: aload_0
+      57: getfield      #28                 // Field changelogs:Ljava/util/Map;
+      60: aload         6
+      62: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      67: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+      70: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+      73: astore        8
+      75: aload         7
+      77: ifnull        135
+      80: aload_0
+      81: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      84: aload         6
+      86: aload         7
+      88: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+      91: lconst_1
+      92: ladd
+      93: invokeinterface #263,  4          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.seek:(Lorg/apache/kafka/common/TopicPartition;J)V
+      98: aload_0
+      99: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     102: ldc_w         #264                // String Start restoring changelog partition {} from current offset {} to end offset {}.
+     105: iconst_3
+     106: anewarray     #180                // class java/lang/Object
+     109: dup
+     110: iconst_0
+     111: aload         6
+     113: aastore
+     114: dup
+     115: iconst_1
+     116: aload         7
+     118: aastore
+     119: dup
+     120: iconst_2
+     121: aload         8
+     123: invokestatic  #182                // Method recordEndOffset:(Ljava/lang/Long;)Ljava/lang/String;
+     126: aastore
+     127: invokeinterface #265,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     132: goto          163
+     135: aload_0
+     136: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     139: ldc_w         #266                // String Start restoring changelog partition {} from the beginning offset to end offset {} since we cannot find current offset.
+     142: aload         6
+     144: aload         8
+     146: invokestatic  #182                // Method recordEndOffset:(Ljava/lang/Long;)Ljava/lang/String;
+     149: invokeinterface #233,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     154: aload_2
+     155: aload         6
+     157: invokeinterface #223,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     162: pop
+     163: goto          15
+     166: aload_2
+     167: invokeinterface #102,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+     172: ifne          185
+     175: aload_0
+     176: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+     179: aload_2
+     180: invokeinterface #267,  2          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.seekToBeginning:(Ljava/util/Collection;)V
+     185: aload_1
+     186: invokeinterface #118,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     191: astore_3
+     192: aload_3
+     193: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     198: ifeq          351
+     201: aload_3
+     202: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     207: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+     210: astore        4
+     212: aload         4
+     214: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+     217: invokevirtual #67                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.taskType:()Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+     220: getstatic     #185                // Field org/apache/kafka/streams/processor/internals/Task$TaskType.ACTIVE:Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+     223: if_acmpne     348
+     226: aload         4
+     228: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+     231: astore        5
+     233: aload         5
+     235: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+     238: astore        6
+     240: aload         5
+     242: invokevirtual #172                // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.store:()Lorg/apache/kafka/streams/processor/StateStore;
+     245: invokeinterface #173,  1          // InterfaceMethod org/apache/kafka/streams/processor/StateStore.name:()Ljava/lang/String;
+     250: astore        7
+     252: lconst_0
+     253: lstore        8
+     255: aload_0
+     256: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+     259: aload         6
+     261: invokeinterface #45,  2           // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.position:(Lorg/apache/kafka/common/TopicPartition;)J
+     266: lstore        8
+     268: goto          308
+     271: astore        10
+     273: goto          308
+     276: astore        10
+     278: new           #48                 // class org/apache/kafka/streams/errors/StreamsException
+     281: dup
+     282: new           #33                 // class java/lang/StringBuilder
+     285: dup
+     286: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+     289: ldc           #49                 // String Restore consumer get unexpected error trying to get the position  of
+     291: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     294: aload         6
+     296: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     299: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     302: aload         10
+     304: invokespecial #50                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     307: athrow
+     308: aload_0
+     309: getfield      #12                 // Field stateRestoreListener:Lorg/apache/kafka/streams/processor/StateRestoreListener;
+     312: aload         6
+     314: aload         7
+     316: lload         8
+     318: aload         4
+     320: invokestatic  #31                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$100:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Ljava/lang/Long;
+     323: invokevirtual #16                 // Method java/lang/Long.longValue:()J
+     326: invokeinterface #268,  7          // InterfaceMethod org/apache/kafka/streams/processor/StateRestoreListener.onRestoreStart:(Lorg/apache/kafka/common/TopicPartition;Ljava/lang/String;JJ)V
+     331: goto          348
+     334: astore        10
+     336: new           #48                 // class org/apache/kafka/streams/errors/StreamsException
+     339: dup
+     340: ldc           #188                // String State restore listener failed on batch restored
+     342: aload         10
+     344: invokespecial #50                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     347: athrow
+     348: goto          192
+     351: return
+    Exception table:
+       from    to  target type
+         255   268   271   Class org/apache/kafka/common/errors/TimeoutException
+         255   268   276   Class org/apache/kafka/common/KafkaException
+         308   331   334   Class java/lang/Exception
+
+  public void unregister(java.util.Collection<org.apache.kafka.common.TopicPartition>);
+    Code:
+       0: new           #269                // class java/util/ArrayList
+       3: dup
+       4: invokespecial #270                // Method java/util/ArrayList."<init>":()V
+       7: astore_2
+       8: aload_1
+       9: invokeinterface #215,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      14: astore_3
+      15: aload_3
+      16: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      21: ifeq          104
+      24: aload_3
+      25: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      30: checkcast     #121                // class org/apache/kafka/common/TopicPartition
+      33: astore        4
+      35: aload_0
+      36: getfield      #28                 // Field changelogs:Ljava/util/Map;
+      39: aload         4
+      41: invokeinterface #271,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      46: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+      49: astore        5
+      51: aload         5
+      53: ifnull        87
+      56: aload         5
+      58: invokevirtual #272                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.state:()Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+      61: getstatic     #273                // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.REGISTERED:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+      64: invokevirtual #274                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.equals:(Ljava/lang/Object;)Z
+      67: ifne          79
+      70: aload_2
+      71: aload         4
+      73: invokeinterface #169,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      78: pop
+      79: aload         5
+      81: invokestatic  #275                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$1000:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)V
+      84: goto          101
+      87: aload_0
+      88: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      91: ldc_w         #276                // String Changelog partition {} could not be found, it could be already cleaned up during the handling of task corruption and never restore again
+      94: aload         4
+      96: invokeinterface #55,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     101: goto          15
+     104: aload_0
+     105: aload_2
+     106: invokespecial #277                // Method removeChangelogsFromRestoreConsumer:(Ljava/util/Collection;)V
+     109: return
+
+  public void clear();
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: invokeinterface #81,  1           // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+       9: invokeinterface #215,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      14: astore_1
+      15: aload_1
+      16: invokeinterface #119,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      21: ifeq          41
+      24: aload_1
+      25: invokeinterface #120,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      30: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+      33: astore_2
+      34: aload_2
+      35: invokestatic  #275                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$1000:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)V
+      38: goto          15
+      41: aload_0
+      42: getfield      #28                 // Field changelogs:Ljava/util/Map;
+      45: invokeinterface #278,  1          // InterfaceMethod java/util/Map.clear:()V
+      50: aload_0
+      51: getfield      #11                 // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      54: invokeinterface #279,  1          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.unsubscribe:()V
+      59: goto          75
+      62: astore_1
+      63: new           #48                 // class org/apache/kafka/streams/errors/StreamsException
+      66: dup
+      67: ldc_w         #280                // String Restore consumer get unexpected error unsubscribing
+      70: aload_1
+      71: invokespecial #50                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      74: athrow
+      75: return
+    Exception table:
+       from    to  target type
+          50    59    62   Class org/apache/kafka/common/KafkaException
+
+  public boolean isEmpty();
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: invokeinterface #240,  1          // InterfaceMethod java/util/Map.isEmpty:()Z
+       9: ireturn
+
+  public java.lang.String toString();
+    Code:
+       0: new           #33                 // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #34                 // Method java/lang/StringBuilder."<init>":()V
+       7: ldc_w         #281                // String StoreChangelogReader:
+      10: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      13: aload_0
+      14: getfield      #28                 // Field changelogs:Ljava/util/Map;
+      17: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      20: ldc_w         #282                // String \n
+      23: invokevirtual #36                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      29: areturn
+
+  org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata changelogMetadata(org.apache.kafka.common.TopicPartition);
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field changelogs:Ljava/util/Map;
+       4: aload_1
+       5: invokeinterface #75,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+      13: areturn
+
+  org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogReaderState state();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field state:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogReaderState;
+       4: areturn
+
+  private static void lambda$initializeChangelogs$15(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: getstatic     #79                 // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       4: invokestatic  #193                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$900:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;)V
+       7: return
+
+  private static org.apache.kafka.common.TopicPartition lambda$initializeChangelogs$14(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+       4: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+       7: areturn
+
+  private static java.lang.Long lambda$endOffsetForChangelogs$13(java.util.Map$Entry);
+    Code:
+       0: aload_0
+       1: invokeinterface #283,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+       6: checkcast     #284                // class org/apache/kafka/clients/admin/ListOffsetsResult$ListOffsetsResultInfo
+       9: invokevirtual #285                // Method org/apache/kafka/clients/admin/ListOffsetsResult$ListOffsetsResultInfo.offset:()J
+      12: invokestatic  #70                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      15: areturn
+
+  private static org.apache.kafka.clients.admin.OffsetSpec lambda$endOffsetForChangelogs$12(org.apache.kafka.common.TopicPartition);
+    Code:
+       0: invokestatic  #286                // Method org/apache/kafka/clients/admin/OffsetSpec.latest:()Lorg/apache/kafka/clients/admin/OffsetSpec;
+       3: areturn
+
+  private static boolean lambda$maybeUpdateLimitOffsetsForStandbyChangelogs$11(java.util.Map$Entry);
+    Code:
+       0: aload_0
+       1: invokeinterface #283,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+       6: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+       9: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+      12: invokevirtual #67                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.taskType:()Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      15: getstatic     #68                 // Field org/apache/kafka/streams/processor/internals/Task$TaskType.STANDBY:Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      18: if_acmpne     52
+      21: aload_0
+      22: invokeinterface #283,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      27: checkcast     #65                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata
+      30: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+      33: aload_0
+      34: invokeinterface #287,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      39: checkcast     #121                // class org/apache/kafka/common/TopicPartition
+      42: invokevirtual #69                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.changelogAsSource:(Lorg/apache/kafka/common/TopicPartition;)Z
+      45: ifeq          52
+      48: iconst_1
+      49: goto          53
+      52: iconst_0
+      53: ireturn
+
+  private static java.util.Collection lambda$restore$10(org.apache.kafka.streams.processor.TaskId);
+    Code:
+       0: new           #221                // class java/util/HashSet
+       3: dup
+       4: invokespecial #222                // Method java/util/HashSet."<init>":()V
+       7: areturn
+
+  private static org.apache.kafka.common.TopicPartition lambda$completedChangelogs$9(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+       4: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+       7: areturn
+
+  private static boolean lambda$completedChangelogs$8(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #78                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$500:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       4: getstatic     #192                // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.COMPLETED:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       7: if_acmpne     14
+      10: iconst_1
+      11: goto          15
+      14: iconst_0
+      15: ireturn
+
+  private static boolean lambda$allChangelogsCompleted$7(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #78                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$500:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       4: getstatic     #192                // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.COMPLETED:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       7: if_acmpne     14
+      10: iconst_1
+      11: goto          15
+      14: iconst_0
+      15: ireturn
+
+  private static org.apache.kafka.common.TopicPartition lambda$standbyRestoringChangelogs$6(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+       4: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+       7: areturn
+
+  private static boolean lambda$standbyRestoringChangelogs$5(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #78                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$500:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       4: getstatic     #79                 // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       7: if_acmpne     27
+      10: aload_0
+      11: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+      14: invokevirtual #67                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.taskType:()Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      17: getstatic     #68                 // Field org/apache/kafka/streams/processor/internals/Task$TaskType.STANDBY:Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      20: if_acmpne     27
+      23: iconst_1
+      24: goto          28
+      27: iconst_0
+      28: ireturn
+
+  private static org.apache.kafka.common.TopicPartition lambda$activeRestoringChangelogs$4(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+       4: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+       7: areturn
+
+  private static boolean lambda$activeRestoringChangelogs$3(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #78                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$500:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       4: getstatic     #79                 // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       7: if_acmpne     27
+      10: aload_0
+      11: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$600:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager;
+      14: invokevirtual #67                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager.taskType:()Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      17: getstatic     #185                // Field org/apache/kafka/streams/processor/internals/Task$TaskType.ACTIVE:Lorg/apache/kafka/streams/processor/internals/Task$TaskType;
+      20: if_acmpne     27
+      23: iconst_1
+      24: goto          28
+      27: iconst_0
+      28: ireturn
+
+  private static org.apache.kafka.common.TopicPartition lambda$restoringChangelogs$2(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #43                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$300:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata;
+       4: invokevirtual #44                 // Method org/apache/kafka/streams/processor/internals/ProcessorStateManager$StateStoreMetadata.changelogPartition:()Lorg/apache/kafka/common/TopicPartition;
+       7: areturn
+
+  private static boolean lambda$restoringChangelogs$1(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #78                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$500:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       4: getstatic     #79                 // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.RESTORING:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       7: if_acmpne     14
+      10: iconst_1
+      11: goto          15
+      14: iconst_0
+      15: ireturn
+
+  private static boolean lambda$registeredChangelogs$0(org.apache.kafka.streams.processor.internals.StoreChangelogReader$ChangelogMetadata);
+    Code:
+       0: aload_0
+       1: invokestatic  #78                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata.access$500:(Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogMetadata;)Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       4: getstatic     #273                // Field org/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState.REGISTERED:Lorg/apache/kafka/streams/processor/internals/StoreChangelogReader$ChangelogState;
+       7: if_acmpne     14
+      10: iconst_1
+      11: goto          15
+      14: iconst_0
+      15: ireturn
+
+  static {};
+    Code:
+       0: ldc2_w        #288                // long 5l
+       3: invokestatic  #290                // Method java/time/Duration.ofMinutes:(J)Ljava/time/Duration;
+       6: invokevirtual #291                // Method java/time/Duration.toMillis:()J
+       9: putstatic     #23                 // Field DEFAULT_OFFSET_UPDATE_MS:J
+      12: return
+}

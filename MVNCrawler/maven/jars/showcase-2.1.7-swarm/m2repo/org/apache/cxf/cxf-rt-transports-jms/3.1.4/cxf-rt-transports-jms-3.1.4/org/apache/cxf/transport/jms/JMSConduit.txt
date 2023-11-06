@@ -1,0 +1,965 @@
+Compiled from "JMSConduit.java"
+public class org.apache.cxf.transport.jms.JMSConduit extends org.apache.cxf.transport.AbstractConduit implements org.apache.cxf.transport.jms.JMSExchangeSender,javax.jms.MessageListener {
+  static final java.util.logging.Logger LOG;
+
+  private static final java.lang.String CORRELATED;
+
+  private org.apache.cxf.transport.jms.JMSConfiguration jmsConfig;
+
+  private java.util.Map<java.lang.String, org.apache.cxf.message.Exchange> correlationMap;
+
+  private org.apache.cxf.transport.jms.util.JMSListenerContainer jmsListener;
+
+  private java.lang.String conduitId;
+
+  private final java.util.concurrent.atomic.AtomicLong messageCount;
+
+  private org.apache.cxf.transport.jms.JMSConduit$JMSBusLifeCycleListener listener;
+
+  private org.apache.cxf.Bus bus;
+
+  private volatile javax.jms.Connection connection;
+
+  private volatile javax.jms.Destination staticReplyDestination;
+
+  public org.apache.cxf.transport.jms.JMSConduit(org.apache.cxf.ws.addressing.EndpointReferenceType, org.apache.cxf.transport.jms.JMSConfiguration, org.apache.cxf.Bus);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #2                  // Method org/apache/cxf/transport/AbstractConduit."<init>":(Lorg/apache/cxf/ws/addressing/EndpointReferenceType;)V
+       5: aload_0
+       6: new           #3                  // class java/util/concurrent/ConcurrentHashMap
+       9: dup
+      10: invokespecial #4                  // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      13: putfield      #5                  // Field correlationMap:Ljava/util/Map;
+      16: aload_0
+      17: new           #6                  // class java/util/concurrent/atomic/AtomicLong
+      20: dup
+      21: lconst_0
+      22: invokespecial #7                  // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      25: putfield      #8                  // Field messageCount:Ljava/util/concurrent/atomic/AtomicLong;
+      28: aload_0
+      29: aload_3
+      30: putfield      #9                  // Field bus:Lorg/apache/cxf/Bus;
+      33: aload_0
+      34: aload_2
+      35: putfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      38: aload_0
+      39: invokestatic  #11                 // Method java/util/UUID.randomUUID:()Ljava/util/UUID;
+      42: invokevirtual #12                 // Method java/util/UUID.toString:()Ljava/lang/String;
+      45: ldc           #13                 // String -
+      47: ldc           #14                 // String
+      49: invokevirtual #15                 // Method java/lang/String.replaceAll:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      52: putfield      #16                 // Field conduitId:Ljava/lang/String;
+      55: return
+
+  public void prepare(org.apache.cxf.message.Message) throws java.io.IOException;
+    Code:
+       0: ldc           #17                 // String text
+       2: aload_0
+       3: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+       6: invokevirtual #18                 // Method org/apache/cxf/transport/jms/JMSConfiguration.getMessageType:()Ljava/lang/String;
+       9: invokevirtual #19                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      12: istore_2
+      13: aload_1
+      14: iload_2
+      15: aload_0
+      16: invokestatic  #20                 // Method org/apache/cxf/transport/jms/MessageStreamUtil.prepareStream:(Lorg/apache/cxf/message/Message;ZLorg/apache/cxf/transport/jms/JMSExchangeSender;)V
+      19: return
+
+  public void close(org.apache.cxf.message.Message) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokestatic  #21                 // Method org/apache/cxf/transport/jms/MessageStreamUtil.closeStreams:(Lorg/apache/cxf/message/Message;)V
+       4: aload_0
+       5: aload_1
+       6: invokespecial #22                 // Method org/apache/cxf/transport/AbstractConduit.close:(Lorg/apache/cxf/message/Message;)V
+       9: return
+
+  private javax.jms.Connection getConnection() throws javax.jms.JMSException;
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field connection:Ljavax/jms/Connection;
+       4: astore_1
+       5: aload_1
+       6: ifnonnull     51
+       9: aload_0
+      10: dup
+      11: astore_2
+      12: monitorenter
+      13: aload_0
+      14: getfield      #23                 // Field connection:Ljavax/jms/Connection;
+      17: astore_1
+      18: aload_1
+      19: ifnonnull     41
+      22: aload_0
+      23: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      26: invokestatic  #24                 // Method org/apache/cxf/transport/jms/JMSFactory.createConnection:(Lorg/apache/cxf/transport/jms/JMSConfiguration;)Ljavax/jms/Connection;
+      29: astore_1
+      30: aload_1
+      31: invokeinterface #25,  1           // InterfaceMethod javax/jms/Connection.start:()V
+      36: aload_0
+      37: aload_1
+      38: putfield      #23                 // Field connection:Ljavax/jms/Connection;
+      41: aload_2
+      42: monitorexit
+      43: goto          51
+      46: astore_3
+      47: aload_2
+      48: monitorexit
+      49: aload_3
+      50: athrow
+      51: aload_1
+      52: areturn
+    Exception table:
+       from    to  target type
+          13    43    46   any
+          46    49    46   any
+
+  public void sendExchange(org.apache.cxf.message.Exchange, java.lang.Object);
+    Code:
+       0: getstatic     #26                 // Field LOG:Ljava/util/logging/Logger;
+       3: getstatic     #27                 // Field java/util/logging/Level.FINE:Ljava/util/logging/Level;
+       6: ldc           #28                 // String JMSConduit send message
+       8: invokevirtual #29                 // Method java/util/logging/Logger.log:(Ljava/util/logging/Level;Ljava/lang/String;)V
+      11: aload_1
+      12: invokeinterface #30,  1           // InterfaceMethod org/apache/cxf/message/Exchange.getOutMessage:()Lorg/apache/cxf/message/Message;
+      17: ifnonnull     29
+      20: aload_1
+      21: invokeinterface #31,  1           // InterfaceMethod org/apache/cxf/message/Exchange.getOutFaultMessage:()Lorg/apache/cxf/message/Message;
+      26: goto          35
+      29: aload_1
+      30: invokeinterface #30,  1           // InterfaceMethod org/apache/cxf/message/Exchange.getOutMessage:()Lorg/apache/cxf/message/Message;
+      35: astore_3
+      36: aload_3
+      37: ifnonnull     50
+      40: new           #32                 // class java/lang/RuntimeException
+      43: dup
+      44: ldc           #33                 // String Exchange to be sent has no outMessage
+      46: invokespecial #34                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;)V
+      49: athrow
+      50: aload_0
+      51: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      54: invokevirtual #35                 // Method org/apache/cxf/transport/jms/JMSConfiguration.ensureProperlyConfigured:()V
+      57: aload_0
+      58: aload_3
+      59: invokespecial #36                 // Method assertIsNotTextMessageAndMtom:(Lorg/apache/cxf/message/Message;)V
+      62: new           #37                 // class org/apache/cxf/transport/jms/util/ResourceCloser
+      65: dup
+      66: invokespecial #38                 // Method org/apache/cxf/transport/jms/util/ResourceCloser."<init>":()V
+      69: astore        4
+      71: aconst_null
+      72: astore        5
+      74: aload_0
+      75: invokespecial #39                 // Method getConnection:()Ljavax/jms/Connection;
+      78: astore        6
+      80: aload         4
+      82: aload         6
+      84: iconst_0
+      85: iconst_1
+      86: invokeinterface #40,  3           // InterfaceMethod javax/jms/Connection.createSession:(ZI)Ljavax/jms/Session;
+      91: invokevirtual #41                 // Method org/apache/cxf/transport/jms/util/ResourceCloser.register:(Ljava/lang/Object;)Ljava/lang/Object;
+      94: checkcast     #42                 // class javax/jms/Session
+      97: astore        7
+      99: aload_1
+     100: invokeinterface #43,  1           // InterfaceMethod org/apache/cxf/message/Exchange.isOneWay:()Z
+     105: ifeq          124
+     108: aload_0
+     109: aload_2
+     110: aload_3
+     111: aconst_null
+     112: aconst_null
+     113: aload         4
+     115: aload         7
+     117: invokespecial #44                 // Method sendMessage:(Ljava/lang/Object;Lorg/apache/cxf/message/Message;Ljavax/jms/Destination;Ljava/lang/String;Lorg/apache/cxf/transport/jms/util/ResourceCloser;Ljavax/jms/Session;)Ljava/lang/String;
+     120: pop
+     121: goto          135
+     124: aload_0
+     125: aload_1
+     126: aload_2
+     127: aload_3
+     128: aload         4
+     130: aload         7
+     132: invokespecial #45                 // Method sendAndReceiveMessage:(Lorg/apache/cxf/message/Exchange;Ljava/lang/Object;Lorg/apache/cxf/message/Message;Lorg/apache/cxf/transport/jms/util/ResourceCloser;Ljavax/jms/Session;)V
+     135: aload         4
+     137: ifnull        222
+     140: aload         5
+     142: ifnull        165
+     145: aload         4
+     147: invokevirtual #46                 // Method org/apache/cxf/transport/jms/util/ResourceCloser.close:()V
+     150: goto          222
+     153: astore        6
+     155: aload         5
+     157: aload         6
+     159: invokevirtual #48                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     162: goto          222
+     165: aload         4
+     167: invokevirtual #46                 // Method org/apache/cxf/transport/jms/util/ResourceCloser.close:()V
+     170: goto          222
+     173: astore        6
+     175: aload         6
+     177: astore        5
+     179: aload         6
+     181: athrow
+     182: astore        8
+     184: aload         4
+     186: ifnull        219
+     189: aload         5
+     191: ifnull        214
+     194: aload         4
+     196: invokevirtual #46                 // Method org/apache/cxf/transport/jms/util/ResourceCloser.close:()V
+     199: goto          219
+     202: astore        9
+     204: aload         5
+     206: aload         9
+     208: invokevirtual #48                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     211: goto          219
+     214: aload         4
+     216: invokevirtual #46                 // Method org/apache/cxf/transport/jms/util/ResourceCloser.close:()V
+     219: aload         8
+     221: athrow
+     222: goto          282
+     225: astore        4
+     227: aload_0
+     228: getfield      #23                 // Field connection:Ljavax/jms/Connection;
+     231: invokestatic  #50                 // Method org/apache/cxf/transport/jms/util/ResourceCloser.close:(Ljava/lang/Object;)V
+     234: aload_0
+     235: aconst_null
+     236: putfield      #23                 // Field connection:Ljavax/jms/Connection;
+     239: aload_0
+     240: aconst_null
+     241: putfield      #51                 // Field staticReplyDestination:Ljavax/jms/Destination;
+     244: aload_0
+     245: getfield      #52                 // Field jmsListener:Lorg/apache/cxf/transport/jms/util/JMSListenerContainer;
+     248: ifnull        260
+     251: aload_0
+     252: getfield      #52                 // Field jmsListener:Lorg/apache/cxf/transport/jms/util/JMSListenerContainer;
+     255: invokeinterface #53,  1           // InterfaceMethod org/apache/cxf/transport/jms/util/JMSListenerContainer.shutdown:()V
+     260: aload_0
+     261: aconst_null
+     262: putfield      #52                 // Field jmsListener:Lorg/apache/cxf/transport/jms/util/JMSListenerContainer;
+     265: ldc2_w        #54                 // long 1000l
+     268: invokestatic  #56                 // Method java/lang/Thread.sleep:(J)V
+     271: goto          276
+     274: astore        5
+     276: aload         4
+     278: invokestatic  #58                 // Method org/apache/cxf/transport/jms/util/JMSUtil.convertJmsException:(Ljavax/jms/JMSException;)Ljava/lang/RuntimeException;
+     281: athrow
+     282: return
+    Exception table:
+       from    to  target type
+         145   150   153   Class java/lang/Throwable
+          74   135   173   Class java/lang/Throwable
+          74   135   182   any
+         194   199   202   Class java/lang/Throwable
+         173   184   182   any
+          62   222   225   Class javax/jms/JMSException
+         265   271   274   Class java/lang/InterruptedException
+
+  private void setupReplyDestination(javax.jms.Session) throws javax.jms.JMSException;
+    Code:
+       0: aload_0
+       1: getfield      #51                 // Field staticReplyDestination:Ljavax/jms/Destination;
+       4: ifnonnull     128
+       7: aload_0
+       8: dup
+       9: astore_2
+      10: monitorenter
+      11: aload_0
+      12: getfield      #51                 // Field staticReplyDestination:Ljavax/jms/Destination;
+      15: ifnonnull     116
+      18: aload_0
+      19: aload_0
+      20: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      23: aload_1
+      24: invokevirtual #59                 // Method org/apache/cxf/transport/jms/JMSConfiguration.getReplyDestination:(Ljavax/jms/Session;)Ljavax/jms/Destination;
+      27: putfield      #51                 // Field staticReplyDestination:Ljavax/jms/Destination;
+      30: aload_0
+      31: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      34: aload_0
+      35: getfield      #16                 // Field conduitId:Ljava/lang/String;
+      38: invokestatic  #60                 // Method org/apache/cxf/transport/jms/JMSFactory.getMessageSelector:(Lorg/apache/cxf/transport/jms/JMSConfiguration;Ljava/lang/String;)Ljava/lang/String;
+      41: astore_3
+      42: aload_3
+      43: ifnonnull     59
+      46: aload_0
+      47: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      50: invokevirtual #61                 // Method org/apache/cxf/transport/jms/JMSConfiguration.isPubSubDomain:()Z
+      53: ifne          59
+      56: aload_2
+      57: monitorexit
+      58: return
+      59: new           #62                 // class org/apache/cxf/transport/jms/util/MessageListenerContainer
+      62: dup
+      63: aload_0
+      64: invokespecial #39                 // Method getConnection:()Ljavax/jms/Connection;
+      67: aload_0
+      68: getfield      #51                 // Field staticReplyDestination:Ljavax/jms/Destination;
+      71: aload_0
+      72: invokespecial #63                 // Method org/apache/cxf/transport/jms/util/MessageListenerContainer."<init>":(Ljavax/jms/Connection;Ljavax/jms/Destination;Ljavax/jms/MessageListener;)V
+      75: astore        4
+      77: aload         4
+      79: aload_3
+      80: invokevirtual #64                 // Method org/apache/cxf/transport/jms/util/MessageListenerContainer.setMessageSelector:(Ljava/lang/String;)V
+      83: aload_0
+      84: getfield      #9                  // Field bus:Lorg/apache/cxf/Bus;
+      87: ldc           #65                 // String jms-conduit
+      89: invokestatic  #66                 // Method org/apache/cxf/transport/jms/JMSFactory.createExecutor:(Lorg/apache/cxf/Bus;Ljava/lang/String;)Ljava/util/concurrent/Executor;
+      92: astore        5
+      94: aload         4
+      96: aload         5
+      98: invokevirtual #67                 // Method org/apache/cxf/transport/jms/util/MessageListenerContainer.setExecutor:(Ljava/util/concurrent/Executor;)V
+     101: aload         4
+     103: invokevirtual #68                 // Method org/apache/cxf/transport/jms/util/MessageListenerContainer.start:()V
+     106: aload_0
+     107: aload         4
+     109: putfield      #52                 // Field jmsListener:Lorg/apache/cxf/transport/jms/util/JMSListenerContainer;
+     112: aload_0
+     113: invokespecial #69                 // Method addBusListener:()V
+     116: aload_2
+     117: monitorexit
+     118: goto          128
+     121: astore        6
+     123: aload_2
+     124: monitorexit
+     125: aload         6
+     127: athrow
+     128: return
+    Exception table:
+       from    to  target type
+          11    58   121   any
+          59   118   121   any
+         121   125   121   any
+
+  private void sendAndReceiveMessage(org.apache.cxf.message.Exchange, java.lang.Object, org.apache.cxf.message.Message, org.apache.cxf.transport.jms.util.ResourceCloser, javax.jms.Session) throws javax.jms.JMSException;
+    Code:
+       0: aload_0
+       1: aload         5
+       3: invokespecial #70                 // Method setupReplyDestination:(Ljavax/jms/Session;)V
+       6: aload_0
+       7: aload_3
+       8: invokespecial #71                 // Method getOrCreateJmsHeaders:(Lorg/apache/cxf/message/Message;)Lorg/apache/cxf/transport/jms/JMSMessageHeadersType;
+      11: astore        6
+      13: aload         6
+      15: invokevirtual #72                 // Method org/apache/cxf/transport/jms/JMSMessageHeadersType.getJMSCorrelationID:()Ljava/lang/String;
+      18: astore        7
+      20: aload_0
+      21: aload_1
+      22: aload         7
+      24: invokespecial #73                 // Method assertIsNotAsyncAndUserCID:(Lorg/apache/cxf/message/Exchange;Ljava/lang/String;)V
+      27: aload_0
+      28: aload_1
+      29: aload         7
+      31: invokespecial #74                 // Method createCorrelationId:(Lorg/apache/cxf/message/Exchange;Ljava/lang/String;)Ljava/lang/String;
+      34: astore        8
+      36: aload         8
+      38: ifnull        54
+      41: aload_0
+      42: getfield      #5                  // Field correlationMap:Ljava/util/Map;
+      45: aload         8
+      47: aload_1
+      48: invokeinterface #75,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      53: pop
+      54: aload_1
+      55: dup
+      56: astore        9
+      58: monitorenter
+      59: aload_0
+      60: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      63: aload         5
+      65: aload         6
+      67: invokevirtual #76                 // Method org/apache/cxf/transport/jms/JMSMessageHeadersType.getJMSReplyTo:()Ljava/lang/String;
+      70: invokevirtual #77                 // Method org/apache/cxf/transport/jms/JMSConfiguration.getReplyToDestination:(Ljavax/jms/Session;Ljava/lang/String;)Ljavax/jms/Destination;
+      73: astore        10
+      75: aload_0
+      76: aload_2
+      77: aload_3
+      78: aload         10
+      80: aload         8
+      82: aload         4
+      84: aload         5
+      86: invokespecial #44                 // Method sendMessage:(Ljava/lang/Object;Lorg/apache/cxf/message/Message;Ljavax/jms/Destination;Ljava/lang/String;Lorg/apache/cxf/transport/jms/util/ResourceCloser;Ljavax/jms/Session;)Ljava/lang/String;
+      89: astore        11
+      91: aload         8
+      93: ifnull        101
+      96: aload         7
+      98: ifnull        111
+     101: aload_0
+     102: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+     105: invokevirtual #61                 // Method org/apache/cxf/transport/jms/JMSConfiguration.isPubSubDomain:()Z
+     108: ifeq          123
+     111: aload         10
+     113: aload_0
+     114: getfield      #51                 // Field staticReplyDestination:Ljavax/jms/Destination;
+     117: invokevirtual #78                 // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+     120: ifne          127
+     123: iconst_1
+     124: goto          128
+     127: iconst_0
+     128: istore        12
+     130: aload         8
+     132: ifnonnull     152
+     135: aload         11
+     137: astore        8
+     139: aload_0
+     140: getfield      #5                  // Field correlationMap:Ljava/util/Map;
+     143: aload         8
+     145: aload_1
+     146: invokeinterface #75,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     151: pop
+     152: aload_1
+     153: invokeinterface #79,  1           // InterfaceMethod org/apache/cxf/message/Exchange.isSynchronous:()Z
+     158: ifeq          290
+     161: iload         12
+     163: ifeq          216
+     166: aload         5
+     168: aload         10
+     170: aload         8
+     172: aload_0
+     173: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+     176: invokevirtual #80                 // Method org/apache/cxf/transport/jms/JMSConfiguration.getReceiveTimeout:()Ljava/lang/Long;
+     179: invokevirtual #81                 // Method java/lang/Long.longValue:()J
+     182: aload_0
+     183: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+     186: invokevirtual #82                 // Method org/apache/cxf/transport/jms/JMSConfiguration.isPubSubNoLocal:()Z
+     189: invokestatic  #83                 // Method org/apache/cxf/transport/jms/util/JMSUtil.receive:(Ljavax/jms/Session;Ljavax/jms/Destination;Ljava/lang/String;JZ)Ljavax/jms/Message;
+     192: astore        13
+     194: aload_0
+     195: getfield      #5                  // Field correlationMap:Ljava/util/Map;
+     198: aload         8
+     200: invokeinterface #84,  2           // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     205: pop
+     206: aload_0
+     207: aload_1
+     208: aload         13
+     210: invokevirtual #85                 // Method processReplyMessage:(Lorg/apache/cxf/message/Exchange;Ljavax/jms/Message;)V
+     213: goto          290
+     216: aload_1
+     217: aload_0
+     218: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+     221: invokevirtual #80                 // Method org/apache/cxf/transport/jms/JMSConfiguration.getReceiveTimeout:()Ljava/lang/Long;
+     224: invokevirtual #81                 // Method java/lang/Long.longValue:()J
+     227: invokevirtual #86                 // Method java/lang/Object.wait:(J)V
+     230: goto          247
+     233: astore        13
+     235: new           #32                 // class java/lang/RuntimeException
+     238: dup
+     239: ldc           #87                 // String Interrupted while correlating
+     241: aload         13
+     243: invokespecial #88                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     246: athrow
+     247: aload_1
+     248: getstatic     #89                 // Field CORRELATED:Ljava/lang/String;
+     251: invokeinterface #90,  2           // InterfaceMethod org/apache/cxf/message/Exchange.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     256: getstatic     #91                 // Field java/lang/Boolean.TRUE:Ljava/lang/Boolean;
+     259: if_acmpeq     290
+     262: new           #32                 // class java/lang/RuntimeException
+     265: dup
+     266: new           #92                 // class java/lang/StringBuilder
+     269: dup
+     270: invokespecial #93                 // Method java/lang/StringBuilder."<init>":()V
+     273: ldc           #94                 // String Timeout receiving message with correlationId
+     275: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     278: aload         8
+     280: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     283: invokevirtual #96                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     286: invokespecial #34                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;)V
+     289: athrow
+     290: aload         9
+     292: monitorexit
+     293: goto          304
+     296: astore        14
+     298: aload         9
+     300: monitorexit
+     301: aload         14
+     303: athrow
+     304: return
+    Exception table:
+       from    to  target type
+         216   230   233   Class java/lang/InterruptedException
+          59   293   296   any
+         296   301   296   any
+
+  private java.lang.String sendMessage(java.lang.Object, org.apache.cxf.message.Message, javax.jms.Destination, java.lang.String, org.apache.cxf.transport.jms.util.ResourceCloser, javax.jms.Session) throws javax.jms.JMSException;
+    Code:
+       0: aload_0
+       1: aload_2
+       2: invokespecial #71                 // Method getOrCreateJmsHeaders:(Lorg/apache/cxf/message/Message;)Lorg/apache/cxf/transport/jms/JMSMessageHeadersType;
+       5: astore        7
+       7: aload_0
+       8: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      11: aload_2
+      12: aload_1
+      13: aload_0
+      14: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      17: invokevirtual #18                 // Method org/apache/cxf/transport/jms/JMSConfiguration.getMessageType:()Ljava/lang/String;
+      20: aload         6
+      22: aload         4
+      24: ldc           #97                 // String org.apache.cxf.jms.client.request.headers
+      26: invokestatic  #98                 // Method org/apache/cxf/transport/jms/JMSMessageUtils.asJMSMessage:(Lorg/apache/cxf/transport/jms/JMSConfiguration;Lorg/apache/cxf/message/Message;Ljava/lang/Object;Ljava/lang/String;Ljavax/jms/Session;Ljava/lang/String;Ljava/lang/String;)Ljavax/jms/Message;
+      29: astore        8
+      31: aload_3
+      32: ifnull        43
+      35: aload         8
+      37: aload_3
+      38: invokeinterface #99,  2           // InterfaceMethod javax/jms/Message.setJMSReplyTo:(Ljavax/jms/Destination;)V
+      43: aload_0
+      44: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      47: aload         7
+      49: invokestatic  #100                // Method org/apache/cxf/transport/jms/JMSFactory.createJmsSender:(Lorg/apache/cxf/transport/jms/JMSConfiguration;Lorg/apache/cxf/transport/jms/JMSMessageHeadersType;)Lorg/apache/cxf/transport/jms/util/JMSSender;
+      52: astore        9
+      54: aload_0
+      55: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      58: aload         6
+      60: invokevirtual #101                // Method org/apache/cxf/transport/jms/JMSConfiguration.getTargetDestination:(Ljavax/jms/Session;)Ljavax/jms/Destination;
+      63: astore        10
+      65: aload         9
+      67: aload         6
+      69: aload         10
+      71: aload         8
+      73: invokevirtual #102                // Method org/apache/cxf/transport/jms/util/JMSSender.sendMessage:(Ljavax/jms/Session;Ljavax/jms/Destination;Ljavax/jms/Message;)V
+      76: aload         8
+      78: invokeinterface #103,  1          // InterfaceMethod javax/jms/Message.getJMSMessageID:()Ljava/lang/String;
+      83: astore        11
+      85: getstatic     #26                 // Field LOG:Ljava/util/logging/Logger;
+      88: getstatic     #27                 // Field java/util/logging/Level.FINE:Ljava/util/logging/Level;
+      91: new           #92                 // class java/lang/StringBuilder
+      94: dup
+      95: invokespecial #93                 // Method java/lang/StringBuilder."<init>":()V
+      98: ldc           #104                // String client sending request message
+     100: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     103: aload         11
+     105: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     108: ldc           #105                // String  to
+     110: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     113: aload         10
+     115: invokevirtual #106                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     118: invokevirtual #96                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     121: invokevirtual #29                 // Method java/util/logging/Logger.log:(Ljava/util/logging/Level;Ljava/lang/String;)V
+     124: aload         7
+     126: aload         11
+     128: invokevirtual #107                // Method org/apache/cxf/transport/jms/JMSMessageHeadersType.setJMSMessageID:(Ljava/lang/String;)V
+     131: aload         11
+     133: areturn
+
+  private void assertIsNotAsyncAndUserCID(org.apache.cxf.message.Exchange, java.lang.String);
+    Code:
+       0: aload_1
+       1: invokeinterface #79,  1           // InterfaceMethod org/apache/cxf/message/Exchange.isSynchronous:()Z
+       6: ifne          23
+       9: aload_2
+      10: ifnull        23
+      13: new           #108                // class java/lang/IllegalArgumentException
+      16: dup
+      17: ldc           #109                // String User CID can not be used for asynchronous exchanges
+      19: invokespecial #110                // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      22: athrow
+      23: return
+
+  private void assertIsNotTextMessageAndMtom(org.apache.cxf.message.Message);
+    Code:
+       0: ldc           #17                 // String text
+       2: aload_0
+       3: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+       6: invokevirtual #18                 // Method org/apache/cxf/transport/jms/JMSConfiguration.getMessageType:()Ljava/lang/String;
+       9: invokevirtual #19                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      12: istore_2
+      13: iload_2
+      14: ifeq          80
+      17: aload_1
+      18: ldc           #111                // String mtom-enabled
+      20: invokeinterface #112,  2          // InterfaceMethod org/apache/cxf/message/Message.getContextualProperty:(Ljava/lang/String;)Ljava/lang/Object;
+      25: invokestatic  #113                // Method org/apache/cxf/message/MessageUtils.isTrue:(Ljava/lang/Object;)Z
+      28: ifeq          80
+      31: aload_1
+      32: invokeinterface #114,  1          // InterfaceMethod org/apache/cxf/message/Message.getAttachments:()Ljava/util/Collection;
+      37: ifnull        80
+      40: aload_1
+      41: invokeinterface #114,  1          // InterfaceMethod org/apache/cxf/message/Message.getAttachments:()Ljava/util/Collection;
+      46: invokeinterface #115,  1          // InterfaceMethod java/util/Collection.size:()I
+      51: ifle          80
+      54: new           #116                // class org/apache/cxf/common/i18n/Message
+      57: dup
+      58: ldc           #117                // String INVALID_MESSAGE_TYPE
+      60: getstatic     #26                 // Field LOG:Ljava/util/logging/Logger;
+      63: iconst_0
+      64: anewarray     #118                // class java/lang/Object
+      67: invokespecial #119                // Method org/apache/cxf/common/i18n/Message."<init>":(Ljava/lang/String;Ljava/util/logging/Logger;[Ljava/lang/Object;)V
+      70: astore_3
+      71: new           #120                // class org/apache/cxf/configuration/ConfigurationException
+      74: dup
+      75: aload_3
+      76: invokespecial #121                // Method org/apache/cxf/configuration/ConfigurationException."<init>":(Lorg/apache/cxf/common/i18n/Message;)V
+      79: athrow
+      80: return
+
+  private java.lang.String createCorrelationId(org.apache.cxf.message.Exchange, java.lang.String);
+    Code:
+       0: aload_2
+       1: ifnull        6
+       4: aload_2
+       5: areturn
+       6: aload_0
+       7: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      10: invokevirtual #122                // Method org/apache/cxf/transport/jms/JMSConfiguration.isSetConduitSelectorPrefix:()Z
+      13: ifne          47
+      16: aload_0
+      17: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      20: invokevirtual #123                // Method org/apache/cxf/transport/jms/JMSConfiguration.isReplyPubSubDomain:()Z
+      23: ifne          47
+      26: aload_1
+      27: invokeinterface #79,  1           // InterfaceMethod org/apache/cxf/message/Exchange.isSynchronous:()Z
+      32: ifeq          47
+      35: aload_0
+      36: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      39: invokevirtual #124                // Method org/apache/cxf/transport/jms/JMSConfiguration.isUseConduitIdSelector:()Z
+      42: ifne          47
+      45: aconst_null
+      46: areturn
+      47: aload_0
+      48: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      51: invokevirtual #124                // Method org/apache/cxf/transport/jms/JMSConfiguration.isUseConduitIdSelector:()Z
+      54: ifeq          87
+      57: new           #92                 // class java/lang/StringBuilder
+      60: dup
+      61: invokespecial #93                 // Method java/lang/StringBuilder."<init>":()V
+      64: aload_0
+      65: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      68: invokevirtual #125                // Method org/apache/cxf/transport/jms/JMSConfiguration.getConduitSelectorPrefix:()Ljava/lang/String;
+      71: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      74: aload_0
+      75: getfield      #16                 // Field conduitId:Ljava/lang/String;
+      78: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      81: invokevirtual #96                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      84: goto          94
+      87: aload_0
+      88: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      91: invokevirtual #125                // Method org/apache/cxf/transport/jms/JMSConfiguration.getConduitSelectorPrefix:()Ljava/lang/String;
+      94: astore_3
+      95: aload_3
+      96: aload_0
+      97: getfield      #8                  // Field messageCount:Ljava/util/concurrent/atomic/AtomicLong;
+     100: invokevirtual #126                // Method java/util/concurrent/atomic/AtomicLong.incrementAndGet:()J
+     103: invokestatic  #127                // Method org/apache/cxf/transport/jms/util/JMSUtil.createCorrelationId:(Ljava/lang/String;J)Ljava/lang/String;
+     106: areturn
+
+  private org.apache.cxf.transport.jms.JMSMessageHeadersType getOrCreateJmsHeaders(org.apache.cxf.message.Message);
+    Code:
+       0: aload_1
+       1: ldc           #97                 // String org.apache.cxf.jms.client.request.headers
+       3: invokeinterface #128,  2          // InterfaceMethod org/apache/cxf/message/Message.get:(Ljava/lang/Object;)Ljava/lang/Object;
+       8: checkcast     #129                // class org/apache/cxf/transport/jms/JMSMessageHeadersType
+      11: astore_2
+      12: aload_2
+      13: ifnonnull     34
+      16: new           #129                // class org/apache/cxf/transport/jms/JMSMessageHeadersType
+      19: dup
+      20: invokespecial #130                // Method org/apache/cxf/transport/jms/JMSMessageHeadersType."<init>":()V
+      23: astore_2
+      24: aload_1
+      25: ldc           #97                 // String org.apache.cxf.jms.client.request.headers
+      27: aload_2
+      28: invokeinterface #131,  3          // InterfaceMethod org/apache/cxf/message/Message.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      33: pop
+      34: aload_2
+      35: areturn
+
+  private synchronized void addBusListener();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field listener:Lorg/apache/cxf/transport/jms/JMSConduit$JMSBusLifeCycleListener;
+       4: ifnonnull     47
+       7: aload_0
+       8: getfield      #9                  // Field bus:Lorg/apache/cxf/Bus;
+      11: ifnull        47
+      14: aload_0
+      15: getfield      #9                  // Field bus:Lorg/apache/cxf/Bus;
+      18: ldc_w         #132                // class org/apache/cxf/buslifecycle/BusLifeCycleManager
+      21: invokeinterface #133,  2          // InterfaceMethod org/apache/cxf/Bus.getExtension:(Ljava/lang/Class;)Ljava/lang/Object;
+      26: checkcast     #132                // class org/apache/cxf/buslifecycle/BusLifeCycleManager
+      29: astore_1
+      30: aload_1
+      31: ifnull        47
+      34: aload_0
+      35: new           #134                // class org/apache/cxf/transport/jms/JMSConduit$JMSBusLifeCycleListener
+      38: dup
+      39: aload_0
+      40: aload_1
+      41: invokespecial #135                // Method org/apache/cxf/transport/jms/JMSConduit$JMSBusLifeCycleListener."<init>":(Lorg/apache/cxf/transport/jms/JMSConduit;Lorg/apache/cxf/buslifecycle/BusLifeCycleManager;)V
+      44: putfield      #1                  // Field listener:Lorg/apache/cxf/transport/jms/JMSConduit$JMSBusLifeCycleListener;
+      47: return
+
+  public void onMessage(javax.jms.Message);
+    Code:
+       0: aload_1
+       1: invokeinterface #136,  1          // InterfaceMethod javax/jms/Message.getJMSCorrelationID:()Ljava/lang/String;
+       6: astore_2
+       7: getstatic     #26                 // Field LOG:Ljava/util/logging/Logger;
+      10: getstatic     #27                 // Field java/util/logging/Level.FINE:Ljava/util/logging/Level;
+      13: new           #92                 // class java/lang/StringBuilder
+      16: dup
+      17: invokespecial #93                 // Method java/lang/StringBuilder."<init>":()V
+      20: ldc           #137                // String Received reply message with correlation id
+      22: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      25: aload_2
+      26: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: invokevirtual #96                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      32: invokevirtual #29                 // Method java/util/logging/Logger.log:(Ljava/util/logging/Level;Ljava/lang/String;)V
+      35: iconst_0
+      36: istore_3
+      37: aconst_null
+      38: astore        4
+      40: aload         4
+      42: ifnonnull     81
+      45: iload_3
+      46: bipush        100
+      48: if_icmpge     81
+      51: aload_0
+      52: getfield      #5                  // Field correlationMap:Ljava/util/Map;
+      55: aload_2
+      56: invokeinterface #84,  2           // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      61: checkcast     #138                // class org/apache/cxf/message/Exchange
+      64: astore        4
+      66: aload         4
+      68: ifnonnull     75
+      71: lconst_1
+      72: invokestatic  #56                 // Method java/lang/Thread.sleep:(J)V
+      75: iinc          3, 1
+      78: goto          40
+      81: aload         4
+      83: ifnonnull     115
+      86: getstatic     #26                 // Field LOG:Ljava/util/logging/Logger;
+      89: getstatic     #139                // Field java/util/logging/Level.WARNING:Ljava/util/logging/Level;
+      92: new           #92                 // class java/lang/StringBuilder
+      95: dup
+      96: invokespecial #93                 // Method java/lang/StringBuilder."<init>":()V
+      99: ldc           #140                // String Could not correlate message with correlationId
+     101: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     104: aload_2
+     105: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     108: invokevirtual #96                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     111: invokevirtual #29                 // Method java/util/logging/Logger.log:(Ljava/util/logging/Level;Ljava/lang/String;)V
+     114: return
+     115: aload_0
+     116: aload         4
+     118: aload_1
+     119: invokevirtual #85                 // Method processReplyMessage:(Lorg/apache/cxf/message/Exchange;Ljavax/jms/Message;)V
+     122: goto          143
+     125: astore_2
+     126: aload_2
+     127: invokestatic  #58                 // Method org/apache/cxf/transport/jms/util/JMSUtil.convertJmsException:(Ljavax/jms/JMSException;)Ljava/lang/RuntimeException;
+     130: athrow
+     131: astore_2
+     132: new           #32                 // class java/lang/RuntimeException
+     135: dup
+     136: ldc           #87                 // String Interrupted while correlating
+     138: aload_2
+     139: invokespecial #88                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     142: athrow
+     143: return
+    Exception table:
+       from    to  target type
+           0   114   125   Class javax/jms/JMSException
+         115   122   125   Class javax/jms/JMSException
+           0   114   131   Class java/lang/InterruptedException
+         115   122   131   Class java/lang/InterruptedException
+
+  protected void processReplyMessage(org.apache.cxf.message.Exchange, javax.jms.Message) throws javax.jms.JMSException;
+    Code:
+       0: getstatic     #26                 // Field LOG:Ljava/util/logging/Logger;
+       3: getstatic     #27                 // Field java/util/logging/Level.FINE:Ljava/util/logging/Level;
+       6: ldc           #141                // String client received reply:
+       8: aload_2
+       9: invokevirtual #142                // Method java/util/logging/Logger.log:(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/Object;)V
+      12: aload_2
+      13: ldc           #143                // String org.apache.cxf.jms.client.response.headers
+      15: invokestatic  #144                // Method org/apache/cxf/transport/jms/JMSMessageUtils.asCXFMessage:(Ljavax/jms/Message;Ljava/lang/String;)Lorg/apache/cxf/message/Message;
+      18: astore_3
+      19: aload_0
+      20: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      23: invokevirtual #145                // Method org/apache/cxf/transport/jms/JMSConfiguration.isCreateSecurityContext:()Z
+      26: ifeq          50
+      29: aload_2
+      30: aload_0
+      31: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+      34: invokestatic  #146                // Method org/apache/cxf/transport/jms/JMSMessageUtils.buildSecurityContext:(Ljavax/jms/Message;Lorg/apache/cxf/transport/jms/JMSConfiguration;)Lorg/apache/cxf/security/SecurityContext;
+      37: astore        4
+      39: aload_3
+      40: ldc_w         #147                // class org/apache/cxf/security/SecurityContext
+      43: aload         4
+      45: invokeinterface #148,  3          // InterfaceMethod org/apache/cxf/message/Message.put:(Ljava/lang/Class;Ljava/lang/Object;)V
+      50: aload_1
+      51: aload_3
+      52: invokeinterface #149,  2          // InterfaceMethod org/apache/cxf/message/Exchange.setInMessage:(Lorg/apache/cxf/message/Message;)V
+      57: aload_3
+      58: getstatic     #150                // Field org/apache/cxf/message/Message.RESPONSE_CODE:Ljava/lang/String;
+      61: invokeinterface #128,  2          // InterfaceMethod org/apache/cxf/message/Message.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      66: astore        4
+      68: aload_1
+      69: getstatic     #150                // Field org/apache/cxf/message/Message.RESPONSE_CODE:Ljava/lang/String;
+      72: aload         4
+      74: invokeinterface #151,  3          // InterfaceMethod org/apache/cxf/message/Exchange.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      79: pop
+      80: aload_1
+      81: invokeinterface #79,  1           // InterfaceMethod org/apache/cxf/message/Exchange.isSynchronous:()Z
+      86: ifeq          125
+      89: aload_1
+      90: dup
+      91: astore        5
+      93: monitorenter
+      94: aload_1
+      95: getstatic     #89                 // Field CORRELATED:Ljava/lang/String;
+      98: getstatic     #91                 // Field java/lang/Boolean.TRUE:Ljava/lang/Boolean;
+     101: invokeinterface #151,  3          // InterfaceMethod org/apache/cxf/message/Exchange.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     106: pop
+     107: aload_1
+     108: invokevirtual #152                // Method java/lang/Object.notifyAll:()V
+     111: aload         5
+     113: monitorexit
+     114: goto          125
+     117: astore        6
+     119: aload         5
+     121: monitorexit
+     122: aload         6
+     124: athrow
+     125: aload_0
+     126: getfield      #153                // Field incomingObserver:Lorg/apache/cxf/transport/MessageObserver;
+     129: ifnull        147
+     132: aload_0
+     133: getfield      #153                // Field incomingObserver:Lorg/apache/cxf/transport/MessageObserver;
+     136: aload_1
+     137: invokeinterface #154,  1          // InterfaceMethod org/apache/cxf/message/Exchange.getInMessage:()Lorg/apache/cxf/message/Message;
+     142: invokeinterface #155,  2          // InterfaceMethod org/apache/cxf/transport/MessageObserver.onMessage:(Lorg/apache/cxf/message/Message;)V
+     147: goto          180
+     150: astore_3
+     151: aload_0
+     152: invokevirtual #157                // Method getLogger:()Ljava/util/logging/Logger;
+     155: getstatic     #139                // Field java/util/logging/Level.WARNING:Ljava/util/logging/Level;
+     158: new           #92                 // class java/lang/StringBuilder
+     161: dup
+     162: invokespecial #93                 // Method java/lang/StringBuilder."<init>":()V
+     165: ldc           #158                // String can\'t get the right encoding information
+     167: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     170: aload_3
+     171: invokevirtual #106                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     174: invokevirtual #96                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     177: invokevirtual #29                 // Method java/util/logging/Logger.log:(Ljava/util/logging/Level;Ljava/lang/String;)V
+     180: return
+    Exception table:
+       from    to  target type
+          94   114   117   any
+         117   122   117   any
+          12   147   150   Class java/io/UnsupportedEncodingException
+
+  private synchronized void shutdownListeners();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field listener:Lorg/apache/cxf/transport/jms/JMSConduit$JMSBusLifeCycleListener;
+       4: ifnull        19
+       7: aload_0
+       8: getfield      #1                  // Field listener:Lorg/apache/cxf/transport/jms/JMSConduit$JMSBusLifeCycleListener;
+      11: invokevirtual #159                // Method org/apache/cxf/transport/jms/JMSConduit$JMSBusLifeCycleListener.unreg:()V
+      14: aload_0
+      15: aconst_null
+      16: putfield      #1                  // Field listener:Lorg/apache/cxf/transport/jms/JMSConduit$JMSBusLifeCycleListener;
+      19: aload_0
+      20: getfield      #52                 // Field jmsListener:Lorg/apache/cxf/transport/jms/util/JMSListenerContainer;
+      23: ifnull        54
+      26: aload_0
+      27: getfield      #52                 // Field jmsListener:Lorg/apache/cxf/transport/jms/util/JMSListenerContainer;
+      30: invokeinterface #160,  1          // InterfaceMethod org/apache/cxf/transport/jms/util/JMSListenerContainer.stop:()V
+      35: aload_0
+      36: getfield      #52                 // Field jmsListener:Lorg/apache/cxf/transport/jms/util/JMSListenerContainer;
+      39: invokeinterface #53,  1           // InterfaceMethod org/apache/cxf/transport/jms/util/JMSListenerContainer.shutdown:()V
+      44: aload_0
+      45: aconst_null
+      46: putfield      #52                 // Field jmsListener:Lorg/apache/cxf/transport/jms/util/JMSListenerContainer;
+      49: aload_0
+      50: aconst_null
+      51: putfield      #51                 // Field staticReplyDestination:Ljavax/jms/Destination;
+      54: return
+
+  public synchronized void close();
+    Code:
+       0: aload_0
+       1: invokespecial #161                // Method shutdownListeners:()V
+       4: aload_0
+       5: getfield      #23                 // Field connection:Ljavax/jms/Connection;
+       8: invokestatic  #50                 // Method org/apache/cxf/transport/jms/util/ResourceCloser.close:(Ljava/lang/Object;)V
+      11: aload_0
+      12: aconst_null
+      13: putfield      #23                 // Field connection:Ljavax/jms/Connection;
+      16: getstatic     #26                 // Field LOG:Ljava/util/logging/Logger;
+      19: getstatic     #27                 // Field java/util/logging/Level.FINE:Ljava/util/logging/Level;
+      22: ldc           #162                // String JMSConduit closed
+      24: invokevirtual #29                 // Method java/util/logging/Logger.log:(Ljava/util/logging/Level;Ljava/lang/String;)V
+      27: return
+
+  protected java.util.logging.Logger getLogger();
+    Code:
+       0: getstatic     #26                 // Field LOG:Ljava/util/logging/Logger;
+       3: areturn
+
+  public org.apache.cxf.transport.jms.JMSConfiguration getJmsConfig();
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+       4: areturn
+
+  public void setJmsConfig(org.apache.cxf.transport.jms.JMSConfiguration);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #10                 // Field jmsConfig:Lorg/apache/cxf/transport/jms/JMSConfiguration;
+       5: return
+
+  protected static boolean isSetReplyTo(org.apache.cxf.message.Message);
+    Code:
+       0: aload_0
+       1: ldc           #163                // String org.apache.cxf.jms.client.set.replyto
+       3: invokeinterface #128,  2          // InterfaceMethod org/apache/cxf/message/Message.get:(Ljava/lang/Object;)Ljava/lang/Object;
+       8: checkcast     #164                // class java/lang/Boolean
+      11: astore_1
+      12: aload_1
+      13: ifnull        23
+      16: aload_1
+      17: invokevirtual #165                // Method java/lang/Boolean.booleanValue:()Z
+      20: ifeq          27
+      23: iconst_1
+      24: goto          28
+      27: iconst_0
+      28: ireturn
+
+  protected void finalize() throws java.lang.Throwable;
+    Code:
+       0: aload_0
+       1: invokevirtual #166                // Method close:()V
+       4: aload_0
+       5: invokespecial #167                // Method java/lang/Object.finalize:()V
+       8: return
+
+  static org.apache.cxf.transport.jms.JMSConduit$JMSBusLifeCycleListener access$002(org.apache.cxf.transport.jms.JMSConduit, org.apache.cxf.transport.jms.JMSConduit$JMSBusLifeCycleListener);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: dup_x1
+       3: putfield      #1                  // Field listener:Lorg/apache/cxf/transport/jms/JMSConduit$JMSBusLifeCycleListener;
+       6: areturn
+
+  static {};
+    Code:
+       0: ldc_w         #168                // class org/apache/cxf/transport/jms/JMSConduit
+       3: invokestatic  #169                // Method org/apache/cxf/common/logging/LogUtils.getL7dLogger:(Ljava/lang/Class;)Ljava/util/logging/Logger;
+       6: putstatic     #26                 // Field LOG:Ljava/util/logging/Logger;
+       9: new           #92                 // class java/lang/StringBuilder
+      12: dup
+      13: invokespecial #93                 // Method java/lang/StringBuilder."<init>":()V
+      16: ldc_w         #168                // class org/apache/cxf/transport/jms/JMSConduit
+      19: invokevirtual #170                // Method java/lang/Class.getName:()Ljava/lang/String;
+      22: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      25: ldc           #171                // String .correlated
+      27: invokevirtual #95                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      30: invokevirtual #96                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      33: putstatic     #89                 // Field CORRELATED:Ljava/lang/String;
+      36: return
+}

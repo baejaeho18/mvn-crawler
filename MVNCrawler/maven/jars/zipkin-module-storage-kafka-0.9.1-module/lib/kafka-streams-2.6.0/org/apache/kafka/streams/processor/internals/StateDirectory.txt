@@ -1,0 +1,907 @@
+Compiled from "StateDirectory.java"
+public class org.apache.kafka.streams.processor.internals.StateDirectory {
+  private static final java.util.regex.Pattern PATH_NAME;
+
+  private static final org.slf4j.Logger log;
+
+  static final java.lang.String LOCK_FILE_NAME;
+
+  private final java.lang.Object taskDirCreationLock;
+
+  private final org.apache.kafka.common.utils.Time time;
+
+  private final java.lang.String appId;
+
+  private final java.io.File stateDir;
+
+  private final boolean hasPersistentStores;
+
+  private final java.util.HashMap<org.apache.kafka.streams.processor.TaskId, java.nio.channels.FileChannel> channels;
+
+  private final java.util.HashMap<org.apache.kafka.streams.processor.TaskId, org.apache.kafka.streams.processor.internals.StateDirectory$LockAndOwner> locks;
+
+  private java.nio.channels.FileChannel globalStateChannel;
+
+  private java.nio.channels.FileLock globalStateLock;
+
+  public org.apache.kafka.streams.processor.internals.StateDirectory(org.apache.kafka.streams.StreamsConfig, org.apache.kafka.common.utils.Time, boolean);
+    Code:
+       0: aload_0
+       1: invokespecial #2                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #3                  // class java/lang/Object
+       8: dup
+       9: invokespecial #2                  // Method java/lang/Object."<init>":()V
+      12: putfield      #4                  // Field taskDirCreationLock:Ljava/lang/Object;
+      15: aload_0
+      16: new           #5                  // class java/util/HashMap
+      19: dup
+      20: invokespecial #6                  // Method java/util/HashMap."<init>":()V
+      23: putfield      #7                  // Field channels:Ljava/util/HashMap;
+      26: aload_0
+      27: new           #5                  // class java/util/HashMap
+      30: dup
+      31: invokespecial #6                  // Method java/util/HashMap."<init>":()V
+      34: putfield      #8                  // Field locks:Ljava/util/HashMap;
+      37: aload_0
+      38: aload_2
+      39: putfield      #9                  // Field time:Lorg/apache/kafka/common/utils/Time;
+      42: aload_0
+      43: iload_3
+      44: putfield      #10                 // Field hasPersistentStores:Z
+      47: aload_0
+      48: aload_1
+      49: ldc           #12                 // String application.id
+      51: invokevirtual #13                 // Method org/apache/kafka/streams/StreamsConfig.getString:(Ljava/lang/String;)Ljava/lang/String;
+      54: putfield      #14                 // Field appId:Ljava/lang/String;
+      57: aload_1
+      58: ldc           #15                 // String state.dir
+      60: invokevirtual #13                 // Method org/apache/kafka/streams/StreamsConfig.getString:(Ljava/lang/String;)Ljava/lang/String;
+      63: astore        4
+      65: new           #16                 // class java/io/File
+      68: dup
+      69: aload         4
+      71: invokespecial #17                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+      74: astore        5
+      76: aload_0
+      77: getfield      #10                 // Field hasPersistentStores:Z
+      80: ifeq          121
+      83: aload         5
+      85: invokevirtual #18                 // Method java/io/File.exists:()Z
+      88: ifne          121
+      91: aload         5
+      93: invokevirtual #19                 // Method java/io/File.mkdirs:()Z
+      96: ifne          121
+      99: new           #20                 // class org/apache/kafka/streams/errors/ProcessorStateException
+     102: dup
+     103: ldc           #21                 // String base state directory [%s] doesn\'t exist and couldn\'t be created
+     105: iconst_1
+     106: anewarray     #3                  // class java/lang/Object
+     109: dup
+     110: iconst_0
+     111: aload         4
+     113: aastore
+     114: invokestatic  #22                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     117: invokespecial #23                 // Method org/apache/kafka/streams/errors/ProcessorStateException."<init>":(Ljava/lang/String;)V
+     120: athrow
+     121: aload_0
+     122: new           #16                 // class java/io/File
+     125: dup
+     126: aload         5
+     128: aload_0
+     129: getfield      #14                 // Field appId:Ljava/lang/String;
+     132: invokespecial #24                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+     135: putfield      #25                 // Field stateDir:Ljava/io/File;
+     138: aload_0
+     139: getfield      #10                 // Field hasPersistentStores:Z
+     142: ifeq          192
+     145: aload_0
+     146: getfield      #25                 // Field stateDir:Ljava/io/File;
+     149: invokevirtual #18                 // Method java/io/File.exists:()Z
+     152: ifne          192
+     155: aload_0
+     156: getfield      #25                 // Field stateDir:Ljava/io/File;
+     159: invokevirtual #26                 // Method java/io/File.mkdir:()Z
+     162: ifne          192
+     165: new           #20                 // class org/apache/kafka/streams/errors/ProcessorStateException
+     168: dup
+     169: ldc           #27                 // String state directory [%s] doesn\'t exist and couldn\'t be created
+     171: iconst_1
+     172: anewarray     #3                  // class java/lang/Object
+     175: dup
+     176: iconst_0
+     177: aload_0
+     178: getfield      #25                 // Field stateDir:Ljava/io/File;
+     181: invokevirtual #28                 // Method java/io/File.getPath:()Ljava/lang/String;
+     184: aastore
+     185: invokestatic  #22                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     188: invokespecial #23                 // Method org/apache/kafka/streams/errors/ProcessorStateException."<init>":(Ljava/lang/String;)V
+     191: athrow
+     192: return
+
+  public java.io.File directoryForTask(org.apache.kafka.streams.processor.TaskId);
+    Code:
+       0: new           #16                 // class java/io/File
+       3: dup
+       4: aload_0
+       5: getfield      #25                 // Field stateDir:Ljava/io/File;
+       8: aload_1
+       9: invokevirtual #29                 // Method org/apache/kafka/streams/processor/TaskId.toString:()Ljava/lang/String;
+      12: invokespecial #24                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      15: astore_2
+      16: aload_0
+      17: getfield      #10                 // Field hasPersistentStores:Z
+      20: ifeq          87
+      23: aload_2
+      24: invokevirtual #18                 // Method java/io/File.exists:()Z
+      27: ifne          87
+      30: aload_0
+      31: getfield      #4                  // Field taskDirCreationLock:Ljava/lang/Object;
+      34: dup
+      35: astore_3
+      36: monitorenter
+      37: aload_2
+      38: invokevirtual #18                 // Method java/io/File.exists:()Z
+      41: ifne          75
+      44: aload_2
+      45: invokevirtual #26                 // Method java/io/File.mkdir:()Z
+      48: ifne          75
+      51: new           #20                 // class org/apache/kafka/streams/errors/ProcessorStateException
+      54: dup
+      55: ldc           #30                 // String task directory [%s] doesn\'t exist and couldn\'t be created
+      57: iconst_1
+      58: anewarray     #3                  // class java/lang/Object
+      61: dup
+      62: iconst_0
+      63: aload_2
+      64: invokevirtual #28                 // Method java/io/File.getPath:()Ljava/lang/String;
+      67: aastore
+      68: invokestatic  #22                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      71: invokespecial #23                 // Method org/apache/kafka/streams/errors/ProcessorStateException."<init>":(Ljava/lang/String;)V
+      74: athrow
+      75: aload_3
+      76: monitorexit
+      77: goto          87
+      80: astore        4
+      82: aload_3
+      83: monitorexit
+      84: aload         4
+      86: athrow
+      87: aload_2
+      88: areturn
+    Exception table:
+       from    to  target type
+          37    77    80   any
+          80    84    80   any
+
+  java.io.File checkpointFileFor(org.apache.kafka.streams.processor.TaskId);
+    Code:
+       0: new           #16                 // class java/io/File
+       3: dup
+       4: aload_0
+       5: aload_1
+       6: invokevirtual #31                 // Method directoryForTask:(Lorg/apache/kafka/streams/processor/TaskId;)Ljava/io/File;
+       9: ldc           #32                 // String .checkpoint
+      11: invokespecial #24                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      14: areturn
+
+  boolean directoryForTaskIsEmpty(org.apache.kafka.streams.processor.TaskId);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #31                 // Method directoryForTask:(Lorg/apache/kafka/streams/processor/TaskId;)Ljava/io/File;
+       5: astore_2
+       6: aload_0
+       7: aload_2
+       8: invokespecial #33                 // Method taskDirEmpty:(Ljava/io/File;)Z
+      11: ireturn
+
+  private boolean taskDirEmpty(java.io.File);
+    Code:
+       0: aload_1
+       1: invokedynamic #34,  0             // InvokeDynamic #0:accept:()Ljava/io/FileFilter;
+       6: invokevirtual #35                 // Method java/io/File.listFiles:(Ljava/io/FileFilter;)[Ljava/io/File;
+       9: astore_2
+      10: aload_2
+      11: ifnull        19
+      14: aload_2
+      15: arraylength
+      16: ifne          23
+      19: iconst_1
+      20: goto          24
+      23: iconst_0
+      24: ireturn
+
+  java.io.File globalStateDir();
+    Code:
+       0: new           #16                 // class java/io/File
+       3: dup
+       4: aload_0
+       5: getfield      #25                 // Field stateDir:Ljava/io/File;
+       8: ldc           #36                 // String global
+      10: invokespecial #24                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      13: astore_1
+      14: aload_0
+      15: getfield      #10                 // Field hasPersistentStores:Z
+      18: ifeq          59
+      21: aload_1
+      22: invokevirtual #18                 // Method java/io/File.exists:()Z
+      25: ifne          59
+      28: aload_1
+      29: invokevirtual #26                 // Method java/io/File.mkdir:()Z
+      32: ifne          59
+      35: new           #20                 // class org/apache/kafka/streams/errors/ProcessorStateException
+      38: dup
+      39: ldc           #37                 // String global state directory [%s] doesn\'t exist and couldn\'t be created
+      41: iconst_1
+      42: anewarray     #3                  // class java/lang/Object
+      45: dup
+      46: iconst_0
+      47: aload_1
+      48: invokevirtual #28                 // Method java/io/File.getPath:()Ljava/lang/String;
+      51: aastore
+      52: invokestatic  #22                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      55: invokespecial #23                 // Method org/apache/kafka/streams/errors/ProcessorStateException."<init>":(Ljava/lang/String;)V
+      58: athrow
+      59: aload_1
+      60: areturn
+
+  private java.lang.String logPrefix();
+    Code:
+       0: ldc           #38                 // String stream-thread [%s]
+       2: iconst_1
+       3: anewarray     #3                  // class java/lang/Object
+       6: dup
+       7: iconst_0
+       8: invokestatic  #39                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      11: invokevirtual #40                 // Method java/lang/Thread.getName:()Ljava/lang/String;
+      14: aastore
+      15: invokestatic  #22                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      18: areturn
+
+  synchronized boolean lock(org.apache.kafka.streams.processor.TaskId) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field hasPersistentStores:Z
+       4: ifne          9
+       7: iconst_1
+       8: ireturn
+       9: aload_0
+      10: getfield      #8                  // Field locks:Ljava/util/HashMap;
+      13: aload_1
+      14: invokevirtual #41                 // Method java/util/HashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      17: checkcast     #42                 // class org/apache/kafka/streams/processor/internals/StateDirectory$LockAndOwner
+      20: astore_3
+      21: aload_3
+      22: ifnull        58
+      25: aload_3
+      26: getfield      #43                 // Field org/apache/kafka/streams/processor/internals/StateDirectory$LockAndOwner.owningThread:Ljava/lang/String;
+      29: invokestatic  #39                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      32: invokevirtual #40                 // Method java/lang/Thread.getName:()Ljava/lang/String;
+      35: invokevirtual #44                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      38: ifeq          58
+      41: getstatic     #45                 // Field log:Lorg/slf4j/Logger;
+      44: ldc           #46                 // String {} Found cached state dir lock for task {}
+      46: aload_0
+      47: invokespecial #47                 // Method logPrefix:()Ljava/lang/String;
+      50: aload_1
+      51: invokeinterface #48,  4           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      56: iconst_1
+      57: ireturn
+      58: aload_3
+      59: ifnull        64
+      62: iconst_0
+      63: ireturn
+      64: new           #16                 // class java/io/File
+      67: dup
+      68: aload_0
+      69: aload_1
+      70: invokevirtual #31                 // Method directoryForTask:(Lorg/apache/kafka/streams/processor/TaskId;)Ljava/io/File;
+      73: ldc           #50                 // String .lock
+      75: invokespecial #24                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      78: astore_2
+      79: goto          86
+      82: astore        4
+      84: iconst_0
+      85: ireturn
+      86: aload_0
+      87: aload_1
+      88: aload_2
+      89: invokevirtual #51                 // Method java/io/File.toPath:()Ljava/nio/file/Path;
+      92: invokespecial #52                 // Method getOrCreateFileChannel:(Lorg/apache/kafka/streams/processor/TaskId;Ljava/nio/file/Path;)Ljava/nio/channels/FileChannel;
+      95: astore        4
+      97: goto          104
+     100: astore        5
+     102: iconst_0
+     103: ireturn
+     104: aload_0
+     105: aload         4
+     107: invokespecial #54                 // Method tryLock:(Ljava/nio/channels/FileChannel;)Ljava/nio/channels/FileLock;
+     110: astore        5
+     112: aload         5
+     114: ifnull        156
+     117: aload_0
+     118: getfield      #8                  // Field locks:Ljava/util/HashMap;
+     121: aload_1
+     122: new           #42                 // class org/apache/kafka/streams/processor/internals/StateDirectory$LockAndOwner
+     125: dup
+     126: invokestatic  #39                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     129: invokevirtual #40                 // Method java/lang/Thread.getName:()Ljava/lang/String;
+     132: aload         5
+     134: invokespecial #55                 // Method org/apache/kafka/streams/processor/internals/StateDirectory$LockAndOwner."<init>":(Ljava/lang/String;Ljava/nio/channels/FileLock;)V
+     137: invokevirtual #56                 // Method java/util/HashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     140: pop
+     141: getstatic     #45                 // Field log:Lorg/slf4j/Logger;
+     144: ldc           #57                 // String {} Acquired state dir lock for task {}
+     146: aload_0
+     147: invokespecial #47                 // Method logPrefix:()Ljava/lang/String;
+     150: aload_1
+     151: invokeinterface #58,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     156: aload         5
+     158: ifnull        165
+     161: iconst_1
+     162: goto          166
+     165: iconst_0
+     166: ireturn
+    Exception table:
+       from    to  target type
+          64    79    82   Class org/apache/kafka/streams/errors/ProcessorStateException
+          86    97   100   Class java/nio/file/NoSuchFileException
+
+  synchronized boolean lockGlobalState() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field hasPersistentStores:Z
+       4: ifne          9
+       7: iconst_1
+       8: ireturn
+       9: aload_0
+      10: getfield      #59                 // Field globalStateLock:Ljava/nio/channels/FileLock;
+      13: ifnull        32
+      16: getstatic     #45                 // Field log:Lorg/slf4j/Logger;
+      19: ldc           #60                 // String {} Found cached state dir lock for the global task
+      21: aload_0
+      22: invokespecial #47                 // Method logPrefix:()Ljava/lang/String;
+      25: invokeinterface #61,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;)V
+      30: iconst_1
+      31: ireturn
+      32: new           #16                 // class java/io/File
+      35: dup
+      36: aload_0
+      37: invokevirtual #62                 // Method globalStateDir:()Ljava/io/File;
+      40: ldc           #50                 // String .lock
+      42: invokespecial #24                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      45: astore_1
+      46: aload_1
+      47: invokevirtual #51                 // Method java/io/File.toPath:()Ljava/nio/file/Path;
+      50: iconst_2
+      51: anewarray     #63                 // class java/nio/file/OpenOption
+      54: dup
+      55: iconst_0
+      56: getstatic     #64                 // Field java/nio/file/StandardOpenOption.CREATE:Ljava/nio/file/StandardOpenOption;
+      59: aastore
+      60: dup
+      61: iconst_1
+      62: getstatic     #65                 // Field java/nio/file/StandardOpenOption.WRITE:Ljava/nio/file/StandardOpenOption;
+      65: aastore
+      66: invokestatic  #66                 // Method java/nio/channels/FileChannel.open:(Ljava/nio/file/Path;[Ljava/nio/file/OpenOption;)Ljava/nio/channels/FileChannel;
+      69: astore_2
+      70: goto          76
+      73: astore_3
+      74: iconst_0
+      75: ireturn
+      76: aload_0
+      77: aload_2
+      78: invokespecial #54                 // Method tryLock:(Ljava/nio/channels/FileChannel;)Ljava/nio/channels/FileLock;
+      81: astore_3
+      82: aload_3
+      83: ifnonnull     92
+      86: aload_2
+      87: invokevirtual #67                 // Method java/nio/channels/FileChannel.close:()V
+      90: iconst_0
+      91: ireturn
+      92: aload_0
+      93: aload_2
+      94: putfield      #68                 // Field globalStateChannel:Ljava/nio/channels/FileChannel;
+      97: aload_0
+      98: aload_3
+      99: putfield      #59                 // Field globalStateLock:Ljava/nio/channels/FileLock;
+     102: getstatic     #45                 // Field log:Lorg/slf4j/Logger;
+     105: ldc           #69                 // String {} Acquired global state dir lock
+     107: aload_0
+     108: invokespecial #47                 // Method logPrefix:()Ljava/lang/String;
+     111: invokeinterface #70,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     116: iconst_1
+     117: ireturn
+    Exception table:
+       from    to  target type
+          46    70    73   Class java/nio/file/NoSuchFileException
+
+  synchronized void unlockGlobalState() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #59                 // Field globalStateLock:Ljava/nio/channels/FileLock;
+       4: ifnonnull     8
+       7: return
+       8: aload_0
+       9: getfield      #59                 // Field globalStateLock:Ljava/nio/channels/FileLock;
+      12: invokevirtual #71                 // Method java/nio/channels/FileLock.release:()V
+      15: aload_0
+      16: getfield      #68                 // Field globalStateChannel:Ljava/nio/channels/FileChannel;
+      19: invokevirtual #67                 // Method java/nio/channels/FileChannel.close:()V
+      22: aload_0
+      23: aconst_null
+      24: putfield      #59                 // Field globalStateLock:Ljava/nio/channels/FileLock;
+      27: aload_0
+      28: aconst_null
+      29: putfield      #68                 // Field globalStateChannel:Ljava/nio/channels/FileChannel;
+      32: getstatic     #45                 // Field log:Lorg/slf4j/Logger;
+      35: ldc           #72                 // String {} Released global state dir lock
+      37: aload_0
+      38: invokespecial #47                 // Method logPrefix:()Ljava/lang/String;
+      41: invokeinterface #70,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      46: return
+
+  synchronized void unlock(org.apache.kafka.streams.processor.TaskId) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field locks:Ljava/util/HashMap;
+       4: aload_1
+       5: invokevirtual #41                 // Method java/util/HashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+       8: checkcast     #42                 // class org/apache/kafka/streams/processor/internals/StateDirectory$LockAndOwner
+      11: astore_2
+      12: aload_2
+      13: ifnull        83
+      16: aload_2
+      17: getfield      #43                 // Field org/apache/kafka/streams/processor/internals/StateDirectory$LockAndOwner.owningThread:Ljava/lang/String;
+      20: invokestatic  #39                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      23: invokevirtual #40                 // Method java/lang/Thread.getName:()Ljava/lang/String;
+      26: invokevirtual #44                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      29: ifeq          83
+      32: aload_0
+      33: getfield      #8                  // Field locks:Ljava/util/HashMap;
+      36: aload_1
+      37: invokevirtual #73                 // Method java/util/HashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      40: pop
+      41: aload_2
+      42: getfield      #74                 // Field org/apache/kafka/streams/processor/internals/StateDirectory$LockAndOwner.lock:Ljava/nio/channels/FileLock;
+      45: invokevirtual #71                 // Method java/nio/channels/FileLock.release:()V
+      48: getstatic     #45                 // Field log:Lorg/slf4j/Logger;
+      51: ldc           #75                 // String {} Released state dir lock for task {}
+      53: aload_0
+      54: invokespecial #47                 // Method logPrefix:()Ljava/lang/String;
+      57: aload_1
+      58: invokeinterface #58,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      63: aload_0
+      64: getfield      #7                  // Field channels:Ljava/util/HashMap;
+      67: aload_1
+      68: invokevirtual #73                 // Method java/util/HashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      71: checkcast     #76                 // class java/nio/channels/FileChannel
+      74: astore_3
+      75: aload_3
+      76: ifnull        83
+      79: aload_3
+      80: invokevirtual #67                 // Method java/nio/channels/FileChannel.close:()V
+      83: return
+
+  public synchronized void clean();
+    Code:
+       0: aload_0
+       1: lconst_0
+       2: iconst_1
+       3: invokespecial #77                 // Method cleanRemovedTasks:(JZ)V
+       6: goto          19
+       9: astore_1
+      10: new           #79                 // class org/apache/kafka/streams/errors/StreamsException
+      13: dup
+      14: aload_1
+      15: invokespecial #80                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/Throwable;)V
+      18: athrow
+      19: aload_0
+      20: getfield      #25                 // Field stateDir:Ljava/io/File;
+      23: invokevirtual #18                 // Method java/io/File.exists:()Z
+      26: ifeq          39
+      29: aload_0
+      30: invokevirtual #62                 // Method globalStateDir:()Ljava/io/File;
+      33: invokevirtual #81                 // Method java/io/File.getAbsoluteFile:()Ljava/io/File;
+      36: invokestatic  #82                 // Method org/apache/kafka/common/utils/Utils.delete:(Ljava/io/File;)V
+      39: goto          84
+      42: astore_1
+      43: getstatic     #45                 // Field log:Lorg/slf4j/Logger;
+      46: ldc           #84                 // String {} Failed to delete global state directory of {} due to an unexpected exception
+      48: iconst_3
+      49: anewarray     #3                  // class java/lang/Object
+      52: dup
+      53: iconst_0
+      54: aload_0
+      55: getfield      #14                 // Field appId:Ljava/lang/String;
+      58: aastore
+      59: dup
+      60: iconst_1
+      61: aload_0
+      62: invokespecial #47                 // Method logPrefix:()Ljava/lang/String;
+      65: aastore
+      66: dup
+      67: iconst_2
+      68: aload_1
+      69: aastore
+      70: invokeinterface #85,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;[Ljava/lang/Object;)V
+      75: new           #79                 // class org/apache/kafka/streams/errors/StreamsException
+      78: dup
+      79: aload_1
+      80: invokespecial #80                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/Throwable;)V
+      83: athrow
+      84: return
+    Exception table:
+       from    to  target type
+           0     6     9   Class java/lang/Exception
+          19    39    42   Class java/io/IOException
+
+  public synchronized void cleanRemovedTasks(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: iconst_0
+       3: invokespecial #77                 // Method cleanRemovedTasks:(JZ)V
+       6: goto          21
+       9: astore_3
+      10: new           #86                 // class java/lang/IllegalStateException
+      13: dup
+      14: ldc           #87                 // String Should have swallowed exception.
+      16: aload_3
+      17: invokespecial #88                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      20: athrow
+      21: return
+    Exception table:
+       from    to  target type
+           0     6     9   Class java/lang/Exception
+
+  private synchronized void cleanRemovedTasks(long, boolean) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: invokevirtual #89                 // Method listAllTaskDirectories:()[Ljava/io/File;
+       4: astore        4
+       6: aload         4
+       8: ifnull        17
+      11: aload         4
+      13: arraylength
+      14: ifne          18
+      17: return
+      18: aload         4
+      20: astore        5
+      22: aload         5
+      24: arraylength
+      25: istore        6
+      27: iconst_0
+      28: istore        7
+      30: iload         7
+      32: iload         6
+      34: if_icmpge     356
+      37: aload         5
+      39: iload         7
+      41: aaload
+      42: astore        8
+      44: aload         8
+      46: invokevirtual #90                 // Method java/io/File.getName:()Ljava/lang/String;
+      49: astore        9
+      51: aload         9
+      53: invokestatic  #91                 // Method org/apache/kafka/streams/processor/TaskId.parse:(Ljava/lang/String;)Lorg/apache/kafka/streams/processor/TaskId;
+      56: astore        10
+      58: aload_0
+      59: getfield      #8                  // Field locks:Ljava/util/HashMap;
+      62: aload         10
+      64: invokevirtual #92                 // Method java/util/HashMap.containsKey:(Ljava/lang/Object;)Z
+      67: ifne          350
+      70: aconst_null
+      71: astore        11
+      73: aload_0
+      74: aload         10
+      76: invokevirtual #93                 // Method lock:(Lorg/apache/kafka/streams/processor/TaskId;)Z
+      79: ifeq          235
+      82: aload_0
+      83: getfield      #9                  // Field time:Lorg/apache/kafka/common/utils/Time;
+      86: invokeinterface #94,  1           // InterfaceMethod org/apache/kafka/common/utils/Time.milliseconds:()J
+      91: lstore        12
+      93: aload         8
+      95: invokevirtual #95                 // Method java/io/File.lastModified:()J
+      98: lstore        14
+     100: lload         12
+     102: lload         14
+     104: lload_1
+     105: ladd
+     106: lcmp
+     107: ifle          181
+     110: getstatic     #45                 // Field log:Lorg/slf4j/Logger;
+     113: ldc           #96                 // String {} Deleting obsolete state directory {} for task {} as {}ms has elapsed (cleanup delay is {}ms).
+     115: iconst_5
+     116: anewarray     #3                  // class java/lang/Object
+     119: dup
+     120: iconst_0
+     121: aload_0
+     122: invokespecial #47                 // Method logPrefix:()Ljava/lang/String;
+     125: aastore
+     126: dup
+     127: iconst_1
+     128: aload         9
+     130: aastore
+     131: dup
+     132: iconst_2
+     133: aload         10
+     135: aastore
+     136: dup
+     137: iconst_3
+     138: lload         12
+     140: lload         14
+     142: lsub
+     143: invokestatic  #97                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     146: aastore
+     147: dup
+     148: iconst_4
+     149: lload_1
+     150: invokestatic  #97                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     153: aastore
+     154: invokeinterface #98,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+     159: aload         8
+     161: new           #16                 // class java/io/File
+     164: dup
+     165: aload         8
+     167: ldc           #50                 // String .lock
+     169: invokespecial #24                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+     172: invokestatic  #99                 // Method java/util/Collections.singletonList:(Ljava/lang/Object;)Ljava/util/List;
+     175: invokestatic  #100                // Method org/apache/kafka/common/utils/Utils.delete:(Ljava/io/File;Ljava/util/List;)V
+     178: goto          235
+     181: iload_3
+     182: ifeq          235
+     185: getstatic     #45                 // Field log:Lorg/slf4j/Logger;
+     188: ldc           #101                // String {} Deleting state directory {} for task {} as user calling cleanup.
+     190: iconst_3
+     191: anewarray     #3                  // class java/lang/Object
+     194: dup
+     195: iconst_0
+     196: aload_0
+     197: invokespecial #47                 // Method logPrefix:()Ljava/lang/String;
+     200: aastore
+     201: dup
+     202: iconst_1
+     203: aload         9
+     205: aastore
+     206: dup
+     207: iconst_2
+     208: aload         10
+     210: aastore
+     211: invokeinterface #98,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+     216: aload         8
+     218: new           #16                 // class java/io/File
+     221: dup
+     222: aload         8
+     224: ldc           #50                 // String .lock
+     226: invokespecial #24                 // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+     229: invokestatic  #99                 // Method java/util/Collections.singletonList:(Ljava/lang/Object;)Ljava/util/List;
+     232: invokestatic  #100                // Method org/apache/kafka/common/utils/Utils.delete:(Ljava/io/File;Ljava/util/List;)V
+     235: aload_0
+     236: aload         10
+     238: invokevirtual #102                // Method unlock:(Lorg/apache/kafka/streams/processor/TaskId;)V
+     241: iload_3
+     242: ifeq          250
+     245: aload         8
+     247: invokestatic  #82                 // Method org/apache/kafka/common/utils/Utils.delete:(Ljava/io/File;)V
+     250: goto          324
+     253: astore        12
+     255: aload         12
+     257: astore        11
+     259: goto          324
+     262: astore        12
+     264: aload         12
+     266: astore        11
+     268: aload_0
+     269: aload         10
+     271: invokevirtual #102                // Method unlock:(Lorg/apache/kafka/streams/processor/TaskId;)V
+     274: iload_3
+     275: ifeq          283
+     278: aload         8
+     280: invokestatic  #82                 // Method org/apache/kafka/common/utils/Utils.delete:(Ljava/io/File;)V
+     283: goto          324
+     286: astore        12
+     288: aload         12
+     290: astore        11
+     292: goto          324
+     295: astore        16
+     297: aload_0
+     298: aload         10
+     300: invokevirtual #102                // Method unlock:(Lorg/apache/kafka/streams/processor/TaskId;)V
+     303: iload_3
+     304: ifeq          312
+     307: aload         8
+     309: invokestatic  #82                 // Method org/apache/kafka/common/utils/Utils.delete:(Ljava/io/File;)V
+     312: goto          321
+     315: astore        17
+     317: aload         17
+     319: astore        11
+     321: aload         16
+     323: athrow
+     324: aload         11
+     326: ifnull        350
+     329: iload_3
+     330: ifeq          350
+     333: getstatic     #45                 // Field log:Lorg/slf4j/Logger;
+     336: ldc           #104                // String {} Failed to release the state directory lock.
+     338: aload_0
+     339: invokespecial #47                 // Method logPrefix:()Ljava/lang/String;
+     342: invokeinterface #105,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;)V
+     347: aload         11
+     349: athrow
+     350: iinc          7, 1
+     353: goto          30
+     356: return
+    Exception table:
+       from    to  target type
+         235   250   253   Class java/io/IOException
+          73   235   262   Class java/nio/channels/OverlappingFileLockException
+          73   235   262   Class java/io/IOException
+         268   283   286   Class java/io/IOException
+          73   235   295   any
+         262   268   295   any
+         297   312   315   Class java/io/IOException
+         295   297   295   any
+
+  java.io.File[] listNonEmptyTaskDirectories();
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field hasPersistentStores:Z
+       4: ifeq          17
+       7: aload_0
+       8: getfield      #25                 // Field stateDir:Ljava/io/File;
+      11: invokevirtual #18                 // Method java/io/File.exists:()Z
+      14: ifne          25
+      17: iconst_0
+      18: anewarray     #16                 // class java/io/File
+      21: astore_1
+      22: goto          39
+      25: aload_0
+      26: getfield      #25                 // Field stateDir:Ljava/io/File;
+      29: aload_0
+      30: invokedynamic #106,  0            // InvokeDynamic #1:accept:(Lorg/apache/kafka/streams/processor/internals/StateDirectory;)Ljava/io/FileFilter;
+      35: invokevirtual #35                 // Method java/io/File.listFiles:(Ljava/io/FileFilter;)[Ljava/io/File;
+      38: astore_1
+      39: aload_1
+      40: ifnonnull     50
+      43: iconst_0
+      44: anewarray     #16                 // class java/io/File
+      47: goto          51
+      50: aload_1
+      51: areturn
+
+  java.io.File[] listAllTaskDirectories();
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field hasPersistentStores:Z
+       4: ifeq          17
+       7: aload_0
+       8: getfield      #25                 // Field stateDir:Ljava/io/File;
+      11: invokevirtual #18                 // Method java/io/File.exists:()Z
+      14: ifne          25
+      17: iconst_0
+      18: anewarray     #16                 // class java/io/File
+      21: astore_1
+      22: goto          38
+      25: aload_0
+      26: getfield      #25                 // Field stateDir:Ljava/io/File;
+      29: invokedynamic #107,  0            // InvokeDynamic #2:accept:()Ljava/io/FileFilter;
+      34: invokevirtual #35                 // Method java/io/File.listFiles:(Ljava/io/FileFilter;)[Ljava/io/File;
+      37: astore_1
+      38: aload_1
+      39: ifnonnull     49
+      42: iconst_0
+      43: anewarray     #16                 // class java/io/File
+      46: goto          50
+      49: aload_1
+      50: areturn
+
+  private java.nio.channels.FileChannel getOrCreateFileChannel(org.apache.kafka.streams.processor.TaskId, java.nio.file.Path) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field channels:Ljava/util/HashMap;
+       4: aload_1
+       5: invokevirtual #92                 // Method java/util/HashMap.containsKey:(Ljava/lang/Object;)Z
+       8: ifne          40
+      11: aload_0
+      12: getfield      #7                  // Field channels:Ljava/util/HashMap;
+      15: aload_1
+      16: aload_2
+      17: iconst_2
+      18: anewarray     #63                 // class java/nio/file/OpenOption
+      21: dup
+      22: iconst_0
+      23: getstatic     #64                 // Field java/nio/file/StandardOpenOption.CREATE:Ljava/nio/file/StandardOpenOption;
+      26: aastore
+      27: dup
+      28: iconst_1
+      29: getstatic     #65                 // Field java/nio/file/StandardOpenOption.WRITE:Ljava/nio/file/StandardOpenOption;
+      32: aastore
+      33: invokestatic  #66                 // Method java/nio/channels/FileChannel.open:(Ljava/nio/file/Path;[Ljava/nio/file/OpenOption;)Ljava/nio/channels/FileChannel;
+      36: invokevirtual #56                 // Method java/util/HashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      39: pop
+      40: aload_0
+      41: getfield      #7                  // Field channels:Ljava/util/HashMap;
+      44: aload_1
+      45: invokevirtual #41                 // Method java/util/HashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      48: checkcast     #76                 // class java/nio/channels/FileChannel
+      51: areturn
+
+  private java.nio.channels.FileLock tryLock(java.nio.channels.FileChannel) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokevirtual #108                // Method java/nio/channels/FileChannel.tryLock:()Ljava/nio/channels/FileLock;
+       4: areturn
+       5: astore_2
+       6: aconst_null
+       7: areturn
+    Exception table:
+       from    to  target type
+           0     4     5   Class java/nio/channels/OverlappingFileLockException
+
+  private static boolean lambda$listAllTaskDirectories$2(java.io.File);
+    Code:
+       0: aload_0
+       1: invokevirtual #109                // Method java/io/File.isDirectory:()Z
+       4: ifeq          27
+       7: getstatic     #110                // Field PATH_NAME:Ljava/util/regex/Pattern;
+      10: aload_0
+      11: invokevirtual #90                 // Method java/io/File.getName:()Ljava/lang/String;
+      14: invokevirtual #111                // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+      17: invokevirtual #112                // Method java/util/regex/Matcher.matches:()Z
+      20: ifeq          27
+      23: iconst_1
+      24: goto          28
+      27: iconst_0
+      28: ireturn
+
+  private boolean lambda$listNonEmptyTaskDirectories$1(java.io.File);
+    Code:
+       0: aload_1
+       1: invokevirtual #109                // Method java/io/File.isDirectory:()Z
+       4: ifeq          23
+       7: getstatic     #110                // Field PATH_NAME:Ljava/util/regex/Pattern;
+      10: aload_1
+      11: invokevirtual #90                 // Method java/io/File.getName:()Ljava/lang/String;
+      14: invokevirtual #111                // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+      17: invokevirtual #112                // Method java/util/regex/Matcher.matches:()Z
+      20: ifne          25
+      23: iconst_0
+      24: ireturn
+      25: aload_0
+      26: aload_1
+      27: invokespecial #33                 // Method taskDirEmpty:(Ljava/io/File;)Z
+      30: ifne          37
+      33: iconst_1
+      34: goto          38
+      37: iconst_0
+      38: ireturn
+
+  private static boolean lambda$taskDirEmpty$0(java.io.File);
+    Code:
+       0: aload_0
+       1: invokevirtual #90                 // Method java/io/File.getName:()Ljava/lang/String;
+       4: ldc           #50                 // String .lock
+       6: invokevirtual #44                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+       9: ifne          28
+      12: aload_0
+      13: invokevirtual #90                 // Method java/io/File.getName:()Ljava/lang/String;
+      16: ldc           #32                 // String .checkpoint
+      18: invokevirtual #44                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      21: ifne          28
+      24: iconst_1
+      25: goto          29
+      28: iconst_0
+      29: ireturn
+
+  static {};
+    Code:
+       0: ldc           #113                // String \\d+_\\d+
+       2: invokestatic  #114                // Method java/util/regex/Pattern.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+       5: putstatic     #110                // Field PATH_NAME:Ljava/util/regex/Pattern;
+       8: ldc           #49                 // class org/apache/kafka/streams/processor/internals/StateDirectory
+      10: invokestatic  #115                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      13: putstatic     #45                 // Field log:Lorg/slf4j/Logger;
+      16: return
+}

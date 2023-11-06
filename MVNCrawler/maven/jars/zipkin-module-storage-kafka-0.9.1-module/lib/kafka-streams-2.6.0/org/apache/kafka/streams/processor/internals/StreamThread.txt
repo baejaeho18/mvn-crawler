@@ -1,0 +1,1872 @@
+Compiled from "StreamThread.java"
+public class org.apache.kafka.streams.processor.internals.StreamThread extends java.lang.Thread {
+  private final org.apache.kafka.common.utils.Time time;
+
+  private final org.slf4j.Logger log;
+
+  private final java.lang.String logPrefix;
+
+  private final java.lang.Object stateLock;
+
+  private final java.time.Duration pollTime;
+
+  private final long commitTimeMs;
+
+  private final int maxPollTimeMs;
+
+  private final java.lang.String originalReset;
+
+  private final org.apache.kafka.streams.processor.internals.TaskManager taskManager;
+
+  private final java.util.concurrent.atomic.AtomicLong nextProbingRebalanceMs;
+
+  private final org.apache.kafka.streams.processor.internals.metrics.StreamsMetricsImpl streamsMetrics;
+
+  private final org.apache.kafka.common.metrics.Sensor commitSensor;
+
+  private final org.apache.kafka.common.metrics.Sensor pollSensor;
+
+  private final org.apache.kafka.common.metrics.Sensor pollRecordsSensor;
+
+  private final org.apache.kafka.common.metrics.Sensor punctuateSensor;
+
+  private final org.apache.kafka.common.metrics.Sensor processRecordsSensor;
+
+  private final org.apache.kafka.common.metrics.Sensor processLatencySensor;
+
+  private final org.apache.kafka.common.metrics.Sensor processRateSensor;
+
+  private final org.apache.kafka.common.metrics.Sensor pollRatioSensor;
+
+  private final org.apache.kafka.common.metrics.Sensor processRatioSensor;
+
+  private final org.apache.kafka.common.metrics.Sensor punctuateRatioSensor;
+
+  private final org.apache.kafka.common.metrics.Sensor commitRatioSensor;
+
+  private long now;
+
+  private long lastPollMs;
+
+  private long lastCommitMs;
+
+  private int numIterations;
+
+  private volatile org.apache.kafka.streams.processor.internals.StreamThread$State state;
+
+  private volatile org.apache.kafka.streams.processor.ThreadMetadata threadMetadata;
+
+  private org.apache.kafka.streams.processor.internals.StreamThread$StateListener stateListener;
+
+  private final org.apache.kafka.streams.processor.internals.ChangelogReader changelogReader;
+
+  private final org.apache.kafka.clients.consumer.ConsumerRebalanceListener rebalanceListener;
+
+  private final org.apache.kafka.clients.consumer.Consumer<byte[], byte[]> mainConsumer;
+
+  private final org.apache.kafka.clients.consumer.Consumer<byte[], byte[]> restoreConsumer;
+
+  private final org.apache.kafka.clients.admin.Admin adminClient;
+
+  private final org.apache.kafka.streams.processor.internals.InternalTopologyBuilder builder;
+
+  public void setStateListener(org.apache.kafka.streams.processor.internals.StreamThread$StateListener);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #2                  // Field stateListener:Lorg/apache/kafka/streams/processor/internals/StreamThread$StateListener;
+       5: return
+
+  public org.apache.kafka.streams.processor.internals.StreamThread$State state();
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+       4: areturn
+
+  org.apache.kafka.streams.processor.internals.StreamThread$State setState(org.apache.kafka.streams.processor.internals.StreamThread$State);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field stateLock:Ljava/lang/Object;
+       4: dup
+       5: astore_3
+       6: monitorenter
+       7: aload_0
+       8: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      11: astore_2
+      12: aload_0
+      13: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      16: getstatic     #5                  // Field org/apache/kafka/streams/processor/internals/StreamThread$State.PENDING_SHUTDOWN:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      19: if_acmpne     45
+      22: aload_1
+      23: getstatic     #6                  // Field org/apache/kafka/streams/processor/internals/StreamThread$State.DEAD:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      26: if_acmpeq     45
+      29: aload_0
+      30: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      33: ldc           #8                  // String Ignoring request to transit from PENDING_SHUTDOWN to {}: only DEAD state is a valid next state
+      35: aload_1
+      36: invokeinterface #9,  3            // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      41: aconst_null
+      42: aload_3
+      43: monitorexit
+      44: areturn
+      45: aload_0
+      46: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      49: getstatic     #6                  // Field org/apache/kafka/streams/processor/internals/StreamThread$State.DEAD:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      52: if_acmpne     71
+      55: aload_0
+      56: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      59: ldc           #10                 // String Ignoring request to transit from DEAD to {}: no valid next state after DEAD
+      61: aload_1
+      62: invokeinterface #9,  3            // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      67: aconst_null
+      68: aload_3
+      69: monitorexit
+      70: areturn
+      71: aload_0
+      72: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      75: aload_1
+      76: invokevirtual #11                 // Method org/apache/kafka/streams/processor/internals/StreamThread$State.isValidTransition:(Lorg/apache/kafka/streams/processor/internals/ThreadStateTransitionValidator;)Z
+      79: ifne          138
+      82: aload_0
+      83: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      86: ldc           #12                 // String Unexpected state transition from {} to {}
+      88: aload_2
+      89: aload_1
+      90: invokeinterface #13,  4           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      95: new           #14                 // class org/apache/kafka/streams/errors/StreamsException
+      98: dup
+      99: new           #15                 // class java/lang/StringBuilder
+     102: dup
+     103: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+     106: aload_0
+     107: getfield      #17                 // Field logPrefix:Ljava/lang/String;
+     110: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     113: ldc           #19                 // String Unexpected state transition from
+     115: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     118: aload_2
+     119: invokevirtual #20                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     122: ldc           #21                 // String  to
+     124: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     127: aload_1
+     128: invokevirtual #20                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     131: invokevirtual #22                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     134: invokespecial #23                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;)V
+     137: athrow
+     138: aload_0
+     139: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     142: ldc           #24                 // String State transition from {} to {}
+     144: aload_2
+     145: aload_1
+     146: invokeinterface #25,  4           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     151: aload_0
+     152: aload_1
+     153: putfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     156: aload_1
+     157: getstatic     #26                 // Field org/apache/kafka/streams/processor/internals/StreamThread$State.RUNNING:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     160: if_acmpne     184
+     163: aload_0
+     164: aload_0
+     165: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     168: invokevirtual #28                 // Method org/apache/kafka/streams/processor/internals/TaskManager.activeTaskMap:()Ljava/util/Map;
+     171: aload_0
+     172: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     175: invokevirtual #29                 // Method org/apache/kafka/streams/processor/internals/TaskManager.standbyTaskMap:()Ljava/util/Map;
+     178: invokespecial #30                 // Method updateThreadMetadata:(Ljava/util/Map;Ljava/util/Map;)V
+     181: goto          194
+     184: aload_0
+     185: invokestatic  #31                 // Method java/util/Collections.emptyMap:()Ljava/util/Map;
+     188: invokestatic  #31                 // Method java/util/Collections.emptyMap:()Ljava/util/Map;
+     191: invokespecial #30                 // Method updateThreadMetadata:(Ljava/util/Map;Ljava/util/Map;)V
+     194: aload_3
+     195: monitorexit
+     196: goto          206
+     199: astore        4
+     201: aload_3
+     202: monitorexit
+     203: aload         4
+     205: athrow
+     206: aload_0
+     207: getfield      #2                  // Field stateListener:Lorg/apache/kafka/streams/processor/internals/StreamThread$StateListener;
+     210: ifnull        228
+     213: aload_0
+     214: getfield      #2                  // Field stateListener:Lorg/apache/kafka/streams/processor/internals/StreamThread$StateListener;
+     217: aload_0
+     218: aload_0
+     219: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     222: aload_2
+     223: invokeinterface #32,  4           // InterfaceMethod org/apache/kafka/streams/processor/internals/StreamThread$StateListener.onChange:(Ljava/lang/Thread;Lorg/apache/kafka/streams/processor/internals/ThreadStateTransitionValidator;Lorg/apache/kafka/streams/processor/internals/ThreadStateTransitionValidator;)V
+     228: aload_2
+     229: areturn
+    Exception table:
+       from    to  target type
+           7    44   199   any
+          45    70   199   any
+          71   196   199   any
+         199   203   199   any
+
+  public boolean isRunning();
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field stateLock:Ljava/lang/Object;
+       4: dup
+       5: astore_1
+       6: monitorenter
+       7: aload_0
+       8: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      11: invokevirtual #33                 // Method org/apache/kafka/streams/processor/internals/StreamThread$State.isAlive:()Z
+      14: aload_1
+      15: monitorexit
+      16: ireturn
+      17: astore_2
+      18: aload_1
+      19: monitorexit
+      20: aload_2
+      21: athrow
+    Exception table:
+       from    to  target type
+           7    16    17   any
+          17    20    17   any
+
+  public static org.apache.kafka.streams.processor.internals.StreamThread create(org.apache.kafka.streams.processor.internals.InternalTopologyBuilder, org.apache.kafka.streams.StreamsConfig, org.apache.kafka.streams.KafkaClientSupplier, org.apache.kafka.clients.admin.Admin, java.util.UUID, java.lang.String, org.apache.kafka.streams.processor.internals.metrics.StreamsMetricsImpl, org.apache.kafka.common.utils.Time, org.apache.kafka.streams.processor.internals.StreamsMetadataState, long, org.apache.kafka.streams.processor.internals.StateDirectory, org.apache.kafka.streams.processor.StateRestoreListener, int);
+    Code:
+       0: new           #15                 // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+       7: aload         5
+       9: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: ldc           #34                 // String -StreamThread-
+      14: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: iload         13
+      19: invokevirtual #35                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      22: invokevirtual #22                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      25: astore        14
+      27: ldc           #36                 // String stream-thread [%s]
+      29: iconst_1
+      30: anewarray     #37                 // class java/lang/Object
+      33: dup
+      34: iconst_0
+      35: aload         14
+      37: aastore
+      38: invokestatic  #38                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      41: astore        15
+      43: new           #39                 // class org/apache/kafka/common/utils/LogContext
+      46: dup
+      47: aload         15
+      49: invokespecial #40                 // Method org/apache/kafka/common/utils/LogContext."<init>":(Ljava/lang/String;)V
+      52: astore        16
+      54: aload         16
+      56: ldc           #41                 // class org/apache/kafka/streams/processor/internals/StreamThread
+      58: invokevirtual #42                 // Method org/apache/kafka/common/utils/LogContext.logger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      61: astore        17
+      63: aload         17
+      65: ldc           #43                 // String Creating restore consumer client
+      67: invokeinterface #44,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      72: aload_1
+      73: aload         14
+      75: invokestatic  #45                 // Method org/apache/kafka/streams/processor/internals/ClientUtils.getRestoreConsumerClientId:(Ljava/lang/String;)Ljava/lang/String;
+      78: invokevirtual #46                 // Method org/apache/kafka/streams/StreamsConfig.getRestoreConsumerConfigs:(Ljava/lang/String;)Ljava/util/Map;
+      81: astore        18
+      83: aload_2
+      84: aload         18
+      86: invokeinterface #47,  2           // InterfaceMethod org/apache/kafka/streams/KafkaClientSupplier.getRestoreConsumer:(Ljava/util/Map;)Lorg/apache/kafka/clients/consumer/Consumer;
+      91: astore        19
+      93: new           #48                 // class org/apache/kafka/streams/processor/internals/StoreChangelogReader
+      96: dup
+      97: aload         7
+      99: aload_1
+     100: aload         16
+     102: aload_3
+     103: aload         19
+     105: aload         12
+     107: invokespecial #49                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader."<init>":(Lorg/apache/kafka/common/utils/Time;Lorg/apache/kafka/streams/StreamsConfig;Lorg/apache/kafka/common/utils/LogContext;Lorg/apache/kafka/clients/admin/Admin;Lorg/apache/kafka/clients/consumer/Consumer;Lorg/apache/kafka/streams/processor/StateRestoreListener;)V
+     110: astore        20
+     112: new           #50                 // class org/apache/kafka/streams/state/internals/ThreadCache
+     115: dup
+     116: aload         16
+     118: lload         9
+     120: aload         6
+     122: invokespecial #51                 // Method org/apache/kafka/streams/state/internals/ThreadCache."<init>":(Lorg/apache/kafka/common/utils/LogContext;JLorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)V
+     125: astore        21
+     127: new           #52                 // class org/apache/kafka/streams/processor/internals/ActiveTaskCreator
+     130: dup
+     131: aload_0
+     132: aload_1
+     133: aload         6
+     135: aload         11
+     137: aload         20
+     139: aload         21
+     141: aload         7
+     143: aload_2
+     144: aload         14
+     146: aload         4
+     148: aload         17
+     150: invokespecial #53                 // Method org/apache/kafka/streams/processor/internals/ActiveTaskCreator."<init>":(Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;Lorg/apache/kafka/streams/StreamsConfig;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;Lorg/apache/kafka/streams/processor/internals/StateDirectory;Lorg/apache/kafka/streams/processor/internals/ChangelogReader;Lorg/apache/kafka/streams/state/internals/ThreadCache;Lorg/apache/kafka/common/utils/Time;Lorg/apache/kafka/streams/KafkaClientSupplier;Ljava/lang/String;Ljava/util/UUID;Lorg/slf4j/Logger;)V
+     153: astore        22
+     155: new           #54                 // class org/apache/kafka/streams/processor/internals/StandbyTaskCreator
+     158: dup
+     159: aload_0
+     160: aload_1
+     161: aload         6
+     163: aload         11
+     165: aload         20
+     167: aload         14
+     169: aload         17
+     171: invokespecial #55                 // Method org/apache/kafka/streams/processor/internals/StandbyTaskCreator."<init>":(Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;Lorg/apache/kafka/streams/StreamsConfig;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;Lorg/apache/kafka/streams/processor/internals/StateDirectory;Lorg/apache/kafka/streams/processor/internals/ChangelogReader;Ljava/lang/String;Lorg/slf4j/Logger;)V
+     174: astore        23
+     176: new           #56                 // class org/apache/kafka/streams/processor/internals/TaskManager
+     179: dup
+     180: aload         20
+     182: aload         4
+     184: aload         15
+     186: aload         22
+     188: aload         23
+     190: aload_0
+     191: aload_3
+     192: aload         11
+     194: aload_1
+     195: invokestatic  #57                 // Method processingMode:(Lorg/apache/kafka/streams/StreamsConfig;)Lorg/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode;
+     198: invokespecial #58                 // Method org/apache/kafka/streams/processor/internals/TaskManager."<init>":(Lorg/apache/kafka/streams/processor/internals/ChangelogReader;Ljava/util/UUID;Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/ActiveTaskCreator;Lorg/apache/kafka/streams/processor/internals/StandbyTaskCreator;Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;Lorg/apache/kafka/clients/admin/Admin;Lorg/apache/kafka/streams/processor/internals/StateDirectory;Lorg/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode;)V
+     201: astore        24
+     203: aload         17
+     205: ldc           #59                 // String Creating consumer client
+     207: invokeinterface #44,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     212: aload_1
+     213: ldc           #60                 // String application.id
+     215: invokevirtual #61                 // Method org/apache/kafka/streams/StreamsConfig.getString:(Ljava/lang/String;)Ljava/lang/String;
+     218: astore        25
+     220: aload_1
+     221: aload         25
+     223: aload         14
+     225: invokestatic  #62                 // Method org/apache/kafka/streams/processor/internals/ClientUtils.getConsumerClientId:(Ljava/lang/String;)Ljava/lang/String;
+     228: iload         13
+     230: invokevirtual #63                 // Method org/apache/kafka/streams/StreamsConfig.getMainConsumerConfigs:(Ljava/lang/String;Ljava/lang/String;I)Ljava/util/Map;
+     233: astore        26
+     235: aload         26
+     237: ldc           #65                 // String __time__
+     239: aload         7
+     241: invokeinterface #66,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     246: pop
+     247: aload         26
+     249: ldc           #67                 // String __task.manager.instance__
+     251: aload         24
+     253: invokeinterface #66,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     258: pop
+     259: aload         26
+     261: ldc           #68                 // String __streams.metadata.state.instance__
+     263: aload         8
+     265: invokeinterface #66,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     270: pop
+     271: aload         26
+     273: ldc           #69                 // String __streams.admin.client.instance__
+     275: aload_3
+     276: invokeinterface #66,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     281: pop
+     282: new           #70                 // class java/util/concurrent/atomic/AtomicInteger
+     285: dup
+     286: invokespecial #71                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":()V
+     289: astore        27
+     291: aload         26
+     293: ldc           #72                 // String __assignment.error.code__
+     295: aload         27
+     297: invokeinterface #66,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     302: pop
+     303: new           #73                 // class java/util/concurrent/atomic/AtomicLong
+     306: dup
+     307: ldc2_w        #75                 // long 9223372036854775807l
+     310: invokespecial #77                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+     313: astore        28
+     315: aload         26
+     317: ldc           #78                 // String __next.probing.rebalance.ms__
+     319: aload         28
+     321: invokeinterface #66,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     326: pop
+     327: aload         26
+     329: ldc           #80                 // String auto.offset.reset
+     331: invokeinterface #81,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     336: checkcast     #82                 // class java/lang/String
+     339: astore        29
+     341: aload_0
+     342: invokevirtual #83                 // Method org/apache/kafka/streams/processor/internals/InternalTopologyBuilder.latestResetTopicsPattern:()Ljava/util/regex/Pattern;
+     345: invokevirtual #84                 // Method java/util/regex/Pattern.pattern:()Ljava/lang/String;
+     348: invokevirtual #85                 // Method java/lang/String.isEmpty:()Z
+     351: ifeq          367
+     354: aload_0
+     355: invokevirtual #86                 // Method org/apache/kafka/streams/processor/internals/InternalTopologyBuilder.earliestResetTopicsPattern:()Ljava/util/regex/Pattern;
+     358: invokevirtual #84                 // Method java/util/regex/Pattern.pattern:()Ljava/lang/String;
+     361: invokevirtual #85                 // Method java/lang/String.isEmpty:()Z
+     364: ifne          379
+     367: aload         26
+     369: ldc           #80                 // String auto.offset.reset
+     371: ldc           #87                 // String none
+     373: invokeinterface #66,  3           // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     378: pop
+     379: aload_2
+     380: aload         26
+     382: invokeinterface #88,  2           // InterfaceMethod org/apache/kafka/streams/KafkaClientSupplier.getConsumer:(Ljava/util/Map;)Lorg/apache/kafka/clients/consumer/Consumer;
+     387: astore        30
+     389: aload         20
+     391: aload         30
+     393: invokevirtual #89                 // Method org/apache/kafka/streams/processor/internals/StoreChangelogReader.setMainConsumer:(Lorg/apache/kafka/clients/consumer/Consumer;)V
+     396: aload         24
+     398: aload         30
+     400: invokevirtual #90                 // Method org/apache/kafka/streams/processor/internals/TaskManager.setMainConsumer:(Lorg/apache/kafka/clients/consumer/Consumer;)V
+     403: new           #41                 // class org/apache/kafka/streams/processor/internals/StreamThread
+     406: dup
+     407: aload         7
+     409: aload_1
+     410: aload_3
+     411: aload         30
+     413: aload         19
+     415: aload         20
+     417: aload         29
+     419: aload         24
+     421: aload         6
+     423: aload_0
+     424: aload         14
+     426: aload         16
+     428: aload         27
+     430: aload         28
+     432: invokespecial #91                 // Method "<init>":(Lorg/apache/kafka/common/utils/Time;Lorg/apache/kafka/streams/StreamsConfig;Lorg/apache/kafka/clients/admin/Admin;Lorg/apache/kafka/clients/consumer/Consumer;Lorg/apache/kafka/clients/consumer/Consumer;Lorg/apache/kafka/streams/processor/internals/ChangelogReader;Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/TaskManager;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;Ljava/lang/String;Lorg/apache/kafka/common/utils/LogContext;Ljava/util/concurrent/atomic/AtomicInteger;Ljava/util/concurrent/atomic/AtomicLong;)V
+     435: astore        31
+     437: aload         24
+     439: aload         31
+     441: invokedynamic #92,  0             // InvokeDynamic #0:accept:(Lorg/apache/kafka/streams/processor/internals/StreamThread;)Ljava/util/function/Consumer;
+     446: invokevirtual #93                 // Method org/apache/kafka/streams/processor/internals/TaskManager.setPartitionResetter:(Ljava/util/function/Consumer;)V
+     449: aload         31
+     451: aload         5
+     453: invokestatic  #94                 // Method org/apache/kafka/streams/processor/internals/ClientUtils.getSharedAdminClientId:(Ljava/lang/String;)Ljava/lang/String;
+     456: invokevirtual #95                 // Method updateThreadMetadata:(Ljava/lang/String;)Lorg/apache/kafka/streams/processor/internals/StreamThread;
+     459: areturn
+
+  public static org.apache.kafka.streams.processor.internals.StreamThread$ProcessingMode processingMode(org.apache.kafka.streams.StreamsConfig);
+    Code:
+       0: ldc           #96                 // String exactly_once
+       2: aload_0
+       3: ldc           #97                 // String processing.guarantee
+       5: invokevirtual #61                 // Method org/apache/kafka/streams/StreamsConfig.getString:(Ljava/lang/String;)Ljava/lang/String;
+       8: invokevirtual #98                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      11: ifeq          18
+      14: getstatic     #99                 // Field org/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode.EXACTLY_ONCE_ALPHA:Lorg/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode;
+      17: areturn
+      18: ldc           #100                // String exactly_once_beta
+      20: aload_0
+      21: ldc           #97                 // String processing.guarantee
+      23: invokevirtual #61                 // Method org/apache/kafka/streams/StreamsConfig.getString:(Ljava/lang/String;)Ljava/lang/String;
+      26: invokevirtual #98                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      29: ifeq          36
+      32: getstatic     #101                // Field org/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode.EXACTLY_ONCE_BETA:Lorg/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode;
+      35: areturn
+      36: getstatic     #102                // Field org/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode.AT_LEAST_ONCE:Lorg/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode;
+      39: areturn
+
+  public static boolean eosEnabled(org.apache.kafka.streams.StreamsConfig);
+    Code:
+       0: aload_0
+       1: invokestatic  #57                 // Method processingMode:(Lorg/apache/kafka/streams/StreamsConfig;)Lorg/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode;
+       4: astore_1
+       5: aload_1
+       6: getstatic     #99                 // Field org/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode.EXACTLY_ONCE_ALPHA:Lorg/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode;
+       9: if_acmpeq     19
+      12: aload_1
+      13: getstatic     #101                // Field org/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode.EXACTLY_ONCE_BETA:Lorg/apache/kafka/streams/processor/internals/StreamThread$ProcessingMode;
+      16: if_acmpne     23
+      19: iconst_1
+      20: goto          24
+      23: iconst_0
+      24: ireturn
+
+  public org.apache.kafka.streams.processor.internals.StreamThread(org.apache.kafka.common.utils.Time, org.apache.kafka.streams.StreamsConfig, org.apache.kafka.clients.admin.Admin, org.apache.kafka.clients.consumer.Consumer<byte[], byte[]>, org.apache.kafka.clients.consumer.Consumer<byte[], byte[]>, org.apache.kafka.streams.processor.internals.ChangelogReader, java.lang.String, org.apache.kafka.streams.processor.internals.TaskManager, org.apache.kafka.streams.processor.internals.metrics.StreamsMetricsImpl, org.apache.kafka.streams.processor.internals.InternalTopologyBuilder, java.lang.String, org.apache.kafka.common.utils.LogContext, java.util.concurrent.atomic.AtomicInteger, java.util.concurrent.atomic.AtomicLong);
+    Code:
+       0: aload_0
+       1: aload         11
+       3: invokespecial #103                // Method java/lang/Thread."<init>":(Ljava/lang/String;)V
+       6: aload_0
+       7: getstatic     #104                // Field org/apache/kafka/streams/processor/internals/StreamThread$State.CREATED:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      10: putfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      13: aload_0
+      14: new           #37                 // class java/lang/Object
+      17: dup
+      18: invokespecial #105                // Method java/lang/Object."<init>":()V
+      21: putfield      #4                  // Field stateLock:Ljava/lang/Object;
+      24: aload_0
+      25: aload_3
+      26: putfield      #106                // Field adminClient:Lorg/apache/kafka/clients/admin/Admin;
+      29: aload_0
+      30: aload         9
+      32: putfield      #107                // Field streamsMetrics:Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;
+      35: aload_0
+      36: aload         11
+      38: aload         9
+      40: invokestatic  #108                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.commitSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+      43: putfield      #109                // Field commitSensor:Lorg/apache/kafka/common/metrics/Sensor;
+      46: aload_0
+      47: aload         11
+      49: aload         9
+      51: invokestatic  #110                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.pollSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+      54: putfield      #111                // Field pollSensor:Lorg/apache/kafka/common/metrics/Sensor;
+      57: aload_0
+      58: aload         11
+      60: aload         9
+      62: invokestatic  #112                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.pollRecordsSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+      65: putfield      #113                // Field pollRecordsSensor:Lorg/apache/kafka/common/metrics/Sensor;
+      68: aload_0
+      69: aload         11
+      71: aload         9
+      73: invokestatic  #114                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.pollRatioSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+      76: putfield      #115                // Field pollRatioSensor:Lorg/apache/kafka/common/metrics/Sensor;
+      79: aload_0
+      80: aload         11
+      82: aload         9
+      84: invokestatic  #116                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.processLatencySensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+      87: putfield      #117                // Field processLatencySensor:Lorg/apache/kafka/common/metrics/Sensor;
+      90: aload_0
+      91: aload         11
+      93: aload         9
+      95: invokestatic  #118                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.processRecordsSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+      98: putfield      #119                // Field processRecordsSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     101: aload_0
+     102: aload         11
+     104: aload         9
+     106: invokestatic  #120                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.processRateSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+     109: putfield      #121                // Field processRateSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     112: aload_0
+     113: aload         11
+     115: aload         9
+     117: invokestatic  #122                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.processRatioSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+     120: putfield      #123                // Field processRatioSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     123: aload_0
+     124: aload         11
+     126: aload         9
+     128: invokestatic  #124                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.punctuateSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+     131: putfield      #125                // Field punctuateSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     134: aload_0
+     135: aload         11
+     137: aload         9
+     139: invokestatic  #126                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.punctuateRatioSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+     142: putfield      #127                // Field punctuateRatioSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     145: aload_0
+     146: aload         11
+     148: aload         9
+     150: invokestatic  #128                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.commitRatioSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+     153: putfield      #129                // Field commitRatioSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     156: aload         11
+     158: aload         9
+     160: invokestatic  #130                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.createTaskSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+     163: pop
+     164: aload         11
+     166: aload         9
+     168: invokestatic  #131                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.closeTaskSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+     171: pop
+     172: aload         9
+     174: invokevirtual #132                // Method org/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl.version:()Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl$Version;
+     177: getstatic     #133                // Field org/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl$Version.FROM_0100_TO_24:Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl$Version;
+     180: if_acmpne     199
+     183: aload         11
+     185: aload         9
+     187: invokestatic  #134                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.skipRecordSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+     190: pop
+     191: aload         11
+     193: aload         9
+     195: invokestatic  #135                // Method org/apache/kafka/streams/processor/internals/metrics/ThreadMetrics.commitOverTasksSensor:(Ljava/lang/String;Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;)Lorg/apache/kafka/common/metrics/Sensor;
+     198: pop
+     199: aload_0
+     200: aload_1
+     201: putfield      #136                // Field time:Lorg/apache/kafka/common/utils/Time;
+     204: aload_0
+     205: aload         10
+     207: putfield      #137                // Field builder:Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;
+     210: aload_0
+     211: aload         12
+     213: invokevirtual #138                // Method org/apache/kafka/common/utils/LogContext.logPrefix:()Ljava/lang/String;
+     216: putfield      #17                 // Field logPrefix:Ljava/lang/String;
+     219: aload_0
+     220: aload         12
+     222: ldc           #41                 // class org/apache/kafka/streams/processor/internals/StreamThread
+     224: invokevirtual #42                 // Method org/apache/kafka/common/utils/LogContext.logger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+     227: putfield      #7                  // Field log:Lorg/slf4j/Logger;
+     230: aload_0
+     231: new           #139                // class org/apache/kafka/streams/processor/internals/StreamsRebalanceListener
+     234: dup
+     235: aload_1
+     236: aload         8
+     238: aload_0
+     239: aload_0
+     240: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     243: aload         13
+     245: invokespecial #140                // Method org/apache/kafka/streams/processor/internals/StreamsRebalanceListener."<init>":(Lorg/apache/kafka/common/utils/Time;Lorg/apache/kafka/streams/processor/internals/TaskManager;Lorg/apache/kafka/streams/processor/internals/StreamThread;Lorg/slf4j/Logger;Ljava/util/concurrent/atomic/AtomicInteger;)V
+     248: putfield      #141                // Field rebalanceListener:Lorg/apache/kafka/clients/consumer/ConsumerRebalanceListener;
+     251: aload_0
+     252: aload         8
+     254: putfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     257: aload_0
+     258: aload         5
+     260: putfield      #142                // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+     263: aload_0
+     264: aload         4
+     266: putfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+     269: aload_0
+     270: aload         6
+     272: putfield      #144                // Field changelogReader:Lorg/apache/kafka/streams/processor/internals/ChangelogReader;
+     275: aload_0
+     276: aload         7
+     278: putfield      #145                // Field originalReset:Ljava/lang/String;
+     281: aload_0
+     282: aload         14
+     284: putfield      #146                // Field nextProbingRebalanceMs:Ljava/util/concurrent/atomic/AtomicLong;
+     287: aload_0
+     288: aload_2
+     289: ldc           #147                // String poll.ms
+     291: invokevirtual #148                // Method org/apache/kafka/streams/StreamsConfig.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+     294: invokevirtual #149                // Method java/lang/Long.longValue:()J
+     297: invokestatic  #150                // Method java/time/Duration.ofMillis:(J)Ljava/time/Duration;
+     300: putfield      #151                // Field pollTime:Ljava/time/Duration;
+     303: iconst_1
+     304: istore        15
+     306: aload_0
+     307: new           #152                // class org/apache/kafka/streams/processor/internals/StreamThread$InternalConsumerConfig
+     310: dup
+     311: aload_2
+     312: ldc           #153                // String dummyGroupId
+     314: ldc           #154                // String dummyClientId
+     316: iconst_1
+     317: invokevirtual #63                 // Method org/apache/kafka/streams/StreamsConfig.getMainConsumerConfigs:(Ljava/lang/String;Ljava/lang/String;I)Ljava/util/Map;
+     320: aconst_null
+     321: invokespecial #155                // Method org/apache/kafka/streams/processor/internals/StreamThread$InternalConsumerConfig."<init>":(Ljava/util/Map;Lorg/apache/kafka/streams/processor/internals/StreamThread$1;)V
+     324: ldc           #156                // String max.poll.interval.ms
+     326: invokevirtual #157                // Method org/apache/kafka/streams/processor/internals/StreamThread$InternalConsumerConfig.getInt:(Ljava/lang/String;)Ljava/lang/Integer;
+     329: invokevirtual #158                // Method java/lang/Integer.intValue:()I
+     332: putfield      #159                // Field maxPollTimeMs:I
+     335: aload_0
+     336: aload_2
+     337: ldc           #160                // String commit.interval.ms
+     339: invokevirtual #148                // Method org/apache/kafka/streams/StreamsConfig.getLong:(Ljava/lang/String;)Ljava/lang/Long;
+     342: invokevirtual #149                // Method java/lang/Long.longValue:()J
+     345: putfield      #161                // Field commitTimeMs:J
+     348: aload_0
+     349: iconst_1
+     350: putfield      #162                // Field numIterations:I
+     353: return
+
+  public void run();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+       4: ldc           #163                // String Starting
+       6: invokeinterface #44,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      11: aload_0
+      12: getstatic     #164                // Field org/apache/kafka/streams/processor/internals/StreamThread$State.STARTING:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      15: invokevirtual #165                // Method setState:(Lorg/apache/kafka/streams/processor/internals/StreamThread$State;)Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      18: ifnonnull     33
+      21: aload_0
+      22: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      25: ldc           #166                // String StreamThread already shutdown. Not running
+      27: invokeinterface #44,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      32: return
+      33: iconst_0
+      34: istore_1
+      35: aload_0
+      36: invokevirtual #167                // Method runLoop:()V
+      39: iconst_1
+      40: istore_1
+      41: aload_0
+      42: iload_1
+      43: invokespecial #168                // Method completeShutdown:(Z)V
+      46: goto          116
+      49: astore_2
+      50: aload_2
+      51: instanceof    #170                // class org/apache/kafka/common/errors/UnsupportedVersionException
+      54: ifeq          92
+      57: aload_2
+      58: invokevirtual #171                // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+      61: astore_3
+      62: aload_3
+      63: ifnull        92
+      66: aload_3
+      67: ldc           #172                // String Broker unexpectedly doesn\'t support requireStable flag on version
+      69: invokevirtual #173                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+      72: ifeq          92
+      75: aload_0
+      76: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      79: ldc           #174                // String Shutting down because the Kafka cluster seems to be on a too old version. Setting {}=\"{}\" requires broker version 2.5 or higher.
+      81: ldc           #97                 // String processing.guarantee
+      83: ldc           #100                // String exactly_once_beta
+      85: invokeinterface #13,  4           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      90: aload_2
+      91: athrow
+      92: aload_0
+      93: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      96: ldc           #175                // String Encountered the following exception during processing and the thread is going to shut down:
+      98: aload_2
+      99: invokeinterface #176,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     104: aload_2
+     105: athrow
+     106: astore        4
+     108: aload_0
+     109: iload_1
+     110: invokespecial #168                // Method completeShutdown:(Z)V
+     113: aload         4
+     115: athrow
+     116: return
+    Exception table:
+       from    to  target type
+          35    41    49   Class java/lang/Exception
+          35    41   106   any
+          49   108   106   any
+
+  void runLoop();
+    Code:
+       0: aload_0
+       1: invokespecial #177                // Method subscribeConsumer:()V
+       4: aload_0
+       5: invokevirtual #178                // Method isRunning:()Z
+       8: ifne          21
+      11: aload_0
+      12: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+      15: invokevirtual #179                // Method org/apache/kafka/streams/processor/internals/TaskManager.isRebalanceInProgress:()Z
+      18: ifeq          158
+      21: aload_0
+      22: invokevirtual #180                // Method runOnce:()V
+      25: aload_0
+      26: getfield      #146                // Field nextProbingRebalanceMs:Ljava/util/concurrent/atomic/AtomicLong;
+      29: invokevirtual #181                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      32: aload_0
+      33: getfield      #136                // Field time:Lorg/apache/kafka/common/utils/Time;
+      36: invokeinterface #182,  1          // InterfaceMethod org/apache/kafka/common/utils/Time.milliseconds:()J
+      41: lcmp
+      42: ifge          85
+      45: aload_0
+      46: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      49: ldc           #183                // String Triggering the followup rebalance scheduled for {} ms.
+      51: aload_0
+      52: getfield      #146                // Field nextProbingRebalanceMs:Ljava/util/concurrent/atomic/AtomicLong;
+      55: invokevirtual #181                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      58: invokestatic  #184                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      61: invokeinterface #185,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      66: aload_0
+      67: getfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      70: invokeinterface #186,  1          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.enforceRebalance:()V
+      75: aload_0
+      76: getfield      #146                // Field nextProbingRebalanceMs:Ljava/util/concurrent/atomic/AtomicLong;
+      79: ldc2_w        #75                 // long 9223372036854775807l
+      82: invokevirtual #187                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+      85: goto          4
+      88: astore_1
+      89: aload_0
+      90: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      93: new           #15                 // class java/lang/StringBuilder
+      96: dup
+      97: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+     100: ldc           #189                // String Detected the states of tasks
+     102: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     105: aload_1
+     106: invokevirtual #190                // Method org/apache/kafka/streams/errors/TaskCorruptedException.corruptedTaskWithChangelogs:()Ljava/util/Map;
+     109: invokevirtual #20                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     112: ldc           #191                // String  are corrupted. Will close the task as dirty and re-create and bootstrap from scratch.
+     114: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     117: invokevirtual #22                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     120: aload_1
+     121: invokeinterface #192,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     126: aload_0
+     127: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     130: aload_1
+     131: invokevirtual #190                // Method org/apache/kafka/streams/errors/TaskCorruptedException.corruptedTaskWithChangelogs:()Ljava/util/Map;
+     134: invokevirtual #193                // Method org/apache/kafka/streams/processor/internals/TaskManager.handleCorruption:(Ljava/util/Map;)V
+     137: goto          146
+     140: astore_2
+     141: aload_0
+     142: aload_2
+     143: invokespecial #195                // Method handleTaskMigrated:(Lorg/apache/kafka/streams/errors/TaskMigratedException;)V
+     146: goto          4
+     149: astore_1
+     150: aload_0
+     151: aload_1
+     152: invokespecial #195                // Method handleTaskMigrated:(Lorg/apache/kafka/streams/errors/TaskMigratedException;)V
+     155: goto          4
+     158: return
+    Exception table:
+       from    to  target type
+          21    85    88   Class org/apache/kafka/streams/errors/TaskCorruptedException
+         126   137   140   Class org/apache/kafka/streams/errors/TaskMigratedException
+          21    85   149   Class org/apache/kafka/streams/errors/TaskMigratedException
+
+  private void handleTaskMigrated(org.apache.kafka.streams.errors.TaskMigratedException);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+       4: ldc           #196                // String Detected that the thread is being fenced. This implies that this thread missed a rebalance and dropped out of the consumer group. Will close out all assigned tasks and rejoin the consumer group.
+       6: aload_1
+       7: invokeinterface #192,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      12: aload_0
+      13: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+      16: invokevirtual #197                // Method org/apache/kafka/streams/processor/internals/TaskManager.handleLostAll:()V
+      19: aload_0
+      20: getfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      23: invokeinterface #198,  1          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.unsubscribe:()V
+      28: aload_0
+      29: invokespecial #177                // Method subscribeConsumer:()V
+      32: return
+
+  private void subscribeConsumer();
+    Code:
+       0: aload_0
+       1: getfield      #137                // Field builder:Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;
+       4: invokevirtual #199                // Method org/apache/kafka/streams/processor/internals/InternalTopologyBuilder.usesPatternSubscription:()Z
+       7: ifeq          33
+      10: aload_0
+      11: getfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      14: aload_0
+      15: getfield      #137                // Field builder:Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;
+      18: invokevirtual #200                // Method org/apache/kafka/streams/processor/internals/InternalTopologyBuilder.sourceTopicPattern:()Ljava/util/regex/Pattern;
+      21: aload_0
+      22: getfield      #141                // Field rebalanceListener:Lorg/apache/kafka/clients/consumer/ConsumerRebalanceListener;
+      25: invokeinterface #201,  3          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.subscribe:(Ljava/util/regex/Pattern;Lorg/apache/kafka/clients/consumer/ConsumerRebalanceListener;)V
+      30: goto          53
+      33: aload_0
+      34: getfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      37: aload_0
+      38: getfield      #137                // Field builder:Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;
+      41: invokevirtual #202                // Method org/apache/kafka/streams/processor/internals/InternalTopologyBuilder.sourceTopicCollection:()Ljava/util/Collection;
+      44: aload_0
+      45: getfield      #141                // Field rebalanceListener:Lorg/apache/kafka/clients/consumer/ConsumerRebalanceListener;
+      48: invokeinterface #203,  3          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.subscribe:(Ljava/util/Collection;Lorg/apache/kafka/clients/consumer/ConsumerRebalanceListener;)V
+      53: return
+
+  void runOnce();
+    Code:
+       0: aload_0
+       1: getfield      #136                // Field time:Lorg/apache/kafka/common/utils/Time;
+       4: invokeinterface #182,  1          // InterfaceMethod org/apache/kafka/common/utils/Time.milliseconds:()J
+       9: lstore_2
+      10: aload_0
+      11: lload_2
+      12: putfield      #204                // Field now:J
+      15: aload_0
+      16: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      19: getstatic     #205                // Field org/apache/kafka/streams/processor/internals/StreamThread$State.PARTITIONS_ASSIGNED:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      22: if_acmpne     36
+      25: aload_0
+      26: getstatic     #206                // Field java/time/Duration.ZERO:Ljava/time/Duration;
+      29: invokespecial #207                // Method pollRequests:(Ljava/time/Duration;)Lorg/apache/kafka/clients/consumer/ConsumerRecords;
+      32: astore_1
+      33: goto          167
+      36: aload_0
+      37: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      40: getstatic     #208                // Field org/apache/kafka/streams/processor/internals/StreamThread$State.PARTITIONS_REVOKED:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      43: if_acmpne     57
+      46: aload_0
+      47: getstatic     #206                // Field java/time/Duration.ZERO:Ljava/time/Duration;
+      50: invokespecial #207                // Method pollRequests:(Ljava/time/Duration;)Lorg/apache/kafka/clients/consumer/ConsumerRecords;
+      53: astore_1
+      54: goto          167
+      57: aload_0
+      58: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      61: getstatic     #26                 // Field org/apache/kafka/streams/processor/internals/StreamThread$State.RUNNING:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      64: if_acmpeq     77
+      67: aload_0
+      68: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      71: getstatic     #164                // Field org/apache/kafka/streams/processor/internals/StreamThread$State.STARTING:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      74: if_acmpne     89
+      77: aload_0
+      78: aload_0
+      79: getfield      #151                // Field pollTime:Ljava/time/Duration;
+      82: invokespecial #207                // Method pollRequests:(Ljava/time/Duration;)Lorg/apache/kafka/clients/consumer/ConsumerRecords;
+      85: astore_1
+      86: goto          167
+      89: aload_0
+      90: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      93: getstatic     #5                  // Field org/apache/kafka/streams/processor/internals/StreamThread$State.PENDING_SHUTDOWN:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      96: if_acmpne     110
+      99: aload_0
+     100: getstatic     #206                // Field java/time/Duration.ZERO:Ljava/time/Duration;
+     103: invokespecial #207                // Method pollRequests:(Ljava/time/Duration;)Lorg/apache/kafka/clients/consumer/ConsumerRecords;
+     106: astore_1
+     107: goto          167
+     110: aload_0
+     111: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     114: ldc           #209                // String Unexpected state {} during normal iteration
+     116: aload_0
+     117: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     120: invokeinterface #210,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;)V
+     125: new           #14                 // class org/apache/kafka/streams/errors/StreamsException
+     128: dup
+     129: new           #15                 // class java/lang/StringBuilder
+     132: dup
+     133: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+     136: aload_0
+     137: getfield      #17                 // Field logPrefix:Ljava/lang/String;
+     140: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     143: ldc           #211                // String Unexpected state
+     145: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     148: aload_0
+     149: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     152: invokevirtual #20                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     155: ldc           #212                // String  during normal iteration
+     157: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     160: invokevirtual #22                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     163: invokespecial #23                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;)V
+     166: athrow
+     167: aload_0
+     168: invokespecial #213                // Method advanceNowAndComputeLatency:()J
+     171: lstore        4
+     173: aload_1
+     174: ifnull        222
+     177: aload_1
+     178: invokevirtual #214                // Method org/apache/kafka/clients/consumer/ConsumerRecords.isEmpty:()Z
+     181: ifne          222
+     184: aload_0
+     185: getfield      #111                // Field pollSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     188: lload         4
+     190: l2d
+     191: aload_0
+     192: getfield      #204                // Field now:J
+     195: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     198: aload_0
+     199: getfield      #113                // Field pollRecordsSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     202: aload_1
+     203: invokevirtual #216                // Method org/apache/kafka/clients/consumer/ConsumerRecords.count:()I
+     206: i2d
+     207: aload_0
+     208: getfield      #204                // Field now:J
+     211: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     214: aload_0
+     215: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     218: aload_1
+     219: invokevirtual #217                // Method org/apache/kafka/streams/processor/internals/TaskManager.addRecordsToTasks:(Lorg/apache/kafka/clients/consumer/ConsumerRecords;)V
+     222: aload_0
+     223: invokevirtual #178                // Method isRunning:()Z
+     226: ifne          245
+     229: aload_0
+     230: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     233: ldc           #218                // String State already transits to {}, skipping the run once call after poll request
+     235: aload_0
+     236: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     239: invokeinterface #9,  3            // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     244: return
+     245: aload_0
+     246: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     249: getstatic     #205                // Field org/apache/kafka/streams/processor/internals/StreamThread$State.PARTITIONS_ASSIGNED:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     252: if_acmpeq     275
+     255: aload_0
+     256: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     259: getstatic     #26                 // Field org/apache/kafka/streams/processor/internals/StreamThread$State.RUNNING:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     262: if_acmpne     311
+     265: aload_0
+     266: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     269: invokevirtual #219                // Method org/apache/kafka/streams/processor/internals/TaskManager.needsInitializationOrRestoration:()Z
+     272: ifeq          311
+     275: aload_0
+     276: getfield      #144                // Field changelogReader:Lorg/apache/kafka/streams/processor/internals/ChangelogReader;
+     279: invokeinterface #220,  1          // InterfaceMethod org/apache/kafka/streams/processor/internals/ChangelogReader.enforceRestoreActive:()V
+     284: aload_0
+     285: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     288: invokevirtual #221                // Method org/apache/kafka/streams/processor/internals/TaskManager.tryToCompleteRestoration:()Z
+     291: ifeq          311
+     294: aload_0
+     295: getfield      #144                // Field changelogReader:Lorg/apache/kafka/streams/processor/internals/ChangelogReader;
+     298: invokeinterface #222,  1          // InterfaceMethod org/apache/kafka/streams/processor/internals/ChangelogReader.transitToUpdateStandby:()V
+     303: aload_0
+     304: getstatic     #26                 // Field org/apache/kafka/streams/processor/internals/StreamThread$State.RUNNING:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     307: invokevirtual #165                // Method setState:(Lorg/apache/kafka/streams/processor/internals/StreamThread$State;)Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     310: pop
+     311: aload_0
+     312: getfield      #144                // Field changelogReader:Lorg/apache/kafka/streams/processor/internals/ChangelogReader;
+     315: invokeinterface #223,  1          // InterfaceMethod org/apache/kafka/streams/processor/internals/ChangelogReader.restore:()V
+     320: aload_0
+     321: invokespecial #213                // Method advanceNowAndComputeLatency:()J
+     324: pop2
+     325: iconst_0
+     326: istore        6
+     328: lconst_0
+     329: lstore        7
+     331: lconst_0
+     332: lstore        9
+     334: lconst_0
+     335: lstore        11
+     337: aload_0
+     338: getfield      #3                  // Field state:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     341: getstatic     #26                 // Field org/apache/kafka/streams/processor/internals/StreamThread$State.RUNNING:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     344: if_acmpne     687
+     347: aload_0
+     348: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     351: aload_0
+     352: getfield      #162                // Field numIterations:I
+     355: aload_0
+     356: getfield      #136                // Field time:Lorg/apache/kafka/common/utils/Time;
+     359: invokevirtual #224                // Method org/apache/kafka/streams/processor/internals/TaskManager.process:(ILorg/apache/kafka/common/utils/Time;)I
+     362: istore        13
+     364: aload_0
+     365: invokespecial #213                // Method advanceNowAndComputeLatency:()J
+     368: lstore        14
+     370: lload         9
+     372: lload         14
+     374: ladd
+     375: lstore        9
+     377: iload         13
+     379: ifle          421
+     382: aload_0
+     383: getfield      #121                // Field processRateSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     386: iload         13
+     388: i2d
+     389: aload_0
+     390: getfield      #204                // Field now:J
+     393: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     396: aload_0
+     397: getfield      #117                // Field processLatencySensor:Lorg/apache/kafka/common/metrics/Sensor;
+     400: lload         14
+     402: l2d
+     403: iload         13
+     405: i2d
+     406: ddiv
+     407: aload_0
+     408: getfield      #204                // Field now:J
+     411: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     414: iload         6
+     416: iload         13
+     418: iadd
+     419: istore        6
+     421: aload_0
+     422: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     425: invokevirtual #225                // Method org/apache/kafka/streams/processor/internals/TaskManager.punctuate:()I
+     428: istore        16
+     430: aload_0
+     431: invokespecial #213                // Method advanceNowAndComputeLatency:()J
+     434: lstore        17
+     436: lload         11
+     438: lload         17
+     440: ladd
+     441: lstore        11
+     443: iload         16
+     445: ifle          466
+     448: aload_0
+     449: getfield      #125                // Field punctuateSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     452: lload         17
+     454: l2d
+     455: iload         16
+     457: i2d
+     458: ddiv
+     459: aload_0
+     460: getfield      #204                // Field now:J
+     463: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     466: aload_0
+     467: invokevirtual #226                // Method maybeCommit:()I
+     470: istore        19
+     472: aload_0
+     473: invokespecial #213                // Method advanceNowAndComputeLatency:()J
+     476: lstore        20
+     478: lload         7
+     480: lload         20
+     482: ladd
+     483: lstore        7
+     485: iload         19
+     487: ifle          563
+     490: aload_0
+     491: getfield      #109                // Field commitSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     494: lload         20
+     496: l2d
+     497: iload         19
+     499: i2d
+     500: ddiv
+     501: aload_0
+     502: getfield      #204                // Field now:J
+     505: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     508: aload_0
+     509: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     512: invokeinterface #227,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     517: ifeq          563
+     520: aload_0
+     521: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     524: ldc           #228                // String Committed all active tasks {} and standby tasks {} in {}ms
+     526: iconst_3
+     527: anewarray     #37                 // class java/lang/Object
+     530: dup
+     531: iconst_0
+     532: aload_0
+     533: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     536: invokevirtual #229                // Method org/apache/kafka/streams/processor/internals/TaskManager.activeTaskIds:()Ljava/util/Set;
+     539: aastore
+     540: dup
+     541: iconst_1
+     542: aload_0
+     543: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     546: invokevirtual #230                // Method org/apache/kafka/streams/processor/internals/TaskManager.standbyTaskIds:()Ljava/util/Set;
+     549: aastore
+     550: dup
+     551: iconst_2
+     552: lload         20
+     554: invokestatic  #184                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     557: aastore
+     558: invokeinterface #231,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     563: iload         13
+     565: ifne          571
+     568: goto          674
+     571: aload_0
+     572: getfield      #204                // Field now:J
+     575: aload_0
+     576: getfield      #232                // Field lastPollMs:J
+     579: lsub
+     580: lconst_0
+     581: invokestatic  #233                // Method java/lang/Math.max:(JJ)J
+     584: aload_0
+     585: getfield      #159                // Field maxPollTimeMs:I
+     588: iconst_2
+     589: idiv
+     590: i2l
+     591: lcmp
+     592: ifle          623
+     595: aload_0
+     596: aload_0
+     597: getfield      #162                // Field numIterations:I
+     600: iconst_1
+     601: if_icmple     613
+     604: aload_0
+     605: getfield      #162                // Field numIterations:I
+     608: iconst_2
+     609: idiv
+     610: goto          617
+     613: aload_0
+     614: getfield      #162                // Field numIterations:I
+     617: putfield      #162                // Field numIterations:I
+     620: goto          674
+     623: iload         16
+     625: ifgt          633
+     628: iload         19
+     630: ifle          661
+     633: aload_0
+     634: aload_0
+     635: getfield      #162                // Field numIterations:I
+     638: iconst_1
+     639: if_icmple     651
+     642: aload_0
+     643: getfield      #162                // Field numIterations:I
+     646: iconst_2
+     647: idiv
+     648: goto          655
+     651: aload_0
+     652: getfield      #162                // Field numIterations:I
+     655: putfield      #162                // Field numIterations:I
+     658: goto          671
+     661: aload_0
+     662: dup
+     663: getfield      #162                // Field numIterations:I
+     666: iconst_1
+     667: iadd
+     668: putfield      #162                // Field numIterations:I
+     671: goto          347
+     674: aload_0
+     675: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     678: lload         9
+     680: aload_0
+     681: getfield      #204                // Field now:J
+     684: invokevirtual #234                // Method org/apache/kafka/streams/processor/internals/TaskManager.recordTaskProcessRatio:(JJ)V
+     687: aload_0
+     688: aload_0
+     689: getfield      #136                // Field time:Lorg/apache/kafka/common/utils/Time;
+     692: invokeinterface #182,  1          // InterfaceMethod org/apache/kafka/common/utils/Time.milliseconds:()J
+     697: putfield      #204                // Field now:J
+     700: aload_0
+     701: getfield      #204                // Field now:J
+     704: lload_2
+     705: lsub
+     706: lstore        13
+     708: aload_0
+     709: getfield      #119                // Field processRecordsSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     712: iload         6
+     714: i2d
+     715: aload_0
+     716: getfield      #204                // Field now:J
+     719: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     722: aload_0
+     723: getfield      #123                // Field processRatioSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     726: lload         9
+     728: l2d
+     729: lload         13
+     731: l2d
+     732: ddiv
+     733: aload_0
+     734: getfield      #204                // Field now:J
+     737: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     740: aload_0
+     741: getfield      #127                // Field punctuateRatioSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     744: lload         11
+     746: l2d
+     747: lload         13
+     749: l2d
+     750: ddiv
+     751: aload_0
+     752: getfield      #204                // Field now:J
+     755: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     758: aload_0
+     759: getfield      #115                // Field pollRatioSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     762: lload         4
+     764: l2d
+     765: lload         13
+     767: l2d
+     768: ddiv
+     769: aload_0
+     770: getfield      #204                // Field now:J
+     773: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     776: aload_0
+     777: getfield      #129                // Field commitRatioSensor:Lorg/apache/kafka/common/metrics/Sensor;
+     780: lload         7
+     782: l2d
+     783: lload         13
+     785: l2d
+     786: ddiv
+     787: aload_0
+     788: getfield      #204                // Field now:J
+     791: invokevirtual #215                // Method org/apache/kafka/common/metrics/Sensor.record:(DJ)V
+     794: return
+
+  private org.apache.kafka.clients.consumer.ConsumerRecords<byte[], byte[]> pollRequests(java.time.Duration);
+    Code:
+       0: aconst_null
+       1: astore_2
+       2: aload_0
+       3: aload_0
+       4: getfield      #204                // Field now:J
+       7: putfield      #232                // Field lastPollMs:J
+      10: aload_0
+      11: getfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      14: aload_1
+      15: invokeinterface #235,  2          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.poll:(Ljava/time/Duration;)Lorg/apache/kafka/clients/consumer/ConsumerRecords;
+      20: astore_2
+      21: goto          34
+      24: astore_3
+      25: aload_0
+      26: aload_3
+      27: invokevirtual #237                // Method org/apache/kafka/clients/consumer/InvalidOffsetException.partitions:()Ljava/util/Set;
+      30: aload_3
+      31: invokespecial #238                // Method resetOffsets:(Ljava/util/Set;Ljava/lang/Exception;)V
+      34: aload_2
+      35: areturn
+    Exception table:
+       from    to  target type
+          10    21    24   Class org/apache/kafka/clients/consumer/InvalidOffsetException
+
+  private void resetOffsets(java.util.Set<org.apache.kafka.common.TopicPartition>, java.lang.Exception);
+    Code:
+       0: new           #239                // class java/util/HashSet
+       3: dup
+       4: invokespecial #240                // Method java/util/HashSet."<init>":()V
+       7: astore_3
+       8: new           #239                // class java/util/HashSet
+      11: dup
+      12: invokespecial #240                // Method java/util/HashSet."<init>":()V
+      15: astore        4
+      17: new           #239                // class java/util/HashSet
+      20: dup
+      21: invokespecial #240                // Method java/util/HashSet."<init>":()V
+      24: astore        5
+      26: new           #239                // class java/util/HashSet
+      29: dup
+      30: invokespecial #240                // Method java/util/HashSet."<init>":()V
+      33: astore        6
+      35: aload_1
+      36: invokeinterface #241,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      41: astore        7
+      43: aload         7
+      45: invokeinterface #242,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      50: ifeq          208
+      53: aload         7
+      55: invokeinterface #243,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      60: checkcast     #244                // class org/apache/kafka/common/TopicPartition
+      63: astore        8
+      65: aload_0
+      66: getfield      #137                // Field builder:Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;
+      69: invokevirtual #86                 // Method org/apache/kafka/streams/processor/internals/InternalTopologyBuilder.earliestResetTopicsPattern:()Ljava/util/regex/Pattern;
+      72: aload         8
+      74: invokevirtual #245                // Method org/apache/kafka/common/TopicPartition.topic:()Ljava/lang/String;
+      77: invokevirtual #246                // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+      80: invokevirtual #247                // Method java/util/regex/Matcher.matches:()Z
+      83: ifeq          102
+      86: aload_0
+      87: aload         8
+      89: aload         4
+      91: ldc           #248                // String Setting topic \'{}\' to consume from {} offset
+      93: ldc           #249                // String earliest
+      95: aload_3
+      96: invokespecial #250                // Method addToResetList:(Lorg/apache/kafka/common/TopicPartition;Ljava/util/Set;Ljava/lang/String;Ljava/lang/String;Ljava/util/Set;)V
+      99: goto          205
+     102: aload_0
+     103: getfield      #137                // Field builder:Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;
+     106: invokevirtual #83                 // Method org/apache/kafka/streams/processor/internals/InternalTopologyBuilder.latestResetTopicsPattern:()Ljava/util/regex/Pattern;
+     109: aload         8
+     111: invokevirtual #245                // Method org/apache/kafka/common/TopicPartition.topic:()Ljava/lang/String;
+     114: invokevirtual #246                // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+     117: invokevirtual #247                // Method java/util/regex/Matcher.matches:()Z
+     120: ifeq          139
+     123: aload_0
+     124: aload         8
+     126: aload         5
+     128: ldc           #248                // String Setting topic \'{}\' to consume from {} offset
+     130: ldc           #251                // String latest
+     132: aload_3
+     133: invokespecial #250                // Method addToResetList:(Lorg/apache/kafka/common/TopicPartition;Ljava/util/Set;Ljava/lang/String;Ljava/lang/String;Ljava/util/Set;)V
+     136: goto          205
+     139: ldc           #249                // String earliest
+     141: aload_0
+     142: getfield      #145                // Field originalReset:Ljava/lang/String;
+     145: invokevirtual #98                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     148: ifeq          167
+     151: aload_0
+     152: aload         8
+     154: aload         4
+     156: ldc           #252                // String No custom setting defined for topic \'{}\' using original config \'{}\' for offset reset
+     158: ldc           #249                // String earliest
+     160: aload_3
+     161: invokespecial #250                // Method addToResetList:(Lorg/apache/kafka/common/TopicPartition;Ljava/util/Set;Ljava/lang/String;Ljava/lang/String;Ljava/util/Set;)V
+     164: goto          205
+     167: ldc           #251                // String latest
+     169: aload_0
+     170: getfield      #145                // Field originalReset:Ljava/lang/String;
+     173: invokevirtual #98                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     176: ifeq          195
+     179: aload_0
+     180: aload         8
+     182: aload         5
+     184: ldc           #252                // String No custom setting defined for topic \'{}\' using original config \'{}\' for offset reset
+     186: ldc           #251                // String latest
+     188: aload_3
+     189: invokespecial #250                // Method addToResetList:(Lorg/apache/kafka/common/TopicPartition;Ljava/util/Set;Ljava/lang/String;Ljava/lang/String;Ljava/util/Set;)V
+     192: goto          205
+     195: aload         6
+     197: aload         8
+     199: invokeinterface #253,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     204: pop
+     205: goto          43
+     208: aload         6
+     210: invokeinterface #254,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+     215: ifeq          263
+     218: aload         4
+     220: invokeinterface #254,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+     225: ifne          239
+     228: aload_0
+     229: getfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+     232: aload         4
+     234: invokeinterface #255,  2          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.seekToBeginning:(Ljava/util/Collection;)V
+     239: aload         5
+     241: invokeinterface #254,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+     246: ifne          343
+     249: aload_0
+     250: getfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+     253: aload         5
+     255: invokeinterface #256,  2          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.seekToEnd:(Ljava/util/Collection;)V
+     260: goto          343
+     263: aload         6
+     265: invokeinterface #257,  1          // InterfaceMethod java/util/Set.stream:()Ljava/util/stream/Stream;
+     270: invokedynamic #258,  0            // InvokeDynamic #1:apply:()Ljava/util/function/Function;
+     275: invokeinterface #259,  2          // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+     280: invokeinterface #260,  1          // InterfaceMethod java/util/stream/Stream.distinct:()Ljava/util/stream/Stream;
+     285: ldc_w         #261                // String ,
+     288: invokestatic  #262                // Method java/util/stream/Collectors.joining:(Ljava/lang/CharSequence;)Ljava/util/stream/Collector;
+     291: invokeinterface #263,  2          // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+     296: checkcast     #82                 // class java/lang/String
+     299: astore        7
+     301: ldc_w         #264                // String No valid committed offset found for input [%s] and no valid reset policy configured. You need to set configuration parameter \"auto.offset.reset\" or specify a topic specific reset policy via StreamsBuilder#stream(..., Consumed.with(Topology.AutoOffsetReset)) or StreamsBuilder#table(..., Consumed.with(Topology.AutoOffsetReset))
+     304: iconst_1
+     305: anewarray     #37                 // class java/lang/Object
+     308: dup
+     309: iconst_0
+     310: aload         7
+     312: aastore
+     313: invokestatic  #38                 // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     316: astore        8
+     318: aload_2
+     319: ifnonnull     332
+     322: new           #14                 // class org/apache/kafka/streams/errors/StreamsException
+     325: dup
+     326: aload         8
+     328: invokespecial #23                 // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;)V
+     331: athrow
+     332: new           #14                 // class org/apache/kafka/streams/errors/StreamsException
+     335: dup
+     336: aload         8
+     338: aload_2
+     339: invokespecial #265                // Method org/apache/kafka/streams/errors/StreamsException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     342: athrow
+     343: return
+
+  private void addToResetList(org.apache.kafka.common.TopicPartition, java.util.Set<org.apache.kafka.common.TopicPartition>, java.lang.String, java.lang.String, java.util.Set<java.lang.String>);
+    Code:
+       0: aload_1
+       1: invokevirtual #245                // Method org/apache/kafka/common/TopicPartition.topic:()Ljava/lang/String;
+       4: astore        6
+       6: aload         5
+       8: aload         6
+      10: invokeinterface #253,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      15: ifeq          32
+      18: aload_0
+      19: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      22: aload_3
+      23: aload         6
+      25: aload         4
+      27: invokeinterface #25,  4           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      32: aload_2
+      33: aload_1
+      34: invokeinterface #253,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      39: pop
+      40: return
+
+  int maybeCommit();
+    Code:
+       0: aload_0
+       1: getfield      #204                // Field now:J
+       4: aload_0
+       5: getfield      #266                // Field lastCommitMs:J
+       8: lsub
+       9: aload_0
+      10: getfield      #161                // Field commitTimeMs:J
+      13: lcmp
+      14: ifle          178
+      17: aload_0
+      18: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      21: invokeinterface #267,  1          // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+      26: ifeq          90
+      29: aload_0
+      30: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      33: ldc_w         #268                // String Committing all active tasks {} and standby tasks {} since {}ms has elapsed (commit interval is {}ms)
+      36: iconst_4
+      37: anewarray     #37                 // class java/lang/Object
+      40: dup
+      41: iconst_0
+      42: aload_0
+      43: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+      46: invokevirtual #229                // Method org/apache/kafka/streams/processor/internals/TaskManager.activeTaskIds:()Ljava/util/Set;
+      49: aastore
+      50: dup
+      51: iconst_1
+      52: aload_0
+      53: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+      56: invokevirtual #230                // Method org/apache/kafka/streams/processor/internals/TaskManager.standbyTaskIds:()Ljava/util/Set;
+      59: aastore
+      60: dup
+      61: iconst_2
+      62: aload_0
+      63: getfield      #204                // Field now:J
+      66: aload_0
+      67: getfield      #266                // Field lastCommitMs:J
+      70: lsub
+      71: invokestatic  #184                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      74: aastore
+      75: dup
+      76: iconst_3
+      77: aload_0
+      78: getfield      #161                // Field commitTimeMs:J
+      81: invokestatic  #184                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      84: aastore
+      85: invokeinterface #269,  3          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+      90: aload_0
+      91: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+      94: aload_0
+      95: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+      98: invokevirtual #270                // Method org/apache/kafka/streams/processor/internals/TaskManager.tasks:()Ljava/util/Map;
+     101: invokeinterface #271,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+     106: invokeinterface #272,  1          // InterfaceMethod java/util/Collection.stream:()Ljava/util/stream/Stream;
+     111: invokedynamic #273,  0            // InvokeDynamic #2:test:()Ljava/util/function/Predicate;
+     116: invokeinterface #274,  2          // InterfaceMethod java/util/stream/Stream.filter:(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+     121: invokestatic  #275                // Method java/util/stream/Collectors.toSet:()Ljava/util/stream/Collector;
+     124: invokeinterface #263,  2          // InterfaceMethod java/util/stream/Stream.collect:(Ljava/util/stream/Collector;)Ljava/lang/Object;
+     129: checkcast     #276                // class java/util/Collection
+     132: invokevirtual #277                // Method org/apache/kafka/streams/processor/internals/TaskManager.commit:(Ljava/util/Collection;)I
+     135: istore_1
+     136: iload_1
+     137: ifle          147
+     140: aload_0
+     141: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     144: invokevirtual #278                // Method org/apache/kafka/streams/processor/internals/TaskManager.maybePurgeCommittedRecords:()V
+     147: iload_1
+     148: iconst_m1
+     149: if_icmpne     167
+     152: aload_0
+     153: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     156: ldc_w         #279                // String Unable to commit as we are in the middle of a rebalance, will try again when it completes.
+     159: invokeinterface #280,  2          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+     164: goto          186
+     167: aload_0
+     168: aload_0
+     169: getfield      #204                // Field now:J
+     172: putfield      #266                // Field lastCommitMs:J
+     175: goto          186
+     178: aload_0
+     179: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     182: invokevirtual #281                // Method org/apache/kafka/streams/processor/internals/TaskManager.maybeCommitActiveTasksPerUserRequested:()I
+     185: istore_1
+     186: iload_1
+     187: ireturn
+
+  private long advanceNowAndComputeLatency();
+    Code:
+       0: aload_0
+       1: getfield      #204                // Field now:J
+       4: lstore_1
+       5: aload_0
+       6: aload_0
+       7: getfield      #136                // Field time:Lorg/apache/kafka/common/utils/Time;
+      10: invokeinterface #182,  1          // InterfaceMethod org/apache/kafka/common/utils/Time.milliseconds:()J
+      15: putfield      #204                // Field now:J
+      18: aload_0
+      19: getfield      #204                // Field now:J
+      22: lload_1
+      23: lsub
+      24: lconst_0
+      25: invokestatic  #233                // Method java/lang/Math.max:(JJ)J
+      28: lreturn
+
+  public void shutdown();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+       4: ldc_w         #282                // String Informed to shut down
+       7: invokeinterface #44,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      12: aload_0
+      13: getstatic     #5                  // Field org/apache/kafka/streams/processor/internals/StreamThread$State.PENDING_SHUTDOWN:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      16: invokevirtual #165                // Method setState:(Lorg/apache/kafka/streams/processor/internals/StreamThread$State;)Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      19: astore_1
+      20: aload_1
+      21: getstatic     #104                // Field org/apache/kafka/streams/processor/internals/StreamThread$State.CREATED:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      24: if_acmpne     32
+      27: aload_0
+      28: iconst_1
+      29: invokespecial #168                // Method completeShutdown:(Z)V
+      32: return
+
+  private void completeShutdown(boolean);
+    Code:
+       0: aload_0
+       1: getstatic     #5                  // Field org/apache/kafka/streams/processor/internals/StreamThread$State.PENDING_SHUTDOWN:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+       4: invokevirtual #165                // Method setState:(Lorg/apache/kafka/streams/processor/internals/StreamThread$State;)Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+       7: pop
+       8: aload_0
+       9: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      12: ldc_w         #283                // String Shutting down
+      15: invokeinterface #44,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      20: aload_0
+      21: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+      24: iload_1
+      25: invokevirtual #284                // Method org/apache/kafka/streams/processor/internals/TaskManager.shutdown:(Z)V
+      28: goto          45
+      31: astore_2
+      32: aload_0
+      33: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      36: ldc_w         #286                // String Failed to close task manager due to the following error:
+      39: aload_2
+      40: invokeinterface #176,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      45: aload_0
+      46: getfield      #144                // Field changelogReader:Lorg/apache/kafka/streams/processor/internals/ChangelogReader;
+      49: invokeinterface #287,  1          // InterfaceMethod org/apache/kafka/streams/processor/internals/ChangelogReader.clear:()V
+      54: goto          71
+      57: astore_2
+      58: aload_0
+      59: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      62: ldc_w         #288                // String Failed to close changelog reader due to the following error:
+      65: aload_2
+      66: invokeinterface #176,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      71: aload_0
+      72: getfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+      75: invokeinterface #289,  1          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.close:()V
+      80: goto          97
+      83: astore_2
+      84: aload_0
+      85: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+      88: ldc_w         #290                // String Failed to close consumer due to the following error:
+      91: aload_2
+      92: invokeinterface #176,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      97: aload_0
+      98: getfield      #142                // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+     101: invokeinterface #289,  1          // InterfaceMethod org/apache/kafka/clients/consumer/Consumer.close:()V
+     106: goto          123
+     109: astore_2
+     110: aload_0
+     111: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     114: ldc_w         #291                // String Failed to close restore consumer due to the following error:
+     117: aload_2
+     118: invokeinterface #176,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     123: aload_0
+     124: getfield      #107                // Field streamsMetrics:Lorg/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl;
+     127: aload_0
+     128: invokevirtual #292                // Method getName:()Ljava/lang/String;
+     131: invokevirtual #293                // Method org/apache/kafka/streams/processor/internals/metrics/StreamsMetricsImpl.removeAllThreadLevelSensors:(Ljava/lang/String;)V
+     134: aload_0
+     135: getstatic     #6                  // Field org/apache/kafka/streams/processor/internals/StreamThread$State.DEAD:Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     138: invokevirtual #165                // Method setState:(Lorg/apache/kafka/streams/processor/internals/StreamThread$State;)Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     141: pop
+     142: aload_0
+     143: getfield      #7                  // Field log:Lorg/slf4j/Logger;
+     146: ldc_w         #294                // String Shutdown complete
+     149: invokeinterface #44,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     154: return
+    Exception table:
+       from    to  target type
+          20    28    31   Class java/lang/Throwable
+          45    54    57   Class java/lang/Throwable
+          71    80    83   Class java/lang/Throwable
+          97   106   109   Class java/lang/Throwable
+
+  public final org.apache.kafka.streams.processor.ThreadMetadata threadMetadata();
+    Code:
+       0: aload_0
+       1: getfield      #295                // Field threadMetadata:Lorg/apache/kafka/streams/processor/ThreadMetadata;
+       4: areturn
+
+  org.apache.kafka.streams.processor.internals.StreamThread updateThreadMetadata(java.lang.String);
+    Code:
+       0: aload_0
+       1: new           #296                // class org/apache/kafka/streams/processor/ThreadMetadata
+       4: dup
+       5: aload_0
+       6: invokevirtual #292                // Method getName:()Ljava/lang/String;
+       9: aload_0
+      10: invokevirtual #297                // Method state:()Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+      13: invokevirtual #298                // Method org/apache/kafka/streams/processor/internals/StreamThread$State.name:()Ljava/lang/String;
+      16: aload_0
+      17: invokevirtual #292                // Method getName:()Ljava/lang/String;
+      20: invokestatic  #62                 // Method org/apache/kafka/streams/processor/internals/ClientUtils.getConsumerClientId:(Ljava/lang/String;)Ljava/lang/String;
+      23: aload_0
+      24: invokevirtual #292                // Method getName:()Ljava/lang/String;
+      27: invokestatic  #45                 // Method org/apache/kafka/streams/processor/internals/ClientUtils.getRestoreConsumerClientId:(Ljava/lang/String;)Ljava/lang/String;
+      30: aload_0
+      31: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+      34: invokevirtual #299                // Method org/apache/kafka/streams/processor/internals/TaskManager.producerClientIds:()Ljava/util/Set;
+      37: aload_1
+      38: invokestatic  #300                // Method java/util/Collections.emptySet:()Ljava/util/Set;
+      41: invokestatic  #300                // Method java/util/Collections.emptySet:()Ljava/util/Set;
+      44: invokespecial #301                // Method org/apache/kafka/streams/processor/ThreadMetadata."<init>":(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/Set;Ljava/lang/String;Ljava/util/Set;Ljava/util/Set;)V
+      47: putfield      #295                // Field threadMetadata:Lorg/apache/kafka/streams/processor/ThreadMetadata;
+      50: aload_0
+      51: areturn
+
+  private void updateThreadMetadata(java.util.Map<org.apache.kafka.streams.processor.TaskId, org.apache.kafka.streams.processor.internals.Task>, java.util.Map<org.apache.kafka.streams.processor.TaskId, org.apache.kafka.streams.processor.internals.Task>);
+    Code:
+       0: new           #239                // class java/util/HashSet
+       3: dup
+       4: invokespecial #240                // Method java/util/HashSet."<init>":()V
+       7: astore_3
+       8: aload_1
+       9: invokeinterface #302,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+      14: invokeinterface #241,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      19: astore        4
+      21: aload         4
+      23: invokeinterface #242,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      28: ifeq          88
+      31: aload         4
+      33: invokeinterface #243,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      38: checkcast     #303                // class java/util/Map$Entry
+      41: astore        5
+      43: aload_3
+      44: new           #304                // class org/apache/kafka/streams/processor/TaskMetadata
+      47: dup
+      48: aload         5
+      50: invokeinterface #305,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      55: checkcast     #306                // class org/apache/kafka/streams/processor/TaskId
+      58: invokevirtual #307                // Method org/apache/kafka/streams/processor/TaskId.toString:()Ljava/lang/String;
+      61: aload         5
+      63: invokeinterface #308,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      68: checkcast     #309                // class org/apache/kafka/streams/processor/internals/Task
+      71: invokeinterface #310,  1          // InterfaceMethod org/apache/kafka/streams/processor/internals/Task.inputPartitions:()Ljava/util/Set;
+      76: invokespecial #311                // Method org/apache/kafka/streams/processor/TaskMetadata."<init>":(Ljava/lang/String;Ljava/util/Set;)V
+      79: invokeinterface #253,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      84: pop
+      85: goto          21
+      88: new           #239                // class java/util/HashSet
+      91: dup
+      92: invokespecial #240                // Method java/util/HashSet."<init>":()V
+      95: astore        4
+      97: aload_2
+      98: invokeinterface #302,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+     103: invokeinterface #241,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+     108: astore        5
+     110: aload         5
+     112: invokeinterface #242,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     117: ifeq          178
+     120: aload         5
+     122: invokeinterface #243,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     127: checkcast     #303                // class java/util/Map$Entry
+     130: astore        6
+     132: aload         4
+     134: new           #304                // class org/apache/kafka/streams/processor/TaskMetadata
+     137: dup
+     138: aload         6
+     140: invokeinterface #305,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     145: checkcast     #306                // class org/apache/kafka/streams/processor/TaskId
+     148: invokevirtual #307                // Method org/apache/kafka/streams/processor/TaskId.toString:()Ljava/lang/String;
+     151: aload         6
+     153: invokeinterface #308,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+     158: checkcast     #309                // class org/apache/kafka/streams/processor/internals/Task
+     161: invokeinterface #310,  1          // InterfaceMethod org/apache/kafka/streams/processor/internals/Task.inputPartitions:()Ljava/util/Set;
+     166: invokespecial #311                // Method org/apache/kafka/streams/processor/TaskMetadata."<init>":(Ljava/lang/String;Ljava/util/Set;)V
+     169: invokeinterface #253,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+     174: pop
+     175: goto          110
+     178: aload_0
+     179: getfield      #295                // Field threadMetadata:Lorg/apache/kafka/streams/processor/ThreadMetadata;
+     182: invokevirtual #312                // Method org/apache/kafka/streams/processor/ThreadMetadata.adminClientId:()Ljava/lang/String;
+     185: astore        5
+     187: aload_0
+     188: new           #296                // class org/apache/kafka/streams/processor/ThreadMetadata
+     191: dup
+     192: aload_0
+     193: invokevirtual #292                // Method getName:()Ljava/lang/String;
+     196: aload_0
+     197: invokevirtual #297                // Method state:()Lorg/apache/kafka/streams/processor/internals/StreamThread$State;
+     200: invokevirtual #298                // Method org/apache/kafka/streams/processor/internals/StreamThread$State.name:()Ljava/lang/String;
+     203: aload_0
+     204: invokevirtual #292                // Method getName:()Ljava/lang/String;
+     207: invokestatic  #62                 // Method org/apache/kafka/streams/processor/internals/ClientUtils.getConsumerClientId:(Ljava/lang/String;)Ljava/lang/String;
+     210: aload_0
+     211: invokevirtual #292                // Method getName:()Ljava/lang/String;
+     214: invokestatic  #45                 // Method org/apache/kafka/streams/processor/internals/ClientUtils.getRestoreConsumerClientId:(Ljava/lang/String;)Ljava/lang/String;
+     217: aload_0
+     218: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+     221: invokevirtual #299                // Method org/apache/kafka/streams/processor/internals/TaskManager.producerClientIds:()Ljava/util/Set;
+     224: aload         5
+     226: aload_3
+     227: aload         4
+     229: invokespecial #301                // Method org/apache/kafka/streams/processor/ThreadMetadata."<init>":(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/Set;Ljava/lang/String;Ljava/util/Set;Ljava/util/Set;)V
+     232: putfield      #295                // Field threadMetadata:Lorg/apache/kafka/streams/processor/ThreadMetadata;
+     235: return
+
+  public java.util.Map<org.apache.kafka.streams.processor.TaskId, org.apache.kafka.streams.processor.internals.Task> activeTaskMap();
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+       4: invokevirtual #28                 // Method org/apache/kafka/streams/processor/internals/TaskManager.activeTaskMap:()Ljava/util/Map;
+       7: areturn
+
+  public java.util.List<org.apache.kafka.streams.processor.internals.Task> activeTasks();
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+       4: invokevirtual #313                // Method org/apache/kafka/streams/processor/internals/TaskManager.activeTaskIterable:()Ljava/util/List;
+       7: areturn
+
+  public java.util.Map<org.apache.kafka.streams.processor.TaskId, org.apache.kafka.streams.processor.internals.Task> allTasks();
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+       4: invokevirtual #270                // Method org/apache/kafka/streams/processor/internals/TaskManager.tasks:()Ljava/util/Map;
+       7: areturn
+
+  public java.lang.String toString();
+    Code:
+       0: aload_0
+       1: ldc_w         #314                // String
+       4: invokevirtual #315                // Method toString:(Ljava/lang/String;)Ljava/lang/String;
+       7: areturn
+
+  public java.lang.String toString(java.lang.String);
+    Code:
+       0: new           #15                 // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #16                 // Method java/lang/StringBuilder."<init>":()V
+       7: aload_1
+       8: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      11: ldc_w         #316                // String \tStreamsThread threadId:
+      14: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: aload_0
+      18: invokevirtual #292                // Method getName:()Ljava/lang/String;
+      21: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      24: ldc_w         #317                // String \n
+      27: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      30: aload_0
+      31: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+      34: aload_1
+      35: invokevirtual #318                // Method org/apache/kafka/streams/processor/internals/TaskManager.toString:(Ljava/lang/String;)Ljava/lang/String;
+      38: invokevirtual #18                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      41: invokevirtual #22                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      44: areturn
+
+  public java.util.Map<org.apache.kafka.common.MetricName, org.apache.kafka.common.Metric> producerMetrics();
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+       4: invokevirtual #319                // Method org/apache/kafka/streams/processor/internals/TaskManager.producerMetrics:()Ljava/util/Map;
+       7: areturn
+
+  public java.util.Map<org.apache.kafka.common.MetricName, org.apache.kafka.common.Metric> consumerMetrics();
+    Code:
+       0: aload_0
+       1: getfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+       4: aload_0
+       5: getfield      #142                // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+       8: invokestatic  #320                // Method org/apache/kafka/streams/processor/internals/ClientUtils.consumerMetrics:(Lorg/apache/kafka/clients/consumer/Consumer;Lorg/apache/kafka/clients/consumer/Consumer;)Ljava/util/Map;
+      11: areturn
+
+  public java.util.Map<org.apache.kafka.common.MetricName, org.apache.kafka.common.Metric> adminClientMetrics();
+    Code:
+       0: aload_0
+       1: getfield      #106                // Field adminClient:Lorg/apache/kafka/clients/admin/Admin;
+       4: invokestatic  #321                // Method org/apache/kafka/streams/processor/internals/ClientUtils.adminClientMetrics:(Lorg/apache/kafka/clients/admin/Admin;)Ljava/util/Map;
+       7: areturn
+
+  void setNow(long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: putfield      #204                // Field now:J
+       5: return
+
+  org.apache.kafka.streams.processor.internals.TaskManager taskManager();
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field taskManager:Lorg/apache/kafka/streams/processor/internals/TaskManager;
+       4: areturn
+
+  int currentNumIterations();
+    Code:
+       0: aload_0
+       1: getfield      #162                // Field numIterations:I
+       4: ireturn
+
+  org.apache.kafka.clients.consumer.ConsumerRebalanceListener rebalanceListener();
+    Code:
+       0: aload_0
+       1: getfield      #141                // Field rebalanceListener:Lorg/apache/kafka/clients/consumer/ConsumerRebalanceListener;
+       4: areturn
+
+  org.apache.kafka.clients.consumer.Consumer<byte[], byte[]> mainConsumer();
+    Code:
+       0: aload_0
+       1: getfield      #143                // Field mainConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+       4: areturn
+
+  org.apache.kafka.clients.consumer.Consumer<byte[], byte[]> restoreConsumer();
+    Code:
+       0: aload_0
+       1: getfield      #142                // Field restoreConsumer:Lorg/apache/kafka/clients/consumer/Consumer;
+       4: areturn
+
+  org.apache.kafka.clients.admin.Admin adminClient();
+    Code:
+       0: aload_0
+       1: getfield      #106                // Field adminClient:Lorg/apache/kafka/clients/admin/Admin;
+       4: areturn
+
+  org.apache.kafka.streams.processor.internals.InternalTopologyBuilder internalTopologyBuilder();
+    Code:
+       0: aload_0
+       1: getfield      #137                // Field builder:Lorg/apache/kafka/streams/processor/internals/InternalTopologyBuilder;
+       4: areturn
+
+  private static boolean lambda$maybeCommit$1(org.apache.kafka.streams.processor.internals.Task);
+    Code:
+       0: aload_0
+       1: invokeinterface #322,  1          // InterfaceMethod org/apache/kafka/streams/processor/internals/Task.state:()Lorg/apache/kafka/streams/processor/internals/Task$State;
+       6: getstatic     #323                // Field org/apache/kafka/streams/processor/internals/Task$State.RUNNING:Lorg/apache/kafka/streams/processor/internals/Task$State;
+       9: if_acmpeq     24
+      12: aload_0
+      13: invokeinterface #322,  1          // InterfaceMethod org/apache/kafka/streams/processor/internals/Task.state:()Lorg/apache/kafka/streams/processor/internals/Task$State;
+      18: getstatic     #324                // Field org/apache/kafka/streams/processor/internals/Task$State.RESTORING:Lorg/apache/kafka/streams/processor/internals/Task$State;
+      21: if_acmpne     28
+      24: iconst_1
+      25: goto          29
+      28: iconst_0
+      29: ireturn
+
+  private static void lambda$create$0(org.apache.kafka.streams.processor.internals.StreamThread, java.util.Set);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aconst_null
+       3: invokespecial #238                // Method resetOffsets:(Ljava/util/Set;Ljava/lang/Exception;)V
+       6: return
+}

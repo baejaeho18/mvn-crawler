@@ -1,0 +1,1054 @@
+Compiled from "MappedFile.java"
+public class net.openhft.chronicle.bytes.MappedFile implements net.openhft.chronicle.core.ReferenceCounted {
+  private static final long DEFAULT_CAPACITY;
+
+  private static final java.lang.Object GLOBAL_FILE_LOCK;
+
+  private final java.io.RandomAccessFile raf;
+
+  private final java.nio.channels.FileChannel fileChannel;
+
+  private final long chunkSize;
+
+  private final long overlapSize;
+
+  private final java.util.List<java.lang.ref.WeakReference<net.openhft.chronicle.bytes.MappedBytesStore>> stores;
+
+  private final java.util.concurrent.atomic.AtomicBoolean closed;
+
+  private final net.openhft.chronicle.core.ReferenceCounter refCount;
+
+  private final long capacity;
+
+  private final java.io.File file;
+
+  private final boolean readOnly;
+
+  private net.openhft.chronicle.bytes.NewChunkListener newChunkListener;
+
+  static final boolean $assertionsDisabled;
+
+  protected net.openhft.chronicle.bytes.MappedFile(java.io.File, java.io.RandomAccessFile, long, long, long, boolean);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #2                  // class java/util/ArrayList
+       8: dup
+       9: invokespecial #3                  // Method java/util/ArrayList."<init>":()V
+      12: putfield      #4                  // Field stores:Ljava/util/List;
+      15: aload_0
+      16: new           #5                  // class java/util/concurrent/atomic/AtomicBoolean
+      19: dup
+      20: invokespecial #6                  // Method java/util/concurrent/atomic/AtomicBoolean."<init>":()V
+      23: putfield      #7                  // Field closed:Ljava/util/concurrent/atomic/AtomicBoolean;
+      26: aload_0
+      27: aload_0
+      28: invokedynamic #8,  0              // InvokeDynamic #0:run:(Lnet/openhft/chronicle/bytes/MappedFile;)Ljava/lang/Runnable;
+      33: invokestatic  #9                  // Method net/openhft/chronicle/core/ReferenceCounter.onReleased:(Ljava/lang/Runnable;)Lnet/openhft/chronicle/core/ReferenceCounter;
+      36: putfield      #10                 // Field refCount:Lnet/openhft/chronicle/core/ReferenceCounter;
+      39: aload_0
+      40: invokedynamic #11,  0             // InvokeDynamic #1:onNewChunk:()Lnet/openhft/chronicle/bytes/NewChunkListener;
+      45: putfield      #12                 // Field newChunkListener:Lnet/openhft/chronicle/bytes/NewChunkListener;
+      48: aload_0
+      49: aload_1
+      50: putfield      #13                 // Field file:Ljava/io/File;
+      53: aload_0
+      54: aload_2
+      55: putfield      #14                 // Field raf:Ljava/io/RandomAccessFile;
+      58: aload_0
+      59: aload_2
+      60: invokevirtual #15                 // Method java/io/RandomAccessFile.getChannel:()Ljava/nio/channels/FileChannel;
+      63: putfield      #16                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+      66: aload_0
+      67: lload_3
+      68: invokestatic  #17                 // Method net/openhft/chronicle/core/OS.mapAlign:(J)J
+      71: putfield      #18                 // Field chunkSize:J
+      74: aload_0
+      75: lload         5
+      77: lconst_0
+      78: lcmp
+      79: ifle          95
+      82: lload         5
+      84: ldc2_w        #19                 // long 65536l
+      87: lcmp
+      88: ifge          95
+      91: lload_3
+      92: goto          100
+      95: lload         5
+      97: invokestatic  #17                 // Method net/openhft/chronicle/core/OS.mapAlign:(J)J
+     100: putfield      #21                 // Field overlapSize:J
+     103: aload_0
+     104: lload         7
+     106: putfield      #22                 // Field capacity:J
+     109: aload_0
+     110: iload         9
+     112: putfield      #23                 // Field readOnly:Z
+     115: getstatic     #24                 // Field $assertionsDisabled:Z
+     118: ifne          136
+     121: aload_0
+     122: invokestatic  #25                 // Method registerMappedFile:(Lnet/openhft/chronicle/bytes/MappedFile;)Z
+     125: ifne          136
+     128: new           #26                 // class java/lang/AssertionError
+     131: dup
+     132: invokespecial #27                 // Method java/lang/AssertionError."<init>":()V
+     135: athrow
+     136: return
+
+  private static void logNewChunk(java.lang.String, int, long);
+    Code:
+       0: ldc           #28                 // class net/openhft/chronicle/bytes/MappedFile
+       2: invokestatic  #29                 // Method net/openhft/chronicle/core/Jvm.isDebugEnabled:(Ljava/lang/Class;)Z
+       5: ifne          9
+       8: return
+       9: invokestatic  #30                 // Method net/openhft/chronicle/bytes/BytesInternal.acquireStringBuilder:()Ljava/lang/StringBuilder;
+      12: ldc           #31                 // String Allocation of
+      14: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: iload_1
+      18: invokevirtual #33                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      21: ldc           #34                 // String  chunk in
+      23: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: aload_0
+      27: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      30: ldc           #35                 // String  took
+      32: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      35: lload_2
+      36: l2d
+      37: ldc2_w        #36                 // double 1000.0d
+      40: ddiv
+      41: invokevirtual #38                 // Method java/lang/StringBuilder.append:(D)Ljava/lang/StringBuilder;
+      44: ldc           #39                 // String  ms.
+      46: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      49: invokevirtual #40                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      52: astore        4
+      54: invokestatic  #41                 // Method net/openhft/chronicle/core/Jvm.debug:()Lnet/openhft/chronicle/core/onoes/ExceptionHandler;
+      57: ldc           #28                 // class net/openhft/chronicle/bytes/MappedFile
+      59: aload         4
+      61: invokeinterface #42,  3           // InterfaceMethod net/openhft/chronicle/core/onoes/ExceptionHandler.on:(Ljava/lang/Class;Ljava/lang/String;)V
+      66: return
+
+  private static boolean registerMappedFile(net.openhft.chronicle.bytes.MappedFile);
+    Code:
+       0: iconst_1
+       1: ireturn
+
+  public static void checkMappedFiles();
+    Code:
+       0: return
+
+  public static net.openhft.chronicle.bytes.MappedFile of(java.io.File, long, long, boolean) throws java.io.FileNotFoundException;
+    Code:
+       0: new           #43                 // class java/io/RandomAccessFile
+       3: dup
+       4: aload_0
+       5: iload         5
+       7: ifeq          15
+      10: ldc           #44                 // String r
+      12: goto          17
+      15: ldc           #45                 // String rw
+      17: invokespecial #46                 // Method java/io/RandomAccessFile."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      20: astore        6
+      22: ldc2_w        #47                 // long 140737488355328l
+      25: lstore        7
+      27: new           #28                 // class net/openhft/chronicle/bytes/MappedFile
+      30: dup
+      31: aload_0
+      32: aload         6
+      34: lload_1
+      35: lload_3
+      36: lload         7
+      38: iload         5
+      40: invokespecial #49                 // Method "<init>":(Ljava/io/File;Ljava/io/RandomAccessFile;JJJZ)V
+      43: areturn
+
+  public static net.openhft.chronicle.bytes.MappedFile mappedFile(java.io.File, long) throws java.io.FileNotFoundException;
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokestatic  #50                 // Method net/openhft/chronicle/core/OS.pageSize:()I
+       5: i2l
+       6: invokestatic  #51                 // Method mappedFile:(Ljava/io/File;JJ)Lnet/openhft/chronicle/bytes/MappedFile;
+       9: areturn
+
+  public static net.openhft.chronicle.bytes.MappedFile mappedFile(java.lang.String, long) throws java.io.FileNotFoundException;
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokestatic  #50                 // Method net/openhft/chronicle/core/OS.pageSize:()I
+       5: i2l
+       6: invokestatic  #52                 // Method mappedFile:(Ljava/lang/String;JJ)Lnet/openhft/chronicle/bytes/MappedFile;
+       9: areturn
+
+  public static net.openhft.chronicle.bytes.MappedFile mappedFile(java.lang.String, long, long) throws java.io.FileNotFoundException;
+    Code:
+       0: new           #53                 // class java/io/File
+       3: dup
+       4: aload_0
+       5: invokespecial #54                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+       8: lload_1
+       9: lload_3
+      10: invokestatic  #51                 // Method mappedFile:(Ljava/io/File;JJ)Lnet/openhft/chronicle/bytes/MappedFile;
+      13: areturn
+
+  public static net.openhft.chronicle.bytes.MappedFile mappedFile(java.io.File, long, long) throws java.io.FileNotFoundException;
+    Code:
+       0: aload_0
+       1: lload_1
+       2: lload_3
+       3: iconst_0
+       4: invokestatic  #55                 // Method mappedFile:(Ljava/io/File;JJZ)Lnet/openhft/chronicle/bytes/MappedFile;
+       7: areturn
+
+  public static net.openhft.chronicle.bytes.MappedFile mappedFile(java.io.File, long, long, boolean) throws java.io.FileNotFoundException;
+    Code:
+       0: aload_0
+       1: lload_1
+       2: lload_3
+       3: iload         5
+       5: invokestatic  #56                 // Method of:(Ljava/io/File;JJZ)Lnet/openhft/chronicle/bytes/MappedFile;
+       8: areturn
+
+  public static net.openhft.chronicle.bytes.MappedFile readOnly(java.io.File) throws java.io.FileNotFoundException;
+    Code:
+       0: aload_0
+       1: invokevirtual #57                 // Method java/io/File.length:()J
+       4: lstore_1
+       5: lconst_0
+       6: lstore_3
+       7: invokestatic  #58                 // Method net/openhft/chronicle/core/OS.isWindows:()Z
+      10: ifeq          30
+      13: lload_1
+      14: ldc2_w        #59                 // long 2147483648l
+      17: lcmp
+      18: ifle          30
+      21: ldc2_w        #59                 // long 2147483648l
+      24: lstore_1
+      25: invokestatic  #50                 // Method net/openhft/chronicle/core/OS.pageSize:()I
+      28: i2l
+      29: lstore_3
+      30: aload_0
+      31: lload_1
+      32: lload_3
+      33: iconst_1
+      34: invokestatic  #56                 // Method of:(Ljava/io/File;JJZ)Lnet/openhft/chronicle/bytes/MappedFile;
+      37: areturn
+
+  public static net.openhft.chronicle.bytes.MappedFile mappedFile(java.io.File, long, long, long, boolean) throws java.io.IOException;
+    Code:
+       0: new           #43                 // class java/io/RandomAccessFile
+       3: dup
+       4: aload_0
+       5: iload         7
+       7: ifeq          15
+      10: ldc           #44                 // String r
+      12: goto          17
+      15: ldc           #45                 // String rw
+      17: invokespecial #46                 // Method java/io/RandomAccessFile."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      20: astore        8
+      22: aload         8
+      24: lload_1
+      25: invokevirtual #61                 // Method java/io/RandomAccessFile.setLength:(J)V
+      28: new           #28                 // class net/openhft/chronicle/bytes/MappedFile
+      31: dup
+      32: aload_0
+      33: aload         8
+      35: lload_3
+      36: lload         5
+      38: lload_1
+      39: iload         7
+      41: invokespecial #49                 // Method "<init>":(Ljava/io/File;Ljava/io/RandomAccessFile;JJJZ)V
+      44: areturn
+
+  public static void warmup();
+    Code:
+       0: invokestatic  #62                 // Method net/openhft/chronicle/core/Jvm.disableDebugHandler:()V
+       3: ldc           #63                 // String delete
+       5: ldc           #64                 // String me
+       7: invokestatic  #65                 // Method java/io/File.createTempFile:(Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+      10: astore_0
+      11: aload_0
+      12: invokevirtual #66                 // Method java/io/File.deleteOnExit:()V
+      15: invokestatic  #67                 // Method net/openhft/chronicle/core/OS.mapAlignment:()J
+      18: lstore_1
+      19: bipush        64
+      21: istore_3
+      22: invokestatic  #68                 // Method net/openhft/chronicle/core/Jvm.compileThreshold:()I
+      25: istore        4
+      27: iconst_0
+      28: istore        5
+      30: iload         5
+      32: iload         4
+      34: if_icmpgt     208
+      37: new           #43                 // class java/io/RandomAccessFile
+      40: dup
+      41: aload_0
+      42: ldc           #45                 // String rw
+      44: invokespecial #46                 // Method java/io/RandomAccessFile."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      47: astore        6
+      49: aconst_null
+      50: astore        7
+      52: new           #28                 // class net/openhft/chronicle/bytes/MappedFile
+      55: dup
+      56: aload_0
+      57: aload         6
+      59: lload_1
+      60: lconst_0
+      61: lload_1
+      62: iload_3
+      63: i2l
+      64: lmul
+      65: iconst_0
+      66: invokespecial #49                 // Method "<init>":(Ljava/io/File;Ljava/io/RandomAccessFile;JJJZ)V
+      69: astore        8
+      71: lload_1
+      72: iload_3
+      73: aload         8
+      75: invokestatic  #69                 // Method warmup0:(JILnet/openhft/chronicle/bytes/MappedFile;)V
+      78: aload         8
+      80: invokevirtual #70                 // Method release:()V
+      83: aload         6
+      85: ifnull        170
+      88: aload         7
+      90: ifnull        113
+      93: aload         6
+      95: invokevirtual #71                 // Method java/io/RandomAccessFile.close:()V
+      98: goto          170
+     101: astore        8
+     103: aload         7
+     105: aload         8
+     107: invokevirtual #73                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     110: goto          170
+     113: aload         6
+     115: invokevirtual #71                 // Method java/io/RandomAccessFile.close:()V
+     118: goto          170
+     121: astore        8
+     123: aload         8
+     125: astore        7
+     127: aload         8
+     129: athrow
+     130: astore        9
+     132: aload         6
+     134: ifnull        167
+     137: aload         7
+     139: ifnull        162
+     142: aload         6
+     144: invokevirtual #71                 // Method java/io/RandomAccessFile.close:()V
+     147: goto          167
+     150: astore        10
+     152: aload         7
+     154: aload         10
+     156: invokevirtual #73                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     159: goto          167
+     162: aload         6
+     164: invokevirtual #71                 // Method java/io/RandomAccessFile.close:()V
+     167: aload         9
+     169: athrow
+     170: invokestatic  #74                 // Method java/lang/Thread.yield:()V
+     173: aload_0
+     174: invokevirtual #75                 // Method java/io/File.toPath:()Ljava/nio/file/Path;
+     177: invokestatic  #76                 // Method java/nio/file/Files.delete:(Ljava/nio/file/Path;)V
+     180: goto          199
+     183: astore        6
+     185: invokestatic  #41                 // Method net/openhft/chronicle/core/Jvm.debug:()Lnet/openhft/chronicle/core/onoes/ExceptionHandler;
+     188: ldc           #28                 // class net/openhft/chronicle/bytes/MappedFile
+     190: ldc           #78                 // String Error during warmup
+     192: aload         6
+     194: invokeinterface #79,  4           // InterfaceMethod net/openhft/chronicle/core/onoes/ExceptionHandler.on:(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Throwable;)V
+     199: iload         5
+     201: iload_3
+     202: iadd
+     203: istore        5
+     205: goto          30
+     208: goto          225
+     211: astore_0
+     212: invokestatic  #80                 // Method net/openhft/chronicle/core/Jvm.warn:()Lnet/openhft/chronicle/core/onoes/ExceptionHandler;
+     215: ldc           #28                 // class net/openhft/chronicle/bytes/MappedFile
+     217: ldc           #78                 // String Error during warmup
+     219: aload_0
+     220: invokeinterface #79,  4           // InterfaceMethod net/openhft/chronicle/core/onoes/ExceptionHandler.on:(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Throwable;)V
+     225: invokestatic  #81                 // Method net/openhft/chronicle/core/Jvm.resetExceptionHandlers:()V
+     228: return
+    Exception table:
+       from    to  target type
+          93    98   101   Class java/lang/Throwable
+          52    83   121   Class java/lang/Throwable
+          52    83   130   any
+         142   147   150   Class java/lang/Throwable
+         121   132   130   any
+          37   180   183   Class java/io/IOException
+           0   208   211   Class java/io/IOException
+
+  private static void warmup0(long, int, net.openhft.chronicle.bytes.MappedFile) throws java.io.IOException;
+    Code:
+       0: iconst_0
+       1: istore        4
+       3: iload         4
+       5: iload_2
+       6: if_icmpge     43
+       9: aload_3
+      10: iload         4
+      12: i2l
+      13: lload_0
+      14: lmul
+      15: invokevirtual #82                 // Method acquireBytesForRead:(J)Lnet/openhft/chronicle/bytes/Bytes;
+      18: invokeinterface #83,  1           // InterfaceMethod net/openhft/chronicle/bytes/Bytes.release:()V
+      23: aload_3
+      24: iload         4
+      26: i2l
+      27: lload_0
+      28: lmul
+      29: invokevirtual #84                 // Method acquireBytesForWrite:(J)Lnet/openhft/chronicle/bytes/Bytes;
+      32: invokeinterface #83,  1           // InterfaceMethod net/openhft/chronicle/bytes/Bytes.release:()V
+      37: iinc          4, 1
+      40: goto          3
+      43: return
+
+  public net.openhft.chronicle.bytes.MappedFile withSizes(long, long);
+    Code:
+       0: lload_1
+       1: invokestatic  #17                 // Method net/openhft/chronicle/core/OS.mapAlign:(J)J
+       4: lstore_1
+       5: lload_3
+       6: invokestatic  #17                 // Method net/openhft/chronicle/core/OS.mapAlign:(J)J
+       9: lstore_3
+      10: lload_1
+      11: aload_0
+      12: getfield      #18                 // Field chunkSize:J
+      15: lcmp
+      16: ifne          30
+      19: lload_3
+      20: aload_0
+      21: getfield      #21                 // Field overlapSize:J
+      24: lcmp
+      25: ifne          30
+      28: aload_0
+      29: areturn
+      30: new           #28                 // class net/openhft/chronicle/bytes/MappedFile
+      33: dup
+      34: aload_0
+      35: getfield      #13                 // Field file:Ljava/io/File;
+      38: aload_0
+      39: getfield      #14                 // Field raf:Ljava/io/RandomAccessFile;
+      42: lload_1
+      43: lload_3
+      44: aload_0
+      45: getfield      #22                 // Field capacity:J
+      48: aload_0
+      49: getfield      #23                 // Field readOnly:Z
+      52: invokespecial #49                 // Method "<init>":(Ljava/io/File;Ljava/io/RandomAccessFile;JJJZ)V
+      55: astore        5
+      57: aload_0
+      58: invokevirtual #70                 // Method release:()V
+      61: aload         5
+      63: areturn
+      64: astore        6
+      66: aload_0
+      67: invokevirtual #70                 // Method release:()V
+      70: aload         6
+      72: athrow
+    Exception table:
+       from    to  target type
+          30    57    64   any
+          64    66    64   any
+
+  public java.io.File file();
+    Code:
+       0: aload_0
+       1: getfield      #13                 // Field file:Ljava/io/File;
+       4: areturn
+
+  public net.openhft.chronicle.bytes.MappedBytesStore acquireByteStore(long) throws java.io.IOException, java.lang.IllegalArgumentException, java.lang.IllegalStateException;
+    Code:
+       0: aload_0
+       1: lload_1
+       2: aload_0
+       3: getfield      #23                 // Field readOnly:Z
+       6: ifeq          17
+       9: invokedynamic #85,  0             // InvokeDynamic #2:create:()Lnet/openhft/chronicle/bytes/MappedBytesStoreFactory;
+      14: goto          22
+      17: invokedynamic #86,  0             // InvokeDynamic #3:create:()Lnet/openhft/chronicle/bytes/MappedBytesStoreFactory;
+      22: invokevirtual #87                 // Method acquireByteStore:(JLnet/openhft/chronicle/bytes/MappedBytesStoreFactory;)Lnet/openhft/chronicle/bytes/MappedBytesStore;
+      25: areturn
+
+  public <T extends net.openhft.chronicle.bytes.MappedBytesStore> T acquireByteStore(long, net.openhft.chronicle.bytes.MappedBytesStoreFactory<T>) throws java.io.IOException, java.lang.IllegalArgumentException, java.lang.IllegalStateException;
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field closed:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #88                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: ifeq          20
+      10: new           #77                 // class java/io/IOException
+      13: dup
+      14: ldc           #89                 // String Closed
+      16: invokespecial #90                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+      19: athrow
+      20: lload_1
+      21: lconst_0
+      22: lcmp
+      23: ifge          53
+      26: new           #77                 // class java/io/IOException
+      29: dup
+      30: new           #91                 // class java/lang/StringBuilder
+      33: dup
+      34: invokespecial #92                 // Method java/lang/StringBuilder."<init>":()V
+      37: ldc           #93                 // String Attempt to access a negative position:
+      39: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      42: lload_1
+      43: invokevirtual #94                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      46: invokevirtual #40                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      49: invokespecial #90                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+      52: athrow
+      53: lload_1
+      54: aload_0
+      55: getfield      #18                 // Field chunkSize:J
+      58: ldiv
+      59: l2i
+      60: istore        4
+      62: aload_0
+      63: getfield      #4                  // Field stores:Ljava/util/List;
+      66: dup
+      67: astore        5
+      69: monitorenter
+      70: aload_0
+      71: getfield      #4                  // Field stores:Ljava/util/List;
+      74: invokeinterface #95,  1           // InterfaceMethod java/util/List.size:()I
+      79: iload         4
+      81: if_icmpgt     98
+      84: aload_0
+      85: getfield      #4                  // Field stores:Ljava/util/List;
+      88: aconst_null
+      89: invokeinterface #96,  2           // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      94: pop
+      95: goto          70
+      98: aload_0
+      99: getfield      #4                  // Field stores:Ljava/util/List;
+     102: iload         4
+     104: invokeinterface #97,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     109: checkcast     #98                 // class java/lang/ref/WeakReference
+     112: astore        6
+     114: aload         6
+     116: ifnull        148
+     119: aload         6
+     121: invokevirtual #99                 // Method java/lang/ref/WeakReference.get:()Ljava/lang/Object;
+     124: checkcast     #100                // class net/openhft/chronicle/bytes/MappedBytesStore
+     127: astore        7
+     129: aload         7
+     131: ifnull        148
+     134: aload         7
+     136: invokevirtual #101                // Method net/openhft/chronicle/bytes/MappedBytesStore.tryReserve:()Z
+     139: ifeq          148
+     142: aload         7
+     144: aload         5
+     146: monitorexit
+     147: areturn
+     148: invokestatic  #102                // Method java/lang/System.nanoTime:()J
+     151: lstore        7
+     153: iload         4
+     155: i2l
+     156: lconst_1
+     157: ladd
+     158: aload_0
+     159: getfield      #18                 // Field chunkSize:J
+     162: lmul
+     163: aload_0
+     164: getfield      #21                 // Field overlapSize:J
+     167: ladd
+     168: lstore        9
+     170: aload_0
+     171: getfield      #16                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+     174: invokevirtual #103                // Method java/nio/channels/FileChannel.size:()J
+     177: lstore        11
+     179: lload         11
+     181: lload         9
+     183: lcmp
+     184: ifge          392
+     187: aload_0
+     188: getfield      #23                 // Field readOnly:Z
+     191: ifne          392
+     194: getstatic     #104                // Field GLOBAL_FILE_LOCK:Ljava/lang/Object;
+     197: dup
+     198: astore        13
+     200: monitorenter
+     201: aload_0
+     202: getfield      #16                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+     205: invokevirtual #103                // Method java/nio/channels/FileChannel.size:()J
+     208: lstore        11
+     210: lload         11
+     212: lload         9
+     214: lcmp
+     215: ifge          343
+     218: aload_0
+     219: getfield      #16                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+     222: invokevirtual #105                // Method java/nio/channels/FileChannel.lock:()Ljava/nio/channels/FileLock;
+     225: astore        14
+     227: aconst_null
+     228: astore        15
+     230: aload_0
+     231: getfield      #16                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+     234: invokevirtual #103                // Method java/nio/channels/FileChannel.size:()J
+     237: lstore        11
+     239: lload         11
+     241: lload         9
+     243: lcmp
+     244: ifge          256
+     247: aload_0
+     248: getfield      #14                 // Field raf:Ljava/io/RandomAccessFile;
+     251: lload         9
+     253: invokevirtual #61                 // Method java/io/RandomAccessFile.setLength:(J)V
+     256: aload         14
+     258: ifnull        343
+     261: aload         15
+     263: ifnull        286
+     266: aload         14
+     268: invokevirtual #106                // Method java/nio/channels/FileLock.close:()V
+     271: goto          343
+     274: astore        16
+     276: aload         15
+     278: aload         16
+     280: invokevirtual #73                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     283: goto          343
+     286: aload         14
+     288: invokevirtual #106                // Method java/nio/channels/FileLock.close:()V
+     291: goto          343
+     294: astore        16
+     296: aload         16
+     298: astore        15
+     300: aload         16
+     302: athrow
+     303: astore        17
+     305: aload         14
+     307: ifnull        340
+     310: aload         15
+     312: ifnull        335
+     315: aload         14
+     317: invokevirtual #106                // Method java/nio/channels/FileLock.close:()V
+     320: goto          340
+     323: astore        18
+     325: aload         15
+     327: aload         18
+     329: invokevirtual #73                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     332: goto          340
+     335: aload         14
+     337: invokevirtual #106                // Method java/nio/channels/FileLock.close:()V
+     340: aload         17
+     342: athrow
+     343: aload         13
+     345: monitorexit
+     346: goto          357
+     349: astore        19
+     351: aload         13
+     353: monitorexit
+     354: aload         19
+     356: athrow
+     357: goto          392
+     360: astore        13
+     362: new           #77                 // class java/io/IOException
+     365: dup
+     366: new           #91                 // class java/lang/StringBuilder
+     369: dup
+     370: invokespecial #92                 // Method java/lang/StringBuilder."<init>":()V
+     373: ldc           #107                // String Failed to resize to
+     375: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     378: lload         9
+     380: invokevirtual #94                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     383: invokevirtual #40                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     386: aload         13
+     388: invokespecial #108                // Method java/io/IOException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     391: athrow
+     392: aload_0
+     393: getfield      #18                 // Field chunkSize:J
+     396: aload_0
+     397: getfield      #21                 // Field overlapSize:J
+     400: ladd
+     401: lstore        13
+     403: aload_0
+     404: getfield      #23                 // Field readOnly:Z
+     407: ifeq          416
+     410: getstatic     #109                // Field java/nio/channels/FileChannel$MapMode.READ_ONLY:Ljava/nio/channels/FileChannel$MapMode;
+     413: goto          419
+     416: getstatic     #110                // Field java/nio/channels/FileChannel$MapMode.READ_WRITE:Ljava/nio/channels/FileChannel$MapMode;
+     419: astore        15
+     421: iload         4
+     423: i2l
+     424: aload_0
+     425: getfield      #18                 // Field chunkSize:J
+     428: lmul
+     429: lstore        16
+     431: aload_0
+     432: getfield      #16                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+     435: aload         15
+     437: lload         16
+     439: lload         13
+     441: invokestatic  #111                // Method net/openhft/chronicle/core/OS.map:(Ljava/nio/channels/FileChannel;Ljava/nio/channels/FileChannel$MapMode;JJ)J
+     444: lstore        18
+     446: aload_0
+     447: getfield      #18                 // Field chunkSize:J
+     450: aload_0
+     451: getfield      #21                 // Field overlapSize:J
+     454: ldc2_w        #112                // long 2l
+     457: ldiv
+     458: ladd
+     459: lstore        20
+     461: aload_3
+     462: aload_0
+     463: iload         4
+     465: i2l
+     466: aload_0
+     467: getfield      #18                 // Field chunkSize:J
+     470: lmul
+     471: lload         18
+     473: lload         13
+     475: lload         20
+     477: invokeinterface #114,  10         // InterfaceMethod net/openhft/chronicle/bytes/MappedBytesStoreFactory.create:(Lnet/openhft/chronicle/core/ReferenceCounted;JJJJ)Lnet/openhft/chronicle/bytes/MappedBytesStore;
+     482: astore        22
+     484: aload_0
+     485: getfield      #4                  // Field stores:Ljava/util/List;
+     488: iload         4
+     490: new           #98                 // class java/lang/ref/WeakReference
+     493: dup
+     494: aload         22
+     496: invokespecial #115                // Method java/lang/ref/WeakReference."<init>":(Ljava/lang/Object;)V
+     499: invokeinterface #116,  3          // InterfaceMethod java/util/List.set:(ILjava/lang/Object;)Ljava/lang/Object;
+     504: pop
+     505: aload_0
+     506: getfield      #12                 // Field newChunkListener:Lnet/openhft/chronicle/bytes/NewChunkListener;
+     509: ifnull        540
+     512: aload_0
+     513: getfield      #12                 // Field newChunkListener:Lnet/openhft/chronicle/bytes/NewChunkListener;
+     516: aload_0
+     517: getfield      #13                 // Field file:Ljava/io/File;
+     520: invokevirtual #117                // Method java/io/File.getPath:()Ljava/lang/String;
+     523: iload         4
+     525: invokestatic  #102                // Method java/lang/System.nanoTime:()J
+     528: lload         7
+     530: lsub
+     531: ldc2_w        #118                // long 1000l
+     534: ldiv
+     535: invokeinterface #120,  5          // InterfaceMethod net/openhft/chronicle/bytes/NewChunkListener.onNewChunk:(Ljava/lang/String;IJ)V
+     540: aload         22
+     542: aload         5
+     544: monitorexit
+     545: areturn
+     546: astore        23
+     548: aload         5
+     550: monitorexit
+     551: aload         23
+     553: athrow
+    Exception table:
+       from    to  target type
+         266   271   274   Class java/lang/Throwable
+         230   256   294   Class java/lang/Throwable
+         230   256   303   any
+         315   320   323   Class java/lang/Throwable
+         294   305   303   any
+         201   346   349   any
+         349   354   349   any
+         194   357   360   Class java/io/IOException
+          70   147   546   any
+         148   545   546   any
+         546   551   546   any
+
+  public net.openhft.chronicle.bytes.Bytes acquireBytesForRead(long) throws java.io.IOException, java.lang.IllegalStateException, java.lang.IllegalArgumentException;
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokevirtual #121                // Method acquireByteStore:(J)Lnet/openhft/chronicle/bytes/MappedBytesStore;
+       5: astore_3
+       6: aload_3
+       7: invokevirtual #122                // Method net/openhft/chronicle/bytes/MappedBytesStore.bytesForRead:()Lnet/openhft/chronicle/bytes/Bytes;
+      10: astore        4
+      12: aload         4
+      14: lload_1
+      15: invokeinterface #123,  3          // InterfaceMethod net/openhft/chronicle/bytes/Bytes.readPositionUnlimited:(J)Lnet/openhft/chronicle/bytes/StreamingDataInput;
+      20: pop
+      21: aload_3
+      22: invokevirtual #124                // Method net/openhft/chronicle/bytes/MappedBytesStore.release:()V
+      25: aload         4
+      27: areturn
+
+  public void acquireBytesForRead(long, net.openhft.chronicle.bytes.VanillaBytes) throws java.io.IOException, java.lang.IllegalStateException, java.lang.IllegalArgumentException;
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokevirtual #121                // Method acquireByteStore:(J)Lnet/openhft/chronicle/bytes/MappedBytesStore;
+       5: astore        4
+       7: aload_3
+       8: aload         4
+      10: lload_1
+      11: aload         4
+      13: invokevirtual #125                // Method net/openhft/chronicle/bytes/MappedBytesStore.capacity:()J
+      16: lload_1
+      17: lsub
+      18: invokevirtual #126                // Method net/openhft/chronicle/bytes/VanillaBytes.bytesStore:(Lnet/openhft/chronicle/bytes/BytesStore;JJ)V
+      21: return
+
+  public net.openhft.chronicle.bytes.Bytes acquireBytesForWrite(long) throws java.io.IOException, java.lang.IllegalStateException, java.lang.IllegalArgumentException;
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokevirtual #121                // Method acquireByteStore:(J)Lnet/openhft/chronicle/bytes/MappedBytesStore;
+       5: astore_3
+       6: aload_3
+       7: invokevirtual #127                // Method net/openhft/chronicle/bytes/MappedBytesStore.bytesForWrite:()Lnet/openhft/chronicle/bytes/VanillaBytes;
+      10: astore        4
+      12: aload         4
+      14: lload_1
+      15: invokeinterface #128,  3          // InterfaceMethod net/openhft/chronicle/bytes/Bytes.writePosition:(J)Lnet/openhft/chronicle/bytes/StreamingDataOutput;
+      20: pop
+      21: aload_3
+      22: invokevirtual #124                // Method net/openhft/chronicle/bytes/MappedBytesStore.release:()V
+      25: aload         4
+      27: areturn
+
+  public void acquireBytesForWrite(long, net.openhft.chronicle.bytes.VanillaBytes) throws java.io.IOException, java.lang.IllegalStateException, java.lang.IllegalArgumentException;
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokevirtual #121                // Method acquireByteStore:(J)Lnet/openhft/chronicle/bytes/MappedBytesStore;
+       5: astore        4
+       7: aload_3
+       8: aload         4
+      10: lload_1
+      11: aload         4
+      13: invokevirtual #125                // Method net/openhft/chronicle/bytes/MappedBytesStore.capacity:()J
+      16: lload_1
+      17: lsub
+      18: invokevirtual #126                // Method net/openhft/chronicle/bytes/VanillaBytes.bytesStore:(Lnet/openhft/chronicle/bytes/BytesStore;JJ)V
+      21: aload_3
+      22: lload_1
+      23: invokevirtual #129                // Method net/openhft/chronicle/bytes/VanillaBytes.writePosition:(J)Lnet/openhft/chronicle/bytes/Bytes;
+      26: pop
+      27: return
+
+  public void reserve() throws java.lang.IllegalStateException;
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field refCount:Lnet/openhft/chronicle/core/ReferenceCounter;
+       4: invokevirtual #130                // Method net/openhft/chronicle/core/ReferenceCounter.reserve:()V
+       7: return
+
+  public void release() throws java.lang.IllegalStateException;
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field refCount:Lnet/openhft/chronicle/core/ReferenceCounter;
+       4: invokevirtual #131                // Method net/openhft/chronicle/core/ReferenceCounter.release:()V
+       7: return
+
+  public long refCount();
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field refCount:Lnet/openhft/chronicle/core/ReferenceCounter;
+       4: invokevirtual #132                // Method net/openhft/chronicle/core/ReferenceCounter.get:()J
+       7: lreturn
+
+  private void performRelease();
+    Code:
+       0: iconst_0
+       1: istore_1
+       2: iload_1
+       3: aload_0
+       4: getfield      #4                  // Field stores:Ljava/util/List;
+       7: invokeinterface #95,  1           // InterfaceMethod java/util/List.size:()I
+      12: if_icmpge     101
+      15: aload_0
+      16: getfield      #4                  // Field stores:Ljava/util/List;
+      19: iload_1
+      20: invokeinterface #97,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      25: checkcast     #98                 // class java/lang/ref/WeakReference
+      28: astore_2
+      29: aload_2
+      30: ifnonnull     36
+      33: goto          95
+      36: aload_2
+      37: invokevirtual #99                 // Method java/lang/ref/WeakReference.get:()Ljava/lang/Object;
+      40: checkcast     #100                // class net/openhft/chronicle/bytes/MappedBytesStore
+      43: astore_3
+      44: aload_3
+      45: ifnull        83
+      48: aload_3
+      49: invokevirtual #133                // Method net/openhft/chronicle/bytes/MappedBytesStore.refCount:()J
+      52: lconst_0
+      53: lcmp
+      54: ifeq          83
+      57: aload_3
+      58: invokevirtual #124                // Method net/openhft/chronicle/bytes/MappedBytesStore.release:()V
+      61: goto          48
+      64: astore        4
+      66: invokestatic  #41                 // Method net/openhft/chronicle/core/Jvm.debug:()Lnet/openhft/chronicle/core/onoes/ExceptionHandler;
+      69: aload_0
+      70: invokevirtual #135                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      73: aload         4
+      75: invokeinterface #136,  3          // InterfaceMethod net/openhft/chronicle/core/onoes/ExceptionHandler.on:(Ljava/lang/Class;Ljava/lang/Throwable;)V
+      80: goto          48
+      83: aload_0
+      84: getfield      #4                  // Field stores:Ljava/util/List;
+      87: iload_1
+      88: aconst_null
+      89: invokeinterface #116,  3          // InterfaceMethod java/util/List.set:(ILjava/lang/Object;)Ljava/lang/Object;
+      94: pop
+      95: iinc          1, 1
+      98: goto          2
+     101: aload_0
+     102: getfield      #14                 // Field raf:Ljava/io/RandomAccessFile;
+     105: invokevirtual #15                 // Method java/io/RandomAccessFile.getChannel:()Ljava/nio/channels/FileChannel;
+     108: invokestatic  #137                // InterfaceMethod net/openhft/chronicle/core/io/Closeable.closeQuietly:(Ljava/lang/Object;)V
+     111: aload_0
+     112: getfield      #14                 // Field raf:Ljava/io/RandomAccessFile;
+     115: invokestatic  #137                // InterfaceMethod net/openhft/chronicle/core/io/Closeable.closeQuietly:(Ljava/lang/Object;)V
+     118: aload_0
+     119: getfield      #16                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+     122: invokestatic  #137                // InterfaceMethod net/openhft/chronicle/core/io/Closeable.closeQuietly:(Ljava/lang/Object;)V
+     125: aload_0
+     126: getfield      #7                  // Field closed:Ljava/util/concurrent/atomic/AtomicBoolean;
+     129: iconst_1
+     130: invokevirtual #138                // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     133: goto          173
+     136: astore        5
+     138: aload_0
+     139: getfield      #14                 // Field raf:Ljava/io/RandomAccessFile;
+     142: invokevirtual #15                 // Method java/io/RandomAccessFile.getChannel:()Ljava/nio/channels/FileChannel;
+     145: invokestatic  #137                // InterfaceMethod net/openhft/chronicle/core/io/Closeable.closeQuietly:(Ljava/lang/Object;)V
+     148: aload_0
+     149: getfield      #14                 // Field raf:Ljava/io/RandomAccessFile;
+     152: invokestatic  #137                // InterfaceMethod net/openhft/chronicle/core/io/Closeable.closeQuietly:(Ljava/lang/Object;)V
+     155: aload_0
+     156: getfield      #16                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+     159: invokestatic  #137                // InterfaceMethod net/openhft/chronicle/core/io/Closeable.closeQuietly:(Ljava/lang/Object;)V
+     162: aload_0
+     163: getfield      #7                  // Field closed:Ljava/util/concurrent/atomic/AtomicBoolean;
+     166: iconst_1
+     167: invokevirtual #138                // Method java/util/concurrent/atomic/AtomicBoolean.set:(Z)V
+     170: aload         5
+     172: athrow
+     173: return
+    Exception table:
+       from    to  target type
+          57    61    64   Class java/lang/IllegalStateException
+           0   101   136   any
+         136   138   136   any
+
+  public java.lang.String referenceCounts();
+    Code:
+       0: new           #91                 // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #92                 // Method java/lang/StringBuilder."<init>":()V
+       7: astore_1
+       8: aload_1
+       9: ldc           #139                // String refCount:
+      11: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      14: aload_0
+      15: invokevirtual #140                // Method refCount:()J
+      18: invokevirtual #94                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      21: pop
+      22: aload_0
+      23: getfield      #4                  // Field stores:Ljava/util/List;
+      26: invokeinterface #141,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      31: astore_2
+      32: aload_2
+      33: invokeinterface #142,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      38: ifeq          94
+      41: aload_2
+      42: invokeinterface #143,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      47: checkcast     #98                 // class java/lang/ref/WeakReference
+      50: astore_3
+      51: lconst_0
+      52: lstore        4
+      54: aload_3
+      55: ifnull        79
+      58: aload_3
+      59: invokevirtual #99                 // Method java/lang/ref/WeakReference.get:()Ljava/lang/Object;
+      62: checkcast     #100                // class net/openhft/chronicle/bytes/MappedBytesStore
+      65: astore        6
+      67: aload         6
+      69: ifnull        79
+      72: aload         6
+      74: invokevirtual #133                // Method net/openhft/chronicle/bytes/MappedBytesStore.refCount:()J
+      77: lstore        4
+      79: aload_1
+      80: ldc           #144                // String ,
+      82: invokevirtual #32                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      85: lload         4
+      87: invokevirtual #94                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      90: pop
+      91: goto          32
+      94: aload_1
+      95: invokevirtual #40                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      98: areturn
+
+  public long capacity();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field capacity:J
+       4: lreturn
+
+  public long chunkSize();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field chunkSize:J
+       4: lreturn
+
+  public long overlapSize();
+    Code:
+       0: aload_0
+       1: getfield      #21                 // Field overlapSize:J
+       4: lreturn
+
+  public net.openhft.chronicle.bytes.NewChunkListener getNewChunkListener();
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field newChunkListener:Lnet/openhft/chronicle/bytes/NewChunkListener;
+       4: areturn
+
+  public void setNewChunkListener(net.openhft.chronicle.bytes.NewChunkListener);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #12                 // Field newChunkListener:Lnet/openhft/chronicle/bytes/NewChunkListener;
+       5: return
+
+  public long actualSize() throws net.openhft.chronicle.core.io.IORuntimeException;
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+       4: invokevirtual #103                // Method java/nio/channels/FileChannel.size:()J
+       7: lreturn
+       8: astore_1
+       9: aload_0
+      10: getfield      #16                 // Field fileChannel:Ljava/nio/channels/FileChannel;
+      13: invokevirtual #145                // Method java/nio/channels/FileChannel.isOpen:()Z
+      16: ifeq          30
+      19: new           #146                // class net/openhft/chronicle/core/io/IORuntimeException
+      22: dup
+      23: aload_1
+      24: invokespecial #147                // Method net/openhft/chronicle/core/io/IORuntimeException."<init>":(Ljava/lang/Throwable;)V
+      27: goto          38
+      30: new           #134                // class java/lang/IllegalStateException
+      33: dup
+      34: aload_1
+      35: invokespecial #148                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/Throwable;)V
+      38: athrow
+    Exception table:
+       from    to  target type
+           0     7     8   Class java/io/IOException
+
+  public boolean isClosed();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field closed:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: invokevirtual #88                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+       7: ireturn
+
+  static {};
+    Code:
+       0: ldc           #28                 // class net/openhft/chronicle/bytes/MappedFile
+       2: invokevirtual #149                // Method java/lang/Class.desiredAssertionStatus:()Z
+       5: ifne          12
+       8: iconst_1
+       9: goto          13
+      12: iconst_0
+      13: putstatic     #24                 // Field $assertionsDisabled:Z
+      16: new           #150                // class java/lang/Object
+      19: dup
+      20: invokespecial #1                  // Method java/lang/Object."<init>":()V
+      23: putstatic     #104                // Field GLOBAL_FILE_LOCK:Ljava/lang/Object;
+      26: return
+}

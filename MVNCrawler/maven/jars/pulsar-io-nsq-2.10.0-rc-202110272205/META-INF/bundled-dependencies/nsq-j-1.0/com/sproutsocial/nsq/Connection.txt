@@ -1,0 +1,1121 @@
+Compiled from "Connection.java"
+abstract class com.sproutsocial.nsq.Connection extends com.sproutsocial.nsq.BasePubSub implements java.io.Closeable {
+  protected final com.sproutsocial.nsq.HostAndPort host;
+
+  protected java.io.DataOutputStream out;
+
+  protected java.io.DataInputStream in;
+
+  private volatile boolean isReading;
+
+  protected int msgTimeout;
+
+  protected int heartbeatInterval;
+
+  protected int maxRdyCount;
+
+  protected long lastActionFlush;
+
+  protected int unflushedCount;
+
+  protected long lastHeartbeat;
+
+  protected final java.util.concurrent.BlockingQueue<java.lang.String> respQueue;
+
+  protected final java.util.concurrent.ExecutorService handlerExecutor;
+
+  private static final java.util.concurrent.ThreadFactory readThreadFactory;
+
+  private static final java.util.Set<java.lang.String> nonFatalErrors;
+
+  private static final org.slf4j.Logger logger;
+
+  public com.sproutsocial.nsq.Connection(com.sproutsocial.nsq.Client, com.sproutsocial.nsq.HostAndPort);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #4                  // Method com/sproutsocial/nsq/BasePubSub."<init>":(Lcom/sproutsocial/nsq/Client;)V
+       5: aload_0
+       6: iconst_1
+       7: putfield      #5                  // Field isReading:Z
+      10: aload_0
+      11: ldc           #6                  // int 60000
+      13: putfield      #7                  // Field msgTimeout:I
+      16: aload_0
+      17: sipush        30000
+      20: putfield      #8                  // Field heartbeatInterval:I
+      23: aload_0
+      24: sipush        2500
+      27: putfield      #9                  // Field maxRdyCount:I
+      30: aload_0
+      31: new           #10                 // class java/util/concurrent/ArrayBlockingQueue
+      34: dup
+      35: iconst_1
+      36: invokespecial #11                 // Method java/util/concurrent/ArrayBlockingQueue."<init>":(I)V
+      39: putfield      #12                 // Field respQueue:Ljava/util/concurrent/BlockingQueue;
+      42: aload_0
+      43: aload_2
+      44: putfield      #13                 // Field host:Lcom/sproutsocial/nsq/HostAndPort;
+      47: aload_0
+      48: aload_1
+      49: invokevirtual #14                 // Method com/sproutsocial/nsq/Client.getExecutor:()Ljava/util/concurrent/ExecutorService;
+      52: putfield      #15                 // Field handlerExecutor:Ljava/util/concurrent/ExecutorService;
+      55: return
+
+  public synchronized void connect(com.sproutsocial.nsq.Config) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #16                 // Method addClientConfig:(Lcom/sproutsocial/nsq/Config;)V
+       5: new           #17                 // class java/net/Socket
+       8: dup
+       9: invokespecial #18                 // Method java/net/Socket."<init>":()V
+      12: astore_2
+      13: aload_2
+      14: sipush        30000
+      17: invokevirtual #19                 // Method java/net/Socket.setSoTimeout:(I)V
+      20: aload_2
+      21: new           #20                 // class java/net/InetSocketAddress
+      24: dup
+      25: aload_0
+      26: getfield      #13                 // Field host:Lcom/sproutsocial/nsq/HostAndPort;
+      29: invokevirtual #21                 // Method com/sproutsocial/nsq/HostAndPort.getHost:()Ljava/lang/String;
+      32: aload_0
+      33: getfield      #13                 // Field host:Lcom/sproutsocial/nsq/HostAndPort;
+      36: invokevirtual #22                 // Method com/sproutsocial/nsq/HostAndPort.getPort:()I
+      39: invokespecial #23                 // Method java/net/InetSocketAddress."<init>":(Ljava/lang/String;I)V
+      42: sipush        30000
+      45: invokevirtual #24                 // Method java/net/Socket.connect:(Ljava/net/SocketAddress;I)V
+      48: aload_0
+      49: aload_2
+      50: invokevirtual #25                 // Method java/net/Socket.getInputStream:()Ljava/io/InputStream;
+      53: aload_2
+      54: invokevirtual #26                 // Method java/net/Socket.getOutputStream:()Ljava/io/OutputStream;
+      57: new           #27                 // class com/sproutsocial/nsq/Connection$StreamPair
+      60: dup
+      61: aconst_null
+      62: invokespecial #28                 // Method com/sproutsocial/nsq/Connection$StreamPair."<init>":(Lcom/sproutsocial/nsq/Connection$1;)V
+      65: invokespecial #29                 // Method setStreams:(Ljava/io/InputStream;Ljava/io/OutputStream;Lcom/sproutsocial/nsq/Connection$StreamPair;)Lcom/sproutsocial/nsq/Connection$StreamPair;
+      68: astore_3
+      69: aload_0
+      70: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+      73: ldc           #31                 // String   V2
+      75: getstatic     #32                 // Field com/sproutsocial/nsq/Util.US_ASCII:Ljava/nio/charset/Charset;
+      78: invokevirtual #33                 // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+      81: invokevirtual #34                 // Method java/io/DataOutputStream.write:([B)V
+      84: aload_0
+      85: ldc           #35                 // String IDENTIFY
+      87: aload_0
+      88: getfield      #36                 // Field client:Lcom/sproutsocial/nsq/Client;
+      91: invokevirtual #37                 // Method com/sproutsocial/nsq/Client.getGson:()Lcom/google/gson/Gson;
+      94: aload_1
+      95: invokevirtual #38                 // Method com/google/gson/Gson.toJson:(Ljava/lang/Object;)Ljava/lang/String;
+      98: getstatic     #39                 // Field com/sproutsocial/nsq/Util.UTF_8:Ljava/nio/charset/Charset;
+     101: invokevirtual #33                 // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+     104: invokespecial #40                 // Method connectCommand:(Ljava/lang/String;[B)Ljava/lang/String;
+     107: astore        4
+     109: aload_0
+     110: getfield      #36                 // Field client:Lcom/sproutsocial/nsq/Client;
+     113: invokevirtual #37                 // Method com/sproutsocial/nsq/Client.getGson:()Lcom/google/gson/Gson;
+     116: aload         4
+     118: ldc           #41                 // class com/sproutsocial/nsq/ServerConfig
+     120: invokevirtual #42                 // Method com/google/gson/Gson.fromJson:(Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/Object;
+     123: checkcast     #41                 // class com/sproutsocial/nsq/ServerConfig
+     126: astore        5
+     128: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+     131: ldc           #44                 // String serverConfig:{}
+     133: aload         4
+     135: invokeinterface #45,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     140: aload_0
+     141: aload         5
+     143: invokevirtual #46                 // Method setConfig:(Lcom/sproutsocial/nsq/Config;)V
+     146: aload_0
+     147: aload         5
+     149: invokevirtual #47                 // Method com/sproutsocial/nsq/ServerConfig.getMsgTimeout:()Ljava/lang/Integer;
+     152: ldc           #6                  // int 60000
+     154: invokestatic  #48                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     157: invokestatic  #49                 // Method com/sproutsocial/nsq/Util.firstNonNull:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     160: checkcast     #50                 // class java/lang/Integer
+     163: invokevirtual #51                 // Method java/lang/Integer.intValue:()I
+     166: putfield      #7                  // Field msgTimeout:I
+     169: aload_0
+     170: aload         5
+     172: invokevirtual #52                 // Method com/sproutsocial/nsq/ServerConfig.getHeartbeatInterval:()Ljava/lang/Integer;
+     175: sipush        30000
+     178: invokestatic  #48                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     181: invokestatic  #49                 // Method com/sproutsocial/nsq/Util.firstNonNull:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     184: checkcast     #50                 // class java/lang/Integer
+     187: invokevirtual #51                 // Method java/lang/Integer.intValue:()I
+     190: putfield      #8                  // Field heartbeatInterval:I
+     193: aload_0
+     194: aload         5
+     196: invokevirtual #53                 // Method com/sproutsocial/nsq/ServerConfig.getMaxRdyCount:()Ljava/lang/Integer;
+     199: sipush        2500
+     202: invokestatic  #48                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     205: invokestatic  #49                 // Method com/sproutsocial/nsq/Util.firstNonNull:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     208: checkcast     #50                 // class java/lang/Integer
+     211: invokevirtual #51                 // Method java/lang/Integer.intValue:()I
+     214: putfield      #9                  // Field maxRdyCount:I
+     217: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+     220: ldc           #54                 // String connected {} msgTimeout:{} heartbeatInterval:{} maxRdyCount:{}
+     222: iconst_4
+     223: anewarray     #55                 // class java/lang/Object
+     226: dup
+     227: iconst_0
+     228: aload_0
+     229: getfield      #13                 // Field host:Lcom/sproutsocial/nsq/HostAndPort;
+     232: aastore
+     233: dup
+     234: iconst_1
+     235: aload_0
+     236: getfield      #7                  // Field msgTimeout:I
+     239: invokestatic  #48                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     242: aastore
+     243: dup
+     244: iconst_2
+     245: aload_0
+     246: getfield      #8                  // Field heartbeatInterval:I
+     249: invokestatic  #48                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     252: aastore
+     253: dup
+     254: iconst_3
+     255: aload_0
+     256: getfield      #9                  // Field maxRdyCount:I
+     259: invokestatic  #48                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     262: aastore
+     263: invokeinterface #56,  3           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;[Ljava/lang/Object;)V
+     268: aload_2
+     269: aload_0
+     270: getfield      #8                  // Field heartbeatInterval:I
+     273: sipush        5000
+     276: iadd
+     277: invokevirtual #19                 // Method java/net/Socket.setSoTimeout:(I)V
+     280: aload_0
+     281: aload         5
+     283: aload_2
+     284: aload_3
+     285: invokespecial #57                 // Method wrapEncryption:(Lcom/sproutsocial/nsq/ServerConfig;Ljava/net/Socket;Lcom/sproutsocial/nsq/Connection$StreamPair;)V
+     288: aload_0
+     289: aload         5
+     291: aload_3
+     292: invokespecial #58                 // Method wrapCompression:(Lcom/sproutsocial/nsq/ServerConfig;Lcom/sproutsocial/nsq/Connection$StreamPair;)V
+     295: aload_3
+     296: getfield      #59                 // Field com/sproutsocial/nsq/Connection$StreamPair.isBuffered:Z
+     299: ifne          346
+     302: aload_0
+     303: new           #60                 // class java/io/DataInputStream
+     306: dup
+     307: new           #61                 // class java/io/BufferedInputStream
+     310: dup
+     311: aload_3
+     312: invokestatic  #62                 // Method com/sproutsocial/nsq/Connection$StreamPair.access$100:(Lcom/sproutsocial/nsq/Connection$StreamPair;)Ljava/io/InputStream;
+     315: invokespecial #63                 // Method java/io/BufferedInputStream."<init>":(Ljava/io/InputStream;)V
+     318: invokespecial #64                 // Method java/io/DataInputStream."<init>":(Ljava/io/InputStream;)V
+     321: putfield      #65                 // Field in:Ljava/io/DataInputStream;
+     324: aload_0
+     325: new           #66                 // class java/io/DataOutputStream
+     328: dup
+     329: new           #67                 // class java/io/BufferedOutputStream
+     332: dup
+     333: aload_3
+     334: invokestatic  #68                 // Method com/sproutsocial/nsq/Connection$StreamPair.access$200:(Lcom/sproutsocial/nsq/Connection$StreamPair;)Ljava/io/OutputStream;
+     337: invokespecial #69                 // Method java/io/BufferedOutputStream."<init>":(Ljava/io/OutputStream;)V
+     340: invokespecial #70                 // Method java/io/DataOutputStream."<init>":(Ljava/io/OutputStream;)V
+     343: putfield      #30                 // Field out:Ljava/io/DataOutputStream;
+     346: aload_0
+     347: aload         5
+     349: invokespecial #71                 // Method sendAuthorization:(Lcom/sproutsocial/nsq/ServerConfig;)V
+     352: aload_0
+     353: new           #72                 // class com/sproutsocial/nsq/Connection$1
+     356: dup
+     357: aload_0
+     358: invokespecial #73                 // Method com/sproutsocial/nsq/Connection$1."<init>":(Lcom/sproutsocial/nsq/Connection;)V
+     361: aload_0
+     362: getfield      #8                  // Field heartbeatInterval:I
+     365: sipush        2000
+     368: iadd
+     369: aload_0
+     370: getfield      #8                  // Field heartbeatInterval:I
+     373: iconst_0
+     374: invokevirtual #74                 // Method scheduleAtFixedRate:(Ljava/lang/Runnable;IIZ)V
+     377: aload_0
+     378: invokestatic  #75                 // Method com/sproutsocial/nsq/Util.clock:()J
+     381: putfield      #76                 // Field lastHeartbeat:J
+     384: getstatic     #77                 // Field readThreadFactory:Ljava/util/concurrent/ThreadFactory;
+     387: new           #78                 // class com/sproutsocial/nsq/Connection$2
+     390: dup
+     391: aload_0
+     392: invokespecial #79                 // Method com/sproutsocial/nsq/Connection$2."<init>":(Lcom/sproutsocial/nsq/Connection;)V
+     395: invokeinterface #80,  2           // InterfaceMethod java/util/concurrent/ThreadFactory.newThread:(Ljava/lang/Runnable;)Ljava/lang/Thread;
+     400: invokevirtual #81                 // Method java/lang/Thread.start:()V
+     403: return
+
+  private java.lang.String connectCommand(java.lang.String, byte[]) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+       4: new           #82                 // class java/lang/StringBuilder
+       7: dup
+       8: invokespecial #83                 // Method java/lang/StringBuilder."<init>":()V
+      11: aload_1
+      12: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      15: ldc           #85                 // String \n
+      17: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      20: invokevirtual #86                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      23: getstatic     #32                 // Field com/sproutsocial/nsq/Util.US_ASCII:Ljava/nio/charset/Charset;
+      26: invokevirtual #33                 // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+      29: invokevirtual #34                 // Method java/io/DataOutputStream.write:([B)V
+      32: aload_0
+      33: aload_2
+      34: invokevirtual #87                 // Method write:([B)V
+      37: aload_0
+      38: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+      41: invokevirtual #88                 // Method java/io/DataOutputStream.flush:()V
+      44: aload_0
+      45: invokespecial #89                 // Method readResponse:()Ljava/lang/String;
+      48: areturn
+
+  private void addClientConfig(com.sproutsocial.nsq.Config);
+    Code:
+       0: aload_1
+       1: invokevirtual #90                 // Method com/sproutsocial/nsq/Config.getHostname:()Ljava/lang/String;
+       4: ifnonnull     38
+       7: invokestatic  #91                 // Method java/lang/management/ManagementFactory.getRuntimeMXBean:()Ljava/lang/management/RuntimeMXBean;
+      10: invokeinterface #92,  1           // InterfaceMethod java/lang/management/RuntimeMXBean.getName:()Ljava/lang/String;
+      15: astore_2
+      16: aload_2
+      17: bipush        64
+      19: invokevirtual #93                 // Method java/lang/String.indexOf:(I)I
+      22: istore_3
+      23: iload_3
+      24: ifle          38
+      27: aload_1
+      28: aload_2
+      29: iload_3
+      30: iconst_1
+      31: iadd
+      32: invokevirtual #94                 // Method java/lang/String.substring:(I)Ljava/lang/String;
+      35: invokevirtual #95                 // Method com/sproutsocial/nsq/Config.setHostname:(Ljava/lang/String;)V
+      38: aload_1
+      39: iconst_1
+      40: invokestatic  #96                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      43: invokevirtual #97                 // Method com/sproutsocial/nsq/Config.setFeatureNegotiation:(Ljava/lang/Boolean;)V
+      46: return
+
+  private void wrapEncryption(com.sproutsocial.nsq.ServerConfig, java.net.Socket, com.sproutsocial.nsq.Connection$StreamPair) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokevirtual #98                 // Method com/sproutsocial/nsq/ServerConfig.getTlsV1:()Ljava/lang/Boolean;
+       4: invokevirtual #99                 // Method java/lang/Boolean.booleanValue:()Z
+       7: ifne          11
+      10: return
+      11: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      14: ldc           #100                // String adding tls
+      16: invokeinterface #101,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      21: aload_0
+      22: getfield      #36                 // Field client:Lcom/sproutsocial/nsq/Client;
+      25: invokevirtual #102                // Method com/sproutsocial/nsq/Client.getSSLSocketFactory:()Ljavax/net/ssl/SSLSocketFactory;
+      28: astore        4
+      30: aload         4
+      32: ifnonnull     43
+      35: invokestatic  #103                // Method javax/net/ssl/SSLSocketFactory.getDefault:()Ljavax/net/SocketFactory;
+      38: checkcast     #104                // class javax/net/ssl/SSLSocketFactory
+      41: astore        4
+      43: aload         4
+      45: aload_2
+      46: aload_2
+      47: invokevirtual #105                // Method java/net/Socket.getInetAddress:()Ljava/net/InetAddress;
+      50: invokevirtual #106                // Method java/net/InetAddress.getHostAddress:()Ljava/lang/String;
+      53: aload_2
+      54: invokevirtual #107                // Method java/net/Socket.getPort:()I
+      57: iconst_1
+      58: invokevirtual #108                // Method javax/net/ssl/SSLSocketFactory.createSocket:(Ljava/net/Socket;Ljava/lang/String;IZ)Ljava/net/Socket;
+      61: astore        5
+      63: aload_0
+      64: aload         5
+      66: invokevirtual #25                 // Method java/net/Socket.getInputStream:()Ljava/io/InputStream;
+      69: aload         5
+      71: invokevirtual #26                 // Method java/net/Socket.getOutputStream:()Ljava/io/OutputStream;
+      74: aload_3
+      75: invokespecial #29                 // Method setStreams:(Ljava/io/InputStream;Ljava/io/OutputStream;Lcom/sproutsocial/nsq/Connection$StreamPair;)Lcom/sproutsocial/nsq/Connection$StreamPair;
+      78: pop
+      79: aload_0
+      80: invokespecial #89                 // Method readResponse:()Ljava/lang/String;
+      83: pop
+      84: return
+
+  private void wrapCompression(com.sproutsocial.nsq.ServerConfig, com.sproutsocial.nsq.Connection$StreamPair) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokevirtual #109                // Method com/sproutsocial/nsq/ServerConfig.getDeflate:()Ljava/lang/Boolean;
+       4: invokevirtual #99                 // Method java/lang/Boolean.booleanValue:()Z
+       7: ifeq          160
+      10: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      13: ldc           #110                // String adding deflate compression
+      15: invokeinterface #101,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      20: new           #111                // class java/util/zip/InflaterInputStream
+      23: dup
+      24: aload_2
+      25: invokestatic  #62                 // Method com/sproutsocial/nsq/Connection$StreamPair.access$100:(Lcom/sproutsocial/nsq/Connection$StreamPair;)Ljava/io/InputStream;
+      28: new           #112                // class java/util/zip/Inflater
+      31: dup
+      32: iconst_1
+      33: invokespecial #113                // Method java/util/zip/Inflater."<init>":(Z)V
+      36: ldc           #114                // int 32768
+      38: invokespecial #115                // Method java/util/zip/InflaterInputStream."<init>":(Ljava/io/InputStream;Ljava/util/zip/Inflater;I)V
+      41: astore_3
+      42: new           #116                // class java/util/zip/Deflater
+      45: dup
+      46: iconst_m1
+      47: iconst_1
+      48: invokespecial #117                // Method java/util/zip/Deflater."<init>":(IZ)V
+      51: astore        4
+      53: ldc           #118                // class java/util/zip/DeflaterOutputStream
+      55: iconst_4
+      56: anewarray     #119                // class java/lang/Class
+      59: dup
+      60: iconst_0
+      61: ldc           #120                // class java/io/OutputStream
+      63: aastore
+      64: dup
+      65: iconst_1
+      66: ldc           #116                // class java/util/zip/Deflater
+      68: aastore
+      69: dup
+      70: iconst_2
+      71: getstatic     #121                // Field java/lang/Integer.TYPE:Ljava/lang/Class;
+      74: aastore
+      75: dup
+      76: iconst_3
+      77: getstatic     #122                // Field java/lang/Boolean.TYPE:Ljava/lang/Class;
+      80: aastore
+      81: invokevirtual #123                // Method java/lang/Class.getConstructor:([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
+      84: astore        5
+      86: aload         5
+      88: iconst_4
+      89: anewarray     #55                 // class java/lang/Object
+      92: dup
+      93: iconst_0
+      94: aload_2
+      95: invokestatic  #68                 // Method com/sproutsocial/nsq/Connection$StreamPair.access$200:(Lcom/sproutsocial/nsq/Connection$StreamPair;)Ljava/io/OutputStream;
+      98: aastore
+      99: dup
+     100: iconst_1
+     101: aload         4
+     103: aastore
+     104: dup
+     105: iconst_2
+     106: ldc           #114                // int 32768
+     108: invokestatic  #48                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     111: aastore
+     112: dup
+     113: iconst_3
+     114: iconst_1
+     115: invokestatic  #96                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     118: aastore
+     119: invokevirtual #124                // Method java/lang/reflect/Constructor.newInstance:([Ljava/lang/Object;)Ljava/lang/Object;
+     122: checkcast     #118                // class java/util/zip/DeflaterOutputStream
+     125: astore        6
+     127: aload_0
+     128: aload_3
+     129: aload         6
+     131: aload_2
+     132: invokespecial #29                 // Method setStreams:(Ljava/io/InputStream;Ljava/io/OutputStream;Lcom/sproutsocial/nsq/Connection$StreamPair;)Lcom/sproutsocial/nsq/Connection$StreamPair;
+     135: pop
+     136: aload_2
+     137: iconst_1
+     138: putfield      #59                 // Field com/sproutsocial/nsq/Connection$StreamPair.isBuffered:Z
+     141: aload_0
+     142: invokespecial #89                 // Method readResponse:()Ljava/lang/String;
+     145: pop
+     146: goto          302
+     149: astore_3
+     150: new           #126                // class com/sproutsocial/nsq/NSQException
+     153: dup
+     154: ldc           #127                // String deflate compression only supported on java7 and up
+     156: invokespecial #128                // Method com/sproutsocial/nsq/NSQException."<init>":(Ljava/lang/String;)V
+     159: athrow
+     160: aload_1
+     161: invokevirtual #129                // Method com/sproutsocial/nsq/ServerConfig.getSnappy:()Ljava/lang/Boolean;
+     164: invokevirtual #99                 // Method java/lang/Boolean.booleanValue:()Z
+     167: ifeq          302
+     170: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+     173: ldc           #130                // String adding snappy compression
+     175: invokeinterface #101,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     180: aload_1
+     181: invokevirtual #131                // Method com/sproutsocial/nsq/ServerConfig.getVersion:()Ljava/lang/String;
+     184: ldc           #132                // String 0.
+     186: invokevirtual #133                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+     189: ifeq          202
+     192: new           #126                // class com/sproutsocial/nsq/NSQException
+     195: dup
+     196: ldc           #134                // String snappy compression only supported on nsqd 1.0 and up
+     198: invokespecial #128                // Method com/sproutsocial/nsq/NSQException."<init>":(Ljava/lang/String;)V
+     201: athrow
+     202: ldc           #135                // String org.xerial.snappy.SnappyFramedInputStream
+     204: invokestatic  #136                // Method java/lang/Class.forName:(Ljava/lang/String;)Ljava/lang/Class;
+     207: iconst_1
+     208: anewarray     #119                // class java/lang/Class
+     211: dup
+     212: iconst_0
+     213: ldc           #137                // class java/io/InputStream
+     215: aastore
+     216: invokevirtual #123                // Method java/lang/Class.getConstructor:([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
+     219: astore_3
+     220: ldc           #138                // String org.xerial.snappy.SnappyFramedOutputStream
+     222: invokestatic  #136                // Method java/lang/Class.forName:(Ljava/lang/String;)Ljava/lang/Class;
+     225: iconst_1
+     226: anewarray     #119                // class java/lang/Class
+     229: dup
+     230: iconst_0
+     231: ldc           #120                // class java/io/OutputStream
+     233: aastore
+     234: invokevirtual #123                // Method java/lang/Class.getConstructor:([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
+     237: astore        4
+     239: aload_0
+     240: aload_3
+     241: iconst_1
+     242: anewarray     #55                 // class java/lang/Object
+     245: dup
+     246: iconst_0
+     247: aload_2
+     248: invokestatic  #62                 // Method com/sproutsocial/nsq/Connection$StreamPair.access$100:(Lcom/sproutsocial/nsq/Connection$StreamPair;)Ljava/io/InputStream;
+     251: aastore
+     252: invokevirtual #124                // Method java/lang/reflect/Constructor.newInstance:([Ljava/lang/Object;)Ljava/lang/Object;
+     255: checkcast     #137                // class java/io/InputStream
+     258: aload         4
+     260: iconst_1
+     261: anewarray     #55                 // class java/lang/Object
+     264: dup
+     265: iconst_0
+     266: aload_2
+     267: invokestatic  #68                 // Method com/sproutsocial/nsq/Connection$StreamPair.access$200:(Lcom/sproutsocial/nsq/Connection$StreamPair;)Ljava/io/OutputStream;
+     270: aastore
+     271: invokevirtual #124                // Method java/lang/reflect/Constructor.newInstance:([Ljava/lang/Object;)Ljava/lang/Object;
+     274: checkcast     #120                // class java/io/OutputStream
+     277: aload_2
+     278: invokespecial #29                 // Method setStreams:(Ljava/io/InputStream;Ljava/io/OutputStream;Lcom/sproutsocial/nsq/Connection$StreamPair;)Lcom/sproutsocial/nsq/Connection$StreamPair;
+     281: pop
+     282: aload_0
+     283: invokespecial #89                 // Method readResponse:()Ljava/lang/String;
+     286: pop
+     287: goto          302
+     290: astore_3
+     291: new           #126                // class com/sproutsocial/nsq/NSQException
+     294: dup
+     295: ldc           #139                // String snappy compression failed, is org.xerial.snappy:snappy-java available?
+     297: aload_3
+     298: invokespecial #140                // Method com/sproutsocial/nsq/NSQException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     301: athrow
+     302: return
+    Exception table:
+       from    to  target type
+          20   146   149   Class java/lang/Exception
+         202   287   290   Class java/lang/Exception
+
+  private void sendAuthorization(com.sproutsocial.nsq.ServerConfig) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokevirtual #141                // Method com/sproutsocial/nsq/ServerConfig.getAuthRequired:()Ljava/lang/Boolean;
+       4: ifnull        82
+       7: aload_1
+       8: invokevirtual #141                // Method com/sproutsocial/nsq/ServerConfig.getAuthRequired:()Ljava/lang/Boolean;
+      11: invokevirtual #99                 // Method java/lang/Boolean.booleanValue:()Z
+      14: ifeq          82
+      17: aload_0
+      18: getfield      #36                 // Field client:Lcom/sproutsocial/nsq/Client;
+      21: invokevirtual #142                // Method com/sproutsocial/nsq/Client.getAuthSecret:()[B
+      24: ifnonnull     37
+      27: new           #126                // class com/sproutsocial/nsq/NSQException
+      30: dup
+      31: ldc           #143                // String nsqd requires authorization, call client.setAuthSecret before connecting
+      33: invokespecial #128                // Method com/sproutsocial/nsq/NSQException."<init>":(Ljava/lang/String;)V
+      36: athrow
+      37: aload_1
+      38: invokevirtual #98                 // Method com/sproutsocial/nsq/ServerConfig.getTlsV1:()Ljava/lang/Boolean;
+      41: invokevirtual #99                 // Method java/lang/Boolean.booleanValue:()Z
+      44: ifne          57
+      47: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      50: ldc           #144                // String authorization used without encryption. authSecret sent in plain text
+      52: invokeinterface #145,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      57: aload_0
+      58: ldc           #146                // String AUTH
+      60: aload_0
+      61: getfield      #36                 // Field client:Lcom/sproutsocial/nsq/Client;
+      64: invokevirtual #142                // Method com/sproutsocial/nsq/Client.getAuthSecret:()[B
+      67: invokespecial #40                 // Method connectCommand:(Ljava/lang/String;[B)Ljava/lang/String;
+      70: astore_2
+      71: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      74: ldc           #147                // String authorization response:{}
+      76: aload_2
+      77: invokeinterface #148,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      82: return
+
+  private void checkHeartbeat();
+    Code:
+       0: iconst_1
+       1: istore_1
+       2: invokestatic  #75                 // Method com/sproutsocial/nsq/Util.clock:()J
+       5: lstore_2
+       6: aload_0
+       7: dup
+       8: astore        4
+      10: monitorenter
+      11: lload_2
+      12: aload_0
+      13: getfield      #76                 // Field lastHeartbeat:J
+      16: lsub
+      17: iconst_2
+      18: aload_0
+      19: getfield      #8                  // Field heartbeatInterval:I
+      22: imul
+      23: i2l
+      24: lcmp
+      25: ifle          32
+      28: iconst_1
+      29: goto          33
+      32: iconst_0
+      33: istore_1
+      34: aload         4
+      36: monitorexit
+      37: goto          48
+      40: astore        5
+      42: aload         4
+      44: monitorexit
+      45: aload         5
+      47: athrow
+      48: iload_1
+      49: ifeq          70
+      52: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      55: ldc           #149                // String heartbeat failed, closing connection:{}
+      57: aload_0
+      58: invokevirtual #150                // Method java/lang/Object.toString:()Ljava/lang/String;
+      61: invokeinterface #148,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+      66: aload_0
+      67: invokevirtual #151                // Method close:()V
+      70: goto          89
+      73: astore_1
+      74: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      77: ldc           #152                // String problem checking heartbeat, will probably time out soon. {}
+      79: aload_0
+      80: invokevirtual #150                // Method java/lang/Object.toString:()Ljava/lang/String;
+      83: aload_1
+      84: invokeinterface #153,  4          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      89: return
+    Exception table:
+       from    to  target type
+          11    37    40   any
+          40    45    40   any
+           0    70    73   Class java/lang/Exception
+
+  protected void writeCommand(java.lang.String, java.lang.Object, java.lang.Object) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+       4: new           #82                 // class java/lang/StringBuilder
+       7: dup
+       8: invokespecial #83                 // Method java/lang/StringBuilder."<init>":()V
+      11: aload_1
+      12: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      15: ldc           #154                // String
+      17: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      20: aload_2
+      21: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      24: ldc           #154                // String
+      26: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: aload_3
+      30: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      33: ldc           #85                 // String \n
+      35: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      38: invokevirtual #86                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      41: getstatic     #32                 // Field com/sproutsocial/nsq/Util.US_ASCII:Ljava/nio/charset/Charset;
+      44: invokevirtual #33                 // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+      47: invokevirtual #34                 // Method java/io/DataOutputStream.write:([B)V
+      50: return
+
+  protected void writeCommand(java.lang.String, java.lang.Object) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+       4: new           #82                 // class java/lang/StringBuilder
+       7: dup
+       8: invokespecial #83                 // Method java/lang/StringBuilder."<init>":()V
+      11: aload_1
+      12: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      15: ldc           #154                // String
+      17: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      20: aload_2
+      21: invokevirtual #155                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      24: ldc           #85                 // String \n
+      26: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: invokevirtual #86                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      32: getstatic     #32                 // Field com/sproutsocial/nsq/Util.US_ASCII:Ljava/nio/charset/Charset;
+      35: invokevirtual #33                 // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+      38: invokevirtual #34                 // Method java/io/DataOutputStream.write:([B)V
+      41: return
+
+  protected void write(byte[]) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+       4: aload_1
+       5: arraylength
+       6: invokevirtual #156                // Method java/io/DataOutputStream.writeInt:(I)V
+       9: aload_0
+      10: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+      13: aload_1
+      14: invokevirtual #34                 // Method java/io/DataOutputStream.write:([B)V
+      17: return
+
+  protected void flush() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+       4: invokevirtual #88                 // Method java/io/DataOutputStream.flush:()V
+       7: aload_0
+       8: invokestatic  #75                 // Method com/sproutsocial/nsq/Util.clock:()J
+      11: putfield      #157                // Field lastActionFlush:J
+      14: aload_0
+      15: iconst_0
+      16: putfield      #158                // Field unflushedCount:I
+      19: return
+
+  private java.lang.String readResponse() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #65                 // Field in:Ljava/io/DataInputStream;
+       4: invokevirtual #159                // Method java/io/DataInputStream.readInt:()I
+       7: istore_1
+       8: aload_0
+       9: getfield      #65                 // Field in:Ljava/io/DataInputStream;
+      12: invokevirtual #159                // Method java/io/DataInputStream.readInt:()I
+      15: istore_2
+      16: aconst_null
+      17: astore_3
+      18: iload_2
+      19: ifne          33
+      22: aload_0
+      23: iload_1
+      24: iconst_4
+      25: isub
+      26: invokespecial #160                // Method readAscii:(I)Ljava/lang/String;
+      29: astore_3
+      30: goto          203
+      33: iload_2
+      34: iconst_1
+      35: if_icmpne     136
+      38: aload_0
+      39: iload_1
+      40: iconst_4
+      41: isub
+      42: invokespecial #160                // Method readAscii:(I)Ljava/lang/String;
+      45: astore        4
+      47: aload         4
+      49: ldc           #154                // String
+      51: invokevirtual #161                // Method java/lang/String.indexOf:(Ljava/lang/String;)I
+      54: istore        5
+      56: iload         5
+      58: iconst_m1
+      59: if_icmpne     67
+      62: aload         4
+      64: goto          75
+      67: aload         4
+      69: iconst_0
+      70: iload         5
+      72: invokevirtual #162                // Method java/lang/String.substring:(II)Ljava/lang/String;
+      75: astore        6
+      77: getstatic     #163                // Field nonFatalErrors:Ljava/util/Set;
+      80: aload         6
+      82: invokeinterface #164,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+      87: ifeq          105
+      90: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      93: ldc           #165                // String non fatal nsqd error:{} probably due to message timeout
+      95: aload         4
+      97: invokeinterface #166,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;)V
+     102: goto          133
+     105: new           #126                // class com/sproutsocial/nsq/NSQException
+     108: dup
+     109: new           #82                 // class java/lang/StringBuilder
+     112: dup
+     113: invokespecial #83                 // Method java/lang/StringBuilder."<init>":()V
+     116: ldc           #167                // String error from nsqd:
+     118: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     121: aload         4
+     123: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     126: invokevirtual #86                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     129: invokespecial #128                // Method com/sproutsocial/nsq/NSQException."<init>":(Ljava/lang/String;)V
+     132: athrow
+     133: goto          203
+     136: iload_2
+     137: iconst_2
+     138: if_icmpne     176
+     141: aload_0
+     142: aload_0
+     143: getfield      #65                 // Field in:Ljava/io/DataInputStream;
+     146: invokevirtual #168                // Method java/io/DataInputStream.readLong:()J
+     149: aload_0
+     150: getfield      #65                 // Field in:Ljava/io/DataInputStream;
+     153: invokevirtual #169                // Method java/io/DataInputStream.readUnsignedShort:()I
+     156: aload_0
+     157: bipush        16
+     159: invokespecial #160                // Method readAscii:(I)Ljava/lang/String;
+     162: aload_0
+     163: iload_1
+     164: bipush        30
+     166: isub
+     167: invokespecial #170                // Method readBytes:(I)[B
+     170: invokevirtual #171                // Method onMessage:(JILjava/lang/String;[B)V
+     173: goto          203
+     176: new           #126                // class com/sproutsocial/nsq/NSQException
+     179: dup
+     180: new           #82                 // class java/lang/StringBuilder
+     183: dup
+     184: invokespecial #83                 // Method java/lang/StringBuilder."<init>":()V
+     187: ldc           #172                // String bad frame type:
+     189: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     192: iload_2
+     193: invokevirtual #173                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     196: invokevirtual #86                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     199: invokespecial #128                // Method com/sproutsocial/nsq/NSQException."<init>":(Ljava/lang/String;)V
+     202: athrow
+     203: aload_3
+     204: areturn
+
+  private void read();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field isReading:Z
+       4: ifeq          62
+       7: aload_0
+       8: invokespecial #89                 // Method readResponse:()Ljava/lang/String;
+      11: astore_1
+      12: ldc           #174                // String _heartbeat_
+      14: aload_1
+      15: invokevirtual #175                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      18: ifeq          44
+      21: aload_0
+      22: getfield      #36                 // Field client:Lcom/sproutsocial/nsq/Client;
+      25: invokevirtual #176                // Method com/sproutsocial/nsq/Client.getSchedExecutor:()Ljava/util/concurrent/ScheduledExecutorService;
+      28: new           #177                // class com/sproutsocial/nsq/Connection$3
+      31: dup
+      32: aload_0
+      33: invokespecial #178                // Method com/sproutsocial/nsq/Connection$3."<init>":(Lcom/sproutsocial/nsq/Connection;)V
+      36: invokeinterface #179,  2          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.execute:(Ljava/lang/Runnable;)V
+      41: goto          59
+      44: aload_1
+      45: ifnull        59
+      48: aload_0
+      49: getfield      #12                 // Field respQueue:Ljava/util/concurrent/BlockingQueue;
+      52: aload_1
+      53: invokeinterface #180,  2          // InterfaceMethod java/util/concurrent/BlockingQueue.offer:(Ljava/lang/Object;)Z
+      58: pop
+      59: goto          0
+      62: goto          106
+      65: astore_1
+      66: aload_0
+      67: getfield      #5                  // Field isReading:Z
+      70: ifeq          106
+      73: aload_0
+      74: getfield      #12                 // Field respQueue:Ljava/util/concurrent/BlockingQueue;
+      77: aload_1
+      78: invokevirtual #181                // Method java/lang/Exception.toString:()Ljava/lang/String;
+      81: invokeinterface #180,  2          // InterfaceMethod java/util/concurrent/BlockingQueue.offer:(Ljava/lang/Object;)Z
+      86: pop
+      87: aload_0
+      88: invokevirtual #151                // Method close:()V
+      91: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      94: ldc           #182                // String read thread exception. con:{}
+      96: aload_0
+      97: invokevirtual #150                // Method java/lang/Object.toString:()Ljava/lang/String;
+     100: aload_1
+     101: invokeinterface #153,  4          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     106: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+     109: ldc           #183                // String read loop done {}
+     111: aload_0
+     112: invokevirtual #150                // Method java/lang/Object.toString:()Ljava/lang/String;
+     115: invokeinterface #45,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     120: return
+    Exception table:
+       from    to  target type
+           0    62    65   Class java/lang/Exception
+
+  private synchronized void receivedHeartbeat();
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+       4: ldc           #184                // String NOP\n
+       6: getstatic     #32                 // Field com/sproutsocial/nsq/Util.US_ASCII:Ljava/nio/charset/Charset;
+       9: invokevirtual #33                 // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+      12: invokevirtual #34                 // Method java/io/DataOutputStream.write:([B)V
+      15: aload_0
+      16: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+      19: invokevirtual #88                 // Method java/io/DataOutputStream.flush:()V
+      22: aload_0
+      23: invokestatic  #75                 // Method com/sproutsocial/nsq/Util.clock:()J
+      26: putfield      #76                 // Field lastHeartbeat:J
+      29: goto          44
+      32: astore_1
+      33: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      36: ldc           #186                // String receivedHeartbeat error
+      38: aload_1
+      39: invokeinterface #187,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      44: return
+    Exception table:
+       from    to  target type
+           0    29    32   Class java/lang/Throwable
+
+  protected void onMessage(long, int, java.lang.String, byte[]);
+    Code:
+       0: new           #126                // class com/sproutsocial/nsq/NSQException
+       3: dup
+       4: ldc           #188                // String unexpected frame type 2 - message
+       6: invokespecial #128                // Method com/sproutsocial/nsq/NSQException."<init>":(Ljava/lang/String;)V
+       9: athrow
+
+  private byte[] readBytes(int) throws java.io.IOException;
+    Code:
+       0: iload_1
+       1: newarray       byte
+       3: astore_2
+       4: aload_0
+       5: getfield      #65                 // Field in:Ljava/io/DataInputStream;
+       8: aload_2
+       9: invokevirtual #189                // Method java/io/DataInputStream.readFully:([B)V
+      12: aload_2
+      13: areturn
+
+  private java.lang.String readAscii(int) throws java.io.IOException;
+    Code:
+       0: new           #190                // class java/lang/String
+       3: dup
+       4: aload_0
+       5: iload_1
+       6: invokespecial #170                // Method readBytes:(I)[B
+       9: getstatic     #32                 // Field com/sproutsocial/nsq/Util.US_ASCII:Ljava/nio/charset/Charset;
+      12: invokespecial #191                // Method java/lang/String."<init>":([BLjava/nio/charset/Charset;)V
+      15: areturn
+
+  protected void flushAndReadOK() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #192                // Method flush:()V
+       4: aload_0
+       5: getfield      #12                 // Field respQueue:Ljava/util/concurrent/BlockingQueue;
+       8: aload_0
+       9: getfield      #8                  // Field heartbeatInterval:I
+      12: i2l
+      13: getstatic     #193                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      16: invokeinterface #194,  4          // InterfaceMethod java/util/concurrent/BlockingQueue.poll:(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;
+      21: checkcast     #190                // class java/lang/String
+      24: astore_1
+      25: ldc           #195                // String OK
+      27: aload_1
+      28: invokevirtual #175                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      31: ifne          70
+      34: new           #126                // class com/sproutsocial/nsq/NSQException
+      37: dup
+      38: new           #82                 // class java/lang/StringBuilder
+      41: dup
+      42: invokespecial #83                 // Method java/lang/StringBuilder."<init>":()V
+      45: ldc           #196                // String bad response:
+      47: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      50: aload_1
+      51: ifnull        58
+      54: aload_1
+      55: goto          60
+      58: ldc           #197                // String timeout
+      60: invokevirtual #84                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      63: invokevirtual #86                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      66: invokespecial #128                // Method com/sproutsocial/nsq/NSQException."<init>":(Ljava/lang/String;)V
+      69: athrow
+      70: goto          90
+      73: astore_1
+      74: invokestatic  #199                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      77: invokevirtual #200                // Method java/lang/Thread.interrupt:()V
+      80: new           #126                // class com/sproutsocial/nsq/NSQException
+      83: dup
+      84: ldc           #201                // String read interrupted
+      86: invokespecial #128                // Method com/sproutsocial/nsq/NSQException."<init>":(Ljava/lang/String;)V
+      89: athrow
+      90: return
+    Exception table:
+       from    to  target type
+           4    70    73   Class java/lang/InterruptedException
+
+  public synchronized void flushAndClose();
+    Code:
+       0: aload_0
+       1: invokevirtual #192                // Method flush:()V
+       4: goto          19
+       7: astore_1
+       8: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      11: ldc           #203                // String flushAndClose error
+      13: aload_1
+      14: invokeinterface #187,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      19: aload_0
+      20: invokevirtual #151                // Method close:()V
+      23: return
+    Exception table:
+       from    to  target type
+           0     4     7   Class java/io/IOException
+
+  public void close();
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: putfield      #5                  // Field isReading:Z
+       5: aload_0
+       6: getfield      #30                 // Field out:Ljava/io/DataOutputStream;
+       9: invokestatic  #204                // Method com/sproutsocial/nsq/Util.closeQuietly:(Ljava/io/Closeable;)V
+      12: aload_0
+      13: getfield      #65                 // Field in:Ljava/io/DataInputStream;
+      16: invokestatic  #204                // Method com/sproutsocial/nsq/Util.closeQuietly:(Ljava/io/Closeable;)V
+      19: aload_0
+      20: invokevirtual #205                // Method cancelTasks:()V
+      23: getstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      26: ldc           #206                // String connection closed:{}
+      28: aload_0
+      29: invokevirtual #150                // Method java/lang/Object.toString:()Ljava/lang/String;
+      32: invokeinterface #45,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      37: return
+
+  public com.sproutsocial.nsq.HostAndPort getHost();
+    Code:
+       0: aload_0
+       1: getfield      #13                 // Field host:Lcom/sproutsocial/nsq/HostAndPort;
+       4: areturn
+
+  public synchronized java.lang.String stateDesc();
+    Code:
+       0: invokestatic  #75                 // Method com/sproutsocial/nsq/Util.clock:()J
+       3: lstore_1
+       4: ldc           #207                // String %s lastFlush:%.1f lastHeartbeat:%.1f unflushedCount:%d
+       6: iconst_4
+       7: anewarray     #55                 // class java/lang/Object
+      10: dup
+      11: iconst_0
+      12: aload_0
+      13: invokevirtual #150                // Method java/lang/Object.toString:()Ljava/lang/String;
+      16: aastore
+      17: dup
+      18: iconst_1
+      19: lload_1
+      20: aload_0
+      21: getfield      #157                // Field lastActionFlush:J
+      24: lsub
+      25: l2f
+      26: ldc           #208                // float 1000.0f
+      28: fdiv
+      29: invokestatic  #209                // Method java/lang/Float.valueOf:(F)Ljava/lang/Float;
+      32: aastore
+      33: dup
+      34: iconst_2
+      35: lload_1
+      36: aload_0
+      37: getfield      #76                 // Field lastHeartbeat:J
+      40: lsub
+      41: l2f
+      42: ldc           #208                // float 1000.0f
+      44: fdiv
+      45: invokestatic  #209                // Method java/lang/Float.valueOf:(F)Ljava/lang/Float;
+      48: aastore
+      49: dup
+      50: iconst_3
+      51: aload_0
+      52: getfield      #158                // Field unflushedCount:I
+      55: invokestatic  #48                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      58: aastore
+      59: invokestatic  #210                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      62: areturn
+
+  public synchronized int getMsgTimeout();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field msgTimeout:I
+       4: ireturn
+
+  public synchronized long getLastActionFlush();
+    Code:
+       0: aload_0
+       1: getfield      #157                // Field lastActionFlush:J
+       4: lreturn
+
+  public synchronized int getMaxRdyCount();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field maxRdyCount:I
+       4: ireturn
+
+  private com.sproutsocial.nsq.Connection$StreamPair setStreams(java.io.InputStream, java.io.OutputStream, com.sproutsocial.nsq.Connection$StreamPair);
+    Code:
+       0: aload_3
+       1: aload_1
+       2: invokestatic  #211                // Method com/sproutsocial/nsq/Connection$StreamPair.access$102:(Lcom/sproutsocial/nsq/Connection$StreamPair;Ljava/io/InputStream;)Ljava/io/InputStream;
+       5: pop
+       6: aload_3
+       7: aload_2
+       8: invokestatic  #212                // Method com/sproutsocial/nsq/Connection$StreamPair.access$202:(Lcom/sproutsocial/nsq/Connection$StreamPair;Ljava/io/OutputStream;)Ljava/io/OutputStream;
+      11: pop
+      12: aload_0
+      13: new           #60                 // class java/io/DataInputStream
+      16: dup
+      17: aload_1
+      18: invokespecial #64                 // Method java/io/DataInputStream."<init>":(Ljava/io/InputStream;)V
+      21: putfield      #65                 // Field in:Ljava/io/DataInputStream;
+      24: aload_0
+      25: new           #66                 // class java/io/DataOutputStream
+      28: dup
+      29: aload_2
+      30: invokespecial #70                 // Method java/io/DataOutputStream."<init>":(Ljava/io/OutputStream;)V
+      33: putfield      #30                 // Field out:Ljava/io/DataOutputStream;
+      36: aload_3
+      37: areturn
+
+  static void access$300(com.sproutsocial.nsq.Connection);
+    Code:
+       0: aload_0
+       1: invokespecial #3                  // Method checkHeartbeat:()V
+       4: return
+
+  static void access$400(com.sproutsocial.nsq.Connection);
+    Code:
+       0: aload_0
+       1: invokespecial #2                  // Method read:()V
+       4: return
+
+  static void access$500(com.sproutsocial.nsq.Connection);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method receivedHeartbeat:()V
+       4: return
+
+  static {};
+    Code:
+       0: ldc           #213                // String nsq-read
+       2: invokestatic  #214                // Method com/sproutsocial/nsq/Util.threadFactory:(Ljava/lang/String;)Ljava/util/concurrent/ThreadFactory;
+       5: putstatic     #77                 // Field readThreadFactory:Ljava/util/concurrent/ThreadFactory;
+       8: new           #215                // class java/util/HashSet
+      11: dup
+      12: iconst_3
+      13: anewarray     #190                // class java/lang/String
+      16: dup
+      17: iconst_0
+      18: ldc           #216                // String E_FIN_FAILED
+      20: aastore
+      21: dup
+      22: iconst_1
+      23: ldc           #217                // String E_REQ_FAILED
+      25: aastore
+      26: dup
+      27: iconst_2
+      28: ldc           #218                // String E_TOUCH_FAILED
+      30: aastore
+      31: invokestatic  #219                // Method java/util/Arrays.asList:([Ljava/lang/Object;)Ljava/util/List;
+      34: invokespecial #220                // Method java/util/HashSet."<init>":(Ljava/util/Collection;)V
+      37: invokestatic  #221                // Method java/util/Collections.unmodifiableSet:(Ljava/util/Set;)Ljava/util/Set;
+      40: putstatic     #163                // Field nonFatalErrors:Ljava/util/Set;
+      43: ldc           #222                // class com/sproutsocial/nsq/Connection
+      45: invokestatic  #223                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      48: putstatic     #43                 // Field logger:Lorg/slf4j/Logger;
+      51: return
+}

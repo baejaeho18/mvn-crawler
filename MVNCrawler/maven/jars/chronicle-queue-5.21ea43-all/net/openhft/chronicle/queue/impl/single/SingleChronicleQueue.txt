@@ -1,0 +1,2487 @@
+Compiled from "SingleChronicleQueue.java"
+public class net.openhft.chronicle.queue.impl.single.SingleChronicleQueue extends net.openhft.chronicle.core.io.AbstractCloseable implements net.openhft.chronicle.queue.impl.RollingChronicleQueue {
+  public static final java.lang.String SUFFIX;
+
+  public static final java.lang.String QUEUE_METADATA_FILE;
+
+  public static final java.lang.String DISK_SPACE_CHECKER_NAME;
+
+  private static final org.slf4j.Logger LOG;
+
+  private static final boolean SHOULD_CHECK_CYCLE;
+
+  protected final net.openhft.chronicle.core.threads.EventLoop eventLoop;
+
+  protected final net.openhft.chronicle.queue.impl.TableStore<net.openhft.chronicle.queue.impl.single.SCQMeta> metaStore;
+
+  private final java.util.Map<net.openhft.chronicle.bytes.BytesStore, net.openhft.chronicle.core.values.LongValue> metaStoreMap;
+
+  final java.util.function.Supplier<net.openhft.chronicle.threads.TimingPauser> pauserSupplier;
+
+  final long timeoutMS;
+
+  final java.io.File path;
+
+  final java.lang.String fileAbsolutePath;
+
+  private final net.openhft.chronicle.queue.impl.single.SingleChronicleQueue$StoreSupplier storeSupplier;
+
+  private final java.lang.ThreadLocal<java.lang.ref.WeakReference<net.openhft.chronicle.queue.impl.single.StoreTailer>> tlTailer;
+
+  protected final net.openhft.chronicle.queue.impl.WireStorePool pool;
+
+  private final long epoch;
+
+  private final boolean isBuffered;
+
+  private final net.openhft.chronicle.wire.WireType wireType;
+
+  private final long blockSize;
+
+  private final long overlapSize;
+
+  private final java.util.function.Consumer<net.openhft.chronicle.bytes.BytesRingBufferStats> onRingBufferStats;
+
+  private final long bufferCapacity;
+
+  private final int indexSpacing;
+
+  private final int indexCount;
+
+  private final net.openhft.chronicle.core.time.TimeProvider time;
+
+  private final java.util.function.BiFunction<net.openhft.chronicle.queue.impl.RollingChronicleQueue, net.openhft.chronicle.wire.Wire, net.openhft.chronicle.queue.impl.single.SingleChronicleQueueStore> storeFactory;
+
+  private final java.util.Set<net.openhft.chronicle.core.io.Closeable> closers;
+
+  private final boolean readOnly;
+
+  private final net.openhft.chronicle.queue.CycleCalculator cycleCalculator;
+
+  private final net.openhft.chronicle.core.values.LongValue lastAcknowledgedIndexReplicated;
+
+  private final net.openhft.chronicle.core.values.LongValue lastIndexReplicated;
+
+  private final net.openhft.chronicle.queue.impl.single.DirectoryListing directoryListing;
+
+  private final net.openhft.chronicle.queue.impl.single.QueueLock queueLock;
+
+  private final net.openhft.chronicle.queue.impl.single.WriteLock writeLock;
+
+  private final boolean checkInterrupts;
+
+  private final net.openhft.chronicle.queue.impl.RollingResourcesCache dateCache;
+
+  private final net.openhft.chronicle.queue.impl.single.WriteLock appendLock;
+
+  protected int sourceId;
+
+  long firstAndLastCycleTime;
+
+  int firstCycle;
+
+  int lastCycle;
+
+  protected final boolean doubleBuffer;
+
+  private final net.openhft.chronicle.queue.impl.StoreFileListener storeFileListener;
+
+  protected final java.lang.ThreadLocal<net.openhft.chronicle.queue.ExcerptAppender> strongExcerptAppenderThreadLocal;
+
+  private final net.openhft.chronicle.queue.RollCycle rollCycle;
+
+  private final int deltaCheckpointInterval;
+
+  protected net.openhft.chronicle.queue.impl.single.SingleChronicleQueue(net.openhft.chronicle.queue.impl.single.SingleChronicleQueueBuilder);
+    Code:
+       0: aload_0
+       1: invokespecial #14                 // Method net/openhft/chronicle/core/io/AbstractCloseable."<init>":()V
+       4: aload_0
+       5: new           #15                 // class java/util/concurrent/ConcurrentHashMap
+       8: dup
+       9: invokespecial #16                 // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      12: putfield      #17                 // Field metaStoreMap:Ljava/util/Map;
+      15: aload_0
+      16: invokedynamic #18,  0             // InvokeDynamic #0:accept:()Lnet/openhft/chronicle/core/util/ThrowingConsumer;
+      21: invokestatic  #19                 // Method net/openhft/chronicle/core/threads/CleaningThreadLocal.withCleanup:(Lnet/openhft/chronicle/core/util/ThrowingConsumer;)Lnet/openhft/chronicle/core/threads/CleaningThreadLocal;
+      24: putfield      #20                 // Field tlTailer:Ljava/lang/ThreadLocal;
+      27: aload_0
+      28: new           #21                 // class java/util/IdentityHashMap
+      31: dup
+      32: invokespecial #22                 // Method java/util/IdentityHashMap."<init>":()V
+      35: invokestatic  #23                 // Method java/util/Collections.newSetFromMap:(Ljava/util/Map;)Ljava/util/Set;
+      38: putfield      #24                 // Field closers:Ljava/util/Set;
+      41: aload_0
+      42: lconst_0
+      43: putfield      #25                 // Field firstAndLastCycleTime:J
+      46: aload_0
+      47: ldc           #27                 // int 2147483647
+      49: putfield      #28                 // Field firstCycle:I
+      52: aload_0
+      53: ldc           #29                 // int -2147483648
+      55: putfield      #30                 // Field lastCycle:I
+      58: aload_0
+      59: aload_0
+      60: invokedynamic #31,  0             // InvokeDynamic #1:get:(Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue;)Ljava/util/function/Supplier;
+      65: invokestatic  #32                 // Method net/openhft/chronicle/core/threads/CleaningThreadLocal.withCloseQuietly:(Ljava/util/function/Supplier;)Lnet/openhft/chronicle/core/threads/CleaningThreadLocal;
+      68: putfield      #33                 // Field strongExcerptAppenderThreadLocal:Ljava/lang/ThreadLocal;
+      71: aload_0
+      72: aload_1
+      73: invokevirtual #34                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.rollCycle:()Lnet/openhft/chronicle/queue/RollCycle;
+      76: putfield      #8                  // Field rollCycle:Lnet/openhft/chronicle/queue/RollCycle;
+      79: aload_0
+      80: aload_0
+      81: aload_1
+      82: invokevirtual #35                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.rollTimeZone:()Ljava/time/ZoneId;
+      85: invokevirtual #36                 // Method cycleCalculator:(Ljava/time/ZoneId;)Lnet/openhft/chronicle/queue/CycleCalculator;
+      88: putfield      #37                 // Field cycleCalculator:Lnet/openhft/chronicle/queue/CycleCalculator;
+      91: aload_0
+      92: aload_1
+      93: invokevirtual #38                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.epoch:()J
+      96: putfield      #9                  // Field epoch:J
+      99: aload_0
+     100: new           #39                 // class net/openhft/chronicle/queue/impl/RollingResourcesCache
+     103: dup
+     104: aload_0
+     105: getfield      #8                  // Field rollCycle:Lnet/openhft/chronicle/queue/RollCycle;
+     108: aload_0
+     109: getfield      #9                  // Field epoch:J
+     112: aload_0
+     113: aload_1
+     114: invokespecial #40                 // Method textToFile:(Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder;)Ljava/util/function/Function;
+     117: aload_0
+     118: invokespecial #3                  // Method fileToText:()Ljava/util/function/Function;
+     121: invokespecial #41                 // Method net/openhft/chronicle/queue/impl/RollingResourcesCache."<init>":(Lnet/openhft/chronicle/queue/RollCycle;JLjava/util/function/Function;Ljava/util/function/Function;)V
+     124: putfield      #13                 // Field dateCache:Lnet/openhft/chronicle/queue/impl/RollingResourcesCache;
+     127: aload_0
+     128: aload_1
+     129: invokevirtual #42                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.storeFileListener:()Lnet/openhft/chronicle/queue/impl/StoreFileListener;
+     132: putfield      #43                 // Field storeFileListener:Lnet/openhft/chronicle/queue/impl/StoreFileListener;
+     135: aload_0
+     136: new           #44                 // class net/openhft/chronicle/queue/impl/single/SingleChronicleQueue$StoreSupplier
+     139: dup
+     140: aload_0
+     141: aconst_null
+     142: invokespecial #45                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueue$StoreSupplier."<init>":(Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue;Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue$1;)V
+     145: putfield      #46                 // Field storeSupplier:Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue$StoreSupplier;
+     148: aload_0
+     149: aload_0
+     150: getfield      #46                 // Field storeSupplier:Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue$StoreSupplier;
+     153: aload_0
+     154: getfield      #43                 // Field storeFileListener:Lnet/openhft/chronicle/queue/impl/StoreFileListener;
+     157: invokestatic  #47                 // Method net/openhft/chronicle/queue/impl/WireStorePool.withSupplier:(Lnet/openhft/chronicle/queue/impl/WireStoreSupplier;Lnet/openhft/chronicle/queue/impl/StoreFileListener;)Lnet/openhft/chronicle/queue/impl/WireStorePool;
+     160: putfield      #48                 // Field pool:Lnet/openhft/chronicle/queue/impl/WireStorePool;
+     163: aload_0
+     164: getstatic     #49                 // Field net/openhft/chronicle/queue/BufferMode.Asynchronous:Lnet/openhft/chronicle/queue/BufferMode;
+     167: aload_1
+     168: invokevirtual #50                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.writeBufferMode:()Lnet/openhft/chronicle/queue/BufferMode;
+     171: if_acmpne     178
+     174: iconst_1
+     175: goto          179
+     178: iconst_0
+     179: putfield      #51                 // Field isBuffered:Z
+     182: aload_0
+     183: aload_1
+     184: invokevirtual #52                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.path:()Ljava/io/File;
+     187: putfield      #53                 // Field path:Ljava/io/File;
+     190: aload_1
+     191: invokevirtual #54                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.readOnly:()Z
+     194: ifne          205
+     197: aload_0
+     198: getfield      #53                 // Field path:Ljava/io/File;
+     201: invokevirtual #55                 // Method java/io/File.mkdirs:()Z
+     204: pop
+     205: aload_0
+     206: aload_0
+     207: getfield      #53                 // Field path:Ljava/io/File;
+     210: invokevirtual #56                 // Method java/io/File.getAbsolutePath:()Ljava/lang/String;
+     213: putfield      #57                 // Field fileAbsolutePath:Ljava/lang/String;
+     216: aload_0
+     217: aload_1
+     218: invokevirtual #58                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.wireType:()Lnet/openhft/chronicle/wire/WireType;
+     221: putfield      #6                  // Field wireType:Lnet/openhft/chronicle/wire/WireType;
+     224: aload_0
+     225: aload_1
+     226: invokevirtual #59                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.blockSize:()J
+     229: putfield      #60                 // Field blockSize:J
+     232: aload_0
+     233: ldc2_w        #61                 // long 65536l
+     236: aload_1
+     237: invokevirtual #59                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.blockSize:()J
+     240: ldc2_w        #63                 // long 4l
+     243: ldiv
+     244: invokestatic  #65                 // Method java/lang/Math.max:(JJ)J
+     247: putfield      #66                 // Field overlapSize:J
+     250: aload_0
+     251: aload_1
+     252: invokevirtual #67                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.eventLoop:()Lnet/openhft/chronicle/core/threads/EventLoop;
+     255: putfield      #68                 // Field eventLoop:Lnet/openhft/chronicle/core/threads/EventLoop;
+     258: aload_0
+     259: aload_1
+     260: invokevirtual #69                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.bufferCapacity:()J
+     263: putfield      #70                 // Field bufferCapacity:J
+     266: aload_0
+     267: aload_1
+     268: invokevirtual #71                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.onRingBufferStats:()Ljava/util/function/Consumer;
+     271: putfield      #72                 // Field onRingBufferStats:Ljava/util/function/Consumer;
+     274: aload_0
+     275: aload_1
+     276: invokevirtual #73                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.indexCount:()I
+     279: putfield      #74                 // Field indexCount:I
+     282: aload_0
+     283: aload_1
+     284: invokevirtual #75                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.indexSpacing:()I
+     287: putfield      #76                 // Field indexSpacing:I
+     290: aload_0
+     291: aload_1
+     292: invokevirtual #77                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.timeProvider:()Lnet/openhft/chronicle/core/time/TimeProvider;
+     295: putfield      #10                 // Field time:Lnet/openhft/chronicle/core/time/TimeProvider;
+     298: aload_0
+     299: aload_1
+     300: invokevirtual #78                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.pauserSupplier:()Ljava/util/function/Supplier;
+     303: putfield      #79                 // Field pauserSupplier:Ljava/util/function/Supplier;
+     306: aload_0
+     307: aload_1
+     308: invokevirtual #80                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.timeoutMS:()J
+     311: l2d
+     312: dconst_1
+     313: ldc2_w        #81                 // double 0.2d
+     316: new           #83                 // class java/security/SecureRandom
+     319: dup
+     320: invokespecial #84                 // Method java/security/SecureRandom."<init>":()V
+     323: invokevirtual #85                 // Method java/security/SecureRandom.nextFloat:()F
+     326: f2d
+     327: dmul
+     328: dadd
+     329: dmul
+     330: d2l
+     331: putfield      #86                 // Field timeoutMS:J
+     334: aload_0
+     335: aload_1
+     336: invokevirtual #87                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.storeFactory:()Lnet/openhft/chronicle/queue/impl/WireStoreFactory;
+     339: putfield      #4                  // Field storeFactory:Ljava/util/function/BiFunction;
+     342: aload_0
+     343: aload_1
+     344: invokevirtual #88                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.checkInterrupts:()Z
+     347: putfield      #89                 // Field checkInterrupts:Z
+     350: aload_0
+     351: aload_1
+     352: invokevirtual #90                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.metaStore:()Lnet/openhft/chronicle/queue/impl/TableStore;
+     355: putfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+     358: aload_0
+     359: aload_1
+     360: invokevirtual #92                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.doubleBuffer:()Z
+     363: putfield      #93                 // Field doubleBuffer:Z
+     366: aload_0
+     367: getfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+     370: invokeinterface #94,  1           // InterfaceMethod net/openhft/chronicle/queue/impl/TableStore.readOnly:()Z
+     375: ifeq          409
+     378: aload_1
+     379: invokevirtual #54                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.readOnly:()Z
+     382: ifne          409
+     385: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     388: ldc           #95                 // String Forcing queue to be readOnly
+     390: invokeinterface #96,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     395: aload_1
+     396: aload_0
+     397: getfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+     400: invokeinterface #94,  1           // InterfaceMethod net/openhft/chronicle/queue/impl/TableStore.readOnly:()Z
+     405: invokevirtual #97                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.readOnly:(Z)Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder;
+     408: pop
+     409: aload_0
+     410: aload_1
+     411: invokevirtual #54                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.readOnly:()Z
+     414: putfield      #5                  // Field readOnly:Z
+     417: aload_0
+     418: getfield      #5                  // Field readOnly:Z
+     421: ifeq          446
+     424: aload_0
+     425: new           #98                 // class net/openhft/chronicle/queue/impl/single/FileSystemDirectoryListing
+     428: dup
+     429: aload_0
+     430: getfield      #53                 // Field path:Ljava/io/File;
+     433: aload_0
+     434: invokespecial #99                 // Method fileToCycleFunction:()Ljava/util/function/ToIntFunction;
+     437: invokespecial #100                // Method net/openhft/chronicle/queue/impl/single/FileSystemDirectoryListing."<init>":(Ljava/io/File;Ljava/util/function/ToIntFunction;)V
+     440: putfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+     443: goto          482
+     446: aload_0
+     447: new           #101                // class net/openhft/chronicle/queue/impl/single/TableDirectoryListing
+     450: dup
+     451: aload_0
+     452: getfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+     455: aload_0
+     456: getfield      #53                 // Field path:Ljava/io/File;
+     459: invokevirtual #102                // Method java/io/File.toPath:()Ljava/nio/file/Path;
+     462: aload_0
+     463: invokespecial #99                 // Method fileToCycleFunction:()Ljava/util/function/ToIntFunction;
+     466: iconst_0
+     467: invokespecial #103                // Method net/openhft/chronicle/queue/impl/single/TableDirectoryListing."<init>":(Lnet/openhft/chronicle/queue/impl/TableStore;Ljava/nio/file/Path;Ljava/util/function/ToIntFunction;Z)V
+     470: putfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+     473: aload_0
+     474: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+     477: invokeinterface #104,  1          // InterfaceMethod net/openhft/chronicle/queue/impl/single/DirectoryListing.init:()V
+     482: aload_0
+     483: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+     486: iconst_1
+     487: invokeinterface #105,  2          // InterfaceMethod net/openhft/chronicle/queue/impl/single/DirectoryListing.refresh:(Z)V
+     492: aload_0
+     493: aload_1
+     494: invokevirtual #106                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.queueLock:()Lnet/openhft/chronicle/queue/impl/single/QueueLock;
+     497: putfield      #107                // Field queueLock:Lnet/openhft/chronicle/queue/impl/single/QueueLock;
+     500: aload_0
+     501: aload_1
+     502: invokevirtual #108                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.writeLock:()Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+     505: putfield      #109                // Field writeLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+     508: aload_0
+     509: getfield      #109                // Field writeLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+     512: instanceof    #110                // class net/openhft/chronicle/queue/impl/single/TableStoreWriteLock
+     515: ifeq          529
+     518: aload_0
+     519: getfield      #109                // Field writeLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+     522: checkcast     #110                // class net/openhft/chronicle/queue/impl/single/TableStoreWriteLock
+     525: invokevirtual #111                // Method net/openhft/chronicle/queue/impl/single/TableStoreWriteLock.forceUnlockIfProcessIsDead:()Z
+     528: pop
+     529: aload_0
+     530: aload_1
+     531: invokevirtual #112                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.appendLock:()Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+     534: putfield      #113                // Field appendLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+     537: aload_0
+     538: getfield      #5                  // Field readOnly:Z
+     541: ifeq          557
+     544: aload_0
+     545: aconst_null
+     546: putfield      #114                // Field lastIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+     549: aload_0
+     550: aconst_null
+     551: putfield      #115                // Field lastAcknowledgedIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+     554: goto          599
+     557: aload_0
+     558: aload_0
+     559: getfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+     562: invokedynamic #116,  0            // InvokeDynamic #2:apply:()Ljava/util/function/Function;
+     567: invokeinterface #117,  2          // InterfaceMethod net/openhft/chronicle/queue/impl/TableStore.doWithExclusiveLock:(Ljava/util/function/Function;)Ljava/lang/Object;
+     572: checkcast     #118                // class net/openhft/chronicle/core/values/LongValue
+     575: putfield      #114                // Field lastIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+     578: aload_0
+     579: aload_0
+     580: getfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+     583: invokedynamic #119,  0            // InvokeDynamic #3:apply:()Ljava/util/function/Function;
+     588: invokeinterface #117,  2          // InterfaceMethod net/openhft/chronicle/queue/impl/TableStore.doWithExclusiveLock:(Ljava/util/function/Function;)Ljava/lang/Object;
+     593: checkcast     #120                // class net/openhft/chronicle/core/values/LongValue
+     596: putfield      #115                // Field lastAcknowledgedIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+     599: aload_0
+     600: aload_1
+     601: invokevirtual #121                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.deltaCheckpointInterval:()I
+     604: putfield      #122                // Field deltaCheckpointInterval:I
+     607: aload_0
+     608: aload_1
+     609: invokevirtual #123                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.sourceId:()I
+     612: putfield      #124                // Field sourceId:I
+     615: ldc           #125                // String net.openhft
+     617: ldc           #126                // String chronicle-queue
+     619: invokestatic  #127                // InterfaceMethod net/openhft/chronicle/core/analytics/AnalyticsFacade.isEnabled:()Z
+     622: ifeq          635
+     625: ldc           #128                // String Analytics
+     627: ldc           #129                // String Chronicle Queue reports usage statistics. Learn more or turn off: https://github.com/OpenHFT/Chronicle-Queue/blob/master/DISCLAIMER.adoc
+     629: invokestatic  #130                // Method java/util/Collections.singletonMap:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+     632: goto          638
+     635: invokestatic  #131                // Method java/util/Collections.emptyMap:()Ljava/util/Map;
+     638: invokestatic  #132                // Method net/openhft/chronicle/core/announcer/Announcer.announce:(Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;)V
+     641: invokestatic  #133                // InterfaceMethod net/openhft/chronicle/core/analytics/AnalyticsFacade.standardAdditionalProperties:()Ljava/util/Map;
+     644: astore_2
+     645: aload_2
+     646: ldc           #134                // String wire_type
+     648: aload_0
+     649: getfield      #6                  // Field wireType:Lnet/openhft/chronicle/wire/WireType;
+     652: invokevirtual #135                // Method net/openhft/chronicle/wire/WireType.toString:()Ljava/lang/String;
+     655: invokeinterface #136,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     660: pop
+     661: aload_0
+     662: getfield      #8                  // Field rollCycle:Lnet/openhft/chronicle/queue/RollCycle;
+     665: invokevirtual #137                // Method java/lang/Object.toString:()Ljava/lang/String;
+     668: astore_3
+     669: aload_3
+     670: ldc           #138                // String TEST
+     672: invokevirtual #139                // Method java/lang/String.startsWith:(Ljava/lang/String;)Z
+     675: ifne          688
+     678: aload_2
+     679: ldc           #140                // String roll_cycle
+     681: aload_3
+     682: invokeinterface #136,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     687: pop
+     688: invokestatic  #141                // Method net/openhft/chronicle/queue/internal/AnalyticsHolder.instance:()Lnet/openhft/chronicle/core/analytics/AnalyticsFacade;
+     691: ldc           #142                // String started
+     693: aload_2
+     694: invokeinterface #143,  3          // InterfaceMethod net/openhft/chronicle/core/analytics/AnalyticsFacade.sendEvent:(Ljava/lang/String;Ljava/util/Map;)V
+     699: goto          712
+     702: astore_2
+     703: aload_0
+     704: invokevirtual #145                // Method close:()V
+     707: aload_2
+     708: invokestatic  #146                // Method net/openhft/chronicle/core/Jvm.rethrow:(Ljava/lang/Throwable;)Ljava/lang/RuntimeException;
+     711: athrow
+     712: return
+    Exception table:
+       from    to  target type
+          71   699   702   Class java/lang/Throwable
+
+  protected net.openhft.chronicle.queue.CycleCalculator cycleCalculator(java.time.ZoneId);
+    Code:
+       0: getstatic     #147                // Field net/openhft/chronicle/queue/DefaultCycleCalculator.INSTANCE:Lnet/openhft/chronicle/queue/DefaultCycleCalculator;
+       3: areturn
+
+  net.openhft.chronicle.queue.impl.single.StoreTailer acquireTailer();
+    Code:
+       0: aload_0
+       1: invokevirtual #148                // Method throwExceptionIfClosed:()V
+       4: aload_0
+       5: getfield      #20                 // Field tlTailer:Ljava/lang/ThreadLocal;
+       8: aload_0
+       9: invokedynamic #149,  0            // InvokeDynamic #4:apply:()Ljava/util/function/Function;
+      14: invokestatic  #150                // Method net/openhft/chronicle/core/threads/ThreadLocalHelper.getTL:(Ljava/lang/ThreadLocal;Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;
+      17: checkcast     #151                // class net/openhft/chronicle/queue/impl/single/StoreTailer
+      20: astore_1
+      21: aload_1
+      22: invokevirtual #152                // Method net/openhft/chronicle/queue/impl/single/StoreTailer.isClosing:()Z
+      25: ifeq          56
+      28: new           #151                // class net/openhft/chronicle/queue/impl/single/StoreTailer
+      31: dup
+      32: aload_0
+      33: aload_0
+      34: getfield      #48                 // Field pool:Lnet/openhft/chronicle/queue/impl/WireStorePool;
+      37: invokespecial #153                // Method net/openhft/chronicle/queue/impl/single/StoreTailer."<init>":(Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue;Lnet/openhft/chronicle/queue/impl/WireStorePool;)V
+      40: astore_1
+      41: aload_0
+      42: getfield      #20                 // Field tlTailer:Ljava/lang/ThreadLocal;
+      45: new           #154                // class java/lang/ref/WeakReference
+      48: dup
+      49: aload_1
+      50: invokespecial #155                // Method java/lang/ref/WeakReference."<init>":(Ljava/lang/Object;)V
+      53: invokevirtual #156                // Method java/lang/ThreadLocal.set:(Ljava/lang/Object;)V
+      56: aload_1
+      57: areturn
+
+  private java.util.function.Function<java.lang.String, java.io.File> textToFile(net.openhft.chronicle.queue.impl.single.SingleChronicleQueueBuilder);
+    Code:
+       0: aload_1
+       1: invokedynamic #157,  0            // InvokeDynamic #5:apply:(Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder;)Ljava/util/function/Function;
+       6: areturn
+
+  private java.util.function.Function<java.io.File, java.lang.String> fileToText();
+    Code:
+       0: invokedynamic #158,  0            // InvokeDynamic #6:apply:()Ljava/util/function/Function;
+       5: areturn
+
+  public int sourceId();
+    Code:
+       0: aload_0
+       1: getfield      #124                // Field sourceId:I
+       4: ireturn
+
+  public long lastAcknowledgedIndexReplicated();
+    Code:
+       0: aload_0
+       1: getfield      #115                // Field lastAcknowledgedIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+       4: ifnonnull     13
+       7: ldc2_w        #159                // long -1l
+      10: goto          25
+      13: aload_0
+      14: getfield      #115                // Field lastAcknowledgedIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+      17: ldc2_w        #159                // long -1l
+      20: invokeinterface #161,  3          // InterfaceMethod net/openhft/chronicle/core/values/LongValue.getVolatileValue:(J)J
+      25: lreturn
+
+  public void lastAcknowledgedIndexReplicated(long);
+    Code:
+       0: aload_0
+       1: getfield      #115                // Field lastAcknowledgedIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+       4: ifnull        17
+       7: aload_0
+       8: getfield      #115                // Field lastAcknowledgedIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+      11: lload_1
+      12: invokeinterface #162,  3          // InterfaceMethod net/openhft/chronicle/core/values/LongValue.setMaxValue:(J)V
+      17: return
+
+  public void refreshDirectoryListing();
+    Code:
+       0: aload_0
+       1: invokevirtual #148                // Method throwExceptionIfClosed:()V
+       4: aload_0
+       5: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+       8: iconst_1
+       9: invokeinterface #105,  2          // InterfaceMethod net/openhft/chronicle/queue/impl/single/DirectoryListing.refresh:(Z)V
+      14: aload_0
+      15: aload_0
+      16: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+      19: invokeinterface #163,  1          // InterfaceMethod net/openhft/chronicle/queue/impl/single/DirectoryListing.getMinCreatedCycle:()I
+      24: putfield      #28                 // Field firstCycle:I
+      27: aload_0
+      28: aload_0
+      29: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+      32: invokeinterface #164,  1          // InterfaceMethod net/openhft/chronicle/queue/impl/single/DirectoryListing.getMaxCreatedCycle:()I
+      37: putfield      #30                 // Field lastCycle:I
+      40: return
+
+  public long lastIndexReplicated();
+    Code:
+       0: aload_0
+       1: getfield      #114                // Field lastIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+       4: ifnonnull     13
+       7: ldc2_w        #159                // long -1l
+      10: goto          25
+      13: aload_0
+      14: getfield      #114                // Field lastIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+      17: ldc2_w        #159                // long -1l
+      20: invokeinterface #161,  3          // InterfaceMethod net/openhft/chronicle/core/values/LongValue.getVolatileValue:(J)J
+      25: lreturn
+
+  public void lastIndexReplicated(long);
+    Code:
+       0: aload_0
+       1: getfield      #114                // Field lastIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+       4: ifnull        17
+       7: aload_0
+       8: getfield      #114                // Field lastIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+      11: lload_1
+      12: invokeinterface #162,  3          // InterfaceMethod net/openhft/chronicle/core/values/LongValue.setMaxValue:(J)V
+      17: return
+
+  public void clear();
+    Code:
+       0: new           #165                // class java/lang/UnsupportedOperationException
+       3: dup
+       4: ldc           #166                // String Not yet implemented
+       6: invokespecial #167                // Method java/lang/UnsupportedOperationException."<init>":(Ljava/lang/String;)V
+       9: athrow
+
+  public java.io.File file();
+    Code:
+       0: aload_0
+       1: getfield      #53                 // Field path:Ljava/io/File;
+       4: areturn
+
+  public java.lang.String fileAbsolutePath();
+    Code:
+       0: aload_0
+       1: getfield      #57                 // Field fileAbsolutePath:Ljava/lang/String;
+       4: areturn
+
+  public java.lang.String dumpLastHeader();
+    Code:
+       0: new           #168                // class java/lang/StringBuilder
+       3: dup
+       4: sipush        256
+       7: invokespecial #169                // Method java/lang/StringBuilder."<init>":(I)V
+      10: astore_1
+      11: aload_0
+      12: aload_0
+      13: invokevirtual #170                // Method lastCycle:()I
+      16: aload_0
+      17: getfield      #9                  // Field epoch:J
+      20: iconst_0
+      21: aconst_null
+      22: invokevirtual #171                // Method storeForCycle:(IJZLnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore;)Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore;
+      25: astore_2
+      26: aconst_null
+      27: astore_3
+      28: aload_1
+      29: aload_2
+      30: invokevirtual #172                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.dumpHeader:()Ljava/lang/String;
+      33: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      36: pop
+      37: aload_2
+      38: ifnull        113
+      41: aload_3
+      42: ifnull        63
+      45: aload_2
+      46: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+      49: goto          113
+      52: astore        4
+      54: aload_3
+      55: aload         4
+      57: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+      60: goto          113
+      63: aload_2
+      64: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+      67: goto          113
+      70: astore        4
+      72: aload         4
+      74: astore_3
+      75: aload         4
+      77: athrow
+      78: astore        5
+      80: aload_2
+      81: ifnull        110
+      84: aload_3
+      85: ifnull        106
+      88: aload_2
+      89: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+      92: goto          110
+      95: astore        6
+      97: aload_3
+      98: aload         6
+     100: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     103: goto          110
+     106: aload_2
+     107: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+     110: aload         5
+     112: athrow
+     113: aload_1
+     114: invokevirtual #176                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     117: areturn
+    Exception table:
+       from    to  target type
+          45    49    52   Class java/lang/Throwable
+          28    37    70   Class java/lang/Throwable
+          28    37    78   any
+          88    92    95   Class java/lang/Throwable
+          70    80    78   any
+
+  public java.lang.String dump();
+    Code:
+       0: new           #168                // class java/lang/StringBuilder
+       3: dup
+       4: sipush        1024
+       7: invokespecial #169                // Method java/lang/StringBuilder."<init>":(I)V
+      10: astore_1
+      11: aload_1
+      12: aload_0
+      13: getfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+      16: invokeinterface #177,  1          // InterfaceMethod net/openhft/chronicle/queue/impl/TableStore.dump:()Ljava/lang/String;
+      21: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      24: pop
+      25: aload_0
+      26: invokevirtual #178                // Method firstCycle:()I
+      29: istore_2
+      30: aload_0
+      31: invokevirtual #170                // Method lastCycle:()I
+      34: istore_3
+      35: iload_2
+      36: iload_3
+      37: if_icmpgt     164
+      40: aload_0
+      41: iload_2
+      42: aload_0
+      43: getfield      #9                  // Field epoch:J
+      46: iconst_0
+      47: aconst_null
+      48: invokevirtual #171                // Method storeForCycle:(IJZLnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore;)Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore;
+      51: astore        4
+      53: aconst_null
+      54: astore        5
+      56: aload         4
+      58: ifnull        71
+      61: aload_1
+      62: aload         4
+      64: invokevirtual #179                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.dump:()Ljava/lang/String;
+      67: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      70: pop
+      71: aload         4
+      73: ifnull        158
+      76: aload         5
+      78: ifnull        101
+      81: aload         4
+      83: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+      86: goto          158
+      89: astore        6
+      91: aload         5
+      93: aload         6
+      95: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+      98: goto          158
+     101: aload         4
+     103: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+     106: goto          158
+     109: astore        6
+     111: aload         6
+     113: astore        5
+     115: aload         6
+     117: athrow
+     118: astore        7
+     120: aload         4
+     122: ifnull        155
+     125: aload         5
+     127: ifnull        150
+     130: aload         4
+     132: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+     135: goto          155
+     138: astore        8
+     140: aload         5
+     142: aload         8
+     144: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     147: goto          155
+     150: aload         4
+     152: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+     155: aload         7
+     157: athrow
+     158: iinc          2, 1
+     161: goto          35
+     164: aload_1
+     165: invokevirtual #176                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     168: areturn
+    Exception table:
+       from    to  target type
+          81    86    89   Class java/lang/Throwable
+          56    71   109   Class java/lang/Throwable
+          56    71   118   any
+         130   135   138   Class java/lang/Throwable
+         109   120   118   any
+
+  public void dump(java.io.Writer, long, long);
+    Code:
+       0: aload_0
+       1: invokevirtual #180                // Method firstIndex:()J
+       4: lstore        6
+       6: aload_1
+       7: ldc           #181                // String # firstIndex:
+       9: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+      12: lload         6
+      14: invokestatic  #183                // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+      17: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+      20: ldc           #184                // String \n
+      22: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+      25: pop
+      26: aload_0
+      27: invokevirtual #185                // Method createTailer:()Lnet/openhft/chronicle/queue/ExcerptTailer;
+      30: astore        8
+      32: aload         8
+      34: lload_2
+      35: invokeinterface #186,  3          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.moveToIndex:(J)Z
+      40: ifne          85
+      43: lload         6
+      45: lload_2
+      46: lcmp
+      47: ifle          61
+      50: aload         8
+      52: invokeinterface #187,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.toStart:()Lnet/openhft/chronicle/queue/ExcerptTailer;
+      57: pop
+      58: goto          85
+      61: aload_1
+      62: invokevirtual #188                // Method java/io/Writer.flush:()V
+      65: goto          84
+      68: astore        9
+      70: ldc           #190                // class net/openhft/chronicle/queue/impl/single/SingleChronicleQueue
+      72: invokestatic  #191                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      75: ldc           #192                // String
+      77: aload         9
+      79: invokeinterface #193,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      84: return
+      85: invokestatic  #194                // Method net/openhft/chronicle/wire/Wires.acquireBytes:()Lnet/openhft/chronicle/bytes/Bytes;
+      88: astore        9
+      90: new           #195                // class net/openhft/chronicle/wire/TextWire
+      93: dup
+      94: aload         9
+      96: invokespecial #196                // Method net/openhft/chronicle/wire/TextWire."<init>":(Lnet/openhft/chronicle/bytes/Bytes;)V
+      99: astore        10
+     101: aload         8
+     103: invokeinterface #197,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.readingDocument:()Lnet/openhft/chronicle/wire/DocumentContext;
+     108: astore        11
+     110: aconst_null
+     111: astore        12
+     113: aload         11
+     115: invokeinterface #198,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.isPresent:()Z
+     120: ifne          211
+     123: aload_1
+     124: ldc           #199                // String # no more messages at
+     126: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+     129: aload         11
+     131: invokeinterface #200,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.index:()J
+     136: invokestatic  #183                // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     139: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+     142: ldc           #184                // String \n
+     144: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+     147: pop
+     148: aload         11
+     150: ifnull        187
+     153: aload         12
+     155: ifnull        180
+     158: aload         11
+     160: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     165: goto          187
+     168: astore        13
+     170: aload         12
+     172: aload         13
+     174: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     177: goto          187
+     180: aload         11
+     182: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     187: aload_1
+     188: invokevirtual #188                // Method java/io/Writer.flush:()V
+     191: goto          210
+     194: astore        13
+     196: ldc           #190                // class net/openhft/chronicle/queue/impl/single/SingleChronicleQueue
+     198: invokestatic  #191                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+     201: ldc           #192                // String
+     203: aload         13
+     205: invokeinterface #193,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     210: return
+     211: aload         11
+     213: invokeinterface #200,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.index:()J
+     218: lload         4
+     220: lcmp
+     221: ifle          287
+     224: aload         11
+     226: ifnull        263
+     229: aload         12
+     231: ifnull        256
+     234: aload         11
+     236: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     241: goto          263
+     244: astore        13
+     246: aload         12
+     248: aload         13
+     250: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     253: goto          263
+     256: aload         11
+     258: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     263: aload_1
+     264: invokevirtual #188                // Method java/io/Writer.flush:()V
+     267: goto          286
+     270: astore        13
+     272: ldc           #190                // class net/openhft/chronicle/queue/impl/single/SingleChronicleQueue
+     274: invokestatic  #191                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+     277: ldc           #192                // String
+     279: aload         13
+     281: invokeinterface #193,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     286: return
+     287: aload_1
+     288: ldc           #202                // String # index:
+     290: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+     293: aload         11
+     295: invokeinterface #200,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.index:()J
+     300: invokestatic  #183                // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     303: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+     306: ldc           #184                // String \n
+     308: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+     311: pop
+     312: aload         11
+     314: invokeinterface #203,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.wire:()Lnet/openhft/chronicle/wire/Wire;
+     319: astore        13
+     321: aload         13
+     323: invokeinterface #204,  1          // InterfaceMethod net/openhft/chronicle/wire/Wire.bytes:()Lnet/openhft/chronicle/bytes/Bytes;
+     328: invokeinterface #205,  1          // InterfaceMethod net/openhft/chronicle/bytes/Bytes.readPosition:()J
+     333: lstore        14
+     335: aload         10
+     337: invokevirtual #206                // Method net/openhft/chronicle/wire/TextWire.clear:()V
+     340: aload         13
+     342: aload         10
+     344: invokeinterface #207,  2          // InterfaceMethod net/openhft/chronicle/wire/Wire.copyTo:(Lnet/openhft/chronicle/wire/WireOut;)V
+     349: aload_1
+     350: aload         9
+     352: invokevirtual #137                // Method java/lang/Object.toString:()Ljava/lang/String;
+     355: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+     358: pop
+     359: goto          396
+     362: astore        16
+     364: aload         13
+     366: invokeinterface #204,  1          // InterfaceMethod net/openhft/chronicle/wire/Wire.bytes:()Lnet/openhft/chronicle/bytes/Bytes;
+     371: lload         14
+     373: invokeinterface #209,  3          // InterfaceMethod net/openhft/chronicle/bytes/Bytes.readPosition:(J)Lnet/openhft/chronicle/bytes/StreamingDataInput;
+     378: pop
+     379: aload_1
+     380: aload         13
+     382: invokeinterface #204,  1          // InterfaceMethod net/openhft/chronicle/wire/Wire.bytes:()Lnet/openhft/chronicle/bytes/Bytes;
+     387: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+     390: ldc           #184                // String \n
+     392: invokevirtual #182                // Method java/io/Writer.append:(Ljava/lang/CharSequence;)Ljava/io/Writer;
+     395: pop
+     396: aload         11
+     398: ifnull        491
+     401: aload         12
+     403: ifnull        428
+     406: aload         11
+     408: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     413: goto          491
+     416: astore        13
+     418: aload         12
+     420: aload         13
+     422: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     425: goto          491
+     428: aload         11
+     430: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     435: goto          491
+     438: astore        13
+     440: aload         13
+     442: astore        12
+     444: aload         13
+     446: athrow
+     447: astore        17
+     449: aload         11
+     451: ifnull        488
+     454: aload         12
+     456: ifnull        481
+     459: aload         11
+     461: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     466: goto          488
+     469: astore        18
+     471: aload         12
+     473: aload         18
+     475: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     478: goto          488
+     481: aload         11
+     483: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     488: aload         17
+     490: athrow
+     491: goto          101
+     494: astore        6
+     496: aload         6
+     498: new           #210                // class java/io/PrintWriter
+     501: dup
+     502: aload_1
+     503: invokespecial #211                // Method java/io/PrintWriter."<init>":(Ljava/io/Writer;)V
+     506: invokevirtual #212                // Method java/lang/Exception.printStackTrace:(Ljava/io/PrintWriter;)V
+     509: aload_1
+     510: invokevirtual #188                // Method java/io/Writer.flush:()V
+     513: goto          563
+     516: astore        6
+     518: ldc           #190                // class net/openhft/chronicle/queue/impl/single/SingleChronicleQueue
+     520: invokestatic  #191                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+     523: ldc           #192                // String
+     525: aload         6
+     527: invokeinterface #193,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     532: goto          563
+     535: astore        19
+     537: aload_1
+     538: invokevirtual #188                // Method java/io/Writer.flush:()V
+     541: goto          560
+     544: astore        20
+     546: ldc           #190                // class net/openhft/chronicle/queue/impl/single/SingleChronicleQueue
+     548: invokestatic  #191                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+     551: ldc           #192                // String
+     553: aload         20
+     555: invokeinterface #193,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     560: aload         19
+     562: athrow
+     563: return
+    Exception table:
+       from    to  target type
+          61    65    68   Class java/io/IOException
+         158   165   168   Class java/lang/Throwable
+         187   191   194   Class java/io/IOException
+         234   241   244   Class java/lang/Throwable
+         263   267   270   Class java/io/IOException
+         335   359   362   Class java/lang/Exception
+         406   413   416   Class java/lang/Throwable
+         113   148   438   Class java/lang/Throwable
+         211   224   438   Class java/lang/Throwable
+         287   396   438   Class java/lang/Throwable
+         113   148   447   any
+         211   224   447   any
+         287   396   447   any
+         459   466   469   Class java/lang/Throwable
+         438   449   447   any
+           0    61   494   Class java/lang/Exception
+          85   187   494   Class java/lang/Exception
+         211   263   494   Class java/lang/Exception
+         287   494   494   Class java/lang/Exception
+         509   513   516   Class java/io/IOException
+           0    61   535   any
+          85   187   535   any
+         211   263   535   any
+         287   509   535   any
+         537   541   544   Class java/io/IOException
+         535   537   535   any
+
+  public int indexCount();
+    Code:
+       0: aload_0
+       1: getfield      #74                 // Field indexCount:I
+       4: ireturn
+
+  public int indexSpacing();
+    Code:
+       0: aload_0
+       1: getfield      #76                 // Field indexSpacing:I
+       4: ireturn
+
+  public long epoch();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field epoch:J
+       4: lreturn
+
+  public net.openhft.chronicle.queue.RollCycle rollCycle();
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field rollCycle:Lnet/openhft/chronicle/queue/RollCycle;
+       4: areturn
+
+  public int deltaCheckpointInterval();
+    Code:
+       0: aload_0
+       1: getfield      #122                // Field deltaCheckpointInterval:I
+       4: ireturn
+
+  public boolean buffered();
+    Code:
+       0: aload_0
+       1: getfield      #51                 // Field isBuffered:Z
+       4: ireturn
+
+  public net.openhft.chronicle.core.threads.EventLoop eventLoop();
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field eventLoop:Lnet/openhft/chronicle/core/threads/EventLoop;
+       4: areturn
+
+  protected net.openhft.chronicle.queue.ExcerptAppender newAppender();
+    Code:
+       0: aload_0
+       1: getfield      #107                // Field queueLock:Lnet/openhft/chronicle/queue/impl/single/QueueLock;
+       4: invokeinterface #213,  1          // InterfaceMethod net/openhft/chronicle/queue/impl/single/QueueLock.waitForLock:()V
+       9: aload_0
+      10: getfield      #46                 // Field storeSupplier:Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue$StoreSupplier;
+      13: aload_0
+      14: getfield      #43                 // Field storeFileListener:Lnet/openhft/chronicle/queue/impl/StoreFileListener;
+      17: invokestatic  #47                 // Method net/openhft/chronicle/queue/impl/WireStorePool.withSupplier:(Lnet/openhft/chronicle/queue/impl/WireStoreSupplier;Lnet/openhft/chronicle/queue/impl/StoreFileListener;)Lnet/openhft/chronicle/queue/impl/WireStorePool;
+      20: astore_1
+      21: new           #214                // class net/openhft/chronicle/queue/impl/single/StoreAppender
+      24: dup
+      25: aload_0
+      26: aload_1
+      27: aload_0
+      28: getfield      #89                 // Field checkInterrupts:Z
+      31: invokespecial #215                // Method net/openhft/chronicle/queue/impl/single/StoreAppender."<init>":(Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue;Lnet/openhft/chronicle/queue/impl/WireStorePool;Z)V
+      34: areturn
+
+  protected net.openhft.chronicle.queue.impl.StoreFileListener storeFileListener();
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field storeFileListener:Lnet/openhft/chronicle/queue/impl/StoreFileListener;
+       4: areturn
+
+  net.openhft.chronicle.queue.impl.WireStoreSupplier storeSupplier();
+    Code:
+       0: aload_0
+       1: getfield      #46                 // Field storeSupplier:Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue$StoreSupplier;
+       4: areturn
+
+  public net.openhft.chronicle.queue.ExcerptAppender acquireAppender();
+    Code:
+       0: aload_0
+       1: invokevirtual #148                // Method throwExceptionIfClosed:()V
+       4: aload_0
+       5: getfield      #5                  // Field readOnly:Z
+       8: ifeq          21
+      11: new           #216                // class java/lang/IllegalStateException
+      14: dup
+      15: ldc           #217                // String Can\'t append to a read-only chronicle
+      17: invokespecial #218                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      20: athrow
+      21: aload_0
+      22: getfield      #33                 // Field strongExcerptAppenderThreadLocal:Ljava/lang/ThreadLocal;
+      25: invokevirtual #219                // Method java/lang/ThreadLocal.get:()Ljava/lang/Object;
+      28: checkcast     #220                // class net/openhft/chronicle/queue/ExcerptAppender
+      31: astore_1
+      32: aload_1
+      33: invokeinterface #221,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptAppender.isClosing:()Z
+      38: ifeq          54
+      41: aload_0
+      42: getfield      #33                 // Field strongExcerptAppenderThreadLocal:Ljava/lang/ThreadLocal;
+      45: aload_0
+      46: invokevirtual #222                // Method newAppender:()Lnet/openhft/chronicle/queue/ExcerptAppender;
+      49: dup
+      50: astore_1
+      51: invokevirtual #156                // Method java/lang/ThreadLocal.set:(Ljava/lang/Object;)V
+      54: aload_1
+      55: areturn
+
+  public net.openhft.chronicle.queue.impl.single.QueueLock queueLock();
+    Code:
+       0: aload_0
+       1: getfield      #107                // Field queueLock:Lnet/openhft/chronicle/queue/impl/single/QueueLock;
+       4: areturn
+
+  net.openhft.chronicle.queue.impl.single.WriteLock writeLock();
+    Code:
+       0: aload_0
+       1: getfield      #109                // Field writeLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+       4: areturn
+
+  public net.openhft.chronicle.queue.impl.single.WriteLock appendLock();
+    Code:
+       0: aload_0
+       1: getfield      #113                // Field appendLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+       4: areturn
+
+  public net.openhft.chronicle.queue.ExcerptTailer createTailer(java.lang.String);
+    Code:
+       0: aload_0
+       1: invokevirtual #148                // Method throwExceptionIfClosed:()V
+       4: aload_1
+       5: ifnonnull     12
+       8: aconst_null
+       9: goto          17
+      12: aload_0
+      13: aload_1
+      14: invokevirtual #223                // Method indexForId:(Ljava/lang/String;)Lnet/openhft/chronicle/core/values/LongValue;
+      17: astore_2
+      18: new           #151                // class net/openhft/chronicle/queue/impl/single/StoreTailer
+      21: dup
+      22: aload_0
+      23: aload_0
+      24: getfield      #48                 // Field pool:Lnet/openhft/chronicle/queue/impl/WireStorePool;
+      27: aload_2
+      28: invokespecial #224                // Method net/openhft/chronicle/queue/impl/single/StoreTailer."<init>":(Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue;Lnet/openhft/chronicle/queue/impl/WireStorePool;Lnet/openhft/chronicle/core/values/LongValue;)V
+      31: astore_3
+      32: aload_0
+      33: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+      36: iconst_1
+      37: invokeinterface #105,  2          // InterfaceMethod net/openhft/chronicle/queue/impl/single/DirectoryListing.refresh:(Z)V
+      42: aload_3
+      43: invokevirtual #225                // Method net/openhft/chronicle/queue/impl/single/StoreTailer.clearUsedByThread:()V
+      46: aload_3
+      47: areturn
+
+  public net.openhft.chronicle.core.values.LongValue indexForId(java.lang.String);
+    Code:
+       0: aload_0
+       1: getfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+       4: aload_1
+       5: invokedynamic #226,  0            // InvokeDynamic #7:apply:(Ljava/lang/String;)Ljava/util/function/Function;
+      10: invokeinterface #117,  2          // InterfaceMethod net/openhft/chronicle/queue/impl/TableStore.doWithExclusiveLock:(Ljava/util/function/Function;)Ljava/lang/Object;
+      15: checkcast     #227                // class net/openhft/chronicle/core/values/LongValue
+      18: areturn
+
+  public net.openhft.chronicle.queue.ExcerptTailer createTailer();
+    Code:
+       0: aload_0
+       1: invokevirtual #148                // Method throwExceptionIfClosed:()V
+       4: aload_0
+       5: aconst_null
+       6: invokevirtual #228                // Method createTailer:(Ljava/lang/String;)Lnet/openhft/chronicle/queue/ExcerptTailer;
+       9: areturn
+
+  public final net.openhft.chronicle.queue.impl.single.SingleChronicleQueueStore storeForCycle(int, long, boolean, net.openhft.chronicle.queue.impl.single.SingleChronicleQueueStore);
+    Code:
+       0: aload_0
+       1: getfield      #48                 // Field pool:Lnet/openhft/chronicle/queue/impl/WireStorePool;
+       4: iload_1
+       5: lload_2
+       6: iload         4
+       8: aload         5
+      10: invokevirtual #229                // Method net/openhft/chronicle/queue/impl/WireStorePool.acquire:(IJZLnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore;)Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore;
+      13: areturn
+
+  public int nextCycle(int, net.openhft.chronicle.queue.TailerDirection) throws java.text.ParseException;
+    Code:
+       0: aload_0
+       1: invokevirtual #148                // Method throwExceptionIfClosed:()V
+       4: aload_0
+       5: getfield      #48                 // Field pool:Lnet/openhft/chronicle/queue/impl/WireStorePool;
+       8: iload_1
+       9: aload_2
+      10: invokevirtual #230                // Method net/openhft/chronicle/queue/impl/WireStorePool.nextCycle:(ILnet/openhft/chronicle/queue/TailerDirection;)I
+      13: ireturn
+
+  public long exceptsPerCycle(int);
+    Code:
+       0: aload_0
+       1: invokevirtual #148                // Method throwExceptionIfClosed:()V
+       4: aload_0
+       5: invokevirtual #231                // Method acquireTailer:()Lnet/openhft/chronicle/queue/impl/single/StoreTailer;
+       8: astore_2
+       9: aload_0
+      10: getfield      #8                  // Field rollCycle:Lnet/openhft/chronicle/queue/RollCycle;
+      13: iload_1
+      14: lconst_0
+      15: invokeinterface #232,  4          // InterfaceMethod net/openhft/chronicle/queue/RollCycle.toIndex:(IJ)J
+      20: lstore_3
+      21: aload_2
+      22: lload_3
+      23: invokevirtual #233                // Method net/openhft/chronicle/queue/impl/single/StoreTailer.moveToIndex:(J)Z
+      26: ifeq          48
+      29: aload_2
+      30: getfield      #234                // Field net/openhft/chronicle/queue/impl/single/StoreTailer.store:Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore;
+      33: aload_2
+      34: invokevirtual #235                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.lastSequenceNumber:(Lnet/openhft/chronicle/queue/impl/ExcerptContext;)J
+      37: lconst_1
+      38: ladd
+      39: lstore        5
+      41: aload_2
+      42: invokevirtual #236                // Method net/openhft/chronicle/queue/impl/single/StoreTailer.releaseStore:()V
+      45: lload         5
+      47: lreturn
+      48: ldc2_w        #159                // long -1l
+      51: lstore        5
+      53: aload_2
+      54: invokevirtual #236                // Method net/openhft/chronicle/queue/impl/single/StoreTailer.releaseStore:()V
+      57: lload         5
+      59: lreturn
+      60: astore_3
+      61: new           #216                // class java/lang/IllegalStateException
+      64: dup
+      65: aload_3
+      66: invokespecial #238                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/Throwable;)V
+      69: athrow
+      70: astore        7
+      72: aload_2
+      73: invokevirtual #236                // Method net/openhft/chronicle/queue/impl/single/StoreTailer.releaseStore:()V
+      76: aload         7
+      78: athrow
+    Exception table:
+       from    to  target type
+           9    41    60   Class java/io/StreamCorruptedException
+          48    53    60   Class java/io/StreamCorruptedException
+           9    41    70   any
+          48    53    70   any
+          60    72    70   any
+
+  public long countExcerpts(long, long);
+    Code:
+       0: aload_0
+       1: invokevirtual #148                // Method throwExceptionIfClosed:()V
+       4: lload_1
+       5: lload_3
+       6: lcmp
+       7: ifle          18
+      10: lload_1
+      11: lstore        5
+      13: lload_3
+      14: lstore_1
+      15: lload         5
+      17: lstore_3
+      18: lload_1
+      19: lload_3
+      20: lcmp
+      21: ifne          26
+      24: lconst_0
+      25: lreturn
+      26: lconst_0
+      27: lstore        5
+      29: aload_0
+      30: invokevirtual #239                // Method rollCycle:()Lnet/openhft/chronicle/queue/RollCycle;
+      33: astore        7
+      35: aload         7
+      37: ldc2_w        #159                // long -1l
+      40: invokeinterface #240,  3          // InterfaceMethod net/openhft/chronicle/queue/RollCycle.toSequenceNumber:(J)J
+      45: lstore        8
+      47: aload         7
+      49: lload_1
+      50: invokeinterface #240,  3          // InterfaceMethod net/openhft/chronicle/queue/RollCycle.toSequenceNumber:(J)J
+      55: lload         8
+      57: lcmp
+      58: ifne          71
+      61: lload         5
+      63: lconst_1
+      64: ladd
+      65: lstore        5
+      67: lload_1
+      68: lconst_1
+      69: ladd
+      70: lstore_1
+      71: aload         7
+      73: lload_3
+      74: invokeinterface #240,  3          // InterfaceMethod net/openhft/chronicle/queue/RollCycle.toSequenceNumber:(J)J
+      79: lload         8
+      81: lcmp
+      82: ifne          95
+      85: lload         5
+      87: lconst_1
+      88: lsub
+      89: lstore        5
+      91: lload_3
+      92: lconst_1
+      93: ladd
+      94: lstore_3
+      95: aload         7
+      97: lload_1
+      98: invokeinterface #241,  3          // InterfaceMethod net/openhft/chronicle/queue/RollCycle.toCycle:(J)I
+     103: istore        10
+     105: aload         7
+     107: lload_3
+     108: invokeinterface #241,  3          // InterfaceMethod net/openhft/chronicle/queue/RollCycle.toCycle:(J)I
+     113: istore        11
+     115: iload         10
+     117: iload         11
+     119: if_icmpne     126
+     122: lload_3
+     123: lload_1
+     124: lsub
+     125: lreturn
+     126: aload         7
+     128: lload_3
+     129: invokeinterface #240,  3          // InterfaceMethod net/openhft/chronicle/queue/RollCycle.toSequenceNumber:(J)J
+     134: lstore        12
+     136: aload         7
+     138: lload_1
+     139: invokeinterface #240,  3          // InterfaceMethod net/openhft/chronicle/queue/RollCycle.toSequenceNumber:(J)J
+     144: lstore        14
+     146: iload         10
+     148: iconst_1
+     149: iadd
+     150: iload         11
+     152: if_icmpne     179
+     155: aload_0
+     156: iload         10
+     158: invokevirtual #242                // Method exceptsPerCycle:(I)J
+     161: lstore        16
+     163: lload         5
+     165: lload         16
+     167: lload         14
+     169: lsub
+     170: lload         12
+     172: ladd
+     173: ladd
+     174: lstore        5
+     176: lload         5
+     178: lreturn
+     179: aload_0
+     180: iload         10
+     182: iload         11
+     184: invokevirtual #243                // Method listCyclesBetween:(II)Ljava/util/NavigableSet;
+     187: astore        16
+     189: goto          204
+     192: astore        17
+     194: new           #216                // class java/lang/IllegalStateException
+     197: dup
+     198: aload         17
+     200: invokespecial #238                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/Throwable;)V
+     203: athrow
+     204: aload         16
+     206: invokeinterface #244,  1          // InterfaceMethod java/util/NavigableSet.first:()Ljava/lang/Object;
+     211: checkcast     #245                // class java/lang/Long
+     214: invokevirtual #246                // Method java/lang/Long.longValue:()J
+     217: iload         10
+     219: i2l
+     220: lcmp
+     221: ifne          245
+     224: aload_0
+     225: iload         10
+     227: invokevirtual #242                // Method exceptsPerCycle:(I)J
+     230: lstore        17
+     232: lload         5
+     234: lload         17
+     236: lload         14
+     238: lsub
+     239: ladd
+     240: lstore        5
+     242: goto          277
+     245: new           #216                // class java/lang/IllegalStateException
+     248: dup
+     249: new           #168                // class java/lang/StringBuilder
+     252: dup
+     253: invokespecial #247                // Method java/lang/StringBuilder."<init>":()V
+     256: ldc           #248                // String Cycle not found, lower-cycle=
+     258: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     261: iload         10
+     263: i2l
+     264: invokestatic  #183                // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     267: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     270: invokevirtual #176                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     273: invokespecial #218                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+     276: athrow
+     277: aload         16
+     279: invokeinterface #249,  1          // InterfaceMethod java/util/NavigableSet.last:()Ljava/lang/Object;
+     284: checkcast     #245                // class java/lang/Long
+     287: invokevirtual #246                // Method java/lang/Long.longValue:()J
+     290: iload         11
+     292: i2l
+     293: lcmp
+     294: ifne          307
+     297: lload         5
+     299: lload         12
+     301: ladd
+     302: lstore        5
+     304: goto          339
+     307: new           #216                // class java/lang/IllegalStateException
+     310: dup
+     311: new           #168                // class java/lang/StringBuilder
+     314: dup
+     315: invokespecial #247                // Method java/lang/StringBuilder."<init>":()V
+     318: ldc           #250                // String Cycle not found,  upper-cycle=
+     320: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     323: iload         11
+     325: i2l
+     326: invokestatic  #183                // Method java/lang/Long.toHexString:(J)Ljava/lang/String;
+     329: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     332: invokevirtual #176                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     335: invokespecial #218                // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+     338: athrow
+     339: aload         16
+     341: invokeinterface #251,  1          // InterfaceMethod java/util/NavigableSet.size:()I
+     346: iconst_2
+     347: if_icmpne     353
+     350: lload         5
+     352: lreturn
+     353: aload         16
+     355: invokeinterface #252,  1          // InterfaceMethod java/util/NavigableSet.stream:()Ljava/util/stream/Stream;
+     360: invokedynamic #253,  0            // InvokeDynamic #8:applyAsLong:()Ljava/util/function/ToLongFunction;
+     365: invokeinterface #254,  2          // InterfaceMethod java/util/stream/Stream.mapToLong:(Ljava/util/function/ToLongFunction;)Ljava/util/stream/LongStream;
+     370: invokeinterface #255,  1          // InterfaceMethod java/util/stream/LongStream.toArray:()[J
+     375: astore        17
+     377: iconst_1
+     378: istore        18
+     380: iload         18
+     382: aload         17
+     384: arraylength
+     385: iconst_1
+     386: isub
+     387: if_icmpge     417
+     390: aload_0
+     391: aload         17
+     393: iload         18
+     395: laload
+     396: invokestatic  #256                // Method java/lang/Math.toIntExact:(J)I
+     399: invokevirtual #242                // Method exceptsPerCycle:(I)J
+     402: lstore        19
+     404: lload         5
+     406: lload         19
+     408: ladd
+     409: lstore        5
+     411: iinc          18, 1
+     414: goto          380
+     417: lload         5
+     419: lreturn
+    Exception table:
+       from    to  target type
+         179   189   192   Class java/lang/Exception
+
+  public java.util.NavigableSet<java.lang.Long> listCyclesBetween(int, int) throws java.text.ParseException;
+    Code:
+       0: aload_0
+       1: invokevirtual #148                // Method throwExceptionIfClosed:()V
+       4: aload_0
+       5: getfield      #48                 // Field pool:Lnet/openhft/chronicle/queue/impl/WireStorePool;
+       8: iload_1
+       9: iload_2
+      10: invokevirtual #257                // Method net/openhft/chronicle/queue/impl/WireStorePool.listCyclesBetween:(II)Ljava/util/NavigableSet;
+      13: areturn
+
+  public <T> void addCloseListener(net.openhft.chronicle.core.io.Closeable);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field closers:Ljava/util/Set;
+       4: dup
+       5: astore_2
+       6: monitorenter
+       7: aload_0
+       8: getfield      #24                 // Field closers:Ljava/util/Set;
+      11: invokeinterface #258,  1          // InterfaceMethod java/util/Set.isEmpty:()Z
+      16: ifne          34
+      19: aload_0
+      20: getfield      #24                 // Field closers:Ljava/util/Set;
+      23: invokedynamic #259,  0            // InvokeDynamic #9:test:()Ljava/util/function/Predicate;
+      28: invokeinterface #260,  2          // InterfaceMethod java/util/Set.removeIf:(Ljava/util/function/Predicate;)Z
+      33: pop
+      34: aload_0
+      35: getfield      #24                 // Field closers:Ljava/util/Set;
+      38: aload_1
+      39: invokeinterface #261,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      44: pop
+      45: aload_2
+      46: monitorexit
+      47: goto          55
+      50: astore_3
+      51: aload_2
+      52: monitorexit
+      53: aload_3
+      54: athrow
+      55: return
+    Exception table:
+       from    to  target type
+           7    47    50   any
+          50    53    50   any
+
+  protected void performClose();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field closers:Ljava/util/Set;
+       4: dup
+       5: astore_1
+       6: monitorenter
+       7: aload_0
+       8: getfield      #17                 // Field metaStoreMap:Ljava/util/Map;
+      11: invokeinterface #262,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+      16: invokedynamic #263,  0            // InvokeDynamic #10:accept:()Ljava/util/function/Consumer;
+      21: invokeinterface #264,  2          // InterfaceMethod java/util/Collection.forEach:(Ljava/util/function/Consumer;)V
+      26: aload_0
+      27: getfield      #17                 // Field metaStoreMap:Ljava/util/Map;
+      30: invokeinterface #265,  1          // InterfaceMethod java/util/Map.clear:()V
+      35: aload_0
+      36: getfield      #24                 // Field closers:Ljava/util/Set;
+      39: invokedynamic #266,  0            // InvokeDynamic #11:accept:()Ljava/util/function/Consumer;
+      44: invokeinterface #267,  2          // InterfaceMethod java/util/Set.forEach:(Ljava/util/function/Consumer;)V
+      49: aload_0
+      50: getfield      #24                 // Field closers:Ljava/util/Set;
+      53: invokeinterface #268,  1          // InterfaceMethod java/util/Set.clear:()V
+      58: bipush        8
+      60: anewarray     #269                // class java/lang/Object
+      63: dup
+      64: iconst_0
+      65: aload_0
+      66: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+      69: aastore
+      70: dup
+      71: iconst_1
+      72: aload_0
+      73: getfield      #107                // Field queueLock:Lnet/openhft/chronicle/queue/impl/single/QueueLock;
+      76: aastore
+      77: dup
+      78: iconst_2
+      79: aload_0
+      80: getfield      #115                // Field lastAcknowledgedIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+      83: aastore
+      84: dup
+      85: iconst_3
+      86: aload_0
+      87: getfield      #114                // Field lastIndexReplicated:Lnet/openhft/chronicle/core/values/LongValue;
+      90: aastore
+      91: dup
+      92: iconst_4
+      93: aload_0
+      94: getfield      #109                // Field writeLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+      97: aastore
+      98: dup
+      99: iconst_5
+     100: aload_0
+     101: getfield      #113                // Field appendLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+     104: aastore
+     105: dup
+     106: bipush        6
+     108: aload_0
+     109: getfield      #48                 // Field pool:Lnet/openhft/chronicle/queue/impl/WireStorePool;
+     112: aastore
+     113: dup
+     114: bipush        7
+     116: aload_0
+     117: getfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+     120: aastore
+     121: invokestatic  #270                // InterfaceMethod net/openhft/chronicle/core/io/Closeable.closeQuietly:([Ljava/lang/Object;)V
+     124: aload_0
+     125: getfield      #46                 // Field storeSupplier:Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue$StoreSupplier;
+     128: invokestatic  #271                // InterfaceMethod net/openhft/chronicle/core/io/Closeable.closeQuietly:(Ljava/lang/Object;)V
+     131: aload_1
+     132: monitorexit
+     133: goto          141
+     136: astore_2
+     137: aload_1
+     138: monitorexit
+     139: aload_2
+     140: athrow
+     141: aload_0
+     142: getfield      #68                 // Field eventLoop:Lnet/openhft/chronicle/core/threads/EventLoop;
+     145: instanceof    #272                // class net/openhft/chronicle/core/threads/OnDemandEventLoop
+     148: ifeq          160
+     151: aload_0
+     152: getfield      #68                 // Field eventLoop:Lnet/openhft/chronicle/core/threads/EventLoop;
+     155: invokeinterface #273,  1          // InterfaceMethod net/openhft/chronicle/core/threads/EventLoop.close:()V
+     160: return
+    Exception table:
+       from    to  target type
+           7   133   136   any
+         136   139   136   any
+
+  protected void finalize() throws java.lang.Throwable;
+    Code:
+       0: aload_0
+       1: invokespecial #274                // Method java/lang/Object.finalize:()V
+       4: aload_0
+       5: invokevirtual #275                // Method warnAndCloseIfNotClosed:()V
+       8: return
+
+  public final void closeStore(net.openhft.chronicle.queue.impl.single.SingleChronicleQueueStore);
+    Code:
+       0: aload_1
+       1: ifnull        12
+       4: aload_0
+       5: getfield      #48                 // Field pool:Lnet/openhft/chronicle/queue/impl/WireStorePool;
+       8: aload_1
+       9: invokevirtual #276                // Method net/openhft/chronicle/queue/impl/WireStorePool.closeStore:(Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore;)V
+      12: return
+
+  public final int cycle();
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field cycleCalculator:Lnet/openhft/chronicle/queue/CycleCalculator;
+       4: aload_0
+       5: getfield      #8                  // Field rollCycle:Lnet/openhft/chronicle/queue/RollCycle;
+       8: aload_0
+       9: getfield      #10                 // Field time:Lnet/openhft/chronicle/core/time/TimeProvider;
+      12: aload_0
+      13: getfield      #9                  // Field epoch:J
+      16: invokeinterface #277,  5          // InterfaceMethod net/openhft/chronicle/queue/CycleCalculator.currentCycle:(Lnet/openhft/chronicle/queue/RollCycle;Lnet/openhft/chronicle/core/time/TimeProvider;J)I
+      21: ireturn
+
+  public final int cycle(net.openhft.chronicle.core.time.TimeProvider);
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field cycleCalculator:Lnet/openhft/chronicle/queue/CycleCalculator;
+       4: aload_0
+       5: getfield      #8                  // Field rollCycle:Lnet/openhft/chronicle/queue/RollCycle;
+       8: aload_1
+       9: aload_0
+      10: getfield      #9                  // Field epoch:J
+      13: invokeinterface #277,  5          // InterfaceMethod net/openhft/chronicle/queue/CycleCalculator.currentCycle:(Lnet/openhft/chronicle/queue/RollCycle;Lnet/openhft/chronicle/core/time/TimeProvider;J)I
+      18: ireturn
+
+  public long firstIndex();
+    Code:
+       0: aload_0
+       1: invokevirtual #178                // Method firstCycle:()I
+       4: istore_1
+       5: iload_1
+       6: ldc           #27                 // int 2147483647
+       8: if_icmpne     15
+      11: ldc2_w        #278                // long 9223372036854775807l
+      14: lreturn
+      15: aload_0
+      16: invokevirtual #239                // Method rollCycle:()Lnet/openhft/chronicle/queue/RollCycle;
+      19: iload_1
+      20: lconst_0
+      21: invokeinterface #232,  4          // InterfaceMethod net/openhft/chronicle/queue/RollCycle.toIndex:(IJ)J
+      26: lreturn
+
+  public long lastIndex();
+    Code:
+       0: aload_0
+       1: invokevirtual #185                // Method createTailer:()Lnet/openhft/chronicle/queue/ExcerptTailer;
+       4: getstatic     #280                // Field net/openhft/chronicle/queue/TailerDirection.BACKWARD:Lnet/openhft/chronicle/queue/TailerDirection;
+       7: invokeinterface #281,  2          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.direction:(Lnet/openhft/chronicle/queue/TailerDirection;)Lnet/openhft/chronicle/queue/ExcerptTailer;
+      12: invokeinterface #282,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.toEnd:()Lnet/openhft/chronicle/queue/ExcerptTailer;
+      17: astore_1
+      18: aconst_null
+      19: astore_2
+      20: aload_1
+      21: invokeinterface #197,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.readingDocument:()Lnet/openhft/chronicle/wire/DocumentContext;
+      26: astore_3
+      27: aconst_null
+      28: astore        4
+      30: aload_3
+      31: invokeinterface #198,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.isPresent:()Z
+      36: ifeq          120
+      39: aload_3
+      40: invokeinterface #200,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.index:()J
+      45: lstore        5
+      47: aload_3
+      48: ifnull        83
+      51: aload         4
+      53: ifnull        77
+      56: aload_3
+      57: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+      62: goto          83
+      65: astore        7
+      67: aload         4
+      69: aload         7
+      71: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+      74: goto          83
+      77: aload_3
+      78: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+      83: aload_1
+      84: ifnull        117
+      87: aload_2
+      88: ifnull        111
+      91: aload_1
+      92: invokeinterface #283,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.close:()V
+      97: goto          117
+     100: astore        7
+     102: aload_2
+     103: aload         7
+     105: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     108: goto          117
+     111: aload_1
+     112: invokeinterface #283,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.close:()V
+     117: lload         5
+     119: lreturn
+     120: ldc2_w        #159                // long -1l
+     123: lstore        5
+     125: aload_3
+     126: ifnull        161
+     129: aload         4
+     131: ifnull        155
+     134: aload_3
+     135: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     140: goto          161
+     143: astore        7
+     145: aload         4
+     147: aload         7
+     149: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     152: goto          161
+     155: aload_3
+     156: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     161: aload_1
+     162: ifnull        195
+     165: aload_2
+     166: ifnull        189
+     169: aload_1
+     170: invokeinterface #283,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.close:()V
+     175: goto          195
+     178: astore        7
+     180: aload_2
+     181: aload         7
+     183: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     186: goto          195
+     189: aload_1
+     190: invokeinterface #283,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.close:()V
+     195: lload         5
+     197: lreturn
+     198: astore        5
+     200: aload         5
+     202: astore        4
+     204: aload         5
+     206: athrow
+     207: astore        8
+     209: aload_3
+     210: ifnull        245
+     213: aload         4
+     215: ifnull        239
+     218: aload_3
+     219: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     224: goto          245
+     227: astore        9
+     229: aload         4
+     231: aload         9
+     233: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     236: goto          245
+     239: aload_3
+     240: invokeinterface #201,  1          // InterfaceMethod net/openhft/chronicle/wire/DocumentContext.close:()V
+     245: aload         8
+     247: athrow
+     248: astore_3
+     249: aload_3
+     250: astore_2
+     251: aload_3
+     252: athrow
+     253: astore        10
+     255: aload_1
+     256: ifnull        289
+     259: aload_2
+     260: ifnull        283
+     263: aload_1
+     264: invokeinterface #283,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.close:()V
+     269: goto          289
+     272: astore        11
+     274: aload_2
+     275: aload         11
+     277: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     280: goto          289
+     283: aload_1
+     284: invokeinterface #283,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.close:()V
+     289: aload         10
+     291: athrow
+    Exception table:
+       from    to  target type
+          56    62    65   Class java/lang/Throwable
+          91    97   100   Class java/lang/Throwable
+         134   140   143   Class java/lang/Throwable
+         169   175   178   Class java/lang/Throwable
+          30    47   198   Class java/lang/Throwable
+         120   125   198   Class java/lang/Throwable
+          30    47   207   any
+         120   125   207   any
+         218   224   227   Class java/lang/Throwable
+         198   209   207   any
+          20    83   248   Class java/lang/Throwable
+         120   161   248   Class java/lang/Throwable
+         198   248   248   Class java/lang/Throwable
+          20    83   253   any
+         120   161   253   any
+         263   269   272   Class java/lang/Throwable
+         198   255   253   any
+
+  public long entryCount();
+    Code:
+       0: aload_0
+       1: invokevirtual #185                // Method createTailer:()Lnet/openhft/chronicle/queue/ExcerptTailer;
+       4: astore_1
+       5: aload_1
+       6: invokeinterface #282,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.toEnd:()Lnet/openhft/chronicle/queue/ExcerptTailer;
+      11: pop
+      12: aload_1
+      13: invokeinterface #284,  1          // InterfaceMethod net/openhft/chronicle/queue/ExcerptTailer.index:()J
+      18: lstore_2
+      19: lload_2
+      20: lconst_0
+      21: lcmp
+      22: ifne          27
+      25: lconst_0
+      26: lreturn
+      27: aload_0
+      28: aload_0
+      29: invokevirtual #180                // Method firstIndex:()J
+      32: lload_2
+      33: invokevirtual #285                // Method countExcerpts:(JJ)J
+      36: lreturn
+
+  java.lang.String[] getList();
+    Code:
+       0: aload_0
+       1: getfield      #53                 // Field path:Ljava/io/File;
+       4: invokevirtual #286                // Method java/io/File.list:()[Ljava/lang/String;
+       7: areturn
+
+  private void setFirstAndLastCycle();
+    Code:
+       0: invokestatic  #287                // Method java/lang/System.currentTimeMillis:()J
+       3: lstore_1
+       4: lload_1
+       5: aload_0
+       6: getfield      #25                 // Field firstAndLastCycleTime:J
+       9: lcmp
+      10: ifgt          14
+      13: return
+      14: aload_0
+      15: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+      18: lload_1
+      19: aload_0
+      20: getfield      #25                 // Field firstAndLastCycleTime:J
+      23: lsub
+      24: ldc2_w        #288                // long 60000l
+      27: lcmp
+      28: ifle          35
+      31: iconst_1
+      32: goto          36
+      35: iconst_0
+      36: invokeinterface #105,  2          // InterfaceMethod net/openhft/chronicle/queue/impl/single/DirectoryListing.refresh:(Z)V
+      41: aload_0
+      42: aload_0
+      43: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+      46: invokeinterface #163,  1          // InterfaceMethod net/openhft/chronicle/queue/impl/single/DirectoryListing.getMinCreatedCycle:()I
+      51: putfield      #28                 // Field firstCycle:I
+      54: aload_0
+      55: aload_0
+      56: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+      59: invokeinterface #164,  1          // InterfaceMethod net/openhft/chronicle/queue/impl/single/DirectoryListing.getMaxCreatedCycle:()I
+      64: putfield      #30                 // Field lastCycle:I
+      67: aload_0
+      68: lload_1
+      69: putfield      #25                 // Field firstAndLastCycleTime:J
+      72: return
+
+  public int firstCycle();
+    Code:
+       0: aload_0
+       1: invokespecial #290                // Method setFirstAndLastCycle:()V
+       4: aload_0
+       5: getfield      #28                 // Field firstCycle:I
+       8: ireturn
+
+  void onRoll(int);
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field lastCycle:I
+       4: iload_1
+       5: if_icmpge     13
+       8: aload_0
+       9: iload_1
+      10: putfield      #30                 // Field lastCycle:I
+      13: aload_0
+      14: getfield      #28                 // Field firstCycle:I
+      17: iload_1
+      18: if_icmple     26
+      21: aload_0
+      22: iload_1
+      23: putfield      #28                 // Field firstCycle:I
+      26: return
+
+  public int lastCycle();
+    Code:
+       0: aload_0
+       1: invokespecial #290                // Method setFirstAndLastCycle:()V
+       4: aload_0
+       5: getfield      #30                 // Field lastCycle:I
+       8: ireturn
+
+  protected int fileToCycle(java.io.File);
+    Code:
+       0: aload_0
+       1: invokespecial #99                 // Method fileToCycleFunction:()Ljava/util/function/ToIntFunction;
+       4: aload_1
+       5: invokeinterface #291,  2          // InterfaceMethod java/util/function/ToIntFunction.applyAsInt:(Ljava/lang/Object;)I
+      10: ireturn
+
+  public java.util.function.Consumer<net.openhft.chronicle.bytes.BytesRingBufferStats> onRingBufferStats();
+    Code:
+       0: aload_0
+       1: getfield      #72                 // Field onRingBufferStats:Ljava/util/function/Consumer;
+       4: areturn
+
+  public long blockSize();
+    Code:
+       0: aload_0
+       1: getfield      #60                 // Field blockSize:J
+       4: lreturn
+
+  public long overlapSize();
+    Code:
+       0: aload_0
+       1: getfield      #66                 // Field overlapSize:J
+       4: lreturn
+
+  public net.openhft.chronicle.wire.WireType wireType();
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field wireType:Lnet/openhft/chronicle/wire/WireType;
+       4: areturn
+
+  public long bufferCapacity();
+    Code:
+       0: aload_0
+       1: getfield      #70                 // Field bufferCapacity:J
+       4: lreturn
+
+  net.openhft.chronicle.bytes.MappedFile mappedFile(java.io.File) throws java.io.FileNotFoundException;
+    Code:
+       0: aload_0
+       1: getfield      #60                 // Field blockSize:J
+       4: invokestatic  #292                // Method net/openhft/chronicle/core/OS.pageAlign:(J)J
+       7: lstore_2
+       8: aload_0
+       9: getfield      #60                 // Field blockSize:J
+      12: ldc2_w        #63                 // long 4l
+      15: ldiv
+      16: invokestatic  #292                // Method net/openhft/chronicle/core/OS.pageAlign:(J)J
+      19: lstore        4
+      21: aload_1
+      22: lload_2
+      23: lload         4
+      25: aload_0
+      26: getfield      #5                  // Field readOnly:Z
+      29: invokestatic  #293                // Method net/openhft/chronicle/bytes/MappedFile.of:(Ljava/io/File;JJZ)Lnet/openhft/chronicle/bytes/MappedFile;
+      32: areturn
+
+  boolean isReadOnly();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field readOnly:Z
+       4: ireturn
+
+  public java.lang.String toString();
+    Code:
+       0: new           #168                // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #247                // Method java/lang/StringBuilder."<init>":()V
+       7: aload_0
+       8: invokevirtual #294                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      11: invokevirtual #295                // Method java/lang/Class.getSimpleName:()Ljava/lang/String;
+      14: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: ldc_w         #296                // String {sourceId=
+      20: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      23: aload_0
+      24: getfield      #124                // Field sourceId:I
+      27: invokevirtual #297                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      30: ldc_w         #298                // String , file=
+      33: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      36: aload_0
+      37: getfield      #53                 // Field path:Ljava/io/File;
+      40: invokevirtual #299                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      43: bipush        125
+      45: invokevirtual #300                // Method java/lang/StringBuilder.append:(C)Ljava/lang/StringBuilder;
+      48: invokevirtual #176                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      51: areturn
+
+  public net.openhft.chronicle.core.time.TimeProvider time();
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field time:Lnet/openhft/chronicle/core/time/TimeProvider;
+       4: areturn
+
+  private java.util.function.ToIntFunction<java.io.File> fileToCycleFunction();
+    Code:
+       0: aload_0
+       1: invokedynamic #301,  0            // InvokeDynamic #12:applyAsInt:(Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue;)Ljava/util/function/ToIntFunction;
+       6: areturn
+
+  void removeCloseListener(net.openhft.chronicle.queue.impl.single.StoreTailer);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field closers:Ljava/util/Set;
+       4: dup
+       5: astore_2
+       6: monitorenter
+       7: aload_0
+       8: getfield      #24                 // Field closers:Ljava/util/Set;
+      11: aload_1
+      12: invokeinterface #302,  2          // InterfaceMethod java/util/Set.remove:(Ljava/lang/Object;)Z
+      17: pop
+      18: aload_2
+      19: monitorexit
+      20: goto          28
+      23: astore_3
+      24: aload_2
+      25: monitorexit
+      26: aload_3
+      27: athrow
+      28: return
+    Exception table:
+       from    to  target type
+           7    20    23   any
+          23    26    23   any
+
+  public net.openhft.chronicle.queue.impl.TableStore metaStore();
+    Code:
+       0: aload_0
+       1: getfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+       4: areturn
+
+  void cleanupStoreFilesWithNoData();
+    Code:
+       0: aload_0
+       1: getfield      #109                // Field writeLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+       4: invokeinterface #303,  1          // InterfaceMethod net/openhft/chronicle/queue/impl/single/WriteLock.lock:()V
+       9: aload_0
+      10: invokevirtual #304                // Method cycle:()I
+      13: istore_1
+      14: aload_0
+      15: invokevirtual #170                // Method lastCycle:()I
+      18: istore_2
+      19: iload_2
+      20: iload_1
+      21: if_icmpge     271
+      24: iload_2
+      25: iflt          271
+      28: aload_0
+      29: getfield      #48                 // Field pool:Lnet/openhft/chronicle/queue/impl/WireStorePool;
+      32: iload_2
+      33: aload_0
+      34: invokevirtual #305                // Method epoch:()J
+      37: iconst_0
+      38: aconst_null
+      39: invokevirtual #229                // Method net/openhft/chronicle/queue/impl/WireStorePool.acquire:(IJZLnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore;)Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore;
+      42: astore_3
+      43: aconst_null
+      44: astore        4
+      46: aload_3
+      47: ifnonnull     85
+      50: aload_3
+      51: ifnull        271
+      54: aload         4
+      56: ifnull        78
+      59: aload_3
+      60: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+      63: goto          271
+      66: astore        5
+      68: aload         4
+      70: aload         5
+      72: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+      75: goto          271
+      78: aload_3
+      79: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+      82: goto          271
+      85: aload_3
+      86: invokevirtual #306                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.writePosition:()J
+      89: lconst_0
+      90: lcmp
+      91: ifne          184
+      94: aload_3
+      95: invokevirtual #307                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.file:()Ljava/io/File;
+      98: invokevirtual #308                // Method java/io/File.exists:()Z
+     101: ifeq          184
+     104: aload_3
+     105: invokevirtual #309                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.bytes:()Lnet/openhft/chronicle/bytes/MappedBytes;
+     108: astore        5
+     110: aload_3
+     111: aload_0
+     112: getfield      #6                  // Field wireType:Lnet/openhft/chronicle/wire/WireType;
+     115: aload         5
+     117: invokevirtual #310                // Method net/openhft/chronicle/wire/WireType.apply:(Ljava/lang/Object;)Ljava/lang/Object;
+     120: checkcast     #311                // class net/openhft/chronicle/wire/Wire
+     123: aload_0
+     124: getfield      #86                 // Field timeoutMS:J
+     127: invokevirtual #312                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.writeEOFAndShrink:(Lnet/openhft/chronicle/wire/Wire;J)Z
+     130: pop
+     131: aload         5
+     133: invokevirtual #313                // Method net/openhft/chronicle/bytes/MappedBytes.releaseLast:()V
+     136: goto          149
+     139: astore        6
+     141: aload         5
+     143: invokevirtual #313                // Method net/openhft/chronicle/bytes/MappedBytes.releaseLast:()V
+     146: aload         6
+     148: athrow
+     149: aload_3
+     150: ifnull        265
+     153: aload         4
+     155: ifnull        177
+     158: aload_3
+     159: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+     162: goto          265
+     165: astore        6
+     167: aload         4
+     169: aload         6
+     171: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     174: goto          265
+     177: aload_3
+     178: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+     181: goto          265
+     184: aload_3
+     185: ifnull        271
+     188: aload         4
+     190: ifnull        212
+     193: aload_3
+     194: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+     197: goto          271
+     200: astore        5
+     202: aload         4
+     204: aload         5
+     206: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     209: goto          271
+     212: aload_3
+     213: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+     216: goto          271
+     219: astore        5
+     221: aload         5
+     223: astore        4
+     225: aload         5
+     227: athrow
+     228: astore        7
+     230: aload_3
+     231: ifnull        262
+     234: aload         4
+     236: ifnull        258
+     239: aload_3
+     240: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+     243: goto          262
+     246: astore        8
+     248: aload         4
+     250: aload         8
+     252: invokevirtual #175                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+     255: goto          262
+     258: aload_3
+     259: invokevirtual #174                // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueStore.close:()V
+     262: aload         7
+     264: athrow
+     265: iinc          2, -1
+     268: goto          19
+     271: aload_0
+     272: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+     275: iconst_1
+     276: invokeinterface #105,  2          // InterfaceMethod net/openhft/chronicle/queue/impl/single/DirectoryListing.refresh:(Z)V
+     281: aload_0
+     282: lconst_0
+     283: putfield      #25                 // Field firstAndLastCycleTime:J
+     286: aload_0
+     287: getfield      #109                // Field writeLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+     290: invokeinterface #314,  1          // InterfaceMethod net/openhft/chronicle/queue/impl/single/WriteLock.unlock:()V
+     295: goto          312
+     298: astore        9
+     300: aload_0
+     301: getfield      #109                // Field writeLock:Lnet/openhft/chronicle/queue/impl/single/WriteLock;
+     304: invokeinterface #314,  1          // InterfaceMethod net/openhft/chronicle/queue/impl/single/WriteLock.unlock:()V
+     309: aload         9
+     311: athrow
+     312: return
+    Exception table:
+       from    to  target type
+          59    63    66   Class java/lang/Throwable
+         110   131   139   any
+         139   141   139   any
+         158   162   165   Class java/lang/Throwable
+         193   197   200   Class java/lang/Throwable
+          46    50   219   Class java/lang/Throwable
+          85   149   219   Class java/lang/Throwable
+          46    50   228   any
+          85   149   228   any
+         239   243   246   Class java/lang/Throwable
+         219   230   228   any
+           9   286   298   any
+         298   300   298   any
+
+  protected boolean threadSafetyCheck(boolean);
+    Code:
+       0: iconst_1
+       1: ireturn
+
+  public void tableStorePut(java.lang.CharSequence, long);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_2
+       3: invokevirtual #315                // Method tableStoreAcquire:(Ljava/lang/CharSequence;J)Lnet/openhft/chronicle/core/values/LongValue;
+       6: astore        4
+       8: aload         4
+      10: ifnonnull     14
+      13: return
+      14: lload_2
+      15: ldc2_w        #316                // long -9223372036854775808l
+      18: lcmp
+      19: ifne          33
+      22: aload         4
+      24: lload_2
+      25: invokeinterface #318,  3          // InterfaceMethod net/openhft/chronicle/core/values/LongValue.setVolatileValue:(J)V
+      30: goto          41
+      33: aload         4
+      35: lload_2
+      36: invokeinterface #162,  3          // InterfaceMethod net/openhft/chronicle/core/values/LongValue.setMaxValue:(J)V
+      41: return
+
+  protected net.openhft.chronicle.core.values.LongValue tableStoreAcquire(java.lang.CharSequence, long);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #319                // Method asBytes:(Ljava/lang/CharSequence;)Lnet/openhft/chronicle/bytes/BytesStore;
+       5: astore        4
+       7: aload_0
+       8: getfield      #17                 // Field metaStoreMap:Ljava/util/Map;
+      11: aload         4
+      13: invokeinterface #320,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      18: checkcast     #321                // class net/openhft/chronicle/core/values/LongValue
+      21: astore        5
+      23: aload         5
+      25: ifnonnull     133
+      28: aload_0
+      29: getfield      #24                 // Field closers:Ljava/util/Set;
+      32: dup
+      33: astore        6
+      35: monitorenter
+      36: aload_0
+      37: getfield      #17                 // Field metaStoreMap:Ljava/util/Map;
+      40: aload         4
+      42: invokeinterface #320,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      47: checkcast     #321                // class net/openhft/chronicle/core/values/LongValue
+      50: astore        5
+      52: aload         5
+      54: ifnonnull     119
+      57: aload_0
+      58: getfield      #91                 // Field metaStore:Lnet/openhft/chronicle/queue/impl/TableStore;
+      61: aload_1
+      62: lload_2
+      63: invokeinterface #322,  4          // InterfaceMethod net/openhft/chronicle/queue/impl/TableStore.acquireValueFor:(Ljava/lang/CharSequence;J)Lnet/openhft/chronicle/core/values/LongValue;
+      68: astore        5
+      70: aload_1
+      71: invokeinterface #323,  1          // InterfaceMethod java/lang/CharSequence.length:()I
+      76: istore        7
+      78: iload         7
+      80: newarray       byte
+      82: invokestatic  #324                // Method net/openhft/chronicle/bytes/HeapBytesStore.wrap:([B)Lnet/openhft/chronicle/bytes/HeapBytesStore;
+      85: astore        8
+      87: aload         8
+      89: lconst_0
+      90: aload         4
+      92: lconst_0
+      93: iload         7
+      95: i2l
+      96: invokevirtual #325                // Method net/openhft/chronicle/bytes/HeapBytesStore.write:(JLnet/openhft/chronicle/bytes/RandomDataInput;JJ)Lnet/openhft/chronicle/bytes/HeapBytesStore;
+      99: pop
+     100: aload_0
+     101: getfield      #17                 // Field metaStoreMap:Ljava/util/Map;
+     104: aload         8
+     106: aload         5
+     108: invokeinterface #136,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     113: pop
+     114: aconst_null
+     115: aload         6
+     117: monitorexit
+     118: areturn
+     119: aload         6
+     121: monitorexit
+     122: goto          133
+     125: astore        9
+     127: aload         6
+     129: monitorexit
+     130: aload         9
+     132: athrow
+     133: aload         5
+     135: areturn
+    Exception table:
+       from    to  target type
+          36   118   125   any
+         119   122   125   any
+         125   130   125   any
+
+  public long tableStoreGet(java.lang.CharSequence);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: ldc2_w        #316                // long -9223372036854775808l
+       5: invokevirtual #315                // Method tableStoreAcquire:(Ljava/lang/CharSequence;J)Lnet/openhft/chronicle/core/values/LongValue;
+       8: astore_2
+       9: aload_2
+      10: ifnonnull     17
+      13: ldc2_w        #316                // long -9223372036854775808l
+      16: lreturn
+      17: aload_2
+      18: invokeinterface #326,  1          // InterfaceMethod net/openhft/chronicle/core/values/LongValue.getVolatileValue:()J
+      23: lreturn
+
+  private net.openhft.chronicle.bytes.BytesStore asBytes(java.lang.CharSequence);
+    Code:
+       0: aload_1
+       1: instanceof    #327                // class net/openhft/chronicle/bytes/BytesStore
+       4: ifeq          14
+       7: aload_1
+       8: checkcast     #327                // class net/openhft/chronicle/bytes/BytesStore
+      11: goto          26
+      14: invokestatic  #328                // Method net/openhft/chronicle/wire/Wires.acquireAnotherBytes:()Lnet/openhft/chronicle/bytes/Bytes;
+      17: aload_1
+      18: invokeinterface #329,  2          // InterfaceMethod net/openhft/chronicle/bytes/Bytes.append:(Ljava/lang/CharSequence;)Lnet/openhft/chronicle/bytes/ByteStringAppender;
+      23: checkcast     #327                // class net/openhft/chronicle/bytes/BytesStore
+      26: areturn
+
+  private int lambda$fileToCycleFunction$8(java.io.File);
+    Code:
+       0: aload_1
+       1: invokevirtual #330                // Method java/io/File.getName:()Ljava/lang/String;
+       4: astore_2
+       5: aload_0
+       6: getfield      #13                 // Field dateCache:Lnet/openhft/chronicle/queue/impl/RollingResourcesCache;
+       9: aload_2
+      10: iconst_0
+      11: aload_2
+      12: invokevirtual #331                // Method java/lang/String.length:()I
+      15: ldc_w         #332                // String .cq4
+      18: invokevirtual #331                // Method java/lang/String.length:()I
+      21: isub
+      22: invokevirtual #333                // Method java/lang/String.substring:(II)Ljava/lang/String;
+      25: invokevirtual #334                // Method net/openhft/chronicle/queue/impl/RollingResourcesCache.parseCount:(Ljava/lang/String;)I
+      28: ireturn
+
+  private static long lambda$countExcerpts$7(java.lang.Long);
+    Code:
+       0: aload_0
+       1: invokevirtual #246                // Method java/lang/Long.longValue:()J
+       4: lreturn
+
+  private static net.openhft.chronicle.core.values.LongValue lambda$indexForId$6(java.lang.String, net.openhft.chronicle.queue.impl.TableStore);
+    Code:
+       0: aload_1
+       1: new           #168                // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #247                // Method java/lang/StringBuilder."<init>":()V
+       8: ldc_w         #335                // String index.
+      11: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      14: aload_0
+      15: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      18: invokevirtual #176                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      21: lconst_0
+      22: invokeinterface #322,  4          // InterfaceMethod net/openhft/chronicle/queue/impl/TableStore.acquireValueFor:(Ljava/lang/CharSequence;J)Lnet/openhft/chronicle/core/values/LongValue;
+      27: areturn
+
+  private static java.lang.String lambda$fileToText$5(java.io.File);
+    Code:
+       0: aload_0
+       1: invokevirtual #330                // Method java/io/File.getName:()Ljava/lang/String;
+       4: astore_1
+       5: aload_1
+       6: iconst_0
+       7: aload_1
+       8: invokevirtual #331                // Method java/lang/String.length:()I
+      11: ldc_w         #332                // String .cq4
+      14: invokevirtual #331                // Method java/lang/String.length:()I
+      17: isub
+      18: invokevirtual #333                // Method java/lang/String.substring:(II)Ljava/lang/String;
+      21: areturn
+
+  private static java.io.File lambda$textToFile$4(net.openhft.chronicle.queue.impl.single.SingleChronicleQueueBuilder, java.lang.String);
+    Code:
+       0: new           #336                // class java/io/File
+       3: dup
+       4: aload_0
+       5: invokevirtual #52                 // Method net/openhft/chronicle/queue/impl/single/SingleChronicleQueueBuilder.path:()Ljava/io/File;
+       8: new           #168                // class java/lang/StringBuilder
+      11: dup
+      12: invokespecial #247                // Method java/lang/StringBuilder."<init>":()V
+      15: aload_1
+      16: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      19: ldc_w         #332                // String .cq4
+      22: invokevirtual #173                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      25: invokevirtual #176                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      28: invokespecial #337                // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+      31: areturn
+
+  private static net.openhft.chronicle.queue.impl.single.StoreTailer lambda$acquireTailer$3(net.openhft.chronicle.queue.impl.single.SingleChronicleQueue);
+    Code:
+       0: new           #151                // class net/openhft/chronicle/queue/impl/single/StoreTailer
+       3: dup
+       4: aload_0
+       5: aload_0
+       6: getfield      #48                 // Field pool:Lnet/openhft/chronicle/queue/impl/WireStorePool;
+       9: invokespecial #153                // Method net/openhft/chronicle/queue/impl/single/StoreTailer."<init>":(Lnet/openhft/chronicle/queue/impl/single/SingleChronicleQueue;Lnet/openhft/chronicle/queue/impl/WireStorePool;)V
+      12: areturn
+
+  private static net.openhft.chronicle.core.values.LongValue lambda$new$2(net.openhft.chronicle.queue.impl.TableStore);
+    Code:
+       0: aload_0
+       1: ldc_w         #338                // String chronicle.lastAcknowledgedIndexReplicated
+       4: ldc2_w        #159                // long -1l
+       7: invokeinterface #322,  4          // InterfaceMethod net/openhft/chronicle/queue/impl/TableStore.acquireValueFor:(Ljava/lang/CharSequence;J)Lnet/openhft/chronicle/core/values/LongValue;
+      12: areturn
+
+  private static net.openhft.chronicle.core.values.LongValue lambda$new$1(net.openhft.chronicle.queue.impl.TableStore);
+    Code:
+       0: aload_0
+       1: ldc_w         #339                // String chronicle.lastIndexReplicated
+       4: ldc2_w        #159                // long -1l
+       7: invokeinterface #322,  4          // InterfaceMethod net/openhft/chronicle/queue/impl/TableStore.acquireValueFor:(Ljava/lang/CharSequence;J)Lnet/openhft/chronicle/core/values/LongValue;
+      12: areturn
+
+  private static void lambda$new$0(java.lang.ref.WeakReference) throws java.lang.Exception, java.lang.IllegalStateException;
+    Code:
+       0: aload_0
+       1: invokevirtual #340                // Method java/lang/ref/WeakReference.get:()Ljava/lang/Object;
+       4: invokestatic  #271                // InterfaceMethod net/openhft/chronicle/core/io/Closeable.closeQuietly:(Ljava/lang/Object;)V
+       7: return
+
+  static net.openhft.chronicle.queue.impl.RollingResourcesCache access$100(net.openhft.chronicle.queue.impl.single.SingleChronicleQueue);
+    Code:
+       0: aload_0
+       1: getfield      #13                 // Field dateCache:Lnet/openhft/chronicle/queue/impl/RollingResourcesCache;
+       4: areturn
+
+  static net.openhft.chronicle.queue.impl.single.DirectoryListing access$200(net.openhft.chronicle.queue.impl.single.SingleChronicleQueue);
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field directoryListing:Lnet/openhft/chronicle/queue/impl/single/DirectoryListing;
+       4: areturn
+
+  static boolean access$300();
+    Code:
+       0: getstatic     #11                 // Field SHOULD_CHECK_CYCLE:Z
+       3: ireturn
+
+  static net.openhft.chronicle.core.time.TimeProvider access$400(net.openhft.chronicle.queue.impl.single.SingleChronicleQueue);
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field time:Lnet/openhft/chronicle/core/time/TimeProvider;
+       4: areturn
+
+  static long access$500(net.openhft.chronicle.queue.impl.single.SingleChronicleQueue);
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field epoch:J
+       4: lreturn
+
+  static net.openhft.chronicle.queue.RollCycle access$600(net.openhft.chronicle.queue.impl.single.SingleChronicleQueue);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field rollCycle:Lnet/openhft/chronicle/queue/RollCycle;
+       4: areturn
+
+  static org.slf4j.Logger access$700();
+    Code:
+       0: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static net.openhft.chronicle.wire.WireType access$800(net.openhft.chronicle.queue.impl.single.SingleChronicleQueue);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field wireType:Lnet/openhft/chronicle/wire/WireType;
+       4: areturn
+
+  static boolean access$900(net.openhft.chronicle.queue.impl.single.SingleChronicleQueue);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field readOnly:Z
+       4: ireturn
+
+  static java.util.function.BiFunction access$1000(net.openhft.chronicle.queue.impl.single.SingleChronicleQueue);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field storeFactory:Ljava/util/function/BiFunction;
+       4: areturn
+
+  static java.util.function.Function access$1300(net.openhft.chronicle.queue.impl.single.SingleChronicleQueue);
+    Code:
+       0: aload_0
+       1: invokespecial #3                  // Method fileToText:()Ljava/util/function/Function;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc           #190                // class net/openhft/chronicle/queue/impl/single/SingleChronicleQueue
+       2: invokestatic  #191                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       8: ldc_w         #341                // String chronicle.queue.checkrollcycle
+      11: invokestatic  #342                // Method net/openhft/chronicle/core/Jvm.getBoolean:(Ljava/lang/String;)Z
+      14: putstatic     #11                 // Field SHOULD_CHECK_CYCLE:Z
+      17: return
+}

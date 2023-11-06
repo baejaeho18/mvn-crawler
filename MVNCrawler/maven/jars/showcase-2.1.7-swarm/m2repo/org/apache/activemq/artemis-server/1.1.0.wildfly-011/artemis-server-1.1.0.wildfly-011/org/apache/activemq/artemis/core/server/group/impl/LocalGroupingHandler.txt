@@ -1,0 +1,802 @@
+Compiled from "LocalGroupingHandler.java"
+public final class org.apache.activemq.artemis.core.server.group.impl.LocalGroupingHandler extends org.apache.activemq.artemis.core.server.group.impl.GroupHandlingAbstract {
+  private final java.util.concurrent.ConcurrentMap<org.apache.activemq.artemis.api.core.SimpleString, org.apache.activemq.artemis.core.server.group.impl.GroupBinding> map;
+
+  private final java.util.concurrent.ConcurrentMap<org.apache.activemq.artemis.api.core.SimpleString, java.util.List<org.apache.activemq.artemis.core.server.group.impl.GroupBinding>> groupMap;
+
+  private final org.apache.activemq.artemis.api.core.SimpleString name;
+
+  private final org.apache.activemq.artemis.core.persistence.StorageManager storageManager;
+
+  private final long timeout;
+
+  private final java.util.concurrent.locks.Lock lock;
+
+  private final java.util.concurrent.locks.Condition awaitCondition;
+
+  private java.util.List<org.apache.activemq.artemis.api.core.SimpleString> expectedBindings;
+
+  private final long groupTimeout;
+
+  private boolean waitingForBindings;
+
+  private final java.util.concurrent.ScheduledExecutorService scheduledExecutor;
+
+  private boolean started;
+
+  private java.util.concurrent.ScheduledFuture reaperFuture;
+
+  private long reaperPeriod;
+
+  public org.apache.activemq.artemis.core.server.group.impl.LocalGroupingHandler(org.apache.activemq.artemis.utils.ExecutorFactory, java.util.concurrent.ScheduledExecutorService, org.apache.activemq.artemis.core.server.management.ManagementService, org.apache.activemq.artemis.api.core.SimpleString, org.apache.activemq.artemis.api.core.SimpleString, org.apache.activemq.artemis.core.persistence.StorageManager, long, long, long);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokeinterface #5,  1            // InterfaceMethod org/apache/activemq/artemis/utils/ExecutorFactory.getExecutor:()Ljava/util/concurrent/Executor;
+       7: aload_3
+       8: aload         5
+      10: invokespecial #6                  // Method org/apache/activemq/artemis/core/server/group/impl/GroupHandlingAbstract."<init>":(Ljava/util/concurrent/Executor;Lorg/apache/activemq/artemis/core/server/management/ManagementService;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+      13: aload_0
+      14: new           #7                  // class java/util/concurrent/ConcurrentHashMap
+      17: dup
+      18: invokespecial #8                  // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      21: putfield      #4                  // Field map:Ljava/util/concurrent/ConcurrentMap;
+      24: aload_0
+      25: new           #7                  // class java/util/concurrent/ConcurrentHashMap
+      28: dup
+      29: invokespecial #8                  // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      32: putfield      #1                  // Field groupMap:Ljava/util/concurrent/ConcurrentMap;
+      35: aload_0
+      36: new           #9                  // class java/util/concurrent/locks/ReentrantLock
+      39: dup
+      40: invokespecial #10                 // Method java/util/concurrent/locks/ReentrantLock."<init>":()V
+      43: putfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+      46: aload_0
+      47: aload_0
+      48: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+      51: invokeinterface #12,  1           // InterfaceMethod java/util/concurrent/locks/Lock.newCondition:()Ljava/util/concurrent/locks/Condition;
+      56: putfield      #13                 // Field awaitCondition:Ljava/util/concurrent/locks/Condition;
+      59: aload_0
+      60: new           #14                 // class java/util/LinkedList
+      63: dup
+      64: invokespecial #15                 // Method java/util/LinkedList."<init>":()V
+      67: putfield      #16                 // Field expectedBindings:Ljava/util/List;
+      70: aload_0
+      71: iconst_0
+      72: putfield      #17                 // Field waitingForBindings:Z
+      75: aload_0
+      76: lload         11
+      78: putfield      #18                 // Field reaperPeriod:J
+      81: aload_0
+      82: aload_2
+      83: putfield      #19                 // Field scheduledExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+      86: aload_0
+      87: aload         4
+      89: putfield      #20                 // Field name:Lorg/apache/activemq/artemis/api/core/SimpleString;
+      92: aload_0
+      93: aload         6
+      95: putfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+      98: aload_0
+      99: lload         7
+     101: putfield      #21                 // Field timeout:J
+     104: aload_0
+     105: lload         9
+     107: putfield      #2                  // Field groupTimeout:J
+     110: return
+
+  public org.apache.activemq.artemis.api.core.SimpleString getName();
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field name:Lorg/apache/activemq/artemis/api/core/SimpleString;
+       4: areturn
+
+  public org.apache.activemq.artemis.core.server.group.impl.Response propose(org.apache.activemq.artemis.core.server.group.impl.Proposal) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+       4: invokeinterface #22,  1           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.getContext:()Lorg/apache/activemq/artemis/core/persistence/OperationContext;
+       9: astore_2
+      10: aload_0
+      11: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+      14: aload_0
+      15: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+      18: invokeinterface #23,  1           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.newSingleThreadContext:()Lorg/apache/activemq/artemis/core/persistence/OperationContext;
+      23: invokeinterface #24,  2           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.setContext:(Lorg/apache/activemq/artemis/core/persistence/OperationContext;)V
+      28: aload_1
+      29: invokevirtual #25                 // Method org/apache/activemq/artemis/core/server/group/impl/Proposal.getClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+      32: ifnonnull     106
+      35: aload_0
+      36: getfield      #4                  // Field map:Ljava/util/concurrent/ConcurrentMap;
+      39: aload_1
+      40: invokevirtual #26                 // Method org/apache/activemq/artemis/core/server/group/impl/Proposal.getGroupId:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+      43: invokeinterface #27,  2           // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      48: checkcast     #28                 // class org/apache/activemq/artemis/core/server/group/impl/GroupBinding
+      51: astore_3
+      52: aload_3
+      53: ifnull        90
+      56: aload_3
+      57: invokevirtual #29                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.use:()V
+      60: new           #30                 // class org/apache/activemq/artemis/core/server/group/impl/Response
+      63: dup
+      64: aload_1
+      65: invokevirtual #26                 // Method org/apache/activemq/artemis/core/server/group/impl/Proposal.getGroupId:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+      68: aload_3
+      69: invokevirtual #31                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.getClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+      72: invokespecial #32                 // Method org/apache/activemq/artemis/core/server/group/impl/Response."<init>":(Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+      75: astore        4
+      77: aload_0
+      78: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+      81: aload_2
+      82: invokeinterface #24,  2           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.setContext:(Lorg/apache/activemq/artemis/core/persistence/OperationContext;)V
+      87: aload         4
+      89: areturn
+      90: aconst_null
+      91: astore        4
+      93: aload_0
+      94: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+      97: aload_2
+      98: invokeinterface #24,  2           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.setContext:(Lorg/apache/activemq/artemis/core/persistence/OperationContext;)V
+     103: aload         4
+     105: areturn
+     106: iconst_0
+     107: istore_3
+     108: aconst_null
+     109: astore        4
+     111: aload_0
+     112: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+     115: invokeinterface #33,  1           // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+     120: aload_0
+     121: getfield      #4                  // Field map:Ljava/util/concurrent/ConcurrentMap;
+     124: aload_1
+     125: invokevirtual #26                 // Method org/apache/activemq/artemis/core/server/group/impl/Proposal.getGroupId:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+     128: invokeinterface #27,  2           // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     133: checkcast     #28                 // class org/apache/activemq/artemis/core/server/group/impl/GroupBinding
+     136: astore        4
+     138: aload         4
+     140: ifnull        193
+     143: aload         4
+     145: invokevirtual #29                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.use:()V
+     148: new           #30                 // class org/apache/activemq/artemis/core/server/group/impl/Response
+     151: dup
+     152: aload         4
+     154: invokevirtual #34                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.getGroupId:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+     157: aload_1
+     158: invokevirtual #25                 // Method org/apache/activemq/artemis/core/server/group/impl/Proposal.getClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+     161: aload         4
+     163: invokevirtual #31                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.getClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+     166: invokespecial #35                 // Method org/apache/activemq/artemis/core/server/group/impl/Response."<init>":(Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+     169: astore        5
+     171: aload_0
+     172: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+     175: invokeinterface #36,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     180: aload_0
+     181: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+     184: aload_2
+     185: invokeinterface #24,  2           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.setContext:(Lorg/apache/activemq/artemis/core/persistence/OperationContext;)V
+     190: aload         5
+     192: areturn
+     193: iconst_1
+     194: istore_3
+     195: new           #28                 // class org/apache/activemq/artemis/core/server/group/impl/GroupBinding
+     198: dup
+     199: aload_1
+     200: invokevirtual #26                 // Method org/apache/activemq/artemis/core/server/group/impl/Proposal.getGroupId:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+     203: aload_1
+     204: invokevirtual #25                 // Method org/apache/activemq/artemis/core/server/group/impl/Proposal.getClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+     207: invokespecial #37                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding."<init>":(Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+     210: astore        4
+     212: aload         4
+     214: aload_0
+     215: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+     218: invokeinterface #38,  1           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.generateID:()J
+     223: invokevirtual #39                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.setId:(J)V
+     226: new           #40                 // class java/util/ArrayList
+     229: dup
+     230: invokespecial #41                 // Method java/util/ArrayList."<init>":()V
+     233: astore        5
+     235: aload_0
+     236: getfield      #1                  // Field groupMap:Ljava/util/concurrent/ConcurrentMap;
+     239: aload         4
+     241: invokevirtual #31                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.getClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+     244: aload         5
+     246: invokeinterface #42,  3           // InterfaceMethod java/util/concurrent/ConcurrentMap.putIfAbsent:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     251: checkcast     #43                 // class java/util/List
+     254: astore        6
+     256: aload         6
+     258: ifnull        265
+     261: aload         6
+     263: astore        5
+     265: aload         5
+     267: aload         4
+     269: invokeinterface #44,  2           // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     274: pop
+     275: aload_0
+     276: getfield      #4                  // Field map:Ljava/util/concurrent/ConcurrentMap;
+     279: aload         4
+     281: invokevirtual #34                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.getGroupId:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+     284: aload         4
+     286: invokeinterface #45,  3           // InterfaceMethod java/util/concurrent/ConcurrentMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     291: pop
+     292: aload_0
+     293: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+     296: invokeinterface #36,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     301: goto          318
+     304: astore        7
+     306: aload_0
+     307: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+     310: invokeinterface #36,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     315: aload         7
+     317: athrow
+     318: iload_3
+     319: ifeq          333
+     322: aload_0
+     323: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+     326: aload         4
+     328: invokeinterface #46,  2           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.addGrouping:(Lorg/apache/activemq/artemis/core/server/group/impl/GroupBinding;)V
+     333: new           #30                 // class org/apache/activemq/artemis/core/server/group/impl/Response
+     336: dup
+     337: aload         4
+     339: invokevirtual #34                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.getGroupId:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+     342: aload         4
+     344: invokevirtual #31                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.getClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+     347: invokespecial #32                 // Method org/apache/activemq/artemis/core/server/group/impl/Response."<init>":(Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+     350: astore        5
+     352: aload_0
+     353: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+     356: aload_2
+     357: invokeinterface #24,  2           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.setContext:(Lorg/apache/activemq/artemis/core/persistence/OperationContext;)V
+     362: aload         5
+     364: areturn
+     365: astore        8
+     367: aload_0
+     368: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+     371: aload_2
+     372: invokeinterface #24,  2           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.setContext:(Lorg/apache/activemq/artemis/core/persistence/OperationContext;)V
+     377: aload         8
+     379: athrow
+    Exception table:
+       from    to  target type
+         120   171   304   any
+         193   292   304   any
+         304   306   304   any
+          10    77   365   any
+          90    93   365   any
+         106   180   365   any
+         193   352   365   any
+         365   367   365   any
+
+  public void resendPending() throws java.lang.Exception;
+    Code:
+       0: return
+
+  public void proposed(org.apache.activemq.artemis.core.server.group.impl.Response) throws java.lang.Exception;
+    Code:
+       0: return
+
+  public void remove(org.apache.activemq.artemis.api.core.SimpleString, org.apache.activemq.artemis.api.core.SimpleString, int) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokevirtual #47                 // Method remove:(Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+       6: return
+
+  public void sendProposalResponse(org.apache.activemq.artemis.core.server.group.impl.Response, int) throws java.lang.Exception;
+    Code:
+       0: new           #48                 // class org/apache/activemq/artemis/utils/TypedProperties
+       3: dup
+       4: invokespecial #49                 // Method org/apache/activemq/artemis/utils/TypedProperties."<init>":()V
+       7: astore_3
+       8: aload_3
+       9: getstatic     #50                 // Field org/apache/activemq/artemis/api/core/management/ManagementHelper.HDR_PROPOSAL_GROUP_ID:Lorg/apache/activemq/artemis/api/core/SimpleString;
+      12: aload_1
+      13: invokevirtual #51                 // Method org/apache/activemq/artemis/core/server/group/impl/Response.getGroupId:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+      16: invokevirtual #52                 // Method org/apache/activemq/artemis/utils/TypedProperties.putSimpleStringProperty:(Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+      19: aload_3
+      20: getstatic     #53                 // Field org/apache/activemq/artemis/api/core/management/ManagementHelper.HDR_PROPOSAL_VALUE:Lorg/apache/activemq/artemis/api/core/SimpleString;
+      23: aload_1
+      24: invokevirtual #54                 // Method org/apache/activemq/artemis/core/server/group/impl/Response.getClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+      27: invokevirtual #52                 // Method org/apache/activemq/artemis/utils/TypedProperties.putSimpleStringProperty:(Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+      30: aload_3
+      31: getstatic     #55                 // Field org/apache/activemq/artemis/api/core/management/ManagementHelper.HDR_PROPOSAL_ALT_VALUE:Lorg/apache/activemq/artemis/api/core/SimpleString;
+      34: aload_1
+      35: invokevirtual #56                 // Method org/apache/activemq/artemis/core/server/group/impl/Response.getAlternativeClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+      38: invokevirtual #52                 // Method org/apache/activemq/artemis/utils/TypedProperties.putSimpleStringProperty:(Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+      41: aload_3
+      42: getstatic     #57                 // Field org/apache/activemq/artemis/api/core/management/ManagementHelper.HDR_BINDING_TYPE:Lorg/apache/activemq/artemis/api/core/SimpleString;
+      45: iconst_0
+      46: invokevirtual #59                 // Method org/apache/activemq/artemis/utils/TypedProperties.putIntProperty:(Lorg/apache/activemq/artemis/api/core/SimpleString;I)V
+      49: aload_3
+      50: getstatic     #60                 // Field org/apache/activemq/artemis/api/core/management/ManagementHelper.HDR_ADDRESS:Lorg/apache/activemq/artemis/api/core/SimpleString;
+      53: aload_0
+      54: getfield      #61                 // Field address:Lorg/apache/activemq/artemis/api/core/SimpleString;
+      57: invokevirtual #52                 // Method org/apache/activemq/artemis/utils/TypedProperties.putSimpleStringProperty:(Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+      60: aload_3
+      61: getstatic     #62                 // Field org/apache/activemq/artemis/api/core/management/ManagementHelper.HDR_DISTANCE:Lorg/apache/activemq/artemis/api/core/SimpleString;
+      64: iload_2
+      65: invokevirtual #59                 // Method org/apache/activemq/artemis/utils/TypedProperties.putIntProperty:(Lorg/apache/activemq/artemis/api/core/SimpleString;I)V
+      68: new           #63                 // class org/apache/activemq/artemis/core/server/management/Notification
+      71: dup
+      72: aconst_null
+      73: getstatic     #64                 // Field org/apache/activemq/artemis/api/core/management/CoreNotificationType.PROPOSAL_RESPONSE:Lorg/apache/activemq/artemis/api/core/management/CoreNotificationType;
+      76: aload_3
+      77: invokespecial #65                 // Method org/apache/activemq/artemis/core/server/management/Notification."<init>":(Ljava/lang/String;Lorg/apache/activemq/artemis/api/core/management/NotificationType;Lorg/apache/activemq/artemis/utils/TypedProperties;)V
+      80: astore        4
+      82: aload_0
+      83: getfield      #66                 // Field managementService:Lorg/apache/activemq/artemis/core/server/management/ManagementService;
+      86: aload         4
+      88: invokeinterface #67,  2           // InterfaceMethod org/apache/activemq/artemis/core/server/management/ManagementService.sendNotification:(Lorg/apache/activemq/artemis/core/server/management/Notification;)V
+      93: return
+
+  public org.apache.activemq.artemis.core.server.group.impl.Response receive(org.apache.activemq.artemis.core.server.group.impl.Proposal, int) throws java.lang.Exception;
+    Code:
+       0: getstatic     #68                 // Field org/apache/activemq/artemis/core/server/ActiveMQServerLogger.LOGGER:Lorg/apache/activemq/artemis/core/server/ActiveMQServerLogger;
+       3: new           #69                 // class java/lang/StringBuilder
+       6: dup
+       7: invokespecial #70                 // Method java/lang/StringBuilder."<init>":()V
+      10: ldc           #71                 // String received proposal
+      12: invokevirtual #72                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      15: aload_1
+      16: invokevirtual #73                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      19: invokevirtual #74                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      22: invokeinterface #75,  2           // InterfaceMethod org/apache/activemq/artemis/core/server/ActiveMQServerLogger.trace:(Ljava/lang/Object;)V
+      27: aload_0
+      28: aload_1
+      29: invokevirtual #76                 // Method propose:(Lorg/apache/activemq/artemis/core/server/group/impl/Proposal;)Lorg/apache/activemq/artemis/core/server/group/impl/Response;
+      32: areturn
+
+  public void addGroupBinding(org.apache.activemq.artemis.core.server.group.impl.GroupBinding);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field map:Ljava/util/concurrent/ConcurrentMap;
+       4: aload_1
+       5: invokevirtual #34                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.getGroupId:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+       8: aload_1
+       9: invokeinterface #45,  3           // InterfaceMethod java/util/concurrent/ConcurrentMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      14: pop
+      15: new           #40                 // class java/util/ArrayList
+      18: dup
+      19: invokespecial #41                 // Method java/util/ArrayList."<init>":()V
+      22: astore_2
+      23: aload_0
+      24: getfield      #1                  // Field groupMap:Ljava/util/concurrent/ConcurrentMap;
+      27: aload_1
+      28: invokevirtual #31                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.getClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+      31: aload_2
+      32: invokeinterface #42,  3           // InterfaceMethod java/util/concurrent/ConcurrentMap.putIfAbsent:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      37: checkcast     #43                 // class java/util/List
+      40: astore_3
+      41: aload_3
+      42: ifnull        47
+      45: aload_3
+      46: astore_2
+      47: aload_2
+      48: aload_1
+      49: invokeinterface #44,  2           // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      54: pop
+      55: return
+
+  public org.apache.activemq.artemis.core.server.group.impl.Response getProposal(org.apache.activemq.artemis.api.core.SimpleString, boolean);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field map:Ljava/util/concurrent/ConcurrentMap;
+       4: aload_1
+       5: invokeinterface #27,  2           // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #28                 // class org/apache/activemq/artemis/core/server/group/impl/GroupBinding
+      13: astore_3
+      14: aload_3
+      15: ifnull        39
+      18: iload_2
+      19: ifeq          26
+      22: aload_3
+      23: invokevirtual #29                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.use:()V
+      26: new           #30                 // class org/apache/activemq/artemis/core/server/group/impl/Response
+      29: dup
+      30: aload_1
+      31: aload_3
+      32: invokevirtual #31                 // Method org/apache/activemq/artemis/core/server/group/impl/GroupBinding.getClusterName:()Lorg/apache/activemq/artemis/api/core/SimpleString;
+      35: invokespecial #32                 // Method org/apache/activemq/artemis/core/server/group/impl/Response."<init>":(Lorg/apache/activemq/artemis/api/core/SimpleString;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+      38: areturn
+      39: aconst_null
+      40: areturn
+
+  public void remove(org.apache.activemq.artemis.api.core.SimpleString, org.apache.activemq.artemis.api.core.SimpleString);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field map:Ljava/util/concurrent/ConcurrentMap;
+       4: aload_1
+       5: invokeinterface #77,  2           // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #28                 // class org/apache/activemq/artemis/core/server/group/impl/GroupBinding
+      13: astore_3
+      14: aload_0
+      15: getfield      #1                  // Field groupMap:Ljava/util/concurrent/ConcurrentMap;
+      18: aload_2
+      19: invokeinterface #27,  2           // InterfaceMethod java/util/concurrent/ConcurrentMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      24: checkcast     #43                 // class java/util/List
+      27: astore        4
+      29: aload         4
+      31: ifnull        101
+      34: aload_3
+      35: ifnull        101
+      38: aload         4
+      40: aload_3
+      41: invokeinterface #78,  2           // InterfaceMethod java/util/List.remove:(Ljava/lang/Object;)Z
+      46: pop
+      47: aload_0
+      48: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+      51: invokeinterface #38,  1           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.generateID:()J
+      56: lstore        5
+      58: aload_0
+      59: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+      62: lload         5
+      64: aload_3
+      65: invokeinterface #79,  4           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.deleteGrouping:(JLorg/apache/activemq/artemis/core/server/group/impl/GroupBinding;)V
+      70: aload_0
+      71: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+      74: lload         5
+      76: invokeinterface #80,  3           // InterfaceMethod org/apache/activemq/artemis/core/persistence/StorageManager.commitBindings:(J)V
+      81: goto          101
+      84: astore        5
+      86: getstatic     #68                 // Field org/apache/activemq/artemis/core/server/ActiveMQServerLogger.LOGGER:Lorg/apache/activemq/artemis/core/server/ActiveMQServerLogger;
+      89: aload         5
+      91: invokevirtual #82                 // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+      94: aload         5
+      96: invokeinterface #83,  3           // InterfaceMethod org/apache/activemq/artemis/core/server/ActiveMQServerLogger.warn:(Ljava/lang/Object;Ljava/lang/Throwable;)V
+     101: return
+    Exception table:
+       from    to  target type
+          47    81    84   Class java/lang/Exception
+
+  public void awaitBindings() throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+       4: invokeinterface #33,  1           // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+       9: aload_0
+      10: getfield      #1                  // Field groupMap:Ljava/util/concurrent/ConcurrentMap;
+      13: invokeinterface #84,  1           // InterfaceMethod java/util/concurrent/ConcurrentMap.size:()I
+      18: ifle          176
+      21: aload_0
+      22: iconst_1
+      23: putfield      #17                 // Field waitingForBindings:Z
+      26: aload_0
+      27: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+      30: ifnonnull     51
+      33: invokestatic  #85                 // Method java/util/Collections.emptyList:()Ljava/util/List;
+      36: astore_1
+      37: aload_0
+      38: new           #14                 // class java/util/LinkedList
+      41: dup
+      42: invokespecial #15                 // Method java/util/LinkedList."<init>":()V
+      45: putfield      #16                 // Field expectedBindings:Ljava/util/List;
+      48: goto          72
+      51: new           #40                 // class java/util/ArrayList
+      54: dup
+      55: aload_0
+      56: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+      59: invokespecial #86                 // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+      62: astore_1
+      63: aload_0
+      64: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+      67: invokeinterface #87,  1           // InterfaceMethod java/util/List.clear:()V
+      72: aload_0
+      73: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+      76: aload_0
+      77: getfield      #1                  // Field groupMap:Ljava/util/concurrent/ConcurrentMap;
+      80: invokeinterface #88,  1           // InterfaceMethod java/util/concurrent/ConcurrentMap.keySet:()Ljava/util/Set;
+      85: invokeinterface #89,  2           // InterfaceMethod java/util/List.addAll:(Ljava/util/Collection;)Z
+      90: pop
+      91: aload_0
+      92: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+      95: aload_1
+      96: invokeinterface #90,  2           // InterfaceMethod java/util/List.removeAll:(Ljava/util/Collection;)Z
+     101: pop
+     102: aload_0
+     103: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+     106: invokeinterface #91,  1           // InterfaceMethod java/util/List.size:()I
+     111: ifle          176
+     114: getstatic     #68                 // Field org/apache/activemq/artemis/core/server/ActiveMQServerLogger.LOGGER:Lorg/apache/activemq/artemis/core/server/ActiveMQServerLogger;
+     117: new           #69                 // class java/lang/StringBuilder
+     120: dup
+     121: invokespecial #70                 // Method java/lang/StringBuilder."<init>":()V
+     124: ldc           #92                 // String Waiting remote group bindings to arrive before starting the server. timeout=
+     126: invokevirtual #72                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     129: aload_0
+     130: getfield      #21                 // Field timeout:J
+     133: invokevirtual #93                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     136: ldc           #94                 // String  milliseconds
+     138: invokevirtual #72                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     141: invokevirtual #74                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     144: invokeinterface #95,  2           // InterfaceMethod org/apache/activemq/artemis/core/server/ActiveMQServerLogger.debug:(Ljava/lang/Object;)V
+     149: aload_0
+     150: getfield      #13                 // Field awaitCondition:Ljava/util/concurrent/locks/Condition;
+     153: aload_0
+     154: getfield      #21                 // Field timeout:J
+     157: getstatic     #96                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     160: invokeinterface #97,  4           // InterfaceMethod java/util/concurrent/locks/Condition.await:(JLjava/util/concurrent/TimeUnit;)Z
+     165: ifne          176
+     168: getstatic     #68                 // Field org/apache/activemq/artemis/core/server/ActiveMQServerLogger.LOGGER:Lorg/apache/activemq/artemis/core/server/ActiveMQServerLogger;
+     171: invokeinterface #98,  1           // InterfaceMethod org/apache/activemq/artemis/core/server/ActiveMQServerLogger.remoteGroupCoordinatorsNotStarted:()V
+     176: aload_0
+     177: aconst_null
+     178: putfield      #16                 // Field expectedBindings:Ljava/util/List;
+     181: aload_0
+     182: iconst_0
+     183: putfield      #17                 // Field waitingForBindings:Z
+     186: aload_0
+     187: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+     190: invokeinterface #36,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     195: goto          220
+     198: astore_2
+     199: aload_0
+     200: aconst_null
+     201: putfield      #16                 // Field expectedBindings:Ljava/util/List;
+     204: aload_0
+     205: iconst_0
+     206: putfield      #17                 // Field waitingForBindings:Z
+     209: aload_0
+     210: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+     213: invokeinterface #36,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     218: aload_2
+     219: athrow
+     220: return
+    Exception table:
+       from    to  target type
+           9   176   198   any
+
+  public void onNotification(org.apache.activemq.artemis.core.server.management.Notification);
+    Code:
+       0: aload_1
+       1: invokevirtual #99                 // Method org/apache/activemq/artemis/core/server/management/Notification.getType:()Lorg/apache/activemq/artemis/api/core/management/NotificationType;
+       4: instanceof    #100                // class org/apache/activemq/artemis/api/core/management/CoreNotificationType
+       7: ifne          11
+      10: return
+      11: aload_1
+      12: invokevirtual #99                 // Method org/apache/activemq/artemis/core/server/management/Notification.getType:()Lorg/apache/activemq/artemis/api/core/management/NotificationType;
+      15: getstatic     #101                // Field org/apache/activemq/artemis/api/core/management/CoreNotificationType.BINDING_REMOVED:Lorg/apache/activemq/artemis/api/core/management/CoreNotificationType;
+      18: if_acmpne     40
+      21: aload_1
+      22: invokevirtual #102                // Method org/apache/activemq/artemis/core/server/management/Notification.getProperties:()Lorg/apache/activemq/artemis/utils/TypedProperties;
+      25: getstatic     #103                // Field org/apache/activemq/artemis/api/core/management/ManagementHelper.HDR_CLUSTER_NAME:Lorg/apache/activemq/artemis/api/core/SimpleString;
+      28: invokevirtual #104                // Method org/apache/activemq/artemis/utils/TypedProperties.getSimpleStringProperty:(Lorg/apache/activemq/artemis/api/core/SimpleString;)Lorg/apache/activemq/artemis/api/core/SimpleString;
+      31: astore_2
+      32: aload_0
+      33: aload_2
+      34: invokespecial #105                // Method removeGrouping:(Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+      37: goto          324
+      40: aload_1
+      41: invokevirtual #99                 // Method org/apache/activemq/artemis/core/server/management/Notification.getType:()Lorg/apache/activemq/artemis/api/core/management/NotificationType;
+      44: getstatic     #106                // Field org/apache/activemq/artemis/api/core/management/CoreNotificationType.BINDING_ADDED:Lorg/apache/activemq/artemis/api/core/management/CoreNotificationType;
+      47: if_acmpne     324
+      50: aload_1
+      51: invokevirtual #102                // Method org/apache/activemq/artemis/core/server/management/Notification.getProperties:()Lorg/apache/activemq/artemis/utils/TypedProperties;
+      54: getstatic     #103                // Field org/apache/activemq/artemis/api/core/management/ManagementHelper.HDR_CLUSTER_NAME:Lorg/apache/activemq/artemis/api/core/SimpleString;
+      57: invokevirtual #104                // Method org/apache/activemq/artemis/utils/TypedProperties.getSimpleStringProperty:(Lorg/apache/activemq/artemis/api/core/SimpleString;)Lorg/apache/activemq/artemis/api/core/SimpleString;
+      60: astore_2
+      61: aload_0
+      62: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+      65: invokeinterface #33,  1           // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+      70: aload_0
+      71: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+      74: ifnull        298
+      77: aload_0
+      78: getfield      #17                 // Field waitingForBindings:Z
+      81: ifeq          167
+      84: aload_0
+      85: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+      88: aload_2
+      89: invokeinterface #78,  2           // InterfaceMethod java/util/List.remove:(Ljava/lang/Object;)Z
+      94: ifeq          132
+      97: getstatic     #68                 // Field org/apache/activemq/artemis/core/server/ActiveMQServerLogger.LOGGER:Lorg/apache/activemq/artemis/core/server/ActiveMQServerLogger;
+     100: new           #69                 // class java/lang/StringBuilder
+     103: dup
+     104: invokespecial #70                 // Method java/lang/StringBuilder."<init>":()V
+     107: ldc           #107                // String OnNotification for waitForbindings::Removed clusterName=
+     109: invokevirtual #72                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     112: aload_2
+     113: invokevirtual #73                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     116: ldc           #108                // String  from lis succesffully
+     118: invokevirtual #72                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     121: invokevirtual #74                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     124: invokeinterface #95,  2           // InterfaceMethod org/apache/activemq/artemis/core/server/ActiveMQServerLogger.debug:(Ljava/lang/Object;)V
+     129: goto          205
+     132: getstatic     #68                 // Field org/apache/activemq/artemis/core/server/ActiveMQServerLogger.LOGGER:Lorg/apache/activemq/artemis/core/server/ActiveMQServerLogger;
+     135: new           #69                 // class java/lang/StringBuilder
+     138: dup
+     139: invokespecial #70                 // Method java/lang/StringBuilder."<init>":()V
+     142: ldc           #109                // String OnNotification for waitForbindings::Couldn\'t remove clusterName=
+     144: invokevirtual #72                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     147: aload_2
+     148: invokevirtual #73                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     151: ldc           #110                // String  as it wasn\'t on the original list
+     153: invokevirtual #72                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     156: invokevirtual #74                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     159: invokeinterface #95,  2           // InterfaceMethod org/apache/activemq/artemis/core/server/ActiveMQServerLogger.debug:(Ljava/lang/Object;)V
+     164: goto          205
+     167: aload_0
+     168: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+     171: aload_2
+     172: invokeinterface #44,  2           // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     177: pop
+     178: getstatic     #68                 // Field org/apache/activemq/artemis/core/server/ActiveMQServerLogger.LOGGER:Lorg/apache/activemq/artemis/core/server/ActiveMQServerLogger;
+     181: new           #69                 // class java/lang/StringBuilder
+     184: dup
+     185: invokespecial #70                 // Method java/lang/StringBuilder."<init>":()V
+     188: ldc           #111                // String Notification for waitForbindings::Adding previously known item clusterName=
+     190: invokevirtual #72                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     193: aload_2
+     194: invokevirtual #73                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     197: invokevirtual #74                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     200: invokeinterface #95,  2           // InterfaceMethod org/apache/activemq/artemis/core/server/ActiveMQServerLogger.debug:(Ljava/lang/Object;)V
+     205: getstatic     #68                 // Field org/apache/activemq/artemis/core/server/ActiveMQServerLogger.LOGGER:Lorg/apache/activemq/artemis/core/server/ActiveMQServerLogger;
+     208: invokeinterface #112,  1          // InterfaceMethod org/apache/activemq/artemis/core/server/ActiveMQServerLogger.isDebugEnabled:()Z
+     213: ifeq          277
+     216: aload_0
+     217: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+     220: invokeinterface #113,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     225: astore_3
+     226: aload_3
+     227: invokeinterface #114,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     232: ifeq          277
+     235: aload_3
+     236: invokeinterface #115,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     241: checkcast     #116                // class org/apache/activemq/artemis/api/core/SimpleString
+     244: astore        4
+     246: getstatic     #68                 // Field org/apache/activemq/artemis/core/server/ActiveMQServerLogger.LOGGER:Lorg/apache/activemq/artemis/core/server/ActiveMQServerLogger;
+     249: new           #69                 // class java/lang/StringBuilder
+     252: dup
+     253: invokespecial #70                 // Method java/lang/StringBuilder."<init>":()V
+     256: ldc           #117                // String Notification for waitForbindings::Still waiting for clusterName=
+     258: invokevirtual #72                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     261: aload         4
+     263: invokevirtual #73                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     266: invokevirtual #74                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     269: invokeinterface #95,  2           // InterfaceMethod org/apache/activemq/artemis/core/server/ActiveMQServerLogger.debug:(Ljava/lang/Object;)V
+     274: goto          226
+     277: aload_0
+     278: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+     281: invokeinterface #91,  1           // InterfaceMethod java/util/List.size:()I
+     286: ifne          298
+     289: aload_0
+     290: getfield      #13                 // Field awaitCondition:Ljava/util/concurrent/locks/Condition;
+     293: invokeinterface #118,  1          // InterfaceMethod java/util/concurrent/locks/Condition.signal:()V
+     298: aload_0
+     299: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+     302: invokeinterface #36,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     307: goto          324
+     310: astore        5
+     312: aload_0
+     313: getfield      #11                 // Field lock:Ljava/util/concurrent/locks/Lock;
+     316: invokeinterface #36,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     321: aload         5
+     323: athrow
+     324: return
+    Exception table:
+       from    to  target type
+          61   298   310   any
+         310   312   310   any
+
+  public synchronized void start() throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: getfield      #119                // Field started:Z
+       4: ifeq          8
+       7: return
+       8: aload_0
+       9: getfield      #16                 // Field expectedBindings:Ljava/util/List;
+      12: ifnonnull     26
+      15: aload_0
+      16: new           #14                 // class java/util/LinkedList
+      19: dup
+      20: invokespecial #15                 // Method java/util/LinkedList."<init>":()V
+      23: putfield      #16                 // Field expectedBindings:Ljava/util/List;
+      26: aload_0
+      27: getfield      #18                 // Field reaperPeriod:J
+      30: lconst_0
+      31: lcmp
+      32: ifle          100
+      35: aload_0
+      36: getfield      #2                  // Field groupTimeout:J
+      39: lconst_0
+      40: lcmp
+      41: ifle          100
+      44: aload_0
+      45: getfield      #120                // Field reaperFuture:Ljava/util/concurrent/ScheduledFuture;
+      48: ifnull        67
+      51: aload_0
+      52: getfield      #120                // Field reaperFuture:Ljava/util/concurrent/ScheduledFuture;
+      55: iconst_1
+      56: invokeinterface #121,  2          // InterfaceMethod java/util/concurrent/ScheduledFuture.cancel:(Z)Z
+      61: pop
+      62: aload_0
+      63: aconst_null
+      64: putfield      #120                // Field reaperFuture:Ljava/util/concurrent/ScheduledFuture;
+      67: aload_0
+      68: aload_0
+      69: getfield      #19                 // Field scheduledExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+      72: new           #122                // class org/apache/activemq/artemis/core/server/group/impl/LocalGroupingHandler$GroupReaperScheduler
+      75: dup
+      76: aload_0
+      77: aconst_null
+      78: invokespecial #123                // Method org/apache/activemq/artemis/core/server/group/impl/LocalGroupingHandler$GroupReaperScheduler."<init>":(Lorg/apache/activemq/artemis/core/server/group/impl/LocalGroupingHandler;Lorg/apache/activemq/artemis/core/server/group/impl/LocalGroupingHandler$1;)V
+      81: aload_0
+      82: getfield      #18                 // Field reaperPeriod:J
+      85: aload_0
+      86: getfield      #18                 // Field reaperPeriod:J
+      89: getstatic     #96                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      92: invokeinterface #124,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+      97: putfield      #120                // Field reaperFuture:Ljava/util/concurrent/ScheduledFuture;
+     100: aload_0
+     101: iconst_1
+     102: putfield      #119                // Field started:Z
+     105: return
+
+  public synchronized void stop() throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: putfield      #119                // Field started:Z
+       5: aload_0
+       6: getfield      #120                // Field reaperFuture:Ljava/util/concurrent/ScheduledFuture;
+       9: ifnull        28
+      12: aload_0
+      13: getfield      #120                // Field reaperFuture:Ljava/util/concurrent/ScheduledFuture;
+      16: iconst_1
+      17: invokeinterface #121,  2          // InterfaceMethod java/util/concurrent/ScheduledFuture.cancel:(Z)Z
+      22: pop
+      23: aload_0
+      24: aconst_null
+      25: putfield      #120                // Field reaperFuture:Ljava/util/concurrent/ScheduledFuture;
+      28: return
+
+  public boolean isStarted();
+    Code:
+       0: aload_0
+       1: getfield      #119                // Field started:Z
+       4: ireturn
+
+  private void removeGrouping(org.apache.activemq.artemis.api.core.SimpleString);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field groupMap:Ljava/util/concurrent/ConcurrentMap;
+       4: aload_1
+       5: invokeinterface #77,  2           // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #43                 // class java/util/List
+      13: astore_2
+      14: aload_2
+      15: ifnull        37
+      18: aload_0
+      19: getfield      #125                // Field executor:Ljava/util/concurrent/Executor;
+      22: new           #126                // class org/apache/activemq/artemis/core/server/group/impl/LocalGroupingHandler$1
+      25: dup
+      26: aload_0
+      27: aload_2
+      28: aload_1
+      29: invokespecial #127                // Method org/apache/activemq/artemis/core/server/group/impl/LocalGroupingHandler$1."<init>":(Lorg/apache/activemq/artemis/core/server/group/impl/LocalGroupingHandler;Ljava/util/List;Lorg/apache/activemq/artemis/api/core/SimpleString;)V
+      32: invokeinterface #128,  2          // InterfaceMethod java/util/concurrent/Executor.execute:(Ljava/lang/Runnable;)V
+      37: return
+
+  static java.util.concurrent.ConcurrentMap access$100(org.apache.activemq.artemis.core.server.group.impl.LocalGroupingHandler);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field map:Ljava/util/concurrent/ConcurrentMap;
+       4: areturn
+
+  static org.apache.activemq.artemis.core.persistence.StorageManager access$200(org.apache.activemq.artemis.core.server.group.impl.LocalGroupingHandler);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field storageManager:Lorg/apache/activemq/artemis/core/persistence/StorageManager;
+       4: areturn
+
+  static long access$400(org.apache.activemq.artemis.core.server.group.impl.LocalGroupingHandler);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field groupTimeout:J
+       4: lreturn
+
+  static java.util.concurrent.ConcurrentMap access$500(org.apache.activemq.artemis.core.server.group.impl.LocalGroupingHandler);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field groupMap:Ljava/util/concurrent/ConcurrentMap;
+       4: areturn
+}

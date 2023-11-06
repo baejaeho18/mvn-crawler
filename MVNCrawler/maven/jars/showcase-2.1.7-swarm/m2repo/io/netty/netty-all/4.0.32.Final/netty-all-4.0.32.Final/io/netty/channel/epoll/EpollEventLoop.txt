@@ -1,0 +1,673 @@
+Compiled from "EpollEventLoop.java"
+final class io.netty.channel.epoll.EpollEventLoop extends io.netty.channel.SingleThreadEventLoop {
+  private static final io.netty.util.internal.logging.InternalLogger logger;
+
+  private static final java.util.concurrent.atomic.AtomicIntegerFieldUpdater<io.netty.channel.epoll.EpollEventLoop> WAKEN_UP_UPDATER;
+
+  private final int epollFd;
+
+  private final int eventFd;
+
+  private final io.netty.util.collection.IntObjectMap<io.netty.channel.epoll.AbstractEpollChannel> channels;
+
+  private final boolean allowGrowing;
+
+  private final io.netty.channel.epoll.EpollEventArray events;
+
+  private volatile int wakenUp;
+
+  private volatile int ioRatio;
+
+  static final boolean $assertionsDisabled;
+
+  io.netty.channel.epoll.EpollEventLoop(io.netty.channel.EventLoopGroup, java.util.concurrent.ThreadFactory, int);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: iconst_0
+       4: invokespecial #1                  // Method io/netty/channel/SingleThreadEventLoop."<init>":(Lio/netty/channel/EventLoopGroup;Ljava/util/concurrent/ThreadFactory;Z)V
+       7: aload_0
+       8: new           #2                  // class io/netty/util/collection/IntObjectHashMap
+      11: dup
+      12: sipush        4096
+      15: invokespecial #3                  // Method io/netty/util/collection/IntObjectHashMap."<init>":(I)V
+      18: putfield      #4                  // Field channels:Lio/netty/util/collection/IntObjectMap;
+      21: aload_0
+      22: bipush        50
+      24: putfield      #5                  // Field ioRatio:I
+      27: iload_3
+      28: ifne          53
+      31: aload_0
+      32: iconst_1
+      33: putfield      #6                  // Field allowGrowing:Z
+      36: aload_0
+      37: new           #7                  // class io/netty/channel/epoll/EpollEventArray
+      40: dup
+      41: sipush        4096
+      44: invokespecial #8                  // Method io/netty/channel/epoll/EpollEventArray."<init>":(I)V
+      47: putfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+      50: goto          70
+      53: aload_0
+      54: iconst_0
+      55: putfield      #6                  // Field allowGrowing:Z
+      58: aload_0
+      59: new           #7                  // class io/netty/channel/epoll/EpollEventArray
+      62: dup
+      63: iload_3
+      64: invokespecial #8                  // Method io/netty/channel/epoll/EpollEventArray."<init>":(I)V
+      67: putfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+      70: iconst_0
+      71: istore        4
+      73: iconst_m1
+      74: istore        5
+      76: iconst_m1
+      77: istore        6
+      79: aload_0
+      80: invokestatic  #10                 // Method io/netty/channel/epoll/Native.epollCreate:()I
+      83: dup
+      84: istore        5
+      86: putfield      #11                 // Field epollFd:I
+      89: aload_0
+      90: invokestatic  #12                 // Method io/netty/channel/epoll/Native.eventFd:()I
+      93: dup
+      94: istore        6
+      96: putfield      #13                 // Field eventFd:I
+      99: iload         5
+     101: iload         6
+     103: getstatic     #14                 // Field io/netty/channel/epoll/Native.EPOLLIN:I
+     106: invokestatic  #15                 // Method io/netty/channel/epoll/Native.epollCtlAdd:(III)V
+     109: goto          126
+     112: astore        7
+     114: new           #17                 // class java/lang/IllegalStateException
+     117: dup
+     118: ldc           #18                 // String Unable to add eventFd filedescriptor to epoll
+     120: aload         7
+     122: invokespecial #19                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     125: athrow
+     126: iconst_1
+     127: istore        4
+     129: iload         4
+     131: ifne          211
+     134: iload         5
+     136: iconst_m1
+     137: if_icmpeq     150
+     140: iload         5
+     142: invokestatic  #20                 // Method io/netty/channel/epoll/Native.close:(I)V
+     145: goto          150
+     148: astore        7
+     150: iload         6
+     152: iconst_m1
+     153: if_icmpeq     211
+     156: iload         6
+     158: invokestatic  #20                 // Method io/netty/channel/epoll/Native.close:(I)V
+     161: goto          211
+     164: astore        7
+     166: goto          211
+     169: astore        8
+     171: iload         4
+     173: ifne          208
+     176: iload         5
+     178: iconst_m1
+     179: if_icmpeq     192
+     182: iload         5
+     184: invokestatic  #20                 // Method io/netty/channel/epoll/Native.close:(I)V
+     187: goto          192
+     190: astore        9
+     192: iload         6
+     194: iconst_m1
+     195: if_icmpeq     208
+     198: iload         6
+     200: invokestatic  #20                 // Method io/netty/channel/epoll/Native.close:(I)V
+     203: goto          208
+     206: astore        9
+     208: aload         8
+     210: athrow
+     211: return
+    Exception table:
+       from    to  target type
+          99   109   112   Class java/io/IOException
+         140   145   148   Class java/lang/Exception
+         156   161   164   Class java/lang/Exception
+          79   129   169   any
+         182   187   190   Class java/lang/Exception
+         198   203   206   Class java/lang/Exception
+         169   171   169   any
+
+  protected void wakeup(boolean);
+    Code:
+       0: iload_1
+       1: ifne          24
+       4: getstatic     #22                 // Field WAKEN_UP_UPDATER:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+       7: aload_0
+       8: iconst_0
+       9: iconst_1
+      10: invokevirtual #23                 // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.compareAndSet:(Ljava/lang/Object;II)Z
+      13: ifeq          24
+      16: aload_0
+      17: getfield      #13                 // Field eventFd:I
+      20: lconst_1
+      21: invokestatic  #24                 // Method io/netty/channel/epoll/Native.eventFdWrite:(IJ)V
+      24: return
+
+  void add(io.netty.channel.epoll.AbstractEpollChannel) throws java.io.IOException;
+    Code:
+       0: getstatic     #25                 // Field $assertionsDisabled:Z
+       3: ifne          21
+       6: aload_0
+       7: invokevirtual #26                 // Method inEventLoop:()Z
+      10: ifne          21
+      13: new           #27                 // class java/lang/AssertionError
+      16: dup
+      17: invokespecial #28                 // Method java/lang/AssertionError."<init>":()V
+      20: athrow
+      21: aload_1
+      22: invokevirtual #29                 // Method io/netty/channel/epoll/AbstractEpollChannel.fd:()Lio/netty/channel/unix/FileDescriptor;
+      25: invokevirtual #30                 // Method io/netty/channel/unix/FileDescriptor.intValue:()I
+      28: istore_2
+      29: aload_0
+      30: getfield      #11                 // Field epollFd:I
+      33: iload_2
+      34: aload_1
+      35: getfield      #31                 // Field io/netty/channel/epoll/AbstractEpollChannel.flags:I
+      38: invokestatic  #15                 // Method io/netty/channel/epoll/Native.epollCtlAdd:(III)V
+      41: aload_0
+      42: getfield      #4                  // Field channels:Lio/netty/util/collection/IntObjectMap;
+      45: iload_2
+      46: aload_1
+      47: invokeinterface #32,  3           // InterfaceMethod io/netty/util/collection/IntObjectMap.put:(ILjava/lang/Object;)Ljava/lang/Object;
+      52: pop
+      53: return
+
+  void modify(io.netty.channel.epoll.AbstractEpollChannel) throws java.io.IOException;
+    Code:
+       0: getstatic     #25                 // Field $assertionsDisabled:Z
+       3: ifne          21
+       6: aload_0
+       7: invokevirtual #26                 // Method inEventLoop:()Z
+      10: ifne          21
+      13: new           #27                 // class java/lang/AssertionError
+      16: dup
+      17: invokespecial #28                 // Method java/lang/AssertionError."<init>":()V
+      20: athrow
+      21: aload_0
+      22: getfield      #11                 // Field epollFd:I
+      25: aload_1
+      26: invokevirtual #29                 // Method io/netty/channel/epoll/AbstractEpollChannel.fd:()Lio/netty/channel/unix/FileDescriptor;
+      29: invokevirtual #30                 // Method io/netty/channel/unix/FileDescriptor.intValue:()I
+      32: aload_1
+      33: getfield      #31                 // Field io/netty/channel/epoll/AbstractEpollChannel.flags:I
+      36: invokestatic  #33                 // Method io/netty/channel/epoll/Native.epollCtlMod:(III)V
+      39: return
+
+  void remove(io.netty.channel.epoll.AbstractEpollChannel) throws java.io.IOException;
+    Code:
+       0: getstatic     #25                 // Field $assertionsDisabled:Z
+       3: ifne          21
+       6: aload_0
+       7: invokevirtual #26                 // Method inEventLoop:()Z
+      10: ifne          21
+      13: new           #27                 // class java/lang/AssertionError
+      16: dup
+      17: invokespecial #28                 // Method java/lang/AssertionError."<init>":()V
+      20: athrow
+      21: aload_1
+      22: invokevirtual #34                 // Method io/netty/channel/epoll/AbstractEpollChannel.isOpen:()Z
+      25: ifeq          63
+      28: aload_1
+      29: invokevirtual #29                 // Method io/netty/channel/epoll/AbstractEpollChannel.fd:()Lio/netty/channel/unix/FileDescriptor;
+      32: invokevirtual #30                 // Method io/netty/channel/unix/FileDescriptor.intValue:()I
+      35: istore_2
+      36: aload_0
+      37: getfield      #4                  // Field channels:Lio/netty/util/collection/IntObjectMap;
+      40: iload_2
+      41: invokeinterface #35,  2           // InterfaceMethod io/netty/util/collection/IntObjectMap.remove:(I)Ljava/lang/Object;
+      46: ifnull        63
+      49: aload_0
+      50: getfield      #11                 // Field epollFd:I
+      53: aload_1
+      54: invokevirtual #29                 // Method io/netty/channel/epoll/AbstractEpollChannel.fd:()Lio/netty/channel/unix/FileDescriptor;
+      57: invokevirtual #30                 // Method io/netty/channel/unix/FileDescriptor.intValue:()I
+      60: invokestatic  #36                 // Method io/netty/channel/epoll/Native.epollCtlDel:(II)V
+      63: return
+
+  protected java.util.Queue<java.lang.Runnable> newTaskQueue();
+    Code:
+       0: invokestatic  #37                 // Method io/netty/util/internal/PlatformDependent.newMpscQueue:()Ljava/util/Queue;
+       3: areturn
+
+  public int getIoRatio();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field ioRatio:I
+       4: ireturn
+
+  public void setIoRatio(int);
+    Code:
+       0: iload_1
+       1: ifle          10
+       4: iload_1
+       5: bipush        100
+       7: if_icmple     42
+      10: new           #38                 // class java/lang/IllegalArgumentException
+      13: dup
+      14: new           #39                 // class java/lang/StringBuilder
+      17: dup
+      18: invokespecial #40                 // Method java/lang/StringBuilder."<init>":()V
+      21: ldc           #41                 // String ioRatio:
+      23: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: iload_1
+      27: invokevirtual #43                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      30: ldc           #44                 // String  (expected: 0 < ioRatio <= 100)
+      32: invokevirtual #42                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      35: invokevirtual #45                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      38: invokespecial #46                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      41: athrow
+      42: aload_0
+      43: iload_1
+      44: putfield      #5                  // Field ioRatio:I
+      47: return
+
+  private int epollWait(boolean) throws java.io.IOException;
+    Code:
+       0: iconst_0
+       1: istore_2
+       2: invokestatic  #47                 // Method java/lang/System.nanoTime:()J
+       5: lstore_3
+       6: lload_3
+       7: aload_0
+       8: lload_3
+       9: invokevirtual #48                 // Method delayNanos:(J)J
+      12: ladd
+      13: lstore        5
+      15: lload         5
+      17: lload_3
+      18: lsub
+      19: ldc2_w        #49                 // long 500000l
+      22: ladd
+      23: ldc2_w        #51                 // long 1000000l
+      26: ldiv
+      27: lstore        7
+      29: lload         7
+      31: lconst_0
+      32: lcmp
+      33: ifgt          65
+      36: iload_2
+      37: ifne          125
+      40: aload_0
+      41: getfield      #11                 // Field epollFd:I
+      44: aload_0
+      45: getfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+      48: iconst_0
+      49: invokestatic  #53                 // Method io/netty/channel/epoll/Native.epollWait:(ILio/netty/channel/epoll/EpollEventArray;I)I
+      52: istore        9
+      54: iload         9
+      56: ifle          62
+      59: iload         9
+      61: ireturn
+      62: goto          125
+      65: aload_0
+      66: getfield      #11                 // Field epollFd:I
+      69: aload_0
+      70: getfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+      73: lload         7
+      75: l2i
+      76: invokestatic  #53                 // Method io/netty/channel/epoll/Native.epollWait:(ILio/netty/channel/epoll/EpollEventArray;I)I
+      79: istore        9
+      81: iinc          2, 1
+      84: iload         9
+      86: ifne          115
+      89: iload_1
+      90: ifne          115
+      93: aload_0
+      94: getfield      #54                 // Field wakenUp:I
+      97: iconst_1
+      98: if_icmpeq     115
+     101: aload_0
+     102: invokevirtual #55                 // Method hasTasks:()Z
+     105: ifne          115
+     108: aload_0
+     109: invokevirtual #56                 // Method hasScheduledTasks:()Z
+     112: ifeq          118
+     115: iload         9
+     117: ireturn
+     118: invokestatic  #47                 // Method java/lang/System.nanoTime:()J
+     121: lstore_3
+     122: goto          15
+     125: iconst_0
+     126: ireturn
+
+  protected void run();
+    Code:
+       0: getstatic     #22                 // Field WAKEN_UP_UPDATER:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+       3: aload_0
+       4: iconst_0
+       5: invokevirtual #57                 // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.getAndSet:(Ljava/lang/Object;I)I
+       8: iconst_1
+       9: if_icmpne     16
+      12: iconst_1
+      13: goto          17
+      16: iconst_0
+      17: istore_1
+      18: aload_0
+      19: invokevirtual #55                 // Method hasTasks:()Z
+      22: ifeq          41
+      25: aload_0
+      26: getfield      #11                 // Field epollFd:I
+      29: aload_0
+      30: getfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+      33: iconst_0
+      34: invokestatic  #53                 // Method io/netty/channel/epoll/Native.epollWait:(ILio/netty/channel/epoll/EpollEventArray;I)I
+      37: istore_2
+      38: goto          63
+      41: aload_0
+      42: iload_1
+      43: invokespecial #58                 // Method epollWait:(Z)I
+      46: istore_2
+      47: aload_0
+      48: getfield      #54                 // Field wakenUp:I
+      51: iconst_1
+      52: if_icmpne     63
+      55: aload_0
+      56: getfield      #13                 // Field eventFd:I
+      59: lconst_1
+      60: invokestatic  #24                 // Method io/netty/channel/epoll/Native.eventFdWrite:(IJ)V
+      63: aload_0
+      64: getfield      #5                  // Field ioRatio:I
+      67: istore_3
+      68: iload_3
+      69: bipush        100
+      71: if_icmpne     95
+      74: iload_2
+      75: ifle          87
+      78: aload_0
+      79: aload_0
+      80: getfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+      83: iload_2
+      84: invokespecial #59                 // Method processReady:(Lio/netty/channel/epoll/EpollEventArray;I)V
+      87: aload_0
+      88: invokevirtual #60                 // Method runAllTasks:()Z
+      91: pop
+      92: goto          137
+      95: invokestatic  #47                 // Method java/lang/System.nanoTime:()J
+      98: lstore        4
+     100: iload_2
+     101: ifle          113
+     104: aload_0
+     105: aload_0
+     106: getfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+     109: iload_2
+     110: invokespecial #59                 // Method processReady:(Lio/netty/channel/epoll/EpollEventArray;I)V
+     113: invokestatic  #47                 // Method java/lang/System.nanoTime:()J
+     116: lload         4
+     118: lsub
+     119: lstore        6
+     121: aload_0
+     122: lload         6
+     124: bipush        100
+     126: iload_3
+     127: isub
+     128: i2l
+     129: lmul
+     130: iload_3
+     131: i2l
+     132: ldiv
+     133: invokevirtual #61                 // Method runAllTasks:(J)Z
+     136: pop
+     137: aload_0
+     138: getfield      #6                  // Field allowGrowing:Z
+     141: ifeq          162
+     144: iload_2
+     145: aload_0
+     146: getfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+     149: invokevirtual #62                 // Method io/netty/channel/epoll/EpollEventArray.length:()I
+     152: if_icmpne     162
+     155: aload_0
+     156: getfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+     159: invokevirtual #63                 // Method io/netty/channel/epoll/EpollEventArray.increase:()V
+     162: aload_0
+     163: invokevirtual #64                 // Method isShuttingDown:()Z
+     166: ifeq          183
+     169: aload_0
+     170: invokespecial #65                 // Method closeAll:()V
+     173: aload_0
+     174: invokevirtual #66                 // Method confirmShutdown:()Z
+     177: ifeq          183
+     180: goto          211
+     183: goto          208
+     186: astore_2
+     187: getstatic     #68                 // Field logger:Lio/netty/util/internal/logging/InternalLogger;
+     190: ldc           #69                 // String Unexpected exception in the selector loop.
+     192: aload_2
+     193: invokeinterface #70,  3           // InterfaceMethod io/netty/util/internal/logging/InternalLogger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     198: ldc2_w        #71                 // long 1000l
+     201: invokestatic  #73                 // Method java/lang/Thread.sleep:(J)V
+     204: goto          208
+     207: astore_3
+     208: goto          0
+     211: return
+    Exception table:
+       from    to  target type
+          18   180   186   Class java/lang/Throwable
+         198   204   207   Class java/lang/InterruptedException
+
+  private void closeAll();
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field epollFd:I
+       4: aload_0
+       5: getfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+       8: iconst_0
+       9: invokestatic  #53                 // Method io/netty/channel/epoll/Native.epollWait:(ILio/netty/channel/epoll/EpollEventArray;I)I
+      12: pop
+      13: goto          17
+      16: astore_1
+      17: new           #75                 // class java/util/ArrayList
+      20: dup
+      21: aload_0
+      22: getfield      #4                  // Field channels:Lio/netty/util/collection/IntObjectMap;
+      25: invokeinterface #76,  1           // InterfaceMethod io/netty/util/collection/IntObjectMap.size:()I
+      30: invokespecial #77                 // Method java/util/ArrayList."<init>":(I)V
+      33: astore_1
+      34: aload_0
+      35: getfield      #4                  // Field channels:Lio/netty/util/collection/IntObjectMap;
+      38: invokeinterface #78,  1           // InterfaceMethod io/netty/util/collection/IntObjectMap.entries:()Ljava/lang/Iterable;
+      43: invokeinterface #79,  1           // InterfaceMethod java/lang/Iterable.iterator:()Ljava/util/Iterator;
+      48: astore_2
+      49: aload_2
+      50: invokeinterface #80,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      55: ifeq          84
+      58: aload_2
+      59: invokeinterface #81,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      64: checkcast     #82                 // class io/netty/util/collection/IntObjectMap$Entry
+      67: astore_3
+      68: aload_1
+      69: aload_3
+      70: invokeinterface #83,  1           // InterfaceMethod io/netty/util/collection/IntObjectMap$Entry.value:()Ljava/lang/Object;
+      75: invokeinterface #84,  2           // InterfaceMethod java/util/Collection.add:(Ljava/lang/Object;)Z
+      80: pop
+      81: goto          49
+      84: aload_1
+      85: invokeinterface #85,  1           // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      90: astore_2
+      91: aload_2
+      92: invokeinterface #80,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      97: ifeq          131
+     100: aload_2
+     101: invokeinterface #81,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     106: checkcast     #86                 // class io/netty/channel/epoll/AbstractEpollChannel
+     109: astore_3
+     110: aload_3
+     111: invokevirtual #87                 // Method io/netty/channel/epoll/AbstractEpollChannel.unsafe:()Lio/netty/channel/Channel$Unsafe;
+     114: aload_3
+     115: invokevirtual #87                 // Method io/netty/channel/epoll/AbstractEpollChannel.unsafe:()Lio/netty/channel/Channel$Unsafe;
+     118: invokeinterface #88,  1           // InterfaceMethod io/netty/channel/Channel$Unsafe.voidPromise:()Lio/netty/channel/ChannelPromise;
+     123: invokeinterface #89,  2           // InterfaceMethod io/netty/channel/Channel$Unsafe.close:(Lio/netty/channel/ChannelPromise;)V
+     128: goto          91
+     131: return
+    Exception table:
+       from    to  target type
+           0    13    16   Class java/io/IOException
+
+  private void processReady(io.netty.channel.epoll.EpollEventArray, int);
+    Code:
+       0: iconst_0
+       1: istore_3
+       2: iload_3
+       3: iload_2
+       4: if_icmpge     191
+       7: aload_1
+       8: iload_3
+       9: invokevirtual #90                 // Method io/netty/channel/epoll/EpollEventArray.fd:(I)I
+      12: istore        4
+      14: iload         4
+      16: aload_0
+      17: getfield      #13                 // Field eventFd:I
+      20: if_icmpne     33
+      23: aload_0
+      24: getfield      #13                 // Field eventFd:I
+      27: invokestatic  #91                 // Method io/netty/channel/epoll/Native.eventFdRead:(I)V
+      30: goto          185
+      33: aload_1
+      34: iload_3
+      35: invokevirtual #92                 // Method io/netty/channel/epoll/EpollEventArray.events:(I)I
+      38: i2l
+      39: lstore        5
+      41: aload_0
+      42: getfield      #4                  // Field channels:Lio/netty/util/collection/IntObjectMap;
+      45: iload         4
+      47: invokeinterface #93,  2           // InterfaceMethod io/netty/util/collection/IntObjectMap.get:(I)Ljava/lang/Object;
+      52: checkcast     #86                 // class io/netty/channel/epoll/AbstractEpollChannel
+      55: astore        7
+      57: aload         7
+      59: ifnull        171
+      62: aload         7
+      64: invokevirtual #87                 // Method io/netty/channel/epoll/AbstractEpollChannel.unsafe:()Lio/netty/channel/Channel$Unsafe;
+      67: checkcast     #94                 // class io/netty/channel/epoll/AbstractEpollChannel$AbstractEpollUnsafe
+      70: astore        8
+      72: lload         5
+      74: getstatic     #95                 // Field io/netty/channel/epoll/Native.EPOLLERR:I
+      77: i2l
+      78: land
+      79: lconst_0
+      80: lcmp
+      81: ifeq          88
+      84: iconst_1
+      85: goto          89
+      88: iconst_0
+      89: istore        9
+      91: iload         9
+      93: ifne          116
+      96: lload         5
+      98: getstatic     #96                 // Field io/netty/channel/epoll/Native.EPOLLOUT:I
+     101: i2l
+     102: land
+     103: lconst_0
+     104: lcmp
+     105: ifeq          121
+     108: aload         7
+     110: invokevirtual #34                 // Method io/netty/channel/epoll/AbstractEpollChannel.isOpen:()Z
+     113: ifeq          121
+     116: aload         8
+     118: invokevirtual #97                 // Method io/netty/channel/epoll/AbstractEpollChannel$AbstractEpollUnsafe.epollOutReady:()V
+     121: lload         5
+     123: getstatic     #98                 // Field io/netty/channel/epoll/Native.EPOLLRDHUP:I
+     126: i2l
+     127: land
+     128: lconst_0
+     129: lcmp
+     130: ifeq          138
+     133: aload         8
+     135: invokevirtual #99                 // Method io/netty/channel/epoll/AbstractEpollChannel$AbstractEpollUnsafe.epollRdHupReady:()V
+     138: iload         9
+     140: ifne          155
+     143: lload         5
+     145: getstatic     #14                 // Field io/netty/channel/epoll/Native.EPOLLIN:I
+     148: i2l
+     149: land
+     150: lconst_0
+     151: lcmp
+     152: ifeq          168
+     155: aload         7
+     157: invokevirtual #34                 // Method io/netty/channel/epoll/AbstractEpollChannel.isOpen:()Z
+     160: ifeq          168
+     163: aload         8
+     165: invokevirtual #100                // Method io/netty/channel/epoll/AbstractEpollChannel$AbstractEpollUnsafe.epollInReady:()V
+     168: goto          185
+     171: aload_0
+     172: getfield      #11                 // Field epollFd:I
+     175: iload         4
+     177: invokestatic  #36                 // Method io/netty/channel/epoll/Native.epollCtlDel:(II)V
+     180: goto          185
+     183: astore        8
+     185: iinc          3, 1
+     188: goto          2
+     191: return
+    Exception table:
+       from    to  target type
+         171   180   183   Class java/io/IOException
+
+  protected void cleanup();
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field epollFd:I
+       4: invokestatic  #20                 // Method io/netty/channel/epoll/Native.close:(I)V
+       7: goto          22
+      10: astore_1
+      11: getstatic     #68                 // Field logger:Lio/netty/util/internal/logging/InternalLogger;
+      14: ldc           #101                // String Failed to close the epoll fd.
+      16: aload_1
+      17: invokeinterface #70,  3           // InterfaceMethod io/netty/util/internal/logging/InternalLogger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      22: aload_0
+      23: getfield      #13                 // Field eventFd:I
+      26: invokestatic  #20                 // Method io/netty/channel/epoll/Native.close:(I)V
+      29: goto          44
+      32: astore_1
+      33: getstatic     #68                 // Field logger:Lio/netty/util/internal/logging/InternalLogger;
+      36: ldc           #102                // String Failed to close the event fd.
+      38: aload_1
+      39: invokeinterface #70,  3           // InterfaceMethod io/netty/util/internal/logging/InternalLogger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      44: aload_0
+      45: getfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+      48: invokevirtual #103                // Method io/netty/channel/epoll/EpollEventArray.free:()V
+      51: goto          64
+      54: astore_2
+      55: aload_0
+      56: getfield      #9                  // Field events:Lio/netty/channel/epoll/EpollEventArray;
+      59: invokevirtual #103                // Method io/netty/channel/epoll/EpollEventArray.free:()V
+      62: aload_2
+      63: athrow
+      64: return
+    Exception table:
+       from    to  target type
+           0     7    10   Class java/io/IOException
+          22    29    32   Class java/io/IOException
+           0    44    54   any
+          54    55    54   any
+
+  static {};
+    Code:
+       0: ldc_w         #104                // class io/netty/channel/epoll/EpollEventLoop
+       3: invokevirtual #105                // Method java/lang/Class.desiredAssertionStatus:()Z
+       6: ifne          13
+       9: iconst_1
+      10: goto          14
+      13: iconst_0
+      14: putstatic     #25                 // Field $assertionsDisabled:Z
+      17: ldc_w         #104                // class io/netty/channel/epoll/EpollEventLoop
+      20: invokestatic  #106                // Method io/netty/util/internal/logging/InternalLoggerFactory.getInstance:(Ljava/lang/Class;)Lio/netty/util/internal/logging/InternalLogger;
+      23: putstatic     #68                 // Field logger:Lio/netty/util/internal/logging/InternalLogger;
+      26: ldc_w         #104                // class io/netty/channel/epoll/EpollEventLoop
+      29: ldc           #107                // String wakenUp
+      31: invokestatic  #108                // Method io/netty/util/internal/PlatformDependent.newAtomicIntegerFieldUpdater:(Ljava/lang/Class;Ljava/lang/String;)Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      34: astore_0
+      35: aload_0
+      36: ifnonnull     48
+      39: ldc_w         #104                // class io/netty/channel/epoll/EpollEventLoop
+      42: ldc           #107                // String wakenUp
+      44: invokestatic  #109                // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.newUpdater:(Ljava/lang/Class;Ljava/lang/String;)Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      47: astore_0
+      48: aload_0
+      49: putstatic     #22                 // Field WAKEN_UP_UPDATER:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      52: return
+}

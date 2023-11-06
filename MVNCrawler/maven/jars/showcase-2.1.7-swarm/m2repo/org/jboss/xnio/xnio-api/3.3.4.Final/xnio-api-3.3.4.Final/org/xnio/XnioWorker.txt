@@ -1,0 +1,970 @@
+Compiled from "XnioWorker.java"
+public abstract class org.xnio.XnioWorker extends java.util.concurrent.AbstractExecutorService implements org.xnio.channels.Configurable,java.util.concurrent.ExecutorService,org.xnio.XnioIoFactory {
+  private final org.xnio.Xnio xnio;
+
+  private final org.xnio.XnioWorker$TaskPool taskPool;
+
+  private final java.lang.String name;
+
+  private final java.lang.Runnable terminationTask;
+
+  private volatile int taskSeq;
+
+  private volatile int coreSize;
+
+  private static final java.util.concurrent.atomic.AtomicIntegerFieldUpdater<org.xnio.XnioWorker> taskSeqUpdater;
+
+  private static final java.util.concurrent.atomic.AtomicIntegerFieldUpdater<org.xnio.XnioWorker> coreSizeUpdater;
+
+  private static final java.util.concurrent.atomic.AtomicInteger seq;
+
+  private static final java.lang.RuntimePermission CREATE_WORKER_PERMISSION;
+
+  private final java.util.concurrent.BlockingQueue<java.lang.Runnable> taskQueue;
+
+  private static java.util.Set<org.xnio.Option<?>> OPTIONS;
+
+  private static final org.xnio.IoFuture$HandlingNotifier<org.xnio.StreamConnection, org.xnio.FutureResult<org.xnio.channels.ConnectedStreamChannel>> STREAM_WRAPPING_HANDLER;
+
+  private static final org.xnio.IoFuture$HandlingNotifier<org.xnio.MessageConnection, org.xnio.FutureResult<org.xnio.channels.ConnectedMessageChannel>> MESSAGE_WRAPPING_HANDLER;
+
+  private int getNextSeq();
+    Code:
+       0: getstatic     #88                 // Field taskSeqUpdater:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+       3: aload_0
+       4: invokevirtual #94                 // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.incrementAndGet:(Ljava/lang/Object;)I
+       7: ireturn
+
+  protected org.xnio.XnioWorker(org.xnio.Xnio, java.lang.ThreadGroup, org.xnio.OptionMap, java.lang.Runnable);
+    Code:
+       0: aload_0
+       1: invokespecial #101                // Method java/util/concurrent/AbstractExecutorService."<init>":()V
+       4: aload_0
+       5: aload_1
+       6: putfield      #103                // Field xnio:Lorg/xnio/Xnio;
+       9: aload_0
+      10: aload         4
+      12: putfield      #105                // Field terminationTask:Ljava/lang/Runnable;
+      15: invokestatic  #111                // Method java/lang/System.getSecurityManager:()Ljava/lang/SecurityManager;
+      18: astore        5
+      20: aload         5
+      22: ifnull        33
+      25: aload         5
+      27: getstatic     #113                // Field CREATE_WORKER_PERMISSION:Ljava/lang/RuntimePermission;
+      30: invokevirtual #119                // Method java/lang/SecurityManager.checkPermission:(Ljava/security/Permission;)V
+      33: aload_3
+      34: getstatic     #133                // Field org/xnio/Options.WORKER_NAME:Lorg/xnio/Option;
+      37: invokevirtual #137                // Method org/xnio/OptionMap.get:(Lorg/xnio/Option;)Ljava/lang/Object;
+      40: checkcast     #139                // class java/lang/String
+      43: astore        6
+      45: aload         6
+      47: ifnonnull     76
+      50: new           #141                // class java/lang/StringBuilder
+      53: dup
+      54: invokespecial #142                // Method java/lang/StringBuilder."<init>":()V
+      57: ldc           #144                // String XNIO-
+      59: invokevirtual #148                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      62: getstatic     #150                // Field seq:Ljava/util/concurrent/atomic/AtomicInteger;
+      65: invokevirtual #155                // Method java/util/concurrent/atomic/AtomicInteger.getAndIncrement:()I
+      68: invokevirtual #158                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      71: invokevirtual #162                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      74: astore        6
+      76: aload_0
+      77: aload         6
+      79: putfield      #164                // Field name:Ljava/lang/String;
+      82: aload_0
+      83: new           #166                // class java/util/concurrent/LinkedBlockingQueue
+      86: dup
+      87: invokespecial #167                // Method java/util/concurrent/LinkedBlockingQueue."<init>":()V
+      90: putfield      #169                // Field taskQueue:Ljava/util/concurrent/BlockingQueue;
+      93: aload_0
+      94: aload_3
+      95: getstatic     #172                // Field org/xnio/Options.WORKER_TASK_CORE_THREADS:Lorg/xnio/Option;
+      98: iconst_4
+      99: invokevirtual #175                // Method org/xnio/OptionMap.get:(Lorg/xnio/Option;I)I
+     102: putfield      #177                // Field coreSize:I
+     105: aload_3
+     106: getstatic     #180                // Field org/xnio/Options.THREAD_DAEMON:Lorg/xnio/Option;
+     109: iconst_0
+     110: invokevirtual #183                // Method org/xnio/OptionMap.get:(Lorg/xnio/Option;Z)Z
+     113: istore        7
+     115: aload_3
+     116: getstatic     #186                // Field org/xnio/Options.WORKER_TASK_MAX_THREADS:Lorg/xnio/Option;
+     119: bipush        16
+     121: invokevirtual #175                // Method org/xnio/OptionMap.get:(Lorg/xnio/Option;I)I
+     124: istore        8
+     126: aload_0
+     127: new           #24                 // class org/xnio/XnioWorker$TaskPool
+     130: dup
+     131: aload_0
+     132: iload         8
+     134: iload         8
+     136: aload_3
+     137: getstatic     #189                // Field org/xnio/Options.WORKER_TASK_KEEPALIVE:Lorg/xnio/Option;
+     140: ldc           #190                // int 60000
+     142: invokevirtual #175                // Method org/xnio/OptionMap.get:(Lorg/xnio/Option;I)I
+     145: i2l
+     146: getstatic     #196                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     149: aload_0
+     150: getfield      #169                // Field taskQueue:Ljava/util/concurrent/BlockingQueue;
+     153: new           #15                 // class org/xnio/XnioWorker$WorkerThreadFactory
+     156: dup
+     157: aload_0
+     158: aload_2
+     159: aload_3
+     160: iload         7
+     162: invokespecial #199                // Method org/xnio/XnioWorker$WorkerThreadFactory."<init>":(Lorg/xnio/XnioWorker;Ljava/lang/ThreadGroup;Lorg/xnio/OptionMap;Z)V
+     165: new           #38                 // class java/util/concurrent/ThreadPoolExecutor$AbortPolicy
+     168: dup
+     169: invokespecial #200                // Method java/util/concurrent/ThreadPoolExecutor$AbortPolicy."<init>":()V
+     172: invokespecial #203                // Method org/xnio/XnioWorker$TaskPool."<init>":(Lorg/xnio/XnioWorker;IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/ThreadFactory;Ljava/util/concurrent/RejectedExecutionHandler;)V
+     175: putfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+     178: return
+
+  public org.xnio.channels.AcceptingChannel<? extends org.xnio.channels.ConnectedStreamChannel> createStreamServer(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.AcceptingChannel<org.xnio.channels.ConnectedStreamChannel>>, org.xnio.OptionMap) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aconst_null
+       3: aload_3
+       4: invokevirtual #223                // Method createStreamConnectionServer:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/channels/AcceptingChannel;
+       7: astore        4
+       9: new           #31                 // class org/xnio/XnioWorker$1
+      12: dup
+      13: aload_0
+      14: aload         4
+      16: invokespecial #226                // Method org/xnio/XnioWorker$1."<init>":(Lorg/xnio/XnioWorker;Lorg/xnio/channels/AcceptingChannel;)V
+      19: astore        5
+      21: aload         5
+      23: invokeinterface #232,  1          // InterfaceMethod org/xnio/channels/AcceptingChannel.getAcceptSetter:()Lorg/xnio/ChannelListener$Setter;
+      28: aload_2
+      29: invokeinterface #236,  2          // InterfaceMethod org/xnio/ChannelListener$Setter.set:(Lorg/xnio/ChannelListener;)V
+      34: aload         5
+      36: areturn
+
+  public org.xnio.channels.AcceptingChannel<org.xnio.StreamConnection> createStreamConnectionServer(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.AcceptingChannel<org.xnio.StreamConnection>>, org.xnio.OptionMap) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: ifnonnull     15
+       4: getstatic     #252                // Field org/xnio/_private/Messages.msg:Lorg/xnio/_private/Messages;
+       7: ldc           #253                // String bindAddress
+       9: invokeinterface #257,  2          // InterfaceMethod org/xnio/_private/Messages.nullParameter:(Ljava/lang/String;)Ljava/lang/IllegalArgumentException;
+      14: athrow
+      15: aload_1
+      16: instanceof    #259                // class java/net/InetSocketAddress
+      19: ifeq          33
+      22: aload_0
+      23: aload_1
+      24: checkcast     #259                // class java/net/InetSocketAddress
+      27: aload_2
+      28: aload_3
+      29: invokevirtual #263                // Method createTcpConnectionServer:(Ljava/net/InetSocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/channels/AcceptingChannel;
+      32: areturn
+      33: aload_1
+      34: instanceof    #265                // class org/xnio/LocalSocketAddress
+      37: ifeq          51
+      40: aload_0
+      41: aload_1
+      42: checkcast     #265                // class org/xnio/LocalSocketAddress
+      45: aload_2
+      46: aload_3
+      47: invokevirtual #269                // Method createLocalStreamConnectionServer:(Lorg/xnio/LocalSocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/channels/AcceptingChannel;
+      50: areturn
+      51: getstatic     #252                // Field org/xnio/_private/Messages.msg:Lorg/xnio/_private/Messages;
+      54: aload_1
+      55: invokevirtual #275                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      58: invokeinterface #279,  2          // InterfaceMethod org/xnio/_private/Messages.badSockType:(Ljava/lang/Class;)Ljava/lang/IllegalArgumentException;
+      63: athrow
+
+  protected org.xnio.channels.AcceptingChannel<org.xnio.StreamConnection> createTcpConnectionServer(java.net.InetSocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.AcceptingChannel<org.xnio.StreamConnection>>, org.xnio.OptionMap) throws java.io.IOException;
+    Code:
+       0: getstatic     #252                // Field org/xnio/_private/Messages.msg:Lorg/xnio/_private/Messages;
+       3: ldc_w         #281                // String createTcpConnectionServer
+       6: invokeinterface #285,  2          // InterfaceMethod org/xnio/_private/Messages.unsupported:(Ljava/lang/String;)Ljava/lang/UnsupportedOperationException;
+      11: athrow
+
+  protected org.xnio.channels.AcceptingChannel<org.xnio.StreamConnection> createLocalStreamConnectionServer(org.xnio.LocalSocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.AcceptingChannel<org.xnio.StreamConnection>>, org.xnio.OptionMap) throws java.io.IOException;
+    Code:
+       0: getstatic     #252                // Field org/xnio/_private/Messages.msg:Lorg/xnio/_private/Messages;
+       3: ldc_w         #287                // String createLocalStreamConnectionServer
+       6: invokeinterface #285,  2          // InterfaceMethod org/xnio/_private/Messages.unsupported:(Ljava/lang/String;)Ljava/lang/UnsupportedOperationException;
+      11: athrow
+
+  public org.xnio.IoFuture<org.xnio.channels.ConnectedStreamChannel> connectStream(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.ConnectedStreamChannel>, org.xnio.OptionMap);
+    Code:
+       0: new           #292                // class org/xnio/FutureResult
+       3: dup
+       4: invokespecial #293                // Method org/xnio/FutureResult."<init>":()V
+       7: astore        4
+       9: new           #21                 // class org/xnio/XnioWorker$StreamConnectionWrapListener
+      12: dup
+      13: aload         4
+      15: aload_2
+      16: invokespecial #296                // Method org/xnio/XnioWorker$StreamConnectionWrapListener."<init>":(Lorg/xnio/FutureResult;Lorg/xnio/ChannelListener;)V
+      19: astore        5
+      21: aload_0
+      22: aload_1
+      23: aload         5
+      25: aload_3
+      26: invokevirtual #299                // Method openStreamConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      29: astore        6
+      31: aload         6
+      33: getstatic     #301                // Field STREAM_WRAPPING_HANDLER:Lorg/xnio/IoFuture$HandlingNotifier;
+      36: aload         4
+      38: invokeinterface #305,  3          // InterfaceMethod org/xnio/IoFuture.addNotifier:(Lorg/xnio/IoFuture$Notifier;Ljava/lang/Object;)Lorg/xnio/IoFuture;
+      43: pop
+      44: aload         4
+      46: aload         6
+      48: invokevirtual #309                // Method org/xnio/FutureResult.addCancelHandler:(Lorg/xnio/Cancellable;)V
+      51: aload         4
+      53: invokevirtual #313                // Method org/xnio/FutureResult.getIoFuture:()Lorg/xnio/IoFuture;
+      56: areturn
+
+  public org.xnio.IoFuture<org.xnio.channels.ConnectedStreamChannel> connectStream(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.ConnectedStreamChannel>, org.xnio.ChannelListener<? super org.xnio.channels.BoundChannel>, org.xnio.OptionMap);
+    Code:
+       0: new           #292                // class org/xnio/FutureResult
+       3: dup
+       4: invokespecial #293                // Method org/xnio/FutureResult."<init>":()V
+       7: astore        5
+       9: new           #21                 // class org/xnio/XnioWorker$StreamConnectionWrapListener
+      12: dup
+      13: aload         5
+      15: aload_2
+      16: invokespecial #296                // Method org/xnio/XnioWorker$StreamConnectionWrapListener."<init>":(Lorg/xnio/FutureResult;Lorg/xnio/ChannelListener;)V
+      19: astore        6
+      21: aload_0
+      22: aload_1
+      23: aload         6
+      25: aload_3
+      26: aload         4
+      28: invokevirtual #327                // Method openStreamConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      31: astore        7
+      33: aload         7
+      35: getstatic     #301                // Field STREAM_WRAPPING_HANDLER:Lorg/xnio/IoFuture$HandlingNotifier;
+      38: aload         5
+      40: invokeinterface #305,  3          // InterfaceMethod org/xnio/IoFuture.addNotifier:(Lorg/xnio/IoFuture$Notifier;Ljava/lang/Object;)Lorg/xnio/IoFuture;
+      45: pop
+      46: aload         5
+      48: aload         7
+      50: invokevirtual #309                // Method org/xnio/FutureResult.addCancelHandler:(Lorg/xnio/Cancellable;)V
+      53: aload         5
+      55: invokevirtual #313                // Method org/xnio/FutureResult.getIoFuture:()Lorg/xnio/IoFuture;
+      58: areturn
+
+  public org.xnio.IoFuture<org.xnio.channels.ConnectedStreamChannel> connectStream(java.net.SocketAddress, java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.ConnectedStreamChannel>, org.xnio.ChannelListener<? super org.xnio.channels.BoundChannel>, org.xnio.OptionMap);
+    Code:
+       0: new           #292                // class org/xnio/FutureResult
+       3: dup
+       4: invokespecial #293                // Method org/xnio/FutureResult."<init>":()V
+       7: astore        6
+       9: new           #21                 // class org/xnio/XnioWorker$StreamConnectionWrapListener
+      12: dup
+      13: aload         6
+      15: aload_3
+      16: invokespecial #296                // Method org/xnio/XnioWorker$StreamConnectionWrapListener."<init>":(Lorg/xnio/FutureResult;Lorg/xnio/ChannelListener;)V
+      19: astore        7
+      21: aload_0
+      22: aload_1
+      23: aload_2
+      24: aload         7
+      26: aload         4
+      28: aload         5
+      30: invokevirtual #332                // Method openStreamConnection:(Ljava/net/SocketAddress;Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      33: astore        8
+      35: aload         8
+      37: getstatic     #301                // Field STREAM_WRAPPING_HANDLER:Lorg/xnio/IoFuture$HandlingNotifier;
+      40: aload         6
+      42: invokeinterface #305,  3          // InterfaceMethod org/xnio/IoFuture.addNotifier:(Lorg/xnio/IoFuture$Notifier;Ljava/lang/Object;)Lorg/xnio/IoFuture;
+      47: pop
+      48: aload         6
+      50: aload         8
+      52: invokevirtual #309                // Method org/xnio/FutureResult.addCancelHandler:(Lorg/xnio/Cancellable;)V
+      55: aload         6
+      57: invokevirtual #313                // Method org/xnio/FutureResult.getIoFuture:()Lorg/xnio/IoFuture;
+      60: areturn
+
+  public org.xnio.IoFuture<org.xnio.StreamConnection> openStreamConnection(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.StreamConnection>, org.xnio.OptionMap);
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: aload_1
+       5: aload_2
+       6: aload_3
+       7: invokevirtual #339                // Method org/xnio/XnioIoThread.openStreamConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      10: areturn
+
+  public org.xnio.IoFuture<org.xnio.StreamConnection> openStreamConnection(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.StreamConnection>, org.xnio.ChannelListener<? super org.xnio.channels.BoundChannel>, org.xnio.OptionMap);
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: aload_1
+       5: aload_2
+       6: aload_3
+       7: aload         4
+       9: invokevirtual #341                // Method org/xnio/XnioIoThread.openStreamConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      12: areturn
+
+  public org.xnio.IoFuture<org.xnio.StreamConnection> openStreamConnection(java.net.SocketAddress, java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.StreamConnection>, org.xnio.ChannelListener<? super org.xnio.channels.BoundChannel>, org.xnio.OptionMap);
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: aload_1
+       5: aload_2
+       6: aload_3
+       7: aload         4
+       9: aload         5
+      11: invokevirtual #342                // Method org/xnio/XnioIoThread.openStreamConnection:(Ljava/net/SocketAddress;Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      14: areturn
+
+  public org.xnio.IoFuture<org.xnio.channels.ConnectedStreamChannel> acceptStream(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.ConnectedStreamChannel>, org.xnio.ChannelListener<? super org.xnio.channels.BoundChannel>, org.xnio.OptionMap);
+    Code:
+       0: new           #292                // class org/xnio/FutureResult
+       3: dup
+       4: invokespecial #293                // Method org/xnio/FutureResult."<init>":()V
+       7: astore        5
+       9: new           #21                 // class org/xnio/XnioWorker$StreamConnectionWrapListener
+      12: dup
+      13: aload         5
+      15: aload_2
+      16: invokespecial #296                // Method org/xnio/XnioWorker$StreamConnectionWrapListener."<init>":(Lorg/xnio/FutureResult;Lorg/xnio/ChannelListener;)V
+      19: astore        6
+      21: aload_0
+      22: aload_1
+      23: aload         6
+      25: aload_3
+      26: aload         4
+      28: invokevirtual #346                // Method acceptStreamConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      31: astore        7
+      33: aload         7
+      35: getstatic     #301                // Field STREAM_WRAPPING_HANDLER:Lorg/xnio/IoFuture$HandlingNotifier;
+      38: aload         5
+      40: invokeinterface #305,  3          // InterfaceMethod org/xnio/IoFuture.addNotifier:(Lorg/xnio/IoFuture$Notifier;Ljava/lang/Object;)Lorg/xnio/IoFuture;
+      45: pop
+      46: aload         5
+      48: aload         7
+      50: invokevirtual #309                // Method org/xnio/FutureResult.addCancelHandler:(Lorg/xnio/Cancellable;)V
+      53: aload         5
+      55: invokevirtual #313                // Method org/xnio/FutureResult.getIoFuture:()Lorg/xnio/IoFuture;
+      58: areturn
+
+  public org.xnio.IoFuture<org.xnio.StreamConnection> acceptStreamConnection(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.StreamConnection>, org.xnio.ChannelListener<? super org.xnio.channels.BoundChannel>, org.xnio.OptionMap);
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: aload_1
+       5: aload_2
+       6: aload_3
+       7: aload         4
+       9: invokevirtual #347                // Method org/xnio/XnioIoThread.acceptStreamConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      12: areturn
+
+  public org.xnio.IoFuture<org.xnio.channels.ConnectedMessageChannel> connectDatagram(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.ConnectedMessageChannel>, org.xnio.ChannelListener<? super org.xnio.channels.BoundChannel>, org.xnio.OptionMap);
+    Code:
+       0: new           #292                // class org/xnio/FutureResult
+       3: dup
+       4: invokespecial #293                // Method org/xnio/FutureResult."<init>":()V
+       7: astore        5
+       9: new           #18                 // class org/xnio/XnioWorker$MessageConnectionWrapListener
+      12: dup
+      13: aload         5
+      15: aload_2
+      16: invokespecial #349                // Method org/xnio/XnioWorker$MessageConnectionWrapListener."<init>":(Lorg/xnio/FutureResult;Lorg/xnio/ChannelListener;)V
+      19: astore        6
+      21: aload_0
+      22: aload_1
+      23: aload         6
+      25: aload         4
+      27: invokevirtual #352                // Method openMessageConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      30: astore        7
+      32: aload         7
+      34: getstatic     #354                // Field MESSAGE_WRAPPING_HANDLER:Lorg/xnio/IoFuture$HandlingNotifier;
+      37: aload         5
+      39: invokeinterface #305,  3          // InterfaceMethod org/xnio/IoFuture.addNotifier:(Lorg/xnio/IoFuture$Notifier;Ljava/lang/Object;)Lorg/xnio/IoFuture;
+      44: pop
+      45: aload         5
+      47: aload         7
+      49: invokevirtual #309                // Method org/xnio/FutureResult.addCancelHandler:(Lorg/xnio/Cancellable;)V
+      52: aload         5
+      54: invokevirtual #313                // Method org/xnio/FutureResult.getIoFuture:()Lorg/xnio/IoFuture;
+      57: areturn
+
+  public org.xnio.IoFuture<org.xnio.channels.ConnectedMessageChannel> connectDatagram(java.net.SocketAddress, java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.ConnectedMessageChannel>, org.xnio.ChannelListener<? super org.xnio.channels.BoundChannel>, org.xnio.OptionMap);
+    Code:
+       0: new           #292                // class org/xnio/FutureResult
+       3: dup
+       4: invokespecial #293                // Method org/xnio/FutureResult."<init>":()V
+       7: astore        6
+       9: new           #18                 // class org/xnio/XnioWorker$MessageConnectionWrapListener
+      12: dup
+      13: aload         6
+      15: aload_3
+      16: invokespecial #349                // Method org/xnio/XnioWorker$MessageConnectionWrapListener."<init>":(Lorg/xnio/FutureResult;Lorg/xnio/ChannelListener;)V
+      19: astore        7
+      21: aload_0
+      22: aload_2
+      23: aload         7
+      25: aload         5
+      27: invokevirtual #352                // Method openMessageConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      30: astore        8
+      32: aload         8
+      34: getstatic     #354                // Field MESSAGE_WRAPPING_HANDLER:Lorg/xnio/IoFuture$HandlingNotifier;
+      37: aload         6
+      39: invokeinterface #305,  3          // InterfaceMethod org/xnio/IoFuture.addNotifier:(Lorg/xnio/IoFuture$Notifier;Ljava/lang/Object;)Lorg/xnio/IoFuture;
+      44: pop
+      45: aload         6
+      47: aload         8
+      49: invokevirtual #309                // Method org/xnio/FutureResult.addCancelHandler:(Lorg/xnio/Cancellable;)V
+      52: aload         6
+      54: invokevirtual #313                // Method org/xnio/FutureResult.getIoFuture:()Lorg/xnio/IoFuture;
+      57: areturn
+
+  public org.xnio.IoFuture<org.xnio.MessageConnection> openMessageConnection(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.MessageConnection>, org.xnio.OptionMap);
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: aload_1
+       5: aload_2
+       6: aload_3
+       7: invokevirtual #359                // Method org/xnio/XnioIoThread.openMessageConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      10: areturn
+
+  public org.xnio.IoFuture<org.xnio.channels.ConnectedMessageChannel> acceptDatagram(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.ConnectedMessageChannel>, org.xnio.ChannelListener<? super org.xnio.channels.BoundChannel>, org.xnio.OptionMap);
+    Code:
+       0: new           #292                // class org/xnio/FutureResult
+       3: dup
+       4: invokespecial #293                // Method org/xnio/FutureResult."<init>":()V
+       7: astore        5
+       9: new           #18                 // class org/xnio/XnioWorker$MessageConnectionWrapListener
+      12: dup
+      13: aload         5
+      15: aload_2
+      16: invokespecial #349                // Method org/xnio/XnioWorker$MessageConnectionWrapListener."<init>":(Lorg/xnio/FutureResult;Lorg/xnio/ChannelListener;)V
+      19: astore        6
+      21: aload_0
+      22: aload_1
+      23: aload         6
+      25: aload_3
+      26: aload         4
+      28: invokevirtual #364                // Method acceptMessageConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      31: astore        7
+      33: aload         7
+      35: getstatic     #354                // Field MESSAGE_WRAPPING_HANDLER:Lorg/xnio/IoFuture$HandlingNotifier;
+      38: aload         5
+      40: invokeinterface #305,  3          // InterfaceMethod org/xnio/IoFuture.addNotifier:(Lorg/xnio/IoFuture$Notifier;Ljava/lang/Object;)Lorg/xnio/IoFuture;
+      45: pop
+      46: aload         5
+      48: aload         7
+      50: invokevirtual #309                // Method org/xnio/FutureResult.addCancelHandler:(Lorg/xnio/Cancellable;)V
+      53: aload         5
+      55: invokevirtual #313                // Method org/xnio/FutureResult.getIoFuture:()Lorg/xnio/IoFuture;
+      58: areturn
+
+  public org.xnio.IoFuture<org.xnio.MessageConnection> acceptMessageConnection(java.net.SocketAddress, org.xnio.ChannelListener<? super org.xnio.MessageConnection>, org.xnio.ChannelListener<? super org.xnio.channels.BoundChannel>, org.xnio.OptionMap);
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: aload_1
+       5: aload_2
+       6: aload_3
+       7: aload         4
+       9: invokevirtual #365                // Method org/xnio/XnioIoThread.acceptMessageConnection:(Ljava/net/SocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/IoFuture;
+      12: areturn
+
+  public org.xnio.channels.MulticastMessageChannel createUdpServer(java.net.InetSocketAddress, org.xnio.ChannelListener<? super org.xnio.channels.MulticastMessageChannel>, org.xnio.OptionMap) throws java.io.IOException;
+    Code:
+       0: getstatic     #252                // Field org/xnio/_private/Messages.msg:Lorg/xnio/_private/Messages;
+       3: ldc_w         #368                // String createUdpServer
+       6: invokeinterface #285,  2          // InterfaceMethod org/xnio/_private/Messages.unsupported:(Ljava/lang/String;)Ljava/lang/UnsupportedOperationException;
+      11: athrow
+
+  public org.xnio.channels.MulticastMessageChannel createUdpServer(java.net.InetSocketAddress, org.xnio.OptionMap) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokestatic  #376                // Method org/xnio/ChannelListeners.nullChannelListener:()Lorg/xnio/ChannelListener;
+       5: aload_2
+       6: invokevirtual #378                // Method createUdpServer:(Ljava/net/InetSocketAddress;Lorg/xnio/ChannelListener;Lorg/xnio/OptionMap;)Lorg/xnio/channels/MulticastMessageChannel;
+       9: areturn
+
+  public void createPipe(org.xnio.ChannelListener<? super org.xnio.channels.StreamChannel>, org.xnio.ChannelListener<? super org.xnio.channels.StreamChannel>, org.xnio.OptionMap) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #384                // Method createFullDuplexPipe:()Lorg/xnio/ChannelPipe;
+       4: astore        4
+       6: aload_3
+       7: getstatic     #387                // Field org/xnio/Options.WORKER_ESTABLISH_WRITING:Lorg/xnio/Option;
+      10: iconst_0
+      11: invokevirtual #183                // Method org/xnio/OptionMap.get:(Lorg/xnio/Option;Z)Z
+      14: istore        5
+      16: aload         4
+      18: invokevirtual #393                // Method org/xnio/ChannelPipe.getLeftSide:()Lorg/xnio/channels/CloseableChannel;
+      21: checkcast     #395                // class org/xnio/channels/StreamChannel
+      24: astore        6
+      26: iload         5
+      28: ifeq          41
+      31: aload         6
+      33: invokeinterface #399,  1          // InterfaceMethod org/xnio/channels/StreamChannel.getWriteThread:()Lorg/xnio/XnioExecutor;
+      38: goto          48
+      41: aload         6
+      43: invokeinterface #402,  1          // InterfaceMethod org/xnio/channels/StreamChannel.getReadThread:()Lorg/xnio/XnioExecutor;
+      48: astore        7
+      50: aload         4
+      52: invokevirtual #407                // Method org/xnio/ChannelPipe.getRightSide:()Lorg/xnio/channels/CloseableChannel;
+      55: checkcast     #395                // class org/xnio/channels/StreamChannel
+      58: astore        8
+      60: iload         5
+      62: ifeq          75
+      65: aload         8
+      67: invokeinterface #399,  1          // InterfaceMethod org/xnio/channels/StreamChannel.getWriteThread:()Lorg/xnio/XnioExecutor;
+      72: goto          82
+      75: aload         8
+      77: invokeinterface #402,  1          // InterfaceMethod org/xnio/channels/StreamChannel.getReadThread:()Lorg/xnio/XnioExecutor;
+      82: astore        9
+      84: aload         7
+      86: aload         6
+      88: aload_1
+      89: invokestatic  #411                // Method org/xnio/ChannelListeners.getChannelListenerTask:(Ljava/nio/channels/Channel;Lorg/xnio/ChannelListener;)Ljava/lang/Runnable;
+      92: invokeinterface #415,  2          // InterfaceMethod org/xnio/XnioExecutor.execute:(Ljava/lang/Runnable;)V
+      97: aload         9
+      99: aload         8
+     101: aload_2
+     102: invokestatic  #411                // Method org/xnio/ChannelListeners.getChannelListenerTask:(Ljava/nio/channels/Channel;Lorg/xnio/ChannelListener;)Ljava/lang/Runnable;
+     105: invokeinterface #415,  2          // InterfaceMethod org/xnio/XnioExecutor.execute:(Ljava/lang/Runnable;)V
+     110: return
+
+  public void createOneWayPipe(org.xnio.ChannelListener<? super org.xnio.channels.StreamSourceChannel>, org.xnio.ChannelListener<? super org.xnio.channels.StreamSinkChannel>, org.xnio.OptionMap) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #432                // Method createHalfDuplexPipe:()Lorg/xnio/ChannelPipe;
+       4: astore        4
+       6: aload         4
+       8: invokevirtual #393                // Method org/xnio/ChannelPipe.getLeftSide:()Lorg/xnio/channels/CloseableChannel;
+      11: checkcast     #434                // class org/xnio/channels/StreamSourceChannel
+      14: astore        5
+      16: aload         5
+      18: invokeinterface #435,  1          // InterfaceMethod org/xnio/channels/StreamSourceChannel.getReadThread:()Lorg/xnio/XnioExecutor;
+      23: astore        6
+      25: aload         4
+      27: invokevirtual #407                // Method org/xnio/ChannelPipe.getRightSide:()Lorg/xnio/channels/CloseableChannel;
+      30: checkcast     #437                // class org/xnio/channels/StreamSinkChannel
+      33: astore        7
+      35: aload         7
+      37: invokeinterface #438,  1          // InterfaceMethod org/xnio/channels/StreamSinkChannel.getWriteThread:()Lorg/xnio/XnioExecutor;
+      42: astore        8
+      44: aload         6
+      46: aload         5
+      48: aload_1
+      49: invokestatic  #411                // Method org/xnio/ChannelListeners.getChannelListenerTask:(Ljava/nio/channels/Channel;Lorg/xnio/ChannelListener;)Ljava/lang/Runnable;
+      52: invokeinterface #415,  2          // InterfaceMethod org/xnio/XnioExecutor.execute:(Ljava/lang/Runnable;)V
+      57: aload         8
+      59: aload         7
+      61: aload_2
+      62: invokestatic  #411                // Method org/xnio/ChannelListeners.getChannelListenerTask:(Ljava/nio/channels/Channel;Lorg/xnio/ChannelListener;)Ljava/lang/Runnable;
+      65: invokeinterface #415,  2          // InterfaceMethod org/xnio/XnioExecutor.execute:(Ljava/lang/Runnable;)V
+      70: return
+
+  public org.xnio.channels.StreamSourceChannel getInflatingChannel(org.xnio.channels.StreamSourceChannel, org.xnio.OptionMap) throws java.io.IOException;
+    Code:
+       0: getstatic     #451                // Field org/xnio/XnioWorker$4.$SwitchMap$org$xnio$CompressionType:[I
+       3: aload_2
+       4: getstatic     #454                // Field org/xnio/Options.COMPRESSION_TYPE:Lorg/xnio/Option;
+       7: getstatic     #460                // Field org/xnio/CompressionType.DEFLATE:Lorg/xnio/CompressionType;
+      10: invokevirtual #463                // Method org/xnio/OptionMap.get:(Lorg/xnio/Option;Ljava/lang/Object;)Ljava/lang/Object;
+      13: checkcast     #456                // class org/xnio/CompressionType
+      16: invokevirtual #466                // Method org/xnio/CompressionType.ordinal:()I
+      19: iaload
+      20: lookupswitch  { // 2
+                     1: 48
+                     2: 53
+               default: 58
+          }
+      48: iconst_0
+      49: istore_3
+      50: goto          67
+      53: iconst_1
+      54: istore_3
+      55: goto          67
+      58: getstatic     #252                // Field org/xnio/_private/Messages.msg:Lorg/xnio/_private/Messages;
+      61: invokeinterface #470,  1          // InterfaceMethod org/xnio/_private/Messages.badCompressionFormat:()Ljava/lang/IllegalArgumentException;
+      66: athrow
+      67: aload_0
+      68: aload_1
+      69: new           #472                // class java/util/zip/Inflater
+      72: dup
+      73: iload_3
+      74: invokespecial #475                // Method java/util/zip/Inflater."<init>":(Z)V
+      77: invokevirtual #478                // Method getInflatingChannel:(Lorg/xnio/channels/StreamSourceChannel;Ljava/util/zip/Inflater;)Lorg/xnio/channels/StreamSourceChannel;
+      80: areturn
+
+  protected org.xnio.channels.StreamSourceChannel getInflatingChannel(org.xnio.channels.StreamSourceChannel, java.util.zip.Inflater) throws java.io.IOException;
+    Code:
+       0: new           #483                // class org/xnio/conduits/ConduitStreamSourceChannel
+       3: dup
+       4: getstatic     #487                // Field org/xnio/channels/Configurable.EMPTY:Lorg/xnio/channels/Configurable;
+       7: new           #489                // class org/xnio/conduits/InflatingStreamSourceConduit
+      10: dup
+      11: new           #491                // class org/xnio/conduits/StreamSourceChannelWrappingConduit
+      14: dup
+      15: aload_1
+      16: invokespecial #494                // Method org/xnio/conduits/StreamSourceChannelWrappingConduit."<init>":(Lorg/xnio/channels/StreamSourceChannel;)V
+      19: aload_2
+      20: invokespecial #497                // Method org/xnio/conduits/InflatingStreamSourceConduit."<init>":(Lorg/xnio/conduits/StreamSourceConduit;Ljava/util/zip/Inflater;)V
+      23: invokespecial #500                // Method org/xnio/conduits/ConduitStreamSourceChannel."<init>":(Lorg/xnio/channels/Configurable;Lorg/xnio/conduits/StreamSourceConduit;)V
+      26: areturn
+
+  public org.xnio.channels.StreamSinkChannel getDeflatingChannel(org.xnio.channels.StreamSinkChannel, org.xnio.OptionMap) throws java.io.IOException;
+    Code:
+       0: aload_2
+       1: getstatic     #507                // Field org/xnio/Options.COMPRESSION_LEVEL:Lorg/xnio/Option;
+       4: iconst_m1
+       5: invokevirtual #175                // Method org/xnio/OptionMap.get:(Lorg/xnio/Option;I)I
+       8: istore_3
+       9: getstatic     #451                // Field org/xnio/XnioWorker$4.$SwitchMap$org$xnio$CompressionType:[I
+      12: aload_2
+      13: getstatic     #454                // Field org/xnio/Options.COMPRESSION_TYPE:Lorg/xnio/Option;
+      16: getstatic     #460                // Field org/xnio/CompressionType.DEFLATE:Lorg/xnio/CompressionType;
+      19: invokevirtual #463                // Method org/xnio/OptionMap.get:(Lorg/xnio/Option;Ljava/lang/Object;)Ljava/lang/Object;
+      22: checkcast     #456                // class org/xnio/CompressionType
+      25: invokevirtual #466                // Method org/xnio/CompressionType.ordinal:()I
+      28: iaload
+      29: lookupswitch  { // 2
+                     1: 56
+                     2: 62
+               default: 68
+          }
+      56: iconst_0
+      57: istore        4
+      59: goto          77
+      62: iconst_1
+      63: istore        4
+      65: goto          77
+      68: getstatic     #252                // Field org/xnio/_private/Messages.msg:Lorg/xnio/_private/Messages;
+      71: invokeinterface #470,  1          // InterfaceMethod org/xnio/_private/Messages.badCompressionFormat:()Ljava/lang/IllegalArgumentException;
+      76: athrow
+      77: aload_0
+      78: aload_1
+      79: new           #509                // class java/util/zip/Deflater
+      82: dup
+      83: iload_3
+      84: iload         4
+      86: invokespecial #512                // Method java/util/zip/Deflater."<init>":(IZ)V
+      89: invokevirtual #515                // Method getDeflatingChannel:(Lorg/xnio/channels/StreamSinkChannel;Ljava/util/zip/Deflater;)Lorg/xnio/channels/StreamSinkChannel;
+      92: areturn
+
+  protected org.xnio.channels.StreamSinkChannel getDeflatingChannel(org.xnio.channels.StreamSinkChannel, java.util.zip.Deflater) throws java.io.IOException;
+    Code:
+       0: new           #518                // class org/xnio/conduits/ConduitStreamSinkChannel
+       3: dup
+       4: getstatic     #487                // Field org/xnio/channels/Configurable.EMPTY:Lorg/xnio/channels/Configurable;
+       7: new           #520                // class org/xnio/conduits/DeflatingStreamSinkConduit
+      10: dup
+      11: new           #522                // class org/xnio/conduits/StreamSinkChannelWrappingConduit
+      14: dup
+      15: aload_1
+      16: invokespecial #525                // Method org/xnio/conduits/StreamSinkChannelWrappingConduit."<init>":(Lorg/xnio/channels/StreamSinkChannel;)V
+      19: aload_2
+      20: invokespecial #528                // Method org/xnio/conduits/DeflatingStreamSinkConduit."<init>":(Lorg/xnio/conduits/StreamSinkConduit;Ljava/util/zip/Deflater;)V
+      23: invokespecial #531                // Method org/xnio/conduits/ConduitStreamSinkChannel."<init>":(Lorg/xnio/channels/Configurable;Lorg/xnio/conduits/StreamSinkConduit;)V
+      26: areturn
+
+  public org.xnio.ChannelPipe<org.xnio.channels.StreamChannel, org.xnio.channels.StreamChannel> createFullDuplexPipe() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: invokevirtual #534                // Method org/xnio/XnioIoThread.createFullDuplexPipe:()Lorg/xnio/ChannelPipe;
+       7: areturn
+
+  public org.xnio.ChannelPipe<org.xnio.StreamConnection, org.xnio.StreamConnection> createFullDuplexPipeConnection() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: invokevirtual #537                // Method org/xnio/XnioIoThread.createFullDuplexPipeConnection:()Lorg/xnio/ChannelPipe;
+       7: areturn
+
+  public org.xnio.ChannelPipe<org.xnio.channels.StreamSourceChannel, org.xnio.channels.StreamSinkChannel> createHalfDuplexPipe() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: invokevirtual #538                // Method org/xnio/XnioIoThread.createHalfDuplexPipe:()Lorg/xnio/ChannelPipe;
+       7: areturn
+
+  public org.xnio.ChannelPipe<org.xnio.StreamConnection, org.xnio.StreamConnection> createFullDuplexPipeConnection(org.xnio.XnioIoFactory) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: aload_1
+       5: invokevirtual #541                // Method org/xnio/XnioIoThread.createFullDuplexPipeConnection:(Lorg/xnio/XnioIoFactory;)Lorg/xnio/ChannelPipe;
+       8: areturn
+
+  public org.xnio.ChannelPipe<org.xnio.channels.StreamSourceChannel, org.xnio.channels.StreamSinkChannel> createHalfDuplexPipe(org.xnio.XnioIoFactory) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: aload_1
+       5: invokevirtual #545                // Method org/xnio/XnioIoThread.createHalfDuplexPipe:(Lorg/xnio/XnioIoFactory;)Lorg/xnio/ChannelPipe;
+       8: areturn
+
+  public abstract void shutdown();
+
+  public abstract java.util.List<java.lang.Runnable> shutdownNow();
+
+  public abstract boolean isShutdown();
+
+  public abstract boolean isTerminated();
+
+  public abstract boolean awaitTermination(long, java.util.concurrent.TimeUnit) throws java.lang.InterruptedException;
+
+  public abstract void awaitTermination() throws java.lang.InterruptedException;
+
+  public final org.xnio.XnioIoThread getIoThread();
+    Code:
+       0: aload_0
+       1: invokevirtual #336                // Method chooseThread:()Lorg/xnio/XnioIoThread;
+       4: areturn
+
+  public abstract org.xnio.XnioIoThread getIoThread(int);
+
+  protected java.lang.Runnable getTerminationTask();
+    Code:
+       0: aload_0
+       1: getfield      #105                // Field terminationTask:Ljava/lang/Runnable;
+       4: areturn
+
+  protected void taskPoolTerminated();
+    Code:
+       0: return
+
+  protected void shutDownTaskPool();
+    Code:
+       0: aload_0
+       1: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+       4: invokevirtual #563                // Method org/xnio/XnioWorker$TaskPool.shutdown:()V
+       7: return
+
+  protected java.util.List<java.lang.Runnable> shutDownTaskPoolNow();
+    Code:
+       0: aload_0
+       1: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+       4: invokevirtual #566                // Method org/xnio/XnioWorker$TaskPool.shutdownNow:()Ljava/util/List;
+       7: areturn
+
+  public void execute(java.lang.Runnable);
+    Code:
+       0: aload_0
+       1: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+       4: aload_1
+       5: invokevirtual #567                // Method org/xnio/XnioWorker$TaskPool.execute:(Ljava/lang/Runnable;)V
+       8: return
+
+  public abstract int getIoThreadCount();
+
+  public boolean supportsOption(org.xnio.Option<?>);
+    Code:
+       0: getstatic     #573                // Field OPTIONS:Ljava/util/Set;
+       3: aload_1
+       4: invokeinterface #579,  2          // InterfaceMethod java/util/Set.contains:(Ljava/lang/Object;)Z
+       9: ireturn
+
+  public <T> T getOption(org.xnio.Option<T>) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: getstatic     #172                // Field org/xnio/Options.WORKER_TASK_CORE_THREADS:Lorg/xnio/Option;
+       4: invokevirtual #585                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+       7: ifeq          22
+      10: aload_1
+      11: aload_0
+      12: getfield      #177                // Field coreSize:I
+      15: invokestatic  #591                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      18: invokevirtual #595                // Method org/xnio/Option.cast:(Ljava/lang/Object;)Ljava/lang/Object;
+      21: areturn
+      22: aload_1
+      23: getstatic     #186                // Field org/xnio/Options.WORKER_TASK_MAX_THREADS:Lorg/xnio/Option;
+      26: invokevirtual #585                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      29: ifeq          47
+      32: aload_1
+      33: aload_0
+      34: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+      37: invokevirtual #598                // Method org/xnio/XnioWorker$TaskPool.getMaximumPoolSize:()I
+      40: invokestatic  #591                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      43: invokevirtual #595                // Method org/xnio/Option.cast:(Ljava/lang/Object;)Ljava/lang/Object;
+      46: areturn
+      47: aload_1
+      48: getstatic     #189                // Field org/xnio/Options.WORKER_TASK_KEEPALIVE:Lorg/xnio/Option;
+      51: invokevirtual #585                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      54: ifeq          82
+      57: aload_1
+      58: ldc2_w        #599                // long 2147483647l
+      61: aload_0
+      62: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+      65: getstatic     #196                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      68: invokevirtual #604                // Method org/xnio/XnioWorker$TaskPool.getKeepAliveTime:(Ljava/util/concurrent/TimeUnit;)J
+      71: invokestatic  #610                // Method java/lang/Math.min:(JJ)J
+      74: l2i
+      75: invokestatic  #591                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      78: invokevirtual #595                // Method org/xnio/Option.cast:(Ljava/lang/Object;)Ljava/lang/Object;
+      81: areturn
+      82: aconst_null
+      83: areturn
+
+  public <T> T setOption(org.xnio.Option<T>, T) throws java.lang.IllegalArgumentException, java.io.IOException;
+    Code:
+       0: aload_1
+       1: getstatic     #172                // Field org/xnio/Options.WORKER_TASK_CORE_THREADS:Lorg/xnio/Option;
+       4: invokevirtual #585                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+       7: ifeq          38
+      10: aload_1
+      11: getstatic     #616                // Field coreSizeUpdater:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      14: aload_0
+      15: getstatic     #172                // Field org/xnio/Options.WORKER_TASK_CORE_THREADS:Lorg/xnio/Option;
+      18: aload_2
+      19: invokevirtual #595                // Method org/xnio/Option.cast:(Ljava/lang/Object;)Ljava/lang/Object;
+      22: checkcast     #587                // class java/lang/Integer
+      25: invokevirtual #619                // Method java/lang/Integer.intValue:()I
+      28: invokevirtual #623                // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.getAndSet:(Ljava/lang/Object;I)I
+      31: invokestatic  #591                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      34: invokevirtual #595                // Method org/xnio/Option.cast:(Ljava/lang/Object;)Ljava/lang/Object;
+      37: areturn
+      38: aload_1
+      39: getstatic     #186                // Field org/xnio/Options.WORKER_TASK_MAX_THREADS:Lorg/xnio/Option;
+      42: invokevirtual #585                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+      45: ifeq          105
+      48: aload_0
+      49: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+      52: invokevirtual #598                // Method org/xnio/XnioWorker$TaskPool.getMaximumPoolSize:()I
+      55: istore_3
+      56: aload_0
+      57: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+      60: getstatic     #186                // Field org/xnio/Options.WORKER_TASK_MAX_THREADS:Lorg/xnio/Option;
+      63: aload_2
+      64: invokevirtual #595                // Method org/xnio/Option.cast:(Ljava/lang/Object;)Ljava/lang/Object;
+      67: checkcast     #587                // class java/lang/Integer
+      70: invokevirtual #619                // Method java/lang/Integer.intValue:()I
+      73: invokevirtual #627                // Method org/xnio/XnioWorker$TaskPool.setCorePoolSize:(I)V
+      76: aload_0
+      77: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+      80: getstatic     #186                // Field org/xnio/Options.WORKER_TASK_MAX_THREADS:Lorg/xnio/Option;
+      83: aload_2
+      84: invokevirtual #595                // Method org/xnio/Option.cast:(Ljava/lang/Object;)Ljava/lang/Object;
+      87: checkcast     #587                // class java/lang/Integer
+      90: invokevirtual #619                // Method java/lang/Integer.intValue:()I
+      93: invokevirtual #630                // Method org/xnio/XnioWorker$TaskPool.setMaximumPoolSize:(I)V
+      96: aload_1
+      97: iload_3
+      98: invokestatic  #591                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     101: invokevirtual #595                // Method org/xnio/Option.cast:(Ljava/lang/Object;)Ljava/lang/Object;
+     104: areturn
+     105: aload_1
+     106: getstatic     #189                // Field org/xnio/Options.WORKER_TASK_KEEPALIVE:Lorg/xnio/Option;
+     109: invokevirtual #585                // Method java/lang/Object.equals:(Ljava/lang/Object;)Z
+     112: ifeq          166
+     115: aload_0
+     116: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+     119: getstatic     #196                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     122: invokevirtual #604                // Method org/xnio/XnioWorker$TaskPool.getKeepAliveTime:(Ljava/util/concurrent/TimeUnit;)J
+     125: lstore_3
+     126: aload_0
+     127: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+     130: getstatic     #189                // Field org/xnio/Options.WORKER_TASK_KEEPALIVE:Lorg/xnio/Option;
+     133: aload_2
+     134: invokevirtual #595                // Method org/xnio/Option.cast:(Ljava/lang/Object;)Ljava/lang/Object;
+     137: checkcast     #587                // class java/lang/Integer
+     140: invokevirtual #619                // Method java/lang/Integer.intValue:()I
+     143: i2l
+     144: getstatic     #196                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     147: invokevirtual #634                // Method org/xnio/XnioWorker$TaskPool.setKeepAliveTime:(JLjava/util/concurrent/TimeUnit;)V
+     150: aload_1
+     151: ldc2_w        #599                // long 2147483647l
+     154: lload_3
+     155: invokestatic  #610                // Method java/lang/Math.min:(JJ)J
+     158: l2i
+     159: invokestatic  #591                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     162: invokevirtual #595                // Method org/xnio/Option.cast:(Ljava/lang/Object;)Ljava/lang/Object;
+     165: areturn
+     166: aconst_null
+     167: areturn
+
+  public org.xnio.Xnio getXnio();
+    Code:
+       0: aload_0
+       1: getfield      #103                // Field xnio:Lorg/xnio/Xnio;
+       4: areturn
+
+  public java.lang.String getName();
+    Code:
+       0: aload_0
+       1: getfield      #164                // Field name:Ljava/lang/String;
+       4: areturn
+
+  protected abstract org.xnio.XnioIoThread chooseThread();
+
+  protected final int getCoreWorkerPoolSize();
+    Code:
+       0: aload_0
+       1: getfield      #177                // Field coreSize:I
+       4: ireturn
+
+  protected final int getMaxWorkerPoolSize();
+    Code:
+       0: aload_0
+       1: getfield      #205                // Field taskPool:Lorg/xnio/XnioWorker$TaskPool;
+       4: invokevirtual #598                // Method org/xnio/XnioWorker$TaskPool.getMaximumPoolSize:()I
+       7: ireturn
+
+  protected final int getWorkerQueueSize();
+    Code:
+       0: aload_0
+       1: getfield      #169                // Field taskQueue:Ljava/util/concurrent/BlockingQueue;
+       4: invokeinterface #650,  1          // InterfaceMethod java/util/concurrent/BlockingQueue.size:()I
+       9: ireturn
+
+  static java.lang.String access$100(org.xnio.XnioWorker);
+    Code:
+       0: aload_0
+       1: getfield      #164                // Field name:Ljava/lang/String;
+       4: areturn
+
+  static int access$200(org.xnio.XnioWorker);
+    Code:
+       0: aload_0
+       1: invokespecial #657                // Method getNextSeq:()I
+       4: ireturn
+
+  static {};
+    Code:
+       0: ldc           #2                  // class org/xnio/XnioWorker
+       2: ldc_w         #659                // String taskSeq
+       5: invokestatic  #663                // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.newUpdater:(Ljava/lang/Class;Ljava/lang/String;)Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+       8: putstatic     #88                 // Field taskSeqUpdater:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      11: ldc           #2                  // class org/xnio/XnioWorker
+      13: ldc_w         #664                // String coreSize
+      16: invokestatic  #663                // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.newUpdater:(Ljava/lang/Class;Ljava/lang/String;)Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      19: putstatic     #616                // Field coreSizeUpdater:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      22: new           #152                // class java/util/concurrent/atomic/AtomicInteger
+      25: dup
+      26: iconst_1
+      27: invokespecial #666                // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      30: putstatic     #150                // Field seq:Ljava/util/concurrent/atomic/AtomicInteger;
+      33: new           #668                // class java/lang/RuntimePermission
+      36: dup
+      37: ldc_w         #670                // String createXnioWorker
+      40: invokespecial #673                // Method java/lang/RuntimePermission."<init>":(Ljava/lang/String;)V
+      43: putstatic     #113                // Field CREATE_WORKER_PERMISSION:Ljava/lang/RuntimePermission;
+      46: invokestatic  #677                // Method org/xnio/Option.setBuilder:()Lorg/xnio/Option$SetBuilder;
+      49: getstatic     #172                // Field org/xnio/Options.WORKER_TASK_CORE_THREADS:Lorg/xnio/Option;
+      52: invokevirtual #681                // Method org/xnio/Option$SetBuilder.add:(Lorg/xnio/Option;)Lorg/xnio/Option$SetBuilder;
+      55: getstatic     #186                // Field org/xnio/Options.WORKER_TASK_MAX_THREADS:Lorg/xnio/Option;
+      58: invokevirtual #681                // Method org/xnio/Option$SetBuilder.add:(Lorg/xnio/Option;)Lorg/xnio/Option$SetBuilder;
+      61: getstatic     #189                // Field org/xnio/Options.WORKER_TASK_KEEPALIVE:Lorg/xnio/Option;
+      64: invokevirtual #681                // Method org/xnio/Option$SetBuilder.add:(Lorg/xnio/Option;)Lorg/xnio/Option$SetBuilder;
+      67: invokevirtual #685                // Method org/xnio/Option$SetBuilder.create:()Ljava/util/Set;
+      70: putstatic     #573                // Field OPTIONS:Ljava/util/Set;
+      73: new           #29                 // class org/xnio/XnioWorker$2
+      76: dup
+      77: invokespecial #686                // Method org/xnio/XnioWorker$2."<init>":()V
+      80: putstatic     #301                // Field STREAM_WRAPPING_HANDLER:Lorg/xnio/IoFuture$HandlingNotifier;
+      83: new           #27                 // class org/xnio/XnioWorker$3
+      86: dup
+      87: invokespecial #687                // Method org/xnio/XnioWorker$3."<init>":()V
+      90: putstatic     #354                // Field MESSAGE_WRAPPING_HANDLER:Lorg/xnio/IoFuture$HandlingNotifier;
+      93: return
+}

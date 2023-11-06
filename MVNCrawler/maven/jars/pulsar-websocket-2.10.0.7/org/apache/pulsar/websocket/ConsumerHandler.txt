@@ -1,0 +1,1338 @@
+Compiled from "ConsumerHandler.java"
+public class org.apache.pulsar.websocket.ConsumerHandler extends org.apache.pulsar.websocket.AbstractWebSocketHandler {
+  private java.lang.String subscription;
+
+  private org.apache.pulsar.client.api.SubscriptionType subscriptionType;
+
+  private org.apache.pulsar.client.api.SubscriptionMode subscriptionMode;
+
+  private org.apache.pulsar.client.api.Consumer<byte[]> consumer;
+
+  private int maxPendingMessages;
+
+  private final java.util.concurrent.atomic.AtomicInteger pendingMessages;
+
+  private final boolean pullMode;
+
+  private final java.util.concurrent.atomic.LongAdder numMsgsDelivered;
+
+  private final java.util.concurrent.atomic.LongAdder numBytesDelivered;
+
+  private final java.util.concurrent.atomic.LongAdder numMsgsAcked;
+
+  private volatile long msgDeliveredCounter;
+
+  private static final java.util.concurrent.atomic.AtomicLongFieldUpdater<org.apache.pulsar.websocket.ConsumerHandler> MSG_DELIVERED_COUNTER_UPDATER;
+
+  private com.google.common.cache.Cache<java.lang.String, org.apache.pulsar.client.api.MessageId> messageIdCache;
+
+  private static final org.slf4j.Logger log;
+
+  public org.apache.pulsar.websocket.ConsumerHandler(org.apache.pulsar.websocket.WebSocketService, javax.servlet.http.HttpServletRequest, org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: invokespecial #6                  // Method org/apache/pulsar/websocket/AbstractWebSocketHandler."<init>":(Lorg/apache/pulsar/websocket/WebSocketService;Ljavax/servlet/http/HttpServletRequest;Lorg/eclipse/jetty/websocket/servlet/ServletUpgradeResponse;)V
+       7: aload_0
+       8: aconst_null
+       9: putfield      #4                  // Field subscription:Ljava/lang/String;
+      12: aload_0
+      13: iconst_0
+      14: putfield      #7                  // Field maxPendingMessages:I
+      17: aload_0
+      18: new           #8                  // class java/util/concurrent/atomic/AtomicInteger
+      21: dup
+      22: invokespecial #9                  // Method java/util/concurrent/atomic/AtomicInteger."<init>":()V
+      25: putfield      #2                  // Field pendingMessages:Ljava/util/concurrent/atomic/AtomicInteger;
+      28: aload_0
+      29: lconst_0
+      30: putfield      #10                 // Field msgDeliveredCounter:J
+      33: aload_0
+      34: invokestatic  #11                 // Method com/google/common/cache/CacheBuilder.newBuilder:()Lcom/google/common/cache/CacheBuilder;
+      37: lconst_1
+      38: getstatic     #12                 // Field java/util/concurrent/TimeUnit.HOURS:Ljava/util/concurrent/TimeUnit;
+      41: invokevirtual #13                 // Method com/google/common/cache/CacheBuilder.expireAfterWrite:(JLjava/util/concurrent/TimeUnit;)Lcom/google/common/cache/CacheBuilder;
+      44: invokevirtual #14                 // Method com/google/common/cache/CacheBuilder.build:()Lcom/google/common/cache/Cache;
+      47: putfield      #15                 // Field messageIdCache:Lcom/google/common/cache/Cache;
+      50: aload_0
+      51: new           #16                 // class java/util/concurrent/atomic/LongAdder
+      54: dup
+      55: invokespecial #17                 // Method java/util/concurrent/atomic/LongAdder."<init>":()V
+      58: putfield      #18                 // Field numMsgsDelivered:Ljava/util/concurrent/atomic/LongAdder;
+      61: aload_0
+      62: new           #16                 // class java/util/concurrent/atomic/LongAdder
+      65: dup
+      66: invokespecial #17                 // Method java/util/concurrent/atomic/LongAdder."<init>":()V
+      69: putfield      #19                 // Field numBytesDelivered:Ljava/util/concurrent/atomic/LongAdder;
+      72: aload_0
+      73: new           #16                 // class java/util/concurrent/atomic/LongAdder
+      76: dup
+      77: invokespecial #17                 // Method java/util/concurrent/atomic/LongAdder."<init>":()V
+      80: putfield      #20                 // Field numMsgsAcked:Ljava/util/concurrent/atomic/LongAdder;
+      83: aload_0
+      84: aload_0
+      85: getfield      #21                 // Field queryParams:Ljava/util/Map;
+      88: ldc           #22                 // String pullMode
+      90: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      95: checkcast     #24                 // class java/lang/String
+      98: invokestatic  #25                 // Method java/lang/Boolean.parseBoolean:(Ljava/lang/String;)Z
+     101: putfield      #26                 // Field pullMode:Z
+     104: aload_0
+     105: aload_2
+     106: invokestatic  #27                 // Method extractSubscription:(Ljavax/servlet/http/HttpServletRequest;)Ljava/lang/String;
+     109: putfield      #4                  // Field subscription:Ljava/lang/String;
+     112: aload_0
+     113: aload_1
+     114: invokevirtual #28                 // Method org/apache/pulsar/websocket/WebSocketService.getPulsarClient:()Lorg/apache/pulsar/client/api/PulsarClient;
+     117: invokevirtual #29                 // Method getConsumerConfiguration:(Lorg/apache/pulsar/client/api/PulsarClient;)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     120: checkcast     #30                 // class org/apache/pulsar/client/impl/ConsumerBuilderImpl
+     123: astore        4
+     125: aload_0
+     126: getfield      #26                 // Field pullMode:Z
+     129: ifne          159
+     132: aload_0
+     133: aload         4
+     135: invokevirtual #31                 // Method org/apache/pulsar/client/impl/ConsumerBuilderImpl.getConf:()Lorg/apache/pulsar/client/impl/conf/ConsumerConfigurationData;
+     138: invokevirtual #32                 // Method org/apache/pulsar/client/impl/conf/ConsumerConfigurationData.getReceiverQueueSize:()I
+     141: ifne          148
+     144: iconst_1
+     145: goto          156
+     148: aload         4
+     150: invokevirtual #31                 // Method org/apache/pulsar/client/impl/ConsumerBuilderImpl.getConf:()Lorg/apache/pulsar/client/impl/conf/ConsumerConfigurationData;
+     153: invokevirtual #32                 // Method org/apache/pulsar/client/impl/conf/ConsumerConfigurationData.getReceiverQueueSize:()I
+     156: putfield      #7                  // Field maxPendingMessages:I
+     159: aload_0
+     160: aload         4
+     162: invokevirtual #31                 // Method org/apache/pulsar/client/impl/ConsumerBuilderImpl.getConf:()Lorg/apache/pulsar/client/impl/conf/ConsumerConfigurationData;
+     165: invokevirtual #33                 // Method org/apache/pulsar/client/impl/conf/ConsumerConfigurationData.getSubscriptionType:()Lorg/apache/pulsar/client/api/SubscriptionType;
+     168: putfield      #34                 // Field subscriptionType:Lorg/apache/pulsar/client/api/SubscriptionType;
+     171: aload_0
+     172: aload         4
+     174: invokevirtual #31                 // Method org/apache/pulsar/client/impl/ConsumerBuilderImpl.getConf:()Lorg/apache/pulsar/client/impl/conf/ConsumerConfigurationData;
+     177: invokevirtual #35                 // Method org/apache/pulsar/client/impl/conf/ConsumerConfigurationData.getSubscriptionMode:()Lorg/apache/pulsar/client/api/SubscriptionMode;
+     180: putfield      #36                 // Field subscriptionMode:Lorg/apache/pulsar/client/api/SubscriptionMode;
+     183: aload_0
+     184: aload_3
+     185: invokevirtual #37                 // Method checkAuth:(Lorg/eclipse/jetty/websocket/servlet/ServletUpgradeResponse;)Z
+     188: ifne          192
+     191: return
+     192: aload_0
+     193: aload         4
+     195: iconst_1
+     196: anewarray     #24                 // class java/lang/String
+     199: dup
+     200: iconst_0
+     201: aload_0
+     202: getfield      #38                 // Field topic:Lorg/apache/pulsar/common/naming/TopicName;
+     205: invokevirtual #39                 // Method org/apache/pulsar/common/naming/TopicName.toString:()Ljava/lang/String;
+     208: aastore
+     209: invokevirtual #40                 // Method org/apache/pulsar/client/impl/ConsumerBuilderImpl.topic:([Ljava/lang/String;)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     212: aload_0
+     213: getfield      #4                  // Field subscription:Ljava/lang/String;
+     216: invokeinterface #41,  2           // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.subscriptionName:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     221: invokeinterface #42,  1           // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.subscribe:()Lorg/apache/pulsar/client/api/Consumer;
+     226: putfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+     229: aload_0
+     230: getfield      #43                 // Field service:Lorg/apache/pulsar/websocket/WebSocketService;
+     233: aload_0
+     234: invokevirtual #44                 // Method org/apache/pulsar/websocket/WebSocketService.addConsumer:(Lorg/apache/pulsar/websocket/ConsumerHandler;)Z
+     237: ifne          282
+     240: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+     243: ldc           #45                 // String [{}:{}] Failed to add consumer handler for topic {}
+     245: iconst_3
+     246: anewarray     #46                 // class java/lang/Object
+     249: dup
+     250: iconst_0
+     251: aload_2
+     252: invokeinterface #47,  1           // InterfaceMethod javax/servlet/http/HttpServletRequest.getRemoteAddr:()Ljava/lang/String;
+     257: aastore
+     258: dup
+     259: iconst_1
+     260: aload_2
+     261: invokeinterface #48,  1           // InterfaceMethod javax/servlet/http/HttpServletRequest.getRemotePort:()I
+     266: invokestatic  #49                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     269: aastore
+     270: dup
+     271: iconst_2
+     272: aload_0
+     273: getfield      #38                 // Field topic:Lorg/apache/pulsar/common/naming/TopicName;
+     276: aastore
+     277: invokeinterface #50,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;[Ljava/lang/Object;)V
+     282: goto          408
+     285: astore        5
+     287: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+     290: ldc           #52                 // String [{}:{}] Failed in creating subscription {} on topic {}
+     292: iconst_5
+     293: anewarray     #46                 // class java/lang/Object
+     296: dup
+     297: iconst_0
+     298: aload_2
+     299: invokeinterface #47,  1           // InterfaceMethod javax/servlet/http/HttpServletRequest.getRemoteAddr:()Ljava/lang/String;
+     304: aastore
+     305: dup
+     306: iconst_1
+     307: aload_2
+     308: invokeinterface #48,  1           // InterfaceMethod javax/servlet/http/HttpServletRequest.getRemotePort:()I
+     313: invokestatic  #49                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     316: aastore
+     317: dup
+     318: iconst_2
+     319: aload_0
+     320: getfield      #4                  // Field subscription:Ljava/lang/String;
+     323: aastore
+     324: dup
+     325: iconst_3
+     326: aload_0
+     327: getfield      #38                 // Field topic:Lorg/apache/pulsar/common/naming/TopicName;
+     330: aastore
+     331: dup
+     332: iconst_4
+     333: aload         5
+     335: aastore
+     336: invokeinterface #50,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;[Ljava/lang/Object;)V
+     341: aload_3
+     342: aload         5
+     344: invokestatic  #53                 // Method getErrorCode:(Ljava/lang/Exception;)I
+     347: aload         5
+     349: invokestatic  #54                 // Method getErrorMessage:(Ljava/lang/Exception;)Ljava/lang/String;
+     352: invokevirtual #55                 // Method org/eclipse/jetty/websocket/servlet/ServletUpgradeResponse.sendError:(ILjava/lang/String;)V
+     355: goto          408
+     358: astore        6
+     360: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+     363: ldc           #57                 // String [{}:{}] Failed to send error: {}
+     365: iconst_4
+     366: anewarray     #46                 // class java/lang/Object
+     369: dup
+     370: iconst_0
+     371: aload_2
+     372: invokeinterface #47,  1           // InterfaceMethod javax/servlet/http/HttpServletRequest.getRemoteAddr:()Ljava/lang/String;
+     377: aastore
+     378: dup
+     379: iconst_1
+     380: aload_2
+     381: invokeinterface #48,  1           // InterfaceMethod javax/servlet/http/HttpServletRequest.getRemotePort:()I
+     386: invokestatic  #49                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     389: aastore
+     390: dup
+     391: iconst_2
+     392: aload         6
+     394: invokevirtual #58                 // Method java/io/IOException.getMessage:()Ljava/lang/String;
+     397: aastore
+     398: dup
+     399: iconst_3
+     400: aload         6
+     402: aastore
+     403: invokeinterface #50,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;[Ljava/lang/Object;)V
+     408: return
+    Exception table:
+       from    to  target type
+         104   191   285   Class java/lang/Exception
+         192   282   285   Class java/lang/Exception
+         341   355   358   Class java/io/IOException
+
+  private void receiveMessage();
+    Code:
+       0: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          66
+      11: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      14: ldc           #60                 // String [{}:{}] [{}] [{}] Receive next message
+      16: iconst_4
+      17: anewarray     #46                 // class java/lang/Object
+      20: dup
+      21: iconst_0
+      22: aload_0
+      23: getfield      #61                 // Field request:Ljavax/servlet/http/HttpServletRequest;
+      26: invokeinterface #47,  1           // InterfaceMethod javax/servlet/http/HttpServletRequest.getRemoteAddr:()Ljava/lang/String;
+      31: aastore
+      32: dup
+      33: iconst_1
+      34: aload_0
+      35: getfield      #61                 // Field request:Ljavax/servlet/http/HttpServletRequest;
+      38: invokeinterface #48,  1           // InterfaceMethod javax/servlet/http/HttpServletRequest.getRemotePort:()I
+      43: invokestatic  #49                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      46: aastore
+      47: dup
+      48: iconst_2
+      49: aload_0
+      50: getfield      #38                 // Field topic:Lorg/apache/pulsar/common/naming/TopicName;
+      53: aastore
+      54: dup
+      55: iconst_3
+      56: aload_0
+      57: getfield      #4                  // Field subscription:Ljava/lang/String;
+      60: aastore
+      61: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+      66: aload_0
+      67: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      70: invokeinterface #63,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.receiveAsync:()Ljava/util/concurrent/CompletableFuture;
+      75: aload_0
+      76: invokedynamic #64,  0             // InvokeDynamic #0:accept:(Lorg/apache/pulsar/websocket/ConsumerHandler;)Ljava/util/function/Consumer;
+      81: invokevirtual #65                 // Method java/util/concurrent/CompletableFuture.thenAccept:(Ljava/util/function/Consumer;)Ljava/util/concurrent/CompletableFuture;
+      84: aload_0
+      85: invokedynamic #66,  0             // InvokeDynamic #1:apply:(Lorg/apache/pulsar/websocket/ConsumerHandler;)Ljava/util/function/Function;
+      90: invokevirtual #67                 // Method java/util/concurrent/CompletableFuture.exceptionally:(Ljava/util/function/Function;)Ljava/util/concurrent/CompletableFuture;
+      93: pop
+      94: return
+
+  public void onWebSocketConnect(org.eclipse.jetty.websocket.api.Session);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #68                 // Method org/apache/pulsar/websocket/AbstractWebSocketHandler.onWebSocketConnect:(Lorg/eclipse/jetty/websocket/api/Session;)V
+       5: aload_0
+       6: getfield      #26                 // Field pullMode:Z
+       9: ifne          16
+      12: aload_0
+      13: invokespecial #1                  // Method receiveMessage:()V
+      16: return
+
+  public void onWebSocketText(java.lang.String);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #69                 // Method org/apache/pulsar/websocket/AbstractWebSocketHandler.onWebSocketText:(Ljava/lang/String;)V
+       5: invokestatic  #70                 // Method org/apache/pulsar/common/util/ObjectMapperFactory.getThreadLocal:()Lcom/fasterxml/jackson/databind/ObjectMapper;
+       8: aload_1
+       9: ldc           #71                 // class org/apache/pulsar/websocket/data/ConsumerCommand
+      11: invokevirtual #72                 // Method com/fasterxml/jackson/databind/ObjectMapper.readValue:(Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/Object;
+      14: checkcast     #71                 // class org/apache/pulsar/websocket/data/ConsumerCommand
+      17: astore_2
+      18: ldc           #73                 // String permit
+      20: aload_2
+      21: getfield      #74                 // Field org/apache/pulsar/websocket/data/ConsumerCommand.type:Ljava/lang/String;
+      24: invokevirtual #75                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      27: ifeq          38
+      30: aload_0
+      31: aload_2
+      32: invokespecial #76                 // Method handlePermit:(Lorg/apache/pulsar/websocket/data/ConsumerCommand;)V
+      35: goto          102
+      38: ldc           #77                 // String unsubscribe
+      40: aload_2
+      41: getfield      #74                 // Field org/apache/pulsar/websocket/data/ConsumerCommand.type:Ljava/lang/String;
+      44: invokevirtual #75                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      47: ifeq          58
+      50: aload_0
+      51: aload_2
+      52: invokespecial #78                 // Method handleUnsubscribe:(Lorg/apache/pulsar/websocket/data/ConsumerCommand;)V
+      55: goto          102
+      58: ldc           #79                 // String negativeAcknowledge
+      60: aload_2
+      61: getfield      #74                 // Field org/apache/pulsar/websocket/data/ConsumerCommand.type:Ljava/lang/String;
+      64: invokevirtual #75                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      67: ifeq          78
+      70: aload_0
+      71: aload_2
+      72: invokespecial #80                 // Method handleNack:(Lorg/apache/pulsar/websocket/data/ConsumerCommand;)V
+      75: goto          102
+      78: ldc           #81                 // String isEndOfTopic
+      80: aload_2
+      81: getfield      #74                 // Field org/apache/pulsar/websocket/data/ConsumerCommand.type:Ljava/lang/String;
+      84: invokevirtual #75                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      87: ifeq          97
+      90: aload_0
+      91: invokespecial #82                 // Method handleEndOfTopic:()V
+      94: goto          102
+      97: aload_0
+      98: aload_2
+      99: invokespecial #83                 // Method handleAck:(Lorg/apache/pulsar/websocket/data/ConsumerCommand;)V
+     102: goto          125
+     105: astore_2
+     106: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+     109: ldc           #84                 // String Failed to deserialize message id: {}
+     111: aload_1
+     112: aload_2
+     113: invokeinterface #85,  4           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     118: aload_0
+     119: getstatic     #86                 // Field org/apache/pulsar/websocket/WebSocketError.FailedToDeserializeFromJSON:Lorg/apache/pulsar/websocket/WebSocketError;
+     122: invokevirtual #87                 // Method close:(Lorg/apache/pulsar/websocket/WebSocketError;)V
+     125: return
+    Exception table:
+       from    to  target type
+           5   102   105   Class java/io/IOException
+
+  private void handleEndOfTopic();
+    Code:
+       0: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          59
+      11: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      14: ldc           #88                 // String [{}/{}] Received check reach the end of topic request from {}
+      16: iconst_3
+      17: anewarray     #46                 // class java/lang/Object
+      20: dup
+      21: iconst_0
+      22: aload_0
+      23: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      26: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      31: aastore
+      32: dup
+      33: iconst_1
+      34: aload_0
+      35: getfield      #4                  // Field subscription:Ljava/lang/String;
+      38: aastore
+      39: dup
+      40: iconst_2
+      41: aload_0
+      42: invokevirtual #90                 // Method getRemote:()Lorg/eclipse/jetty/websocket/api/RemoteEndpoint;
+      45: invokeinterface #91,  1           // InterfaceMethod org/eclipse/jetty/websocket/api/RemoteEndpoint.getInetSocketAddress:()Ljava/net/InetSocketAddress;
+      50: invokevirtual #92                 // Method java/net/InetSocketAddress.toString:()Ljava/lang/String;
+      53: aastore
+      54: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+      59: invokestatic  #70                 // Method org/apache/pulsar/common/util/ObjectMapperFactory.getThreadLocal:()Lcom/fasterxml/jackson/databind/ObjectMapper;
+      62: new           #93                 // class org/apache/pulsar/websocket/data/EndOfTopicResponse
+      65: dup
+      66: aload_0
+      67: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      70: invokeinterface #94,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.hasReachedEndOfTopic:()Z
+      75: invokespecial #95                 // Method org/apache/pulsar/websocket/data/EndOfTopicResponse."<init>":(Z)V
+      78: invokevirtual #96                 // Method com/fasterxml/jackson/databind/ObjectMapper.writeValueAsString:(Ljava/lang/Object;)Ljava/lang/String;
+      81: astore_1
+      82: aload_0
+      83: invokevirtual #97                 // Method getSession:()Lorg/eclipse/jetty/websocket/api/Session;
+      86: invokeinterface #98,  1           // InterfaceMethod org/eclipse/jetty/websocket/api/Session.getRemote:()Lorg/eclipse/jetty/websocket/api/RemoteEndpoint;
+      91: aload_1
+      92: new           #99                 // class org/apache/pulsar/websocket/ConsumerHandler$2
+      95: dup
+      96: aload_0
+      97: invokespecial #100                // Method org/apache/pulsar/websocket/ConsumerHandler$2."<init>":(Lorg/apache/pulsar/websocket/ConsumerHandler;)V
+     100: invokeinterface #101,  3          // InterfaceMethod org/eclipse/jetty/websocket/api/RemoteEndpoint.sendString:(Ljava/lang/String;Lorg/eclipse/jetty/websocket/api/WriteCallback;)V
+     105: goto          159
+     108: astore_1
+     109: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+     112: ldc           #103                // String [{}] Failed to generate end of topic response: {}
+     114: aload_0
+     115: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+     118: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+     123: aload_1
+     124: invokevirtual #104                // Method com/fasterxml/jackson/core/JsonProcessingException.getMessage:()Ljava/lang/String;
+     127: invokeinterface #85,  4           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     132: goto          159
+     135: astore_1
+     136: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+     139: ldc           #105                // String [{}] Failed to send end of topic response: {}
+     141: aload_0
+     142: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+     145: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+     150: aload_1
+     151: invokevirtual #106                // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+     154: invokeinterface #85,  4           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     159: return
+    Exception table:
+       from    to  target type
+          59   105   108   Class com/fasterxml/jackson/core/JsonProcessingException
+          59   105   135   Class java/lang/Exception
+
+  private void handleUnsubscribe(org.apache.pulsar.websocket.data.ConsumerCommand) throws org.apache.pulsar.client.api.PulsarClientException;
+    Code:
+       0: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          59
+      11: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      14: ldc           #107                // String [{}/{}] Received unsubscribe request from {}
+      16: iconst_3
+      17: anewarray     #46                 // class java/lang/Object
+      20: dup
+      21: iconst_0
+      22: aload_0
+      23: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      26: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      31: aastore
+      32: dup
+      33: iconst_1
+      34: aload_0
+      35: getfield      #4                  // Field subscription:Ljava/lang/String;
+      38: aastore
+      39: dup
+      40: iconst_2
+      41: aload_0
+      42: invokevirtual #90                 // Method getRemote:()Lorg/eclipse/jetty/websocket/api/RemoteEndpoint;
+      45: invokeinterface #91,  1           // InterfaceMethod org/eclipse/jetty/websocket/api/RemoteEndpoint.getInetSocketAddress:()Ljava/net/InetSocketAddress;
+      50: invokevirtual #92                 // Method java/net/InetSocketAddress.toString:()Ljava/lang/String;
+      53: aastore
+      54: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+      59: aload_0
+      60: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      63: invokeinterface #108,  1          // InterfaceMethod org/apache/pulsar/client/api/Consumer.unsubscribe:()V
+      68: return
+
+  private void checkResumeReceive();
+    Code:
+       0: aload_0
+       1: getfield      #26                 // Field pullMode:Z
+       4: ifne          27
+       7: aload_0
+       8: getfield      #2                  // Field pendingMessages:Ljava/util/concurrent/atomic/AtomicInteger;
+      11: invokevirtual #109                // Method java/util/concurrent/atomic/AtomicInteger.getAndDecrement:()I
+      14: istore_1
+      15: iload_1
+      16: aload_0
+      17: getfield      #7                  // Field maxPendingMessages:I
+      20: if_icmplt     27
+      23: aload_0
+      24: invokespecial #1                  // Method receiveMessage:()V
+      27: return
+
+  private void handleAck(org.apache.pulsar.websocket.data.ConsumerCommand) throws java.io.IOException;
+    Code:
+       0: invokestatic  #110                // Method java/util/Base64.getDecoder:()Ljava/util/Base64$Decoder;
+       3: aload_1
+       4: getfield      #111                // Field org/apache/pulsar/websocket/data/ConsumerCommand.messageId:Ljava/lang/String;
+       7: invokevirtual #112                // Method java/util/Base64$Decoder.decode:(Ljava/lang/String;)[B
+      10: aload_0
+      11: getfield      #38                 // Field topic:Lorg/apache/pulsar/common/naming/TopicName;
+      14: invokevirtual #39                 // Method org/apache/pulsar/common/naming/TopicName.toString:()Ljava/lang/String;
+      17: invokestatic  #113                // InterfaceMethod org/apache/pulsar/client/api/MessageId.fromByteArrayWithTopic:([BLjava/lang/String;)Lorg/apache/pulsar/client/api/MessageId;
+      20: astore_2
+      21: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      24: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      29: ifeq          84
+      32: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      35: ldc           #114                // String [{}/{}] Received ack request of message {} from {}
+      37: iconst_4
+      38: anewarray     #46                 // class java/lang/Object
+      41: dup
+      42: iconst_0
+      43: aload_0
+      44: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      47: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      52: aastore
+      53: dup
+      54: iconst_1
+      55: aload_0
+      56: getfield      #4                  // Field subscription:Ljava/lang/String;
+      59: aastore
+      60: dup
+      61: iconst_2
+      62: aload_2
+      63: aastore
+      64: dup
+      65: iconst_3
+      66: aload_0
+      67: invokevirtual #90                 // Method getRemote:()Lorg/eclipse/jetty/websocket/api/RemoteEndpoint;
+      70: invokeinterface #91,  1           // InterfaceMethod org/eclipse/jetty/websocket/api/RemoteEndpoint.getInetSocketAddress:()Ljava/net/InetSocketAddress;
+      75: invokevirtual #92                 // Method java/net/InetSocketAddress.toString:()Ljava/lang/String;
+      78: aastore
+      79: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+      84: aload_0
+      85: getfield      #15                 // Field messageIdCache:Lcom/google/common/cache/Cache;
+      88: invokeinterface #115,  1          // InterfaceMethod com/google/common/cache/Cache.asMap:()Ljava/util/concurrent/ConcurrentMap;
+      93: aload_1
+      94: getfield      #111                // Field org/apache/pulsar/websocket/data/ConsumerCommand.messageId:Ljava/lang/String;
+      97: invokeinterface #116,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     102: checkcast     #117                // class org/apache/pulsar/client/api/MessageId
+     105: astore_3
+     106: aload_3
+     107: ifnull        133
+     110: aload_0
+     111: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+     114: aload_3
+     115: invokeinterface #118,  2          // InterfaceMethod org/apache/pulsar/client/api/Consumer.acknowledgeAsync:(Lorg/apache/pulsar/client/api/MessageId;)Ljava/util/concurrent/CompletableFuture;
+     120: aload_0
+     121: invokedynamic #119,  0            // InvokeDynamic #2:accept:(Lorg/apache/pulsar/websocket/ConsumerHandler;)Ljava/util/function/Consumer;
+     126: invokevirtual #65                 // Method java/util/concurrent/CompletableFuture.thenAccept:(Ljava/util/function/Consumer;)Ljava/util/concurrent/CompletableFuture;
+     129: pop
+     130: goto          153
+     133: aload_0
+     134: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+     137: aload_2
+     138: invokeinterface #118,  2          // InterfaceMethod org/apache/pulsar/client/api/Consumer.acknowledgeAsync:(Lorg/apache/pulsar/client/api/MessageId;)Ljava/util/concurrent/CompletableFuture;
+     143: aload_0
+     144: invokedynamic #120,  0            // InvokeDynamic #3:accept:(Lorg/apache/pulsar/websocket/ConsumerHandler;)Ljava/util/function/Consumer;
+     149: invokevirtual #65                 // Method java/util/concurrent/CompletableFuture.thenAccept:(Ljava/util/function/Consumer;)Ljava/util/concurrent/CompletableFuture;
+     152: pop
+     153: aload_0
+     154: invokespecial #121                // Method checkResumeReceive:()V
+     157: return
+
+  private void handleNack(org.apache.pulsar.websocket.data.ConsumerCommand) throws java.io.IOException;
+    Code:
+       0: invokestatic  #110                // Method java/util/Base64.getDecoder:()Ljava/util/Base64$Decoder;
+       3: aload_1
+       4: getfield      #111                // Field org/apache/pulsar/websocket/data/ConsumerCommand.messageId:Ljava/lang/String;
+       7: invokevirtual #112                // Method java/util/Base64$Decoder.decode:(Ljava/lang/String;)[B
+      10: aload_0
+      11: getfield      #38                 // Field topic:Lorg/apache/pulsar/common/naming/TopicName;
+      14: invokevirtual #39                 // Method org/apache/pulsar/common/naming/TopicName.toString:()Ljava/lang/String;
+      17: invokestatic  #113                // InterfaceMethod org/apache/pulsar/client/api/MessageId.fromByteArrayWithTopic:([BLjava/lang/String;)Lorg/apache/pulsar/client/api/MessageId;
+      20: astore_2
+      21: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      24: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      29: ifeq          84
+      32: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      35: ldc           #122                // String [{}/{}] Received negative ack request of message {} from {}
+      37: iconst_4
+      38: anewarray     #46                 // class java/lang/Object
+      41: dup
+      42: iconst_0
+      43: aload_0
+      44: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      47: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      52: aastore
+      53: dup
+      54: iconst_1
+      55: aload_0
+      56: getfield      #4                  // Field subscription:Ljava/lang/String;
+      59: aastore
+      60: dup
+      61: iconst_2
+      62: aload_2
+      63: aastore
+      64: dup
+      65: iconst_3
+      66: aload_0
+      67: invokevirtual #90                 // Method getRemote:()Lorg/eclipse/jetty/websocket/api/RemoteEndpoint;
+      70: invokeinterface #91,  1           // InterfaceMethod org/eclipse/jetty/websocket/api/RemoteEndpoint.getInetSocketAddress:()Ljava/net/InetSocketAddress;
+      75: invokevirtual #92                 // Method java/net/InetSocketAddress.toString:()Ljava/lang/String;
+      78: aastore
+      79: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+      84: aload_0
+      85: getfield      #15                 // Field messageIdCache:Lcom/google/common/cache/Cache;
+      88: invokeinterface #115,  1          // InterfaceMethod com/google/common/cache/Cache.asMap:()Ljava/util/concurrent/ConcurrentMap;
+      93: aload_1
+      94: getfield      #111                // Field org/apache/pulsar/websocket/data/ConsumerCommand.messageId:Ljava/lang/String;
+      97: invokeinterface #116,  2          // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     102: checkcast     #117                // class org/apache/pulsar/client/api/MessageId
+     105: astore_3
+     106: aload_3
+     107: ifnull        123
+     110: aload_0
+     111: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+     114: aload_3
+     115: invokeinterface #123,  2          // InterfaceMethod org/apache/pulsar/client/api/Consumer.negativeAcknowledge:(Lorg/apache/pulsar/client/api/MessageId;)V
+     120: goto          133
+     123: aload_0
+     124: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+     127: aload_2
+     128: invokeinterface #123,  2          // InterfaceMethod org/apache/pulsar/client/api/Consumer.negativeAcknowledge:(Lorg/apache/pulsar/client/api/MessageId;)V
+     133: aload_0
+     134: invokespecial #121                // Method checkResumeReceive:()V
+     137: return
+
+  private void handlePermit(org.apache.pulsar.websocket.data.ConsumerCommand) throws java.io.IOException;
+    Code:
+       0: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          66
+      11: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      14: ldc           #124                // String [{}/{}] Received {} permits request from {}
+      16: iconst_4
+      17: anewarray     #46                 // class java/lang/Object
+      20: dup
+      21: iconst_0
+      22: aload_0
+      23: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      26: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      31: aastore
+      32: dup
+      33: iconst_1
+      34: aload_0
+      35: getfield      #4                  // Field subscription:Ljava/lang/String;
+      38: aastore
+      39: dup
+      40: iconst_2
+      41: aload_1
+      42: getfield      #125                // Field org/apache/pulsar/websocket/data/ConsumerCommand.permitMessages:Ljava/lang/Integer;
+      45: aastore
+      46: dup
+      47: iconst_3
+      48: aload_0
+      49: invokevirtual #90                 // Method getRemote:()Lorg/eclipse/jetty/websocket/api/RemoteEndpoint;
+      52: invokeinterface #91,  1           // InterfaceMethod org/eclipse/jetty/websocket/api/RemoteEndpoint.getInetSocketAddress:()Ljava/net/InetSocketAddress;
+      57: invokevirtual #92                 // Method java/net/InetSocketAddress.toString:()Ljava/lang/String;
+      60: aastore
+      61: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+      66: aload_1
+      67: getfield      #125                // Field org/apache/pulsar/websocket/data/ConsumerCommand.permitMessages:Ljava/lang/Integer;
+      70: ifnonnull     83
+      73: new           #56                 // class java/io/IOException
+      76: dup
+      77: ldc           #126                // String Missing required permitMessages field for \'permit\' command
+      79: invokespecial #127                // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+      82: athrow
+      83: aload_0
+      84: getfield      #26                 // Field pullMode:Z
+      87: ifeq          114
+      90: aload_0
+      91: getfield      #2                  // Field pendingMessages:Ljava/util/concurrent/atomic/AtomicInteger;
+      94: aload_1
+      95: getfield      #125                // Field org/apache/pulsar/websocket/data/ConsumerCommand.permitMessages:Ljava/lang/Integer;
+      98: invokevirtual #128                // Method java/lang/Integer.intValue:()I
+     101: ineg
+     102: invokevirtual #129                // Method java/util/concurrent/atomic/AtomicInteger.getAndAdd:(I)I
+     105: istore_2
+     106: iload_2
+     107: iflt          114
+     110: aload_0
+     111: invokespecial #1                  // Method receiveMessage:()V
+     114: return
+
+  public void close() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+       4: ifnull        65
+       7: aload_0
+       8: getfield      #43                 // Field service:Lorg/apache/pulsar/websocket/WebSocketService;
+      11: aload_0
+      12: invokevirtual #130                // Method org/apache/pulsar/websocket/WebSocketService.removeConsumer:(Lorg/apache/pulsar/websocket/ConsumerHandler;)Z
+      15: ifne          37
+      18: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      21: ldc           #131                // String [{}] Failed to remove consumer handler
+      23: aload_0
+      24: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      27: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      32: invokeinterface #132,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;)V
+      37: aload_0
+      38: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      41: invokeinterface #133,  1          // InterfaceMethod org/apache/pulsar/client/api/Consumer.closeAsync:()Ljava/util/concurrent/CompletableFuture;
+      46: aload_0
+      47: invokedynamic #134,  0            // InvokeDynamic #4:accept:(Lorg/apache/pulsar/websocket/ConsumerHandler;)Ljava/util/function/Consumer;
+      52: invokevirtual #65                 // Method java/util/concurrent/CompletableFuture.thenAccept:(Ljava/util/function/Consumer;)Ljava/util/concurrent/CompletableFuture;
+      55: aload_0
+      56: invokedynamic #135,  0            // InvokeDynamic #5:apply:(Lorg/apache/pulsar/websocket/ConsumerHandler;)Ljava/util/function/Function;
+      61: invokevirtual #67                 // Method java/util/concurrent/CompletableFuture.exceptionally:(Ljava/util/function/Function;)Ljava/util/concurrent/CompletableFuture;
+      64: pop
+      65: return
+
+  public org.apache.pulsar.client.api.Consumer<byte[]> getConsumer();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+       4: areturn
+
+  public java.lang.String getSubscription();
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field subscription:Ljava/lang/String;
+       4: areturn
+
+  public org.apache.pulsar.client.api.SubscriptionType getSubscriptionType();
+    Code:
+       0: aload_0
+       1: getfield      #34                 // Field subscriptionType:Lorg/apache/pulsar/client/api/SubscriptionType;
+       4: areturn
+
+  public org.apache.pulsar.client.api.SubscriptionMode getSubscriptionMode();
+    Code:
+       0: aload_0
+       1: getfield      #36                 // Field subscriptionMode:Lorg/apache/pulsar/client/api/SubscriptionMode;
+       4: areturn
+
+  public long getAndResetNumMsgsDelivered();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field numMsgsDelivered:Ljava/util/concurrent/atomic/LongAdder;
+       4: invokevirtual #136                // Method java/util/concurrent/atomic/LongAdder.sumThenReset:()J
+       7: lreturn
+
+  public long getAndResetNumBytesDelivered();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field numBytesDelivered:Ljava/util/concurrent/atomic/LongAdder;
+       4: invokevirtual #136                // Method java/util/concurrent/atomic/LongAdder.sumThenReset:()J
+       7: lreturn
+
+  public long getAndResetNumMsgsAcked();
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field numMsgsAcked:Ljava/util/concurrent/atomic/LongAdder;
+       4: invokevirtual #136                // Method java/util/concurrent/atomic/LongAdder.sumThenReset:()J
+       7: lreturn
+
+  public long getMsgDeliveredCounter();
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field msgDeliveredCounter:J
+       4: lreturn
+
+  protected void updateDeliverMsgStat(long);
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field numMsgsDelivered:Ljava/util/concurrent/atomic/LongAdder;
+       4: invokevirtual #137                // Method java/util/concurrent/atomic/LongAdder.increment:()V
+       7: getstatic     #138                // Field MSG_DELIVERED_COUNTER_UPDATER:Ljava/util/concurrent/atomic/AtomicLongFieldUpdater;
+      10: aload_0
+      11: invokevirtual #139                // Method java/util/concurrent/atomic/AtomicLongFieldUpdater.incrementAndGet:(Ljava/lang/Object;)J
+      14: pop2
+      15: aload_0
+      16: getfield      #19                 // Field numBytesDelivered:Ljava/util/concurrent/atomic/LongAdder;
+      19: lload_1
+      20: invokevirtual #140                // Method java/util/concurrent/atomic/LongAdder.add:(J)V
+      23: return
+
+  protected org.apache.pulsar.client.api.ConsumerBuilder<byte[]> getConsumerConfiguration(org.apache.pulsar.client.api.PulsarClient);
+    Code:
+       0: aload_1
+       1: invokeinterface #141,  1          // InterfaceMethod org/apache/pulsar/client/api/PulsarClient.newConsumer:()Lorg/apache/pulsar/client/api/ConsumerBuilder;
+       6: astore_2
+       7: aload_0
+       8: getfield      #21                 // Field queryParams:Ljava/util/Map;
+      11: ldc           #142                // String ackTimeoutMillis
+      13: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+      18: ifeq          49
+      21: aload_2
+      22: aload_0
+      23: getfield      #21                 // Field queryParams:Ljava/util/Map;
+      26: ldc           #142                // String ackTimeoutMillis
+      28: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      33: checkcast     #24                 // class java/lang/String
+      36: invokestatic  #144                // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+      39: i2l
+      40: getstatic     #145                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      43: invokeinterface #146,  4          // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.ackTimeout:(JLjava/util/concurrent/TimeUnit;)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+      48: pop
+      49: aload_0
+      50: getfield      #21                 // Field queryParams:Ljava/util/Map;
+      53: ldc           #147                // String subscriptionType
+      55: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+      60: ifeq          125
+      63: ldc           #148                // class org/apache/pulsar/client/api/SubscriptionType
+      65: aload_0
+      66: getfield      #21                 // Field queryParams:Ljava/util/Map;
+      69: ldc           #147                // String subscriptionType
+      71: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      76: checkcast     #24                 // class java/lang/String
+      79: invokestatic  #149                // Method com/google/common/base/Enums.getIfPresent:(Ljava/lang/Class;Ljava/lang/String;)Lcom/google/common/base/Optional;
+      82: invokevirtual #150                // Method com/google/common/base/Optional.isPresent:()Z
+      85: ldc           #151                // String Invalid subscriptionType %s
+      87: aload_0
+      88: getfield      #21                 // Field queryParams:Ljava/util/Map;
+      91: ldc           #147                // String subscriptionType
+      93: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      98: invokestatic  #152                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/String;Ljava/lang/Object;)V
+     101: aload_2
+     102: aload_0
+     103: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     106: ldc           #147                // String subscriptionType
+     108: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     113: checkcast     #24                 // class java/lang/String
+     116: invokestatic  #153                // Method org/apache/pulsar/client/api/SubscriptionType.valueOf:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/SubscriptionType;
+     119: invokeinterface #154,  2          // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.subscriptionType:(Lorg/apache/pulsar/client/api/SubscriptionType;)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     124: pop
+     125: aload_0
+     126: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     129: ldc           #155                // String subscriptionMode
+     131: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     136: ifeq          201
+     139: ldc           #156                // class org/apache/pulsar/client/api/SubscriptionMode
+     141: aload_0
+     142: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     145: ldc           #155                // String subscriptionMode
+     147: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     152: checkcast     #24                 // class java/lang/String
+     155: invokestatic  #149                // Method com/google/common/base/Enums.getIfPresent:(Ljava/lang/Class;Ljava/lang/String;)Lcom/google/common/base/Optional;
+     158: invokevirtual #150                // Method com/google/common/base/Optional.isPresent:()Z
+     161: ldc           #157                // String Invalid subscriptionMode %s
+     163: aload_0
+     164: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     167: ldc           #155                // String subscriptionMode
+     169: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     174: invokestatic  #152                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/String;Ljava/lang/Object;)V
+     177: aload_2
+     178: aload_0
+     179: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     182: ldc           #155                // String subscriptionMode
+     184: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     189: checkcast     #24                 // class java/lang/String
+     192: invokestatic  #158                // Method org/apache/pulsar/client/api/SubscriptionMode.valueOf:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/SubscriptionMode;
+     195: invokeinterface #159,  2          // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.subscriptionMode:(Lorg/apache/pulsar/client/api/SubscriptionMode;)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     200: pop
+     201: aload_0
+     202: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     205: ldc           #160                // String receiverQueueSize
+     207: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     212: ifeq          245
+     215: aload_2
+     216: aload_0
+     217: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     220: ldc           #160                // String receiverQueueSize
+     222: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     227: checkcast     #24                 // class java/lang/String
+     230: invokestatic  #144                // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+     233: sipush        1000
+     236: invokestatic  #161                // Method java/lang/Math.min:(II)I
+     239: invokeinterface #162,  2          // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.receiverQueueSize:(I)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     244: pop
+     245: aload_0
+     246: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     249: ldc           #163                // String consumerName
+     251: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     256: ifeq          280
+     259: aload_2
+     260: aload_0
+     261: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     264: ldc           #163                // String consumerName
+     266: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     271: checkcast     #24                 // class java/lang/String
+     274: invokeinterface #164,  2          // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.consumerName:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     279: pop
+     280: aload_0
+     281: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     284: ldc           #165                // String priorityLevel
+     286: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     291: ifeq          318
+     294: aload_2
+     295: aload_0
+     296: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     299: ldc           #165                // String priorityLevel
+     301: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     306: checkcast     #24                 // class java/lang/String
+     309: invokestatic  #144                // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+     312: invokeinterface #166,  2          // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.priorityLevel:(I)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     317: pop
+     318: aload_0
+     319: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     322: ldc           #167                // String negativeAckRedeliveryDelay
+     324: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     329: ifeq          360
+     332: aload_2
+     333: aload_0
+     334: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     337: ldc           #167                // String negativeAckRedeliveryDelay
+     339: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     344: checkcast     #24                 // class java/lang/String
+     347: invokestatic  #144                // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+     350: i2l
+     351: getstatic     #145                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     354: invokeinterface #168,  4          // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.negativeAckRedeliveryDelay:(JLjava/util/concurrent/TimeUnit;)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     359: pop
+     360: aload_0
+     361: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     364: ldc           #169                // String maxRedeliverCount
+     366: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     371: ifne          388
+     374: aload_0
+     375: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     378: ldc           #170                // String deadLetterTopic
+     380: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     385: ifeq          498
+     388: invokestatic  #171                // Method org/apache/pulsar/client/api/DeadLetterPolicy.builder:()Lorg/apache/pulsar/client/api/DeadLetterPolicy$DeadLetterPolicyBuilder;
+     391: astore_3
+     392: aload_0
+     393: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     396: ldc           #169                // String maxRedeliverCount
+     398: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     403: ifeq          454
+     406: aload_3
+     407: aload_0
+     408: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     411: ldc           #169                // String maxRedeliverCount
+     413: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     418: checkcast     #24                 // class java/lang/String
+     421: invokestatic  #144                // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+     424: invokevirtual #172                // Method org/apache/pulsar/client/api/DeadLetterPolicy$DeadLetterPolicyBuilder.maxRedeliverCount:(I)Lorg/apache/pulsar/client/api/DeadLetterPolicy$DeadLetterPolicyBuilder;
+     427: ldc           #173                // String %s-%s-DLQ
+     429: iconst_2
+     430: anewarray     #46                 // class java/lang/Object
+     433: dup
+     434: iconst_0
+     435: aload_0
+     436: getfield      #38                 // Field topic:Lorg/apache/pulsar/common/naming/TopicName;
+     439: aastore
+     440: dup
+     441: iconst_1
+     442: aload_0
+     443: getfield      #4                  // Field subscription:Ljava/lang/String;
+     446: aastore
+     447: invokestatic  #174                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     450: invokevirtual #175                // Method org/apache/pulsar/client/api/DeadLetterPolicy$DeadLetterPolicyBuilder.deadLetterTopic:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/DeadLetterPolicy$DeadLetterPolicyBuilder;
+     453: pop
+     454: aload_0
+     455: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     458: ldc           #170                // String deadLetterTopic
+     460: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     465: ifeq          487
+     468: aload_3
+     469: aload_0
+     470: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     473: ldc           #170                // String deadLetterTopic
+     475: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     480: checkcast     #24                 // class java/lang/String
+     483: invokevirtual #175                // Method org/apache/pulsar/client/api/DeadLetterPolicy$DeadLetterPolicyBuilder.deadLetterTopic:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/DeadLetterPolicy$DeadLetterPolicyBuilder;
+     486: pop
+     487: aload_2
+     488: aload_3
+     489: invokevirtual #176                // Method org/apache/pulsar/client/api/DeadLetterPolicy$DeadLetterPolicyBuilder.build:()Lorg/apache/pulsar/client/api/DeadLetterPolicy;
+     492: invokeinterface #177,  2          // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.deadLetterPolicy:(Lorg/apache/pulsar/client/api/DeadLetterPolicy;)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     497: pop
+     498: aload_0
+     499: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     502: ldc           #178                // String cryptoFailureAction
+     504: invokeinterface #143,  2          // InterfaceMethod java/util/Map.containsKey:(Ljava/lang/Object;)Z
+     509: ifeq          559
+     512: aload_0
+     513: getfield      #21                 // Field queryParams:Ljava/util/Map;
+     516: ldc           #178                // String cryptoFailureAction
+     518: invokeinterface #23,  2           // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     523: checkcast     #24                 // class java/lang/String
+     526: astore_3
+     527: aload_2
+     528: aload_3
+     529: invokestatic  #179                // Method org/apache/pulsar/client/api/ConsumerCryptoFailureAction.valueOf:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/ConsumerCryptoFailureAction;
+     532: invokeinterface #180,  2          // InterfaceMethod org/apache/pulsar/client/api/ConsumerBuilder.cryptoFailureAction:(Lorg/apache/pulsar/client/api/ConsumerCryptoFailureAction;)Lorg/apache/pulsar/client/api/ConsumerBuilder;
+     537: pop
+     538: goto          559
+     541: astore        4
+     543: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+     546: ldc           #181                // String Failed to configure cryptoFailureAction {}, {}
+     548: aload_3
+     549: aload         4
+     551: invokevirtual #106                // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+     554: invokeinterface #85,  4           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     559: aload_2
+     560: areturn
+    Exception table:
+       from    to  target type
+         527   538   541   Class java/lang/Exception
+
+  protected java.lang.Boolean isAuthorized(java.lang.String, org.apache.pulsar.broker.authentication.AuthenticationDataSource) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field service:Lorg/apache/pulsar/websocket/WebSocketService;
+       4: invokevirtual #182                // Method org/apache/pulsar/websocket/WebSocketService.getAuthorizationService:()Lorg/apache/pulsar/broker/authorization/AuthorizationService;
+       7: aload_0
+       8: getfield      #38                 // Field topic:Lorg/apache/pulsar/common/naming/TopicName;
+      11: aload_1
+      12: aload_2
+      13: aload_0
+      14: getfield      #4                  // Field subscription:Ljava/lang/String;
+      17: invokevirtual #183                // Method org/apache/pulsar/broker/authorization/AuthorizationService.canConsume:(Lorg/apache/pulsar/common/naming/TopicName;Ljava/lang/String;Lorg/apache/pulsar/broker/authentication/AuthenticationDataSource;Ljava/lang/String;)Z
+      20: invokestatic  #184                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      23: areturn
+
+  public static java.lang.String extractSubscription(javax.servlet.http.HttpServletRequest);
+    Code:
+       0: aload_0
+       1: invokeinterface #185,  1          // InterfaceMethod javax/servlet/http/HttpServletRequest.getRequestURI:()Ljava/lang/String;
+       6: astore_1
+       7: ldc           #186                // String /
+       9: invokestatic  #187                // Method com/google/common/base/Splitter.on:(Ljava/lang/String;)Lcom/google/common/base/Splitter;
+      12: aload_1
+      13: invokevirtual #188                // Method com/google/common/base/Splitter.splitToList:(Ljava/lang/CharSequence;)Ljava/util/List;
+      16: astore_2
+      17: aload_2
+      18: invokeinterface #189,  1          // InterfaceMethod java/util/List.size:()I
+      23: bipush        9
+      25: if_icmpne     32
+      28: iconst_1
+      29: goto          33
+      32: iconst_0
+      33: ldc           #190                // String Invalid topic name format
+      35: invokestatic  #191                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+      38: aload_2
+      39: iconst_1
+      40: invokeinterface #192,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      45: checkcast     #24                 // class java/lang/String
+      48: ldc           #193                // String ws
+      50: invokevirtual #75                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      53: invokestatic  #194                // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+      56: aload_2
+      57: iconst_2
+      58: invokeinterface #192,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      63: checkcast     #24                 // class java/lang/String
+      66: ldc           #195                // String v2
+      68: invokevirtual #75                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      71: istore_3
+      72: iload_3
+      73: ifeq          80
+      76: iconst_4
+      77: goto          81
+      80: iconst_3
+      81: istore        4
+      83: aload_2
+      84: iload         4
+      86: invokeinterface #192,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      91: checkcast     #24                 // class java/lang/String
+      94: ldc           #196                // String persistent
+      96: invokevirtual #75                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      99: ifne          121
+     102: aload_2
+     103: iload         4
+     105: invokeinterface #192,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     110: checkcast     #24                 // class java/lang/String
+     113: ldc           #197                // String non-persistent
+     115: invokevirtual #75                 // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+     118: ifeq          125
+     121: iconst_1
+     122: goto          126
+     125: iconst_0
+     126: invokestatic  #194                // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+     129: aload_2
+     130: bipush        8
+     132: invokeinterface #192,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     137: checkcast     #24                 // class java/lang/String
+     140: invokevirtual #198                // Method java/lang/String.length:()I
+     143: ifle          150
+     146: iconst_1
+     147: goto          151
+     150: iconst_0
+     151: ldc           #199                // String Empty subscription name
+     153: invokestatic  #191                // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+     156: aload_2
+     157: bipush        8
+     159: invokeinterface #192,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     164: checkcast     #24                 // class java/lang/String
+     167: invokestatic  #200                // Method org/apache/pulsar/common/util/Codec.decode:(Ljava/lang/String;)Ljava/lang/String;
+     170: areturn
+
+  private java.lang.Void lambda$close$5(java.lang.Throwable);
+    Code:
+       0: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+       3: ldc           #201                // String [{}] Failed to close consumer
+       5: aload_0
+       6: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+       9: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      14: aload_1
+      15: invokeinterface #85,  4           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      20: aconst_null
+      21: areturn
+
+  private void lambda$close$4(java.lang.Void);
+    Code:
+       0: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          30
+      11: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      14: ldc           #202                // String [{}] Closed consumer asynchronously
+      16: aload_0
+      17: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      20: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      25: invokeinterface #203,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      30: return
+
+  private void lambda$handleAck$3(java.lang.Void);
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field numMsgsAcked:Ljava/util/concurrent/atomic/LongAdder;
+       4: invokevirtual #137                // Method java/util/concurrent/atomic/LongAdder.increment:()V
+       7: return
+
+  private void lambda$handleAck$2(java.lang.Void);
+    Code:
+       0: aload_0
+       1: getfield      #20                 // Field numMsgsAcked:Ljava/util/concurrent/atomic/LongAdder;
+       4: invokevirtual #137                // Method java/util/concurrent/atomic/LongAdder.increment:()V
+       7: return
+
+  private java.lang.Void lambda$receiveMessage$1(java.lang.Throwable);
+    Code:
+       0: aload_1
+       1: invokevirtual #204                // Method java/lang/Throwable.getCause:()Ljava/lang/Throwable;
+       4: instanceof    #205                // class org/apache/pulsar/client/api/PulsarClientException$AlreadyClosedException
+       7: ifeq          36
+      10: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      13: ldc           #206                // String [{}/{}] Consumer was closed while receiving msg from broker
+      15: aload_0
+      16: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      19: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      24: aload_0
+      25: getfield      #4                  // Field subscription:Ljava/lang/String;
+      28: invokeinterface #207,  4          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      33: goto          91
+      36: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      39: ldc           #208                // String [{}/{}] Error occurred while consumer handler was delivering msg to {}: {}
+      41: iconst_4
+      42: anewarray     #46                 // class java/lang/Object
+      45: dup
+      46: iconst_0
+      47: aload_0
+      48: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+      51: invokeinterface #89,  1           // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      56: aastore
+      57: dup
+      58: iconst_1
+      59: aload_0
+      60: getfield      #4                  // Field subscription:Ljava/lang/String;
+      63: aastore
+      64: dup
+      65: iconst_2
+      66: aload_0
+      67: invokevirtual #90                 // Method getRemote:()Lorg/eclipse/jetty/websocket/api/RemoteEndpoint;
+      70: invokeinterface #91,  1           // InterfaceMethod org/eclipse/jetty/websocket/api/RemoteEndpoint.getInetSocketAddress:()Ljava/net/InetSocketAddress;
+      75: invokevirtual #92                 // Method java/net/InetSocketAddress.toString:()Ljava/lang/String;
+      78: aastore
+      79: dup
+      80: iconst_3
+      81: aload_1
+      82: invokevirtual #209                // Method java/lang/Throwable.getMessage:()Ljava/lang/String;
+      85: aastore
+      86: invokeinterface #50,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;[Ljava/lang/Object;)V
+      91: aconst_null
+      92: areturn
+
+  private void lambda$receiveMessage$0(org.apache.pulsar.client.api.Message);
+    Code:
+       0: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+       3: invokeinterface #59,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          60
+      11: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      14: ldc           #210                // String [{}] [{}] [{}] Got message {}
+      16: iconst_4
+      17: anewarray     #46                 // class java/lang/Object
+      20: dup
+      21: iconst_0
+      22: aload_0
+      23: invokevirtual #97                 // Method getSession:()Lorg/eclipse/jetty/websocket/api/Session;
+      26: invokeinterface #211,  1          // InterfaceMethod org/eclipse/jetty/websocket/api/Session.getRemoteAddress:()Ljava/net/InetSocketAddress;
+      31: aastore
+      32: dup
+      33: iconst_1
+      34: aload_0
+      35: getfield      #38                 // Field topic:Lorg/apache/pulsar/common/naming/TopicName;
+      38: aastore
+      39: dup
+      40: iconst_2
+      41: aload_0
+      42: getfield      #4                  // Field subscription:Ljava/lang/String;
+      45: aastore
+      46: dup
+      47: iconst_3
+      48: aload_1
+      49: invokeinterface #212,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getMessageId:()Lorg/apache/pulsar/client/api/MessageId;
+      54: aastore
+      55: invokeinterface #62,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+      60: new           #213                // class org/apache/pulsar/websocket/data/ConsumerMessage
+      63: dup
+      64: invokespecial #214                // Method org/apache/pulsar/websocket/data/ConsumerMessage."<init>":()V
+      67: astore_2
+      68: aload_2
+      69: invokestatic  #215                // Method java/util/Base64.getEncoder:()Ljava/util/Base64$Encoder;
+      72: aload_1
+      73: invokeinterface #212,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getMessageId:()Lorg/apache/pulsar/client/api/MessageId;
+      78: invokeinterface #216,  1          // InterfaceMethod org/apache/pulsar/client/api/MessageId.toByteArray:()[B
+      83: invokevirtual #217                // Method java/util/Base64$Encoder.encodeToString:([B)Ljava/lang/String;
+      86: putfield      #218                // Field org/apache/pulsar/websocket/data/ConsumerMessage.messageId:Ljava/lang/String;
+      89: aload_2
+      90: invokestatic  #215                // Method java/util/Base64.getEncoder:()Ljava/util/Base64$Encoder;
+      93: aload_1
+      94: invokeinterface #219,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getData:()[B
+      99: invokevirtual #217                // Method java/util/Base64$Encoder.encodeToString:([B)Ljava/lang/String;
+     102: putfield      #220                // Field org/apache/pulsar/websocket/data/ConsumerMessage.payload:Ljava/lang/String;
+     105: aload_2
+     106: aload_1
+     107: invokeinterface #221,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getProperties:()Ljava/util/Map;
+     112: putfield      #222                // Field org/apache/pulsar/websocket/data/ConsumerMessage.properties:Ljava/util/Map;
+     115: aload_2
+     116: aload_1
+     117: invokeinterface #223,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getPublishTime:()J
+     122: invokestatic  #224                // Method org/apache/pulsar/common/util/DateFormatter.format:(J)Ljava/lang/String;
+     125: putfield      #225                // Field org/apache/pulsar/websocket/data/ConsumerMessage.publishTime:Ljava/lang/String;
+     128: aload_2
+     129: aload_1
+     130: invokeinterface #226,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getRedeliveryCount:()I
+     135: putfield      #227                // Field org/apache/pulsar/websocket/data/ConsumerMessage.redeliveryCount:I
+     138: aload_2
+     139: aload_1
+     140: invokeinterface #228,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getEncryptionCtx:()Ljava/util/Optional;
+     145: aconst_null
+     146: invokevirtual #229                // Method java/util/Optional.orElse:(Ljava/lang/Object;)Ljava/lang/Object;
+     149: checkcast     #230                // class org/apache/pulsar/common/api/EncryptionContext
+     152: putfield      #231                // Field org/apache/pulsar/websocket/data/ConsumerMessage.encryptionContext:Lorg/apache/pulsar/common/api/EncryptionContext;
+     155: aload_1
+     156: invokeinterface #232,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getEventTime:()J
+     161: lconst_0
+     162: lcmp
+     163: ifeq          179
+     166: aload_2
+     167: aload_1
+     168: invokeinterface #232,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getEventTime:()J
+     173: invokestatic  #224                // Method org/apache/pulsar/common/util/DateFormatter.format:(J)Ljava/lang/String;
+     176: putfield      #233                // Field org/apache/pulsar/websocket/data/ConsumerMessage.eventTime:Ljava/lang/String;
+     179: aload_1
+     180: invokeinterface #234,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.hasKey:()Z
+     185: ifeq          198
+     188: aload_2
+     189: aload_1
+     190: invokeinterface #235,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getKey:()Ljava/lang/String;
+     195: putfield      #236                // Field org/apache/pulsar/websocket/data/ConsumerMessage.key:Ljava/lang/String;
+     198: aload_1
+     199: invokeinterface #219,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getData:()[B
+     204: arraylength
+     205: i2l
+     206: lstore_3
+     207: aload_0
+     208: getfield      #15                 // Field messageIdCache:Lcom/google/common/cache/Cache;
+     211: aload_2
+     212: getfield      #218                // Field org/apache/pulsar/websocket/data/ConsumerMessage.messageId:Ljava/lang/String;
+     215: aload_1
+     216: invokeinterface #212,  1          // InterfaceMethod org/apache/pulsar/client/api/Message.getMessageId:()Lorg/apache/pulsar/client/api/MessageId;
+     221: invokeinterface #237,  3          // InterfaceMethod com/google/common/cache/Cache.put:(Ljava/lang/Object;Ljava/lang/Object;)V
+     226: aload_0
+     227: invokevirtual #97                 // Method getSession:()Lorg/eclipse/jetty/websocket/api/Session;
+     230: invokeinterface #98,  1           // InterfaceMethod org/eclipse/jetty/websocket/api/Session.getRemote:()Lorg/eclipse/jetty/websocket/api/RemoteEndpoint;
+     235: invokestatic  #70                 // Method org/apache/pulsar/common/util/ObjectMapperFactory.getThreadLocal:()Lcom/fasterxml/jackson/databind/ObjectMapper;
+     238: aload_2
+     239: invokevirtual #96                 // Method com/fasterxml/jackson/databind/ObjectMapper.writeValueAsString:(Ljava/lang/Object;)Ljava/lang/String;
+     242: new           #238                // class org/apache/pulsar/websocket/ConsumerHandler$1
+     245: dup
+     246: aload_0
+     247: lload_3
+     248: invokespecial #239                // Method org/apache/pulsar/websocket/ConsumerHandler$1."<init>":(Lorg/apache/pulsar/websocket/ConsumerHandler;J)V
+     251: invokeinterface #101,  3          // InterfaceMethod org/eclipse/jetty/websocket/api/RemoteEndpoint.sendString:(Ljava/lang/String;Lorg/eclipse/jetty/websocket/api/WriteCallback;)V
+     256: goto          268
+     259: astore        5
+     261: aload_0
+     262: getstatic     #240                // Field org/apache/pulsar/websocket/WebSocketError.FailedToSerializeToJSON:Lorg/apache/pulsar/websocket/WebSocketError;
+     265: invokevirtual #87                 // Method close:(Lorg/apache/pulsar/websocket/WebSocketError;)V
+     268: aload_0
+     269: getfield      #2                  // Field pendingMessages:Ljava/util/concurrent/atomic/AtomicInteger;
+     272: invokevirtual #241                // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+     275: istore        5
+     277: iload         5
+     279: aload_0
+     280: getfield      #7                  // Field maxPendingMessages:I
+     283: if_icmpge     304
+     286: aload_0
+     287: getfield      #43                 // Field service:Lorg/apache/pulsar/websocket/WebSocketService;
+     290: invokevirtual #242                // Method org/apache/pulsar/websocket/WebSocketService.getExecutor:()Ljava/util/concurrent/ScheduledExecutorService;
+     293: aload_0
+     294: invokedynamic #243,  0            // InvokeDynamic #6:run:(Lorg/apache/pulsar/websocket/ConsumerHandler;)Ljava/lang/Runnable;
+     299: invokeinterface #244,  2          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.execute:(Ljava/lang/Runnable;)V
+     304: return
+    Exception table:
+       from    to  target type
+         226   256   259   Class com/fasterxml/jackson/core/JsonProcessingException
+
+  static org.apache.pulsar.client.api.Consumer access$000(org.apache.pulsar.websocket.ConsumerHandler);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field consumer:Lorg/apache/pulsar/client/api/Consumer;
+       4: areturn
+
+  static java.lang.String access$100(org.apache.pulsar.websocket.ConsumerHandler);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field subscription:Ljava/lang/String;
+       4: areturn
+
+  static org.slf4j.Logger access$200();
+    Code:
+       0: getstatic     #3                  // Field log:Lorg/slf4j/Logger;
+       3: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$300(org.apache.pulsar.websocket.ConsumerHandler);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field pendingMessages:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static void access$400(org.apache.pulsar.websocket.ConsumerHandler);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method receiveMessage:()V
+       4: return
+
+  static {};
+    Code:
+       0: ldc           #245                // class org/apache/pulsar/websocket/ConsumerHandler
+       2: ldc           #246                // String msgDeliveredCounter
+       4: invokestatic  #247                // Method java/util/concurrent/atomic/AtomicLongFieldUpdater.newUpdater:(Ljava/lang/Class;Ljava/lang/String;)Ljava/util/concurrent/atomic/AtomicLongFieldUpdater;
+       7: putstatic     #138                // Field MSG_DELIVERED_COUNTER_UPDATER:Ljava/util/concurrent/atomic/AtomicLongFieldUpdater;
+      10: ldc           #245                // class org/apache/pulsar/websocket/ConsumerHandler
+      12: invokestatic  #248                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      15: putstatic     #3                  // Field log:Lorg/slf4j/Logger;
+      18: return
+}
