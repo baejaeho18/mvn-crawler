@@ -1,0 +1,794 @@
+Compiled from "DefaultAsyncProcessorAwaitManager.java"
+public class org.apache.camel.impl.DefaultAsyncProcessorAwaitManager extends org.apache.camel.support.ServiceSupport implements org.apache.camel.spi.AsyncProcessorAwaitManager {
+  private static final org.slf4j.Logger LOG;
+
+  private final org.apache.camel.spi.AsyncProcessorAwaitManager$Statistics statistics;
+
+  private final java.util.concurrent.atomic.AtomicLong blockedCounter;
+
+  private final java.util.concurrent.atomic.AtomicLong interruptedCounter;
+
+  private final java.util.concurrent.atomic.AtomicLong totalDuration;
+
+  private final java.util.concurrent.atomic.AtomicLong minDuration;
+
+  private final java.util.concurrent.atomic.AtomicLong maxDuration;
+
+  private final java.util.concurrent.atomic.AtomicLong meanDuration;
+
+  private final java.util.Map<org.apache.camel.Exchange, org.apache.camel.spi.AsyncProcessorAwaitManager$AwaitThread> inflight;
+
+  private final org.apache.camel.spi.ExchangeFormatter exchangeFormatter;
+
+  private boolean interruptThreadsWhileStopping;
+
+  public org.apache.camel.impl.DefaultAsyncProcessorAwaitManager();
+    Code:
+       0: aload_0
+       1: invokespecial #48                 // Method org/apache/camel/support/ServiceSupport."<init>":()V
+       4: aload_0
+       5: new           #11                 // class org/apache/camel/impl/DefaultAsyncProcessorAwaitManager$UtilizationStatistics
+       8: dup
+       9: aload_0
+      10: aconst_null
+      11: invokespecial #51                 // Method org/apache/camel/impl/DefaultAsyncProcessorAwaitManager$UtilizationStatistics."<init>":(Lorg/apache/camel/impl/DefaultAsyncProcessorAwaitManager;Lorg/apache/camel/impl/DefaultAsyncProcessorAwaitManager$1;)V
+      14: putfield      #53                 // Field statistics:Lorg/apache/camel/spi/AsyncProcessorAwaitManager$Statistics;
+      17: aload_0
+      18: new           #55                 // class java/util/concurrent/atomic/AtomicLong
+      21: dup
+      22: invokespecial #56                 // Method java/util/concurrent/atomic/AtomicLong."<init>":()V
+      25: putfield      #58                 // Field blockedCounter:Ljava/util/concurrent/atomic/AtomicLong;
+      28: aload_0
+      29: new           #55                 // class java/util/concurrent/atomic/AtomicLong
+      32: dup
+      33: invokespecial #56                 // Method java/util/concurrent/atomic/AtomicLong."<init>":()V
+      36: putfield      #60                 // Field interruptedCounter:Ljava/util/concurrent/atomic/AtomicLong;
+      39: aload_0
+      40: new           #55                 // class java/util/concurrent/atomic/AtomicLong
+      43: dup
+      44: invokespecial #56                 // Method java/util/concurrent/atomic/AtomicLong."<init>":()V
+      47: putfield      #62                 // Field totalDuration:Ljava/util/concurrent/atomic/AtomicLong;
+      50: aload_0
+      51: new           #55                 // class java/util/concurrent/atomic/AtomicLong
+      54: dup
+      55: invokespecial #56                 // Method java/util/concurrent/atomic/AtomicLong."<init>":()V
+      58: putfield      #64                 // Field minDuration:Ljava/util/concurrent/atomic/AtomicLong;
+      61: aload_0
+      62: new           #55                 // class java/util/concurrent/atomic/AtomicLong
+      65: dup
+      66: invokespecial #56                 // Method java/util/concurrent/atomic/AtomicLong."<init>":()V
+      69: putfield      #66                 // Field maxDuration:Ljava/util/concurrent/atomic/AtomicLong;
+      72: aload_0
+      73: new           #55                 // class java/util/concurrent/atomic/AtomicLong
+      76: dup
+      77: invokespecial #56                 // Method java/util/concurrent/atomic/AtomicLong."<init>":()V
+      80: putfield      #68                 // Field meanDuration:Ljava/util/concurrent/atomic/AtomicLong;
+      83: aload_0
+      84: new           #70                 // class java/util/concurrent/ConcurrentHashMap
+      87: dup
+      88: invokespecial #71                 // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      91: putfield      #73                 // Field inflight:Ljava/util/Map;
+      94: aload_0
+      95: iconst_1
+      96: putfield      #75                 // Field interruptThreadsWhileStopping:Z
+      99: new           #25                 // class org/apache/camel/processor/DefaultExchangeFormatter
+     102: dup
+     103: invokespecial #76                 // Method org/apache/camel/processor/DefaultExchangeFormatter."<init>":()V
+     106: astore_1
+     107: aload_1
+     108: iconst_1
+     109: invokevirtual #80                 // Method org/apache/camel/processor/DefaultExchangeFormatter.setShowExchangeId:(Z)V
+     112: aload_1
+     113: iconst_1
+     114: invokevirtual #83                 // Method org/apache/camel/processor/DefaultExchangeFormatter.setMultiline:(Z)V
+     117: aload_1
+     118: iconst_1
+     119: invokevirtual #86                 // Method org/apache/camel/processor/DefaultExchangeFormatter.setShowHeaders:(Z)V
+     122: aload_1
+     123: getstatic     #90                 // Field org/apache/camel/processor/DefaultExchangeFormatter$OutputStyle.Fixed:Lorg/apache/camel/processor/DefaultExchangeFormatter$OutputStyle;
+     126: invokevirtual #94                 // Method org/apache/camel/processor/DefaultExchangeFormatter.setStyle:(Lorg/apache/camel/processor/DefaultExchangeFormatter$OutputStyle;)V
+     129: aload_0
+     130: aload_1
+     131: putfield      #96                 // Field exchangeFormatter:Lorg/apache/camel/spi/ExchangeFormatter;
+     134: return
+
+  public void await(org.apache.camel.Exchange, java.util.concurrent.CountDownLatch);
+    Code:
+       0: getstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #108                // String Waiting for asynchronous callback before continuing for exchangeId: {} -> {}
+       5: aload_1
+       6: invokeinterface #114,  1          // InterfaceMethod org/apache/camel/Exchange.getExchangeId:()Ljava/lang/String;
+      11: aload_1
+      12: invokeinterface #120,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      17: aload_0
+      18: getfield      #53                 // Field statistics:Lorg/apache/camel/spi/AsyncProcessorAwaitManager$Statistics;
+      21: invokeinterface #124,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$Statistics.isStatisticsEnabled:()Z
+      26: ifeq          37
+      29: aload_0
+      30: getfield      #58                 // Field blockedCounter:Ljava/util/concurrent/atomic/AtomicLong;
+      33: invokevirtual #128                // Method java/util/concurrent/atomic/AtomicLong.incrementAndGet:()J
+      36: pop2
+      37: aload_0
+      38: getfield      #73                 // Field inflight:Ljava/util/Map;
+      41: aload_1
+      42: new           #14                 // class org/apache/camel/impl/DefaultAsyncProcessorAwaitManager$AwaitThreadEntry
+      45: dup
+      46: invokestatic  #134                // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      49: aload_1
+      50: aload_2
+      51: aconst_null
+      52: invokespecial #137                // Method org/apache/camel/impl/DefaultAsyncProcessorAwaitManager$AwaitThreadEntry."<init>":(Ljava/lang/Thread;Lorg/apache/camel/Exchange;Ljava/util/concurrent/CountDownLatch;Lorg/apache/camel/impl/DefaultAsyncProcessorAwaitManager$1;)V
+      55: invokeinterface #143,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      60: pop
+      61: aload_2
+      62: invokevirtual #147                // Method java/util/concurrent/CountDownLatch.await:()V
+      65: getstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+      68: ldc           #149                // String Asynchronous callback received, will continue routing exchangeId: {} -> {}
+      70: aload_1
+      71: invokeinterface #114,  1          // InterfaceMethod org/apache/camel/Exchange.getExchangeId:()Ljava/lang/String;
+      76: aload_1
+      77: invokeinterface #120,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      82: aload_0
+      83: getfield      #73                 // Field inflight:Ljava/util/Map;
+      86: aload_1
+      87: invokeinterface #153,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      92: checkcast     #20                 // class org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread
+      95: astore_3
+      96: aload_0
+      97: getfield      #53                 // Field statistics:Lorg/apache/camel/spi/AsyncProcessorAwaitManager$Statistics;
+     100: invokeinterface #124,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$Statistics.isStatisticsEnabled:()Z
+     105: ifeq          224
+     108: aload_3
+     109: ifnull        224
+     112: aload_3
+     113: invokeinterface #156,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getWaitDuration:()J
+     118: lstore        4
+     120: aload_0
+     121: getfield      #62                 // Field totalDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     124: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     127: lload         4
+     129: ladd
+     130: lstore        6
+     132: aload_0
+     133: getfield      #62                 // Field totalDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     136: lload         6
+     138: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     141: lload         4
+     143: aload_0
+     144: getfield      #64                 // Field minDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     147: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     150: lcmp
+     151: ifge          166
+     154: aload_0
+     155: getfield      #64                 // Field minDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     158: lload         4
+     160: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     163: goto          188
+     166: lload         4
+     168: aload_0
+     169: getfield      #66                 // Field maxDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     172: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     175: lcmp
+     176: ifle          188
+     179: aload_0
+     180: getfield      #66                 // Field maxDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     183: lload         4
+     185: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     188: aload_0
+     189: getfield      #58                 // Field blockedCounter:Ljava/util/concurrent/atomic/AtomicLong;
+     192: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     195: lstore        8
+     197: lload         8
+     199: lconst_0
+     200: lcmp
+     201: ifle          212
+     204: lload         6
+     206: lload         8
+     208: ldiv
+     209: goto          213
+     212: lconst_0
+     213: lstore        10
+     215: aload_0
+     216: getfield      #68                 // Field meanDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     219: lload         10
+     221: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     224: goto          547
+     227: astore_3
+     228: getstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+     231: ldc           #165                // String Interrupted while waiting for callback, will continue routing exchangeId: {} -> {}
+     233: aload_1
+     234: invokeinterface #114,  1          // InterfaceMethod org/apache/camel/Exchange.getExchangeId:()Ljava/lang/String;
+     239: aload_1
+     240: invokeinterface #120,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     245: aload_1
+     246: aload_3
+     247: invokeinterface #169,  2          // InterfaceMethod org/apache/camel/Exchange.setException:(Ljava/lang/Throwable;)V
+     252: aload_0
+     253: getfield      #73                 // Field inflight:Ljava/util/Map;
+     256: aload_1
+     257: invokeinterface #153,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     262: checkcast     #20                 // class org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread
+     265: astore_3
+     266: aload_0
+     267: getfield      #53                 // Field statistics:Lorg/apache/camel/spi/AsyncProcessorAwaitManager$Statistics;
+     270: invokeinterface #124,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$Statistics.isStatisticsEnabled:()Z
+     275: ifeq          394
+     278: aload_3
+     279: ifnull        394
+     282: aload_3
+     283: invokeinterface #156,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getWaitDuration:()J
+     288: lstore        4
+     290: aload_0
+     291: getfield      #62                 // Field totalDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     294: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     297: lload         4
+     299: ladd
+     300: lstore        6
+     302: aload_0
+     303: getfield      #62                 // Field totalDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     306: lload         6
+     308: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     311: lload         4
+     313: aload_0
+     314: getfield      #64                 // Field minDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     317: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     320: lcmp
+     321: ifge          336
+     324: aload_0
+     325: getfield      #64                 // Field minDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     328: lload         4
+     330: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     333: goto          358
+     336: lload         4
+     338: aload_0
+     339: getfield      #66                 // Field maxDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     342: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     345: lcmp
+     346: ifle          358
+     349: aload_0
+     350: getfield      #66                 // Field maxDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     353: lload         4
+     355: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     358: aload_0
+     359: getfield      #58                 // Field blockedCounter:Ljava/util/concurrent/atomic/AtomicLong;
+     362: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     365: lstore        8
+     367: lload         8
+     369: lconst_0
+     370: lcmp
+     371: ifle          382
+     374: lload         6
+     376: lload         8
+     378: ldiv
+     379: goto          383
+     382: lconst_0
+     383: lstore        10
+     385: aload_0
+     386: getfield      #68                 // Field meanDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     389: lload         10
+     391: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     394: goto          547
+     397: astore        12
+     399: aload_0
+     400: getfield      #73                 // Field inflight:Ljava/util/Map;
+     403: aload_1
+     404: invokeinterface #153,  2          // InterfaceMethod java/util/Map.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     409: checkcast     #20                 // class org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread
+     412: astore        13
+     414: aload_0
+     415: getfield      #53                 // Field statistics:Lorg/apache/camel/spi/AsyncProcessorAwaitManager$Statistics;
+     418: invokeinterface #124,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$Statistics.isStatisticsEnabled:()Z
+     423: ifeq          544
+     426: aload         13
+     428: ifnull        544
+     431: aload         13
+     433: invokeinterface #156,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getWaitDuration:()J
+     438: lstore        14
+     440: aload_0
+     441: getfield      #62                 // Field totalDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     444: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     447: lload         14
+     449: ladd
+     450: lstore        16
+     452: aload_0
+     453: getfield      #62                 // Field totalDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     456: lload         16
+     458: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     461: lload         14
+     463: aload_0
+     464: getfield      #64                 // Field minDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     467: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     470: lcmp
+     471: ifge          486
+     474: aload_0
+     475: getfield      #64                 // Field minDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     478: lload         14
+     480: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     483: goto          508
+     486: lload         14
+     488: aload_0
+     489: getfield      #66                 // Field maxDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     492: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     495: lcmp
+     496: ifle          508
+     499: aload_0
+     500: getfield      #66                 // Field maxDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     503: lload         14
+     505: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     508: aload_0
+     509: getfield      #58                 // Field blockedCounter:Ljava/util/concurrent/atomic/AtomicLong;
+     512: invokevirtual #159                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     515: lstore        18
+     517: lload         18
+     519: lconst_0
+     520: lcmp
+     521: ifle          532
+     524: lload         16
+     526: lload         18
+     528: ldiv
+     529: goto          533
+     532: lconst_0
+     533: lstore        20
+     535: aload_0
+     536: getfield      #68                 // Field meanDuration:Ljava/util/concurrent/atomic/AtomicLong;
+     539: lload         20
+     541: invokevirtual #163                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     544: aload         12
+     546: athrow
+     547: return
+    Exception table:
+       from    to  target type
+          17    82   227   Class java/lang/InterruptedException
+          17    82   397   any
+         227   252   397   any
+         397   399   397   any
+
+  public void countDown(org.apache.camel.Exchange, java.util.concurrent.CountDownLatch);
+    Code:
+       0: getstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #187                // String Asynchronous callback received for exchangeId: {}
+       5: aload_1
+       6: invokeinterface #114,  1          // InterfaceMethod org/apache/camel/Exchange.getExchangeId:()Ljava/lang/String;
+      11: invokeinterface #190,  3          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;)V
+      16: aload_2
+      17: invokevirtual #192                // Method java/util/concurrent/CountDownLatch.countDown:()V
+      20: return
+
+  public int size();
+    Code:
+       0: aload_0
+       1: getfield      #73                 // Field inflight:Ljava/util/Map;
+       4: invokeinterface #196,  1          // InterfaceMethod java/util/Map.size:()I
+       9: ireturn
+
+  public java.util.Collection<org.apache.camel.spi.AsyncProcessorAwaitManager$AwaitThread> browse();
+    Code:
+       0: aload_0
+       1: getfield      #73                 // Field inflight:Ljava/util/Map;
+       4: invokeinterface #201,  1          // InterfaceMethod java/util/Map.values:()Ljava/util/Collection;
+       9: invokestatic  #207                // Method java/util/Collections.unmodifiableCollection:(Ljava/util/Collection;)Ljava/util/Collection;
+      12: areturn
+
+  public void interrupt(java.lang.String);
+    Code:
+       0: aconst_null
+       1: astore_2
+       2: aload_0
+       3: invokevirtual #211                // Method browse:()Ljava/util/Collection;
+       6: invokeinterface #217,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      11: astore_3
+      12: aload_3
+      13: invokeinterface #222,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      18: ifeq          64
+      21: aload_3
+      22: invokeinterface #226,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      27: checkcast     #20                 // class org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread
+      30: astore        4
+      32: aload         4
+      34: invokeinterface #230,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getExchange:()Lorg/apache/camel/Exchange;
+      39: astore        5
+      41: aload_1
+      42: aload         5
+      44: invokeinterface #114,  1          // InterfaceMethod org/apache/camel/Exchange.getExchangeId:()Ljava/lang/String;
+      49: invokevirtual #236                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      52: ifeq          61
+      55: aload         5
+      57: astore_2
+      58: goto          64
+      61: goto          12
+      64: aload_2
+      65: ifnull        73
+      68: aload_0
+      69: aload_2
+      70: invokevirtual #239                // Method interrupt:(Lorg/apache/camel/Exchange;)V
+      73: return
+
+  public void interrupt(org.apache.camel.Exchange);
+    Code:
+       0: aload_0
+       1: getfield      #73                 // Field inflight:Ljava/util/Map;
+       4: aload_1
+       5: invokeinterface #247,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #14                 // class org/apache/camel/impl/DefaultAsyncProcessorAwaitManager$AwaitThreadEntry
+      13: astore_2
+      14: aload_2
+      15: ifnull        240
+      18: new           #249                // class java/lang/StringBuilder
+      21: dup
+      22: invokespecial #250                // Method java/lang/StringBuilder."<init>":()V
+      25: astore_3
+      26: aload_3
+      27: ldc           #252                // String Interrupted while waiting for asynchronous callback, will release the following blocked thread which was waiting for exchange to finish processing with exchangeId:
+      29: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      32: pop
+      33: aload_3
+      34: aload_1
+      35: invokeinterface #114,  1          // InterfaceMethod org/apache/camel/Exchange.getExchangeId:()Ljava/lang/String;
+      40: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      43: pop
+      44: aload_3
+      45: ldc_w         #258                // String \n
+      48: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      51: pop
+      52: aload_3
+      53: aload_2
+      54: invokestatic  #262                // Method dumpBlockedThread:(Lorg/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread;)Ljava/lang/String;
+      57: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      60: pop
+      61: aload_1
+      62: aload_0
+      63: getfield      #96                 // Field exchangeFormatter:Lorg/apache/camel/spi/ExchangeFormatter;
+      66: iconst_0
+      67: invokestatic  #268                // Method org/apache/camel/util/MessageHelper.dumpMessageHistoryStacktrace:(Lorg/apache/camel/Exchange;Lorg/apache/camel/spi/ExchangeFormatter;Z)Ljava/lang/String;
+      70: astore        4
+      72: aload         4
+      74: ifnull        84
+      77: aload_3
+      78: aload         4
+      80: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      83: pop
+      84: getstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+      87: aload_3
+      88: invokevirtual #271                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      91: invokeinterface #274,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      96: aload_0
+      97: getfield      #53                 // Field statistics:Lorg/apache/camel/spi/AsyncProcessorAwaitManager$Statistics;
+     100: invokeinterface #124,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$Statistics.isStatisticsEnabled:()Z
+     105: ifeq          116
+     108: aload_0
+     109: getfield      #60                 // Field interruptedCounter:Ljava/util/concurrent/atomic/AtomicLong;
+     112: invokevirtual #128                // Method java/util/concurrent/atomic/AtomicLong.incrementAndGet:()J
+     115: pop2
+     116: aload_1
+     117: new           #276                // class java/util/concurrent/RejectedExecutionException
+     120: dup
+     121: new           #249                // class java/lang/StringBuilder
+     124: dup
+     125: invokespecial #250                // Method java/lang/StringBuilder."<init>":()V
+     128: ldc_w         #278                // String Interrupted while waiting for asynchronous callback for exchangeId:
+     131: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     134: aload_1
+     135: invokeinterface #114,  1          // InterfaceMethod org/apache/camel/Exchange.getExchangeId:()Ljava/lang/String;
+     140: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     143: invokevirtual #271                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     146: invokespecial #280                // Method java/util/concurrent/RejectedExecutionException."<init>":(Ljava/lang/String;)V
+     149: invokeinterface #169,  2          // InterfaceMethod org/apache/camel/Exchange.setException:(Ljava/lang/Throwable;)V
+     154: aload_2
+     155: invokevirtual #284                // Method org/apache/camel/impl/DefaultAsyncProcessorAwaitManager$AwaitThreadEntry.getLatch:()Ljava/util/concurrent/CountDownLatch;
+     158: invokevirtual #192                // Method java/util/concurrent/CountDownLatch.countDown:()V
+     161: goto          240
+     164: astore_3
+     165: aload_3
+     166: invokestatic  #290                // Method org/apache/camel/util/ObjectHelper.wrapRuntimeCamelException:(Ljava/lang/Throwable;)Lorg/apache/camel/RuntimeCamelException;
+     169: athrow
+     170: astore        5
+     172: aload_0
+     173: getfield      #53                 // Field statistics:Lorg/apache/camel/spi/AsyncProcessorAwaitManager$Statistics;
+     176: invokeinterface #124,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$Statistics.isStatisticsEnabled:()Z
+     181: ifeq          192
+     184: aload_0
+     185: getfield      #60                 // Field interruptedCounter:Ljava/util/concurrent/atomic/AtomicLong;
+     188: invokevirtual #128                // Method java/util/concurrent/atomic/AtomicLong.incrementAndGet:()J
+     191: pop2
+     192: aload_1
+     193: new           #276                // class java/util/concurrent/RejectedExecutionException
+     196: dup
+     197: new           #249                // class java/lang/StringBuilder
+     200: dup
+     201: invokespecial #250                // Method java/lang/StringBuilder."<init>":()V
+     204: ldc_w         #278                // String Interrupted while waiting for asynchronous callback for exchangeId:
+     207: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     210: aload_1
+     211: invokeinterface #114,  1          // InterfaceMethod org/apache/camel/Exchange.getExchangeId:()Ljava/lang/String;
+     216: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     219: invokevirtual #271                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     222: invokespecial #280                // Method java/util/concurrent/RejectedExecutionException."<init>":(Ljava/lang/String;)V
+     225: invokeinterface #169,  2          // InterfaceMethod org/apache/camel/Exchange.setException:(Ljava/lang/Throwable;)V
+     230: aload_2
+     231: invokevirtual #284                // Method org/apache/camel/impl/DefaultAsyncProcessorAwaitManager$AwaitThreadEntry.getLatch:()Ljava/util/concurrent/CountDownLatch;
+     234: invokevirtual #192                // Method java/util/concurrent/CountDownLatch.countDown:()V
+     237: aload         5
+     239: athrow
+     240: return
+    Exception table:
+       from    to  target type
+          18    96   164   Class java/lang/Exception
+          18    96   170   any
+         164   172   170   any
+
+  public boolean isInterruptThreadsWhileStopping();
+    Code:
+       0: aload_0
+       1: getfield      #75                 // Field interruptThreadsWhileStopping:Z
+       4: ireturn
+
+  public void setInterruptThreadsWhileStopping(boolean);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #75                 // Field interruptThreadsWhileStopping:Z
+       5: return
+
+  public org.apache.camel.spi.AsyncProcessorAwaitManager$Statistics getStatistics();
+    Code:
+       0: aload_0
+       1: getfield      #53                 // Field statistics:Lorg/apache/camel/spi/AsyncProcessorAwaitManager$Statistics;
+       4: areturn
+
+  protected void doStart() throws java.lang.Exception;
+    Code:
+       0: return
+
+  protected void doStop() throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: invokevirtual #211                // Method browse:()Ljava/util/Collection;
+       4: astore_1
+       5: aload_1
+       6: invokeinterface #302,  1          // InterfaceMethod java/util/Collection.size:()I
+      11: istore_2
+      12: iload_2
+      13: ifle          270
+      16: getstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+      19: new           #249                // class java/lang/StringBuilder
+      22: dup
+      23: invokespecial #250                // Method java/lang/StringBuilder."<init>":()V
+      26: ldc_w         #304                // String Shutting down while there are still
+      29: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      32: iload_2
+      33: invokevirtual #307                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      36: ldc_w         #309                // String  inflight threads currently blocked.
+      39: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      42: invokevirtual #271                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      45: invokeinterface #274,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      50: new           #249                // class java/lang/StringBuilder
+      53: dup
+      54: invokespecial #250                // Method java/lang/StringBuilder."<init>":()V
+      57: astore_3
+      58: aload_1
+      59: invokeinterface #217,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      64: astore        4
+      66: aload         4
+      68: invokeinterface #222,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      73: ifeq          101
+      76: aload         4
+      78: invokeinterface #226,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      83: checkcast     #20                 // class org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread
+      86: astore        5
+      88: aload_3
+      89: aload         5
+      91: invokestatic  #262                // Method dumpBlockedThread:(Lorg/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread;)Ljava/lang/String;
+      94: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      97: pop
+      98: goto          66
+     101: aload_0
+     102: invokevirtual #311                // Method isInterruptThreadsWhileStopping:()Z
+     105: ifeq          236
+     108: getstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+     111: new           #249                // class java/lang/StringBuilder
+     114: dup
+     115: invokespecial #250                // Method java/lang/StringBuilder."<init>":()V
+     118: ldc_w         #313                // String The following threads are blocked and will be interrupted so the threads are released:\n
+     121: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     124: aload_3
+     125: invokevirtual #271                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     128: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     131: invokevirtual #271                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     134: invokeinterface #274,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     139: aload_1
+     140: invokeinterface #217,  1          // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+     145: astore        4
+     147: aload         4
+     149: invokeinterface #222,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     154: ifeq          233
+     157: aload         4
+     159: invokeinterface #226,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     164: checkcast     #20                 // class org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread
+     167: astore        5
+     169: aload_0
+     170: aload         5
+     172: invokeinterface #230,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getExchange:()Lorg/apache/camel/Exchange;
+     177: invokevirtual #239                // Method interrupt:(Lorg/apache/camel/Exchange;)V
+     180: goto          230
+     183: astore        6
+     185: getstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+     188: new           #249                // class java/lang/StringBuilder
+     191: dup
+     192: invokespecial #250                // Method java/lang/StringBuilder."<init>":()V
+     195: ldc_w         #315                // String Error while interrupting thread:
+     198: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     201: aload         5
+     203: invokeinterface #318,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getBlockedThread:()Ljava/lang/Thread;
+     208: invokevirtual #321                // Method java/lang/Thread.getName:()Ljava/lang/String;
+     211: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     214: ldc_w         #323                // String . This exception is ignored.
+     217: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     220: invokevirtual #271                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     223: aload         6
+     225: invokeinterface #326,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     230: goto          147
+     233: goto          267
+     236: getstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+     239: new           #249                // class java/lang/StringBuilder
+     242: dup
+     243: invokespecial #250                // Method java/lang/StringBuilder."<init>":()V
+     246: ldc_w         #328                // String The following threads are blocked, and may reside in the JVM:\n
+     249: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     252: aload_3
+     253: invokevirtual #271                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     256: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     259: invokevirtual #271                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     262: invokeinterface #274,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     267: goto          281
+     270: getstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+     273: ldc_w         #330                // String Shutting down with no inflight threads.
+     276: invokeinterface #333,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     281: aload_0
+     282: getfield      #73                 // Field inflight:Ljava/util/Map;
+     285: invokeinterface #336,  1          // InterfaceMethod java/util/Map.clear:()V
+     290: return
+    Exception table:
+       from    to  target type
+         169   180   183   Class java/lang/Throwable
+
+  private static java.lang.String dumpBlockedThread(org.apache.camel.spi.AsyncProcessorAwaitManager$AwaitThread);
+    Code:
+       0: new           #249                // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #250                // Method java/lang/StringBuilder."<init>":()V
+       7: astore_1
+       8: aload_1
+       9: ldc_w         #258                // String \n
+      12: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      15: pop
+      16: aload_1
+      17: ldc_w         #343                // String Blocked Thread\n
+      20: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      23: pop
+      24: aload_1
+      25: ldc_w         #345                // String ---------------------------------------------------------------------------------------------------------------------------------------\n
+      28: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      31: pop
+      32: aload_1
+      33: ldc_w         #347                // String Id:
+      36: invokestatic  #351                // Method style:(Ljava/lang/String;)Ljava/lang/String;
+      39: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      42: aload_0
+      43: invokeinterface #318,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getBlockedThread:()Ljava/lang/Thread;
+      48: invokevirtual #354                // Method java/lang/Thread.getId:()J
+      51: invokevirtual #357                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      54: ldc_w         #258                // String \n
+      57: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      60: pop
+      61: aload_1
+      62: ldc_w         #359                // String Name:
+      65: invokestatic  #351                // Method style:(Ljava/lang/String;)Ljava/lang/String;
+      68: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      71: aload_0
+      72: invokeinterface #318,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getBlockedThread:()Ljava/lang/Thread;
+      77: invokevirtual #321                // Method java/lang/Thread.getName:()Ljava/lang/String;
+      80: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      83: ldc_w         #258                // String \n
+      86: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      89: pop
+      90: aload_1
+      91: ldc_w         #361                // String RouteId:
+      94: invokestatic  #351                // Method style:(Ljava/lang/String;)Ljava/lang/String;
+      97: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     100: aload_0
+     101: invokeinterface #364,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getRouteId:()Ljava/lang/String;
+     106: invokestatic  #368                // Method safeNull:(Ljava/lang/Object;)Ljava/lang/String;
+     109: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     112: ldc_w         #258                // String \n
+     115: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     118: pop
+     119: aload_1
+     120: ldc_w         #370                // String NodeId:
+     123: invokestatic  #351                // Method style:(Ljava/lang/String;)Ljava/lang/String;
+     126: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     129: aload_0
+     130: invokeinterface #373,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getNodeId:()Ljava/lang/String;
+     135: invokestatic  #368                // Method safeNull:(Ljava/lang/Object;)Ljava/lang/String;
+     138: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     141: ldc_w         #258                // String \n
+     144: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     147: pop
+     148: aload_1
+     149: ldc_w         #375                // String Duration:
+     152: invokestatic  #351                // Method style:(Ljava/lang/String;)Ljava/lang/String;
+     155: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     158: aload_0
+     159: invokeinterface #156,  1          // InterfaceMethod org/apache/camel/spi/AsyncProcessorAwaitManager$AwaitThread.getWaitDuration:()J
+     164: invokevirtual #357                // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     167: ldc_w         #377                // String  msec.\n
+     170: invokevirtual #256                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     173: pop
+     174: aload_1
+     175: invokevirtual #271                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     178: areturn
+
+  private static java.lang.String style(java.lang.String);
+    Code:
+       0: ldc_w         #379                // String \t%-20s
+       3: iconst_1
+       4: anewarray     #381                // class java/lang/Object
+       7: dup
+       8: iconst_0
+       9: aload_0
+      10: aastore
+      11: invokestatic  #385                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      14: areturn
+
+  private static java.lang.String safeNull(java.lang.Object);
+    Code:
+       0: aload_0
+       1: ifnull        11
+       4: aload_0
+       5: invokevirtual #387                // Method java/lang/Object.toString:()Ljava/lang/String;
+       8: goto          14
+      11: ldc_w         #389                // String
+      14: areturn
+
+  static java.util.concurrent.atomic.AtomicLong access$200(org.apache.camel.impl.DefaultAsyncProcessorAwaitManager);
+    Code:
+       0: aload_0
+       1: getfield      #58                 // Field blockedCounter:Ljava/util/concurrent/atomic/AtomicLong;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicLong access$300(org.apache.camel.impl.DefaultAsyncProcessorAwaitManager);
+    Code:
+       0: aload_0
+       1: getfield      #60                 // Field interruptedCounter:Ljava/util/concurrent/atomic/AtomicLong;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicLong access$400(org.apache.camel.impl.DefaultAsyncProcessorAwaitManager);
+    Code:
+       0: aload_0
+       1: getfield      #62                 // Field totalDuration:Ljava/util/concurrent/atomic/AtomicLong;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicLong access$500(org.apache.camel.impl.DefaultAsyncProcessorAwaitManager);
+    Code:
+       0: aload_0
+       1: getfield      #64                 // Field minDuration:Ljava/util/concurrent/atomic/AtomicLong;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicLong access$600(org.apache.camel.impl.DefaultAsyncProcessorAwaitManager);
+    Code:
+       0: aload_0
+       1: getfield      #66                 // Field maxDuration:Ljava/util/concurrent/atomic/AtomicLong;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicLong access$700(org.apache.camel.impl.DefaultAsyncProcessorAwaitManager);
+    Code:
+       0: aload_0
+       1: getfield      #68                 // Field meanDuration:Ljava/util/concurrent/atomic/AtomicLong;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc           #2                  // class org/apache/camel/impl/DefaultAsyncProcessorAwaitManager
+       2: invokestatic  #406                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #106                // Field LOG:Lorg/slf4j/Logger;
+       8: return
+}
