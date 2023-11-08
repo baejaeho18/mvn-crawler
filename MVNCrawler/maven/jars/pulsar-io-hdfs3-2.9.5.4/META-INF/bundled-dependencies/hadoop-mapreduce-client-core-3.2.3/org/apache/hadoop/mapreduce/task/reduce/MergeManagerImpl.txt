@@ -1,0 +1,1470 @@
+Compiled from "MergeManagerImpl.java"
+public class org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl<K, V> implements org.apache.hadoop.mapreduce.task.reduce.MergeManager<K, V> {
+  private static final org.slf4j.Logger LOG;
+
+  private static final float DEFAULT_SHUFFLE_MEMORY_LIMIT_PERCENT;
+
+  private final org.apache.hadoop.mapreduce.TaskAttemptID reduceId;
+
+  private final org.apache.hadoop.mapred.JobConf jobConf;
+
+  private final org.apache.hadoop.fs.FileSystem localFS;
+
+  private final org.apache.hadoop.fs.FileSystem rfs;
+
+  private final org.apache.hadoop.fs.LocalDirAllocator localDirAllocator;
+
+  protected org.apache.hadoop.mapred.MapOutputFile mapOutputFile;
+
+  java.util.Set<org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput<K, V>> inMemoryMergedMapOutputs;
+
+  private org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl<K, V>.IntermediateMemoryToMemoryMerger memToMemMerger;
+
+  java.util.Set<org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput<K, V>> inMemoryMapOutputs;
+
+  private final org.apache.hadoop.mapreduce.task.reduce.MergeThread<org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput<K, V>, K, V> inMemoryMerger;
+
+  java.util.Set<org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl$CompressAwarePath> onDiskMapOutputs;
+
+  private final org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl<K, V>.OnDiskMerger onDiskMerger;
+
+  final long memoryLimit;
+
+  private long usedMemory;
+
+  private long commitMemory;
+
+  final long maxSingleShuffleLimit;
+
+  private final int memToMemMergeOutputsThreshold;
+
+  private final long mergeThreshold;
+
+  private final int ioSortFactor;
+
+  private final org.apache.hadoop.mapred.Reporter reporter;
+
+  private final org.apache.hadoop.mapreduce.task.reduce.ExceptionReporter exceptionReporter;
+
+  private final java.lang.Class<? extends org.apache.hadoop.mapred.Reducer> combinerClass;
+
+  private final org.apache.hadoop.mapred.Task$CombineOutputCollector<K, V> combineCollector;
+
+  private final org.apache.hadoop.mapred.Counters$Counter spilledRecordsCounter;
+
+  private final org.apache.hadoop.mapred.Counters$Counter reduceCombineInputCounter;
+
+  private final org.apache.hadoop.mapred.Counters$Counter mergedMapOutputsCounter;
+
+  private final org.apache.hadoop.io.compress.CompressionCodec codec;
+
+  private final org.apache.hadoop.util.Progress mergePhase;
+
+  public org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl(org.apache.hadoop.mapreduce.TaskAttemptID, org.apache.hadoop.mapred.JobConf, org.apache.hadoop.fs.FileSystem, org.apache.hadoop.fs.LocalDirAllocator, org.apache.hadoop.mapred.Reporter, org.apache.hadoop.io.compress.CompressionCodec, java.lang.Class<? extends org.apache.hadoop.mapred.Reducer>, org.apache.hadoop.mapred.Task$CombineOutputCollector<K, V>, org.apache.hadoop.mapred.Counters$Counter, org.apache.hadoop.mapred.Counters$Counter, org.apache.hadoop.mapred.Counters$Counter, org.apache.hadoop.mapreduce.task.reduce.ExceptionReporter, org.apache.hadoop.util.Progress, org.apache.hadoop.mapred.MapOutputFile);
+    Code:
+       0: aload_0
+       1: invokespecial #19                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #20                 // class java/util/TreeSet
+       8: dup
+       9: new           #21                 // class org/apache/hadoop/mapreduce/task/reduce/MapOutput$MapOutputComparator
+      12: dup
+      13: invokespecial #22                 // Method org/apache/hadoop/mapreduce/task/reduce/MapOutput$MapOutputComparator."<init>":()V
+      16: invokespecial #23                 // Method java/util/TreeSet."<init>":(Ljava/util/Comparator;)V
+      19: putfield      #24                 // Field inMemoryMergedMapOutputs:Ljava/util/Set;
+      22: aload_0
+      23: new           #20                 // class java/util/TreeSet
+      26: dup
+      27: new           #21                 // class org/apache/hadoop/mapreduce/task/reduce/MapOutput$MapOutputComparator
+      30: dup
+      31: invokespecial #22                 // Method org/apache/hadoop/mapreduce/task/reduce/MapOutput$MapOutputComparator."<init>":()V
+      34: invokespecial #23                 // Method java/util/TreeSet."<init>":(Ljava/util/Comparator;)V
+      37: putfield      #25                 // Field inMemoryMapOutputs:Ljava/util/Set;
+      40: aload_0
+      41: new           #20                 // class java/util/TreeSet
+      44: dup
+      45: invokespecial #26                 // Method java/util/TreeSet."<init>":()V
+      48: putfield      #27                 // Field onDiskMapOutputs:Ljava/util/Set;
+      51: aload_0
+      52: aload_1
+      53: putfield      #12                 // Field reduceId:Lorg/apache/hadoop/mapreduce/TaskAttemptID;
+      56: aload_0
+      57: aload_2
+      58: putfield      #14                 // Field jobConf:Lorg/apache/hadoop/mapred/JobConf;
+      61: aload_0
+      62: aload         4
+      64: putfield      #2                  // Field localDirAllocator:Lorg/apache/hadoop/fs/LocalDirAllocator;
+      67: aload_0
+      68: aload         12
+      70: putfield      #18                 // Field exceptionReporter:Lorg/apache/hadoop/mapreduce/task/reduce/ExceptionReporter;
+      73: aload_0
+      74: aload         5
+      76: putfield      #11                 // Field reporter:Lorg/apache/hadoop/mapred/Reporter;
+      79: aload_0
+      80: aload         6
+      82: putfield      #10                 // Field codec:Lorg/apache/hadoop/io/compress/CompressionCodec;
+      85: aload_0
+      86: aload         7
+      88: putfield      #8                  // Field combinerClass:Ljava/lang/Class;
+      91: aload_0
+      92: aload         8
+      94: putfield      #7                  // Field combineCollector:Lorg/apache/hadoop/mapred/Task$CombineOutputCollector;
+      97: aload_0
+      98: aload         10
+     100: putfield      #6                  // Field reduceCombineInputCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+     103: aload_0
+     104: aload         9
+     106: putfield      #9                  // Field spilledRecordsCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+     109: aload_0
+     110: aload         11
+     112: putfield      #1                  // Field mergedMapOutputsCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+     115: aload_0
+     116: aload         14
+     118: putfield      #28                 // Field mapOutputFile:Lorg/apache/hadoop/mapred/MapOutputFile;
+     121: aload_0
+     122: getfield      #28                 // Field mapOutputFile:Lorg/apache/hadoop/mapred/MapOutputFile;
+     125: aload_2
+     126: invokevirtual #29                 // Method org/apache/hadoop/mapred/MapOutputFile.setConf:(Lorg/apache/hadoop/conf/Configuration;)V
+     129: aload_0
+     130: aload_3
+     131: putfield      #4                  // Field localFS:Lorg/apache/hadoop/fs/FileSystem;
+     134: aload_0
+     135: aload_3
+     136: checkcast     #30                 // class org/apache/hadoop/fs/LocalFileSystem
+     139: invokevirtual #31                 // Method org/apache/hadoop/fs/LocalFileSystem.getRaw:()Lorg/apache/hadoop/fs/FileSystem;
+     142: putfield      #13                 // Field rfs:Lorg/apache/hadoop/fs/FileSystem;
+     145: aload_2
+     146: ldc           #33                 // String mapreduce.reduce.shuffle.input.buffer.percent
+     148: ldc           #34                 // float 0.7f
+     150: invokevirtual #35                 // Method org/apache/hadoop/mapred/JobConf.getFloat:(Ljava/lang/String;F)F
+     153: fstore        15
+     155: fload         15
+     157: f2d
+     158: dconst_1
+     159: dcmpl
+     160: ifgt          171
+     163: fload         15
+     165: f2d
+     166: dconst_0
+     167: dcmpg
+     168: ifge          199
+     171: new           #36                 // class java/lang/IllegalArgumentException
+     174: dup
+     175: new           #37                 // class java/lang/StringBuilder
+     178: dup
+     179: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     182: ldc           #39                 // String Invalid value for mapreduce.reduce.shuffle.input.buffer.percent:
+     184: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     187: fload         15
+     189: invokevirtual #41                 // Method java/lang/StringBuilder.append:(F)Ljava/lang/StringBuilder;
+     192: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     195: invokespecial #43                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     198: athrow
+     199: aload_0
+     200: aload_2
+     201: ldc           #44                 // String mapreduce.reduce.memory.totalbytes
+     203: invokestatic  #45                 // Method java/lang/Runtime.getRuntime:()Ljava/lang/Runtime;
+     206: invokevirtual #46                 // Method java/lang/Runtime.maxMemory:()J
+     209: invokevirtual #47                 // Method org/apache/hadoop/mapred/JobConf.getLong:(Ljava/lang/String;J)J
+     212: l2f
+     213: fload         15
+     215: fmul
+     216: f2l
+     217: putfield      #48                 // Field memoryLimit:J
+     220: aload_0
+     221: aload_2
+     222: ldc           #49                 // String mapreduce.task.io.sort.factor
+     224: bipush        10
+     226: invokevirtual #50                 // Method org/apache/hadoop/mapred/JobConf.getInt:(Ljava/lang/String;I)I
+     229: putfield      #3                  // Field ioSortFactor:I
+     232: aload_2
+     233: ldc           #51                 // String mapreduce.reduce.shuffle.memory.limit.percent
+     235: ldc           #53                 // float 0.25f
+     237: invokevirtual #35                 // Method org/apache/hadoop/mapred/JobConf.getFloat:(Ljava/lang/String;F)F
+     240: fstore        16
+     242: fload         16
+     244: fconst_0
+     245: fcmpg
+     246: iflt          256
+     249: fload         16
+     251: fconst_1
+     252: fcmpl
+     253: ifle          284
+     256: new           #36                 // class java/lang/IllegalArgumentException
+     259: dup
+     260: new           #37                 // class java/lang/StringBuilder
+     263: dup
+     264: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     267: ldc           #54                 // String Invalid value for mapreduce.reduce.shuffle.memory.limit.percent:
+     269: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     272: fload         16
+     274: invokevirtual #41                 // Method java/lang/StringBuilder.append:(F)Ljava/lang/StringBuilder;
+     277: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     280: invokespecial #43                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     283: athrow
+     284: aload_0
+     285: lconst_0
+     286: putfield      #55                 // Field usedMemory:J
+     289: aload_0
+     290: lconst_0
+     291: putfield      #56                 // Field commitMemory:J
+     294: aload_0
+     295: getfield      #48                 // Field memoryLimit:J
+     298: l2f
+     299: fload         16
+     301: fmul
+     302: f2l
+     303: lstore        17
+     305: lload         17
+     307: ldc2_w        #58                 // long 2147483647l
+     310: lcmp
+     311: ifle          329
+     314: ldc2_w        #58                 // long 2147483647l
+     317: lstore        17
+     319: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+     322: ldc           #60                 // String The max number of bytes for a single in-memory shuffle cannot be larger than Integer.MAX_VALUE. Setting it to Integer.MAX_VALUE
+     324: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     329: aload_0
+     330: lload         17
+     332: putfield      #62                 // Field maxSingleShuffleLimit:J
+     335: aload_0
+     336: aload_2
+     337: ldc           #63                 // String mapreduce.reduce.merge.memtomem.threshold
+     339: aload_0
+     340: getfield      #3                  // Field ioSortFactor:I
+     343: invokevirtual #50                 // Method org/apache/hadoop/mapred/JobConf.getInt:(Ljava/lang/String;I)I
+     346: putfield      #64                 // Field memToMemMergeOutputsThreshold:I
+     349: aload_0
+     350: aload_0
+     351: getfield      #48                 // Field memoryLimit:J
+     354: l2f
+     355: aload_2
+     356: ldc           #65                 // String mapreduce.reduce.shuffle.merge.percent
+     358: ldc           #66                 // float 0.66f
+     360: invokevirtual #35                 // Method org/apache/hadoop/mapred/JobConf.getFloat:(Ljava/lang/String;F)F
+     363: fmul
+     364: f2l
+     365: putfield      #67                 // Field mergeThreshold:J
+     368: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+     371: new           #37                 // class java/lang/StringBuilder
+     374: dup
+     375: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     378: ldc           #68                 // String MergerManager: memoryLimit=
+     380: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     383: aload_0
+     384: getfield      #48                 // Field memoryLimit:J
+     387: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     390: ldc           #70                 // String , maxSingleShuffleLimit=
+     392: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     395: aload_0
+     396: getfield      #62                 // Field maxSingleShuffleLimit:J
+     399: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     402: ldc           #71                 // String , mergeThreshold=
+     404: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     407: aload_0
+     408: getfield      #67                 // Field mergeThreshold:J
+     411: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     414: ldc           #72                 // String , ioSortFactor=
+     416: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     419: aload_0
+     420: getfield      #3                  // Field ioSortFactor:I
+     423: invokevirtual #73                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     426: ldc           #74                 // String , memToMemMergeOutputsThreshold=
+     428: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     431: aload_0
+     432: getfield      #64                 // Field memToMemMergeOutputsThreshold:I
+     435: invokevirtual #73                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     438: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     441: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     446: aload_0
+     447: getfield      #62                 // Field maxSingleShuffleLimit:J
+     450: aload_0
+     451: getfield      #67                 // Field mergeThreshold:J
+     454: lcmp
+     455: iflt          500
+     458: new           #75                 // class java/lang/RuntimeException
+     461: dup
+     462: new           #37                 // class java/lang/StringBuilder
+     465: dup
+     466: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     469: ldc           #76                 // String Invalid configuration: maxSingleShuffleLimit should be less than mergeThreshold maxSingleShuffleLimit:
+     471: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     474: aload_0
+     475: getfield      #62                 // Field maxSingleShuffleLimit:J
+     478: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     481: ldc           #77                 // String mergeThreshold:
+     483: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     486: aload_0
+     487: getfield      #67                 // Field mergeThreshold:J
+     490: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     493: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     496: invokespecial #78                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;)V
+     499: athrow
+     500: aload_2
+     501: ldc           #79                 // String mapreduce.reduce.merge.memtomem.enabled
+     503: iconst_0
+     504: invokevirtual #80                 // Method org/apache/hadoop/mapred/JobConf.getBoolean:(Ljava/lang/String;Z)Z
+     507: istore        19
+     509: iload         19
+     511: ifeq          541
+     514: aload_0
+     515: new           #81                 // class org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger
+     518: dup
+     519: aload_0
+     520: aload_0
+     521: aload_0
+     522: getfield      #64                 // Field memToMemMergeOutputsThreshold:I
+     525: invokespecial #82                 // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger."<init>":(Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;I)V
+     528: putfield      #83                 // Field memToMemMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger;
+     531: aload_0
+     532: getfield      #83                 // Field memToMemMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger;
+     535: invokevirtual #84                 // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger.start:()V
+     538: goto          546
+     541: aload_0
+     542: aconst_null
+     543: putfield      #83                 // Field memToMemMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger;
+     546: aload_0
+     547: aload_0
+     548: invokevirtual #85                 // Method createInMemoryMerger:()Lorg/apache/hadoop/mapreduce/task/reduce/MergeThread;
+     551: putfield      #86                 // Field inMemoryMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeThread;
+     554: aload_0
+     555: getfield      #86                 // Field inMemoryMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeThread;
+     558: invokevirtual #87                 // Method org/apache/hadoop/mapreduce/task/reduce/MergeThread.start:()V
+     561: aload_0
+     562: new           #88                 // class org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger
+     565: dup
+     566: aload_0
+     567: aload_0
+     568: invokespecial #89                 // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger."<init>":(Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;)V
+     571: putfield      #90                 // Field onDiskMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger;
+     574: aload_0
+     575: getfield      #90                 // Field onDiskMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger;
+     578: invokevirtual #91                 // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger.start:()V
+     581: aload_0
+     582: aload         13
+     584: putfield      #92                 // Field mergePhase:Lorg/apache/hadoop/util/Progress;
+     587: return
+
+  protected org.apache.hadoop.mapreduce.task.reduce.MergeThread<org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput<K, V>, K, V> createInMemoryMerger();
+    Code:
+       0: new           #93                 // class org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$InMemoryMerger
+       3: dup
+       4: aload_0
+       5: aload_0
+       6: invokespecial #94                 // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$InMemoryMerger."<init>":(Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;)V
+       9: areturn
+
+  protected org.apache.hadoop.mapreduce.task.reduce.MergeThread<org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl$CompressAwarePath, K, V> createOnDiskMerger();
+    Code:
+       0: new           #88                 // class org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger
+       3: dup
+       4: aload_0
+       5: aload_0
+       6: invokespecial #89                 // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger."<init>":(Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;)V
+       9: areturn
+
+  org.apache.hadoop.mapreduce.TaskAttemptID getReduceId();
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field reduceId:Lorg/apache/hadoop/mapreduce/TaskAttemptID;
+       4: areturn
+
+  org.apache.hadoop.mapreduce.task.reduce.ExceptionReporter getExceptionReporter();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field exceptionReporter:Lorg/apache/hadoop/mapreduce/task/reduce/ExceptionReporter;
+       4: areturn
+
+  public void waitForResource() throws java.lang.InterruptedException;
+    Code:
+       0: aload_0
+       1: getfield      #86                 // Field inMemoryMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeThread;
+       4: invokevirtual #95                 // Method org/apache/hadoop/mapreduce/task/reduce/MergeThread.waitForMerge:()V
+       7: return
+
+  public synchronized org.apache.hadoop.mapreduce.task.reduce.MapOutput<K, V> reserve(org.apache.hadoop.mapreduce.TaskAttemptID, long, int) throws java.io.IOException;
+    Code:
+       0: lload_2
+       1: aload_0
+       2: getfield      #62                 // Field maxSingleShuffleLimit:J
+       5: lcmp
+       6: ifle          97
+       9: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+      12: new           #37                 // class java/lang/StringBuilder
+      15: dup
+      16: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+      19: aload_1
+      20: invokevirtual #96                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      23: ldc           #97                 // String : Shuffling to disk since
+      25: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      28: lload_2
+      29: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      32: ldc           #98                 // String  is greater than maxSingleShuffleLimit (
+      34: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      37: aload_0
+      38: getfield      #62                 // Field maxSingleShuffleLimit:J
+      41: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      44: ldc           #99                 // String )
+      46: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      49: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      52: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      57: new           #100                // class org/apache/hadoop/mapreduce/task/reduce/OnDiskMapOutput
+      60: dup
+      61: aload_1
+      62: aload_0
+      63: lload_2
+      64: aload_0
+      65: getfield      #14                 // Field jobConf:Lorg/apache/hadoop/mapred/JobConf;
+      68: iload         4
+      70: iconst_1
+      71: aload_0
+      72: getfield      #14                 // Field jobConf:Lorg/apache/hadoop/mapred/JobConf;
+      75: invokestatic  #101                // Method org/apache/hadoop/fs/FileSystem.getLocal:(Lorg/apache/hadoop/conf/Configuration;)Lorg/apache/hadoop/fs/LocalFileSystem;
+      78: invokevirtual #31                 // Method org/apache/hadoop/fs/LocalFileSystem.getRaw:()Lorg/apache/hadoop/fs/FileSystem;
+      81: aload_0
+      82: getfield      #28                 // Field mapOutputFile:Lorg/apache/hadoop/mapred/MapOutputFile;
+      85: aload_1
+      86: invokevirtual #102                // Method org/apache/hadoop/mapreduce/TaskAttemptID.getTaskID:()Lorg/apache/hadoop/mapreduce/TaskID;
+      89: lload_2
+      90: invokevirtual #103                // Method org/apache/hadoop/mapred/MapOutputFile.getInputFileForWrite:(Lorg/apache/hadoop/mapreduce/TaskID;J)Lorg/apache/hadoop/fs/Path;
+      93: invokespecial #104                // Method org/apache/hadoop/mapreduce/task/reduce/OnDiskMapOutput."<init>":(Lorg/apache/hadoop/mapreduce/TaskAttemptID;Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;JLorg/apache/hadoop/mapred/JobConf;IZLorg/apache/hadoop/fs/FileSystem;Lorg/apache/hadoop/fs/Path;)V
+      96: areturn
+      97: aload_0
+      98: getfield      #55                 // Field usedMemory:J
+     101: aload_0
+     102: getfield      #48                 // Field memoryLimit:J
+     105: lcmp
+     106: ifle          174
+     109: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+     112: new           #37                 // class java/lang/StringBuilder
+     115: dup
+     116: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     119: aload_1
+     120: invokevirtual #96                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     123: ldc           #105                // String : Stalling shuffle since usedMemory (
+     125: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     128: aload_0
+     129: getfield      #55                 // Field usedMemory:J
+     132: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     135: ldc           #106                // String ) is greater than memoryLimit (
+     137: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     140: aload_0
+     141: getfield      #48                 // Field memoryLimit:J
+     144: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     147: ldc           #107                // String ). CommitMemory is (
+     149: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     152: aload_0
+     153: getfield      #56                 // Field commitMemory:J
+     156: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     159: ldc           #99                 // String )
+     161: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     164: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     167: invokeinterface #108,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     172: aconst_null
+     173: areturn
+     174: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+     177: new           #37                 // class java/lang/StringBuilder
+     180: dup
+     181: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     184: aload_1
+     185: invokevirtual #96                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     188: ldc           #109                // String : Proceeding with shuffle since usedMemory (
+     190: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     193: aload_0
+     194: getfield      #55                 // Field usedMemory:J
+     197: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     200: ldc           #110                // String ) is lesser than memoryLimit (
+     202: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     205: aload_0
+     206: getfield      #48                 // Field memoryLimit:J
+     209: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     212: ldc           #111                // String ).CommitMemory is (
+     214: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     217: aload_0
+     218: getfield      #56                 // Field commitMemory:J
+     221: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     224: ldc           #99                 // String )
+     226: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     229: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     232: invokeinterface #108,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     237: aload_0
+     238: aload_1
+     239: lload_2
+     240: iconst_1
+     241: invokespecial #16                 // Method unconditionalReserve:(Lorg/apache/hadoop/mapreduce/TaskAttemptID;JZ)Lorg/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput;
+     244: areturn
+
+  private synchronized org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput<K, V> unconditionalReserve(org.apache.hadoop.mapreduce.TaskAttemptID, long, boolean);
+    Code:
+       0: aload_0
+       1: dup
+       2: getfield      #55                 // Field usedMemory:J
+       5: lload_2
+       6: ladd
+       7: putfield      #55                 // Field usedMemory:J
+      10: new           #112                // class org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput
+      13: dup
+      14: aload_0
+      15: getfield      #14                 // Field jobConf:Lorg/apache/hadoop/mapred/JobConf;
+      18: aload_1
+      19: aload_0
+      20: lload_2
+      21: l2i
+      22: aload_0
+      23: getfield      #10                 // Field codec:Lorg/apache/hadoop/io/compress/CompressionCodec;
+      26: iload         4
+      28: invokespecial #113                // Method org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput."<init>":(Lorg/apache/hadoop/conf/Configuration;Lorg/apache/hadoop/mapreduce/TaskAttemptID;Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;ILorg/apache/hadoop/io/compress/CompressionCodec;Z)V
+      31: areturn
+
+  synchronized void unreserve(long);
+    Code:
+       0: aload_0
+       1: dup
+       2: getfield      #55                 // Field usedMemory:J
+       5: lload_1
+       6: lsub
+       7: putfield      #55                 // Field usedMemory:J
+      10: return
+
+  public synchronized void closeInMemoryFile(org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput<K, V>);
+    Code:
+       0: aload_0
+       1: getfield      #25                 // Field inMemoryMapOutputs:Ljava/util/Set;
+       4: aload_1
+       5: invokeinterface #114,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      10: pop
+      11: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+      14: new           #37                 // class java/lang/StringBuilder
+      17: dup
+      18: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+      21: ldc           #115                // String closeInMemoryFile -> map-output of size:
+      23: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: aload_1
+      27: invokevirtual #116                // Method org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput.getSize:()J
+      30: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      33: ldc           #117                // String , inMemoryMapOutputs.size() ->
+      35: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      38: aload_0
+      39: getfield      #25                 // Field inMemoryMapOutputs:Ljava/util/Set;
+      42: invokeinterface #118,  1          // InterfaceMethod java/util/Set.size:()I
+      47: invokevirtual #73                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      50: ldc           #119                // String , commitMemory ->
+      52: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      55: aload_0
+      56: getfield      #56                 // Field commitMemory:J
+      59: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      62: ldc           #120                // String , usedMemory ->
+      64: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      67: aload_0
+      68: getfield      #55                 // Field usedMemory:J
+      71: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      74: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      77: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      82: aload_0
+      83: dup
+      84: getfield      #56                 // Field commitMemory:J
+      87: aload_1
+      88: invokevirtual #116                // Method org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput.getSize:()J
+      91: ladd
+      92: putfield      #56                 // Field commitMemory:J
+      95: aload_0
+      96: getfield      #56                 // Field commitMemory:J
+      99: aload_0
+     100: getfield      #67                 // Field mergeThreshold:J
+     103: lcmp
+     104: iflt          200
+     107: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+     110: new           #37                 // class java/lang/StringBuilder
+     113: dup
+     114: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     117: ldc           #121                // String Starting inMemoryMerger\'s merge since commitMemory=
+     119: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     122: aload_0
+     123: getfield      #56                 // Field commitMemory:J
+     126: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     129: ldc           #122                // String  > mergeThreshold=
+     131: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     134: aload_0
+     135: getfield      #67                 // Field mergeThreshold:J
+     138: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     141: ldc           #123                // String . Current usedMemory=
+     143: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     146: aload_0
+     147: getfield      #55                 // Field usedMemory:J
+     150: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     153: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     156: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     161: aload_0
+     162: getfield      #25                 // Field inMemoryMapOutputs:Ljava/util/Set;
+     165: aload_0
+     166: getfield      #24                 // Field inMemoryMergedMapOutputs:Ljava/util/Set;
+     169: invokeinterface #124,  2          // InterfaceMethod java/util/Set.addAll:(Ljava/util/Collection;)Z
+     174: pop
+     175: aload_0
+     176: getfield      #24                 // Field inMemoryMergedMapOutputs:Ljava/util/Set;
+     179: invokeinterface #125,  1          // InterfaceMethod java/util/Set.clear:()V
+     184: aload_0
+     185: getfield      #86                 // Field inMemoryMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeThread;
+     188: aload_0
+     189: getfield      #25                 // Field inMemoryMapOutputs:Ljava/util/Set;
+     192: invokevirtual #126                // Method org/apache/hadoop/mapreduce/task/reduce/MergeThread.startMerge:(Ljava/util/Set;)V
+     195: aload_0
+     196: lconst_0
+     197: putfield      #56                 // Field commitMemory:J
+     200: aload_0
+     201: getfield      #83                 // Field memToMemMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger;
+     204: ifnull        234
+     207: aload_0
+     208: getfield      #25                 // Field inMemoryMapOutputs:Ljava/util/Set;
+     211: invokeinterface #118,  1          // InterfaceMethod java/util/Set.size:()I
+     216: aload_0
+     217: getfield      #64                 // Field memToMemMergeOutputsThreshold:I
+     220: if_icmplt     234
+     223: aload_0
+     224: getfield      #83                 // Field memToMemMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger;
+     227: aload_0
+     228: getfield      #25                 // Field inMemoryMapOutputs:Ljava/util/Set;
+     231: invokevirtual #127                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger.startMerge:(Ljava/util/Set;)V
+     234: return
+
+  public synchronized void closeInMemoryMergedFile(org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput<K, V>);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field inMemoryMergedMapOutputs:Ljava/util/Set;
+       4: aload_1
+       5: invokeinterface #114,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      10: pop
+      11: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+      14: new           #37                 // class java/lang/StringBuilder
+      17: dup
+      18: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+      21: ldc           #128                // String closeInMemoryMergedFile -> size:
+      23: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: aload_1
+      27: invokevirtual #116                // Method org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput.getSize:()J
+      30: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+      33: ldc           #129                // String , inMemoryMergedMapOutputs.size() ->
+      35: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      38: aload_0
+      39: getfield      #24                 // Field inMemoryMergedMapOutputs:Ljava/util/Set;
+      42: invokeinterface #118,  1          // InterfaceMethod java/util/Set.size:()I
+      47: invokevirtual #73                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      50: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      53: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      58: return
+
+  public synchronized void closeOnDiskFile(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl$CompressAwarePath);
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field onDiskMapOutputs:Ljava/util/Set;
+       4: aload_1
+       5: invokeinterface #114,  2          // InterfaceMethod java/util/Set.add:(Ljava/lang/Object;)Z
+      10: pop
+      11: aload_0
+      12: getfield      #27                 // Field onDiskMapOutputs:Ljava/util/Set;
+      15: invokeinterface #118,  1          // InterfaceMethod java/util/Set.size:()I
+      20: iconst_2
+      21: aload_0
+      22: getfield      #3                  // Field ioSortFactor:I
+      25: imul
+      26: iconst_1
+      27: isub
+      28: if_icmplt     42
+      31: aload_0
+      32: getfield      #90                 // Field onDiskMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger;
+      35: aload_0
+      36: getfield      #27                 // Field onDiskMapOutputs:Ljava/util/Set;
+      39: invokevirtual #130                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger.startMerge:(Ljava/util/Set;)V
+      42: return
+
+  public org.apache.hadoop.mapred.RawKeyValueIterator close() throws java.lang.Throwable;
+    Code:
+       0: aload_0
+       1: getfield      #83                 // Field memToMemMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger;
+       4: ifnull        14
+       7: aload_0
+       8: getfield      #83                 // Field memToMemMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger;
+      11: invokevirtual #131                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$IntermediateMemoryToMemoryMerger.close:()V
+      14: aload_0
+      15: getfield      #86                 // Field inMemoryMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeThread;
+      18: invokevirtual #132                // Method org/apache/hadoop/mapreduce/task/reduce/MergeThread.close:()V
+      21: aload_0
+      22: getfield      #90                 // Field onDiskMerger:Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger;
+      25: invokevirtual #133                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$OnDiskMerger.close:()V
+      28: new           #134                // class java/util/ArrayList
+      31: dup
+      32: aload_0
+      33: getfield      #24                 // Field inMemoryMergedMapOutputs:Ljava/util/Set;
+      36: invokespecial #135                // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+      39: astore_1
+      40: aload_0
+      41: getfield      #24                 // Field inMemoryMergedMapOutputs:Ljava/util/Set;
+      44: invokeinterface #125,  1          // InterfaceMethod java/util/Set.clear:()V
+      49: aload_1
+      50: aload_0
+      51: getfield      #25                 // Field inMemoryMapOutputs:Ljava/util/Set;
+      54: invokeinterface #136,  2          // InterfaceMethod java/util/List.addAll:(Ljava/util/Collection;)Z
+      59: pop
+      60: aload_0
+      61: getfield      #25                 // Field inMemoryMapOutputs:Ljava/util/Set;
+      64: invokeinterface #125,  1          // InterfaceMethod java/util/Set.clear:()V
+      69: new           #134                // class java/util/ArrayList
+      72: dup
+      73: aload_0
+      74: getfield      #27                 // Field onDiskMapOutputs:Ljava/util/Set;
+      77: invokespecial #135                // Method java/util/ArrayList."<init>":(Ljava/util/Collection;)V
+      80: astore_2
+      81: aload_0
+      82: getfield      #27                 // Field onDiskMapOutputs:Ljava/util/Set;
+      85: invokeinterface #125,  1          // InterfaceMethod java/util/Set.clear:()V
+      90: aload_0
+      91: aload_0
+      92: getfield      #14                 // Field jobConf:Lorg/apache/hadoop/mapred/JobConf;
+      95: aload_0
+      96: getfield      #13                 // Field rfs:Lorg/apache/hadoop/fs/FileSystem;
+      99: aload_1
+     100: aload_2
+     101: invokespecial #137                // Method finalMerge:(Lorg/apache/hadoop/mapred/JobConf;Lorg/apache/hadoop/fs/FileSystem;Ljava/util/List;Ljava/util/List;)Lorg/apache/hadoop/mapred/RawKeyValueIterator;
+     104: areturn
+
+  private void combineAndSpill(org.apache.hadoop.mapred.RawKeyValueIterator, org.apache.hadoop.mapred.Counters$Counter) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field jobConf:Lorg/apache/hadoop/mapred/JobConf;
+       4: astore_3
+       5: aload_0
+       6: getfield      #8                  // Field combinerClass:Ljava/lang/Class;
+       9: aload_3
+      10: invokestatic  #138                // Method org/apache/hadoop/util/ReflectionUtils.newInstance:(Ljava/lang/Class;Lorg/apache/hadoop/conf/Configuration;)Ljava/lang/Object;
+      13: checkcast     #139                // class org/apache/hadoop/mapred/Reducer
+      16: astore        4
+      18: aload_3
+      19: invokevirtual #140                // Method org/apache/hadoop/mapred/JobConf.getMapOutputKeyClass:()Ljava/lang/Class;
+      22: astore        5
+      24: aload_3
+      25: invokevirtual #141                // Method org/apache/hadoop/mapred/JobConf.getMapOutputValueClass:()Ljava/lang/Class;
+      28: astore        6
+      30: aload_3
+      31: invokevirtual #142                // Method org/apache/hadoop/mapred/JobConf.getCombinerKeyGroupingComparator:()Lorg/apache/hadoop/io/RawComparator;
+      34: astore        7
+      36: new           #143                // class org/apache/hadoop/mapred/Task$CombineValuesIterator
+      39: dup
+      40: aload_1
+      41: aload         7
+      43: aload         5
+      45: aload         6
+      47: aload_3
+      48: getstatic     #144                // Field org/apache/hadoop/mapred/Reporter.NULL:Lorg/apache/hadoop/mapred/Reporter;
+      51: aload_2
+      52: invokespecial #145                // Method org/apache/hadoop/mapred/Task$CombineValuesIterator."<init>":(Lorg/apache/hadoop/mapred/RawKeyValueIterator;Lorg/apache/hadoop/io/RawComparator;Ljava/lang/Class;Ljava/lang/Class;Lorg/apache/hadoop/conf/Configuration;Lorg/apache/hadoop/mapred/Reporter;Lorg/apache/hadoop/mapred/Counters$Counter;)V
+      55: astore        8
+      57: aload         8
+      59: invokevirtual #146                // Method org/apache/hadoop/mapred/Task$CombineValuesIterator.more:()Z
+      62: ifeq          94
+      65: aload         4
+      67: aload         8
+      69: invokevirtual #147                // Method org/apache/hadoop/mapred/Task$CombineValuesIterator.getKey:()Ljava/lang/Object;
+      72: aload         8
+      74: aload_0
+      75: getfield      #7                  // Field combineCollector:Lorg/apache/hadoop/mapred/Task$CombineOutputCollector;
+      78: getstatic     #144                // Field org/apache/hadoop/mapred/Reporter.NULL:Lorg/apache/hadoop/mapred/Reporter;
+      81: invokeinterface #148,  5          // InterfaceMethod org/apache/hadoop/mapred/Reducer.reduce:(Ljava/lang/Object;Ljava/util/Iterator;Lorg/apache/hadoop/mapred/OutputCollector;Lorg/apache/hadoop/mapred/Reporter;)V
+      86: aload         8
+      88: invokevirtual #149                // Method org/apache/hadoop/mapred/Task$CombineValuesIterator.nextKey:()V
+      91: goto          57
+      94: aload         4
+      96: invokeinterface #150,  1          // InterfaceMethod org/apache/hadoop/mapred/Reducer.close:()V
+     101: goto          116
+     104: astore        9
+     106: aload         4
+     108: invokeinterface #150,  1          // InterfaceMethod org/apache/hadoop/mapred/Reducer.close:()V
+     113: aload         9
+     115: athrow
+     116: return
+    Exception table:
+       from    to  target type
+          36    94   104   any
+         104   106   104   any
+
+  private long createInMemorySegments(java.util.List<org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput<K, V>>, java.util.List<org.apache.hadoop.mapred.Merger$Segment<K, V>>, long) throws java.io.IOException;
+    Code:
+       0: lconst_0
+       1: lstore        5
+       3: lconst_0
+       4: lstore        7
+       6: aload_1
+       7: invokeinterface #151,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      12: astore        9
+      14: aload         9
+      16: invokeinterface #152,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      21: ifeq          51
+      24: aload         9
+      26: invokeinterface #153,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      31: checkcast     #112                // class org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput
+      34: astore        10
+      36: lload         7
+      38: aload         10
+      40: invokevirtual #154                // Method org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput.getMemory:()[B
+      43: arraylength
+      44: i2l
+      45: ladd
+      46: lstore        7
+      48: goto          14
+      51: lload         7
+      53: lload_3
+      54: lcmp
+      55: ifle          158
+      58: aload_1
+      59: iconst_0
+      60: invokeinterface #155,  2          // InterfaceMethod java/util/List.remove:(I)Ljava/lang/Object;
+      65: checkcast     #112                // class org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput
+      68: astore        9
+      70: aload         9
+      72: invokevirtual #154                // Method org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput.getMemory:()[B
+      75: astore        10
+      77: aload         10
+      79: arraylength
+      80: i2l
+      81: lstore        11
+      83: lload         5
+      85: lload         11
+      87: ladd
+      88: lstore        5
+      90: lload         7
+      92: lload         11
+      94: lsub
+      95: lstore        7
+      97: new           #156                // class org/apache/hadoop/mapreduce/task/reduce/InMemoryReader
+     100: dup
+     101: aload_0
+     102: aload         9
+     104: invokevirtual #157                // Method org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput.getMapId:()Lorg/apache/hadoop/mapreduce/TaskAttemptID;
+     107: aload         10
+     109: iconst_0
+     110: lload         11
+     112: l2i
+     113: aload_0
+     114: getfield      #14                 // Field jobConf:Lorg/apache/hadoop/mapred/JobConf;
+     117: invokespecial #158                // Method org/apache/hadoop/mapreduce/task/reduce/InMemoryReader."<init>":(Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;Lorg/apache/hadoop/mapreduce/TaskAttemptID;[BIILorg/apache/hadoop/conf/Configuration;)V
+     120: astore        13
+     122: aload_2
+     123: new           #159                // class org/apache/hadoop/mapred/Merger$Segment
+     126: dup
+     127: aload         13
+     129: iconst_1
+     130: aload         9
+     132: invokevirtual #160                // Method org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput.isPrimaryMapOutput:()Z
+     135: ifeq          145
+     138: aload_0
+     139: getfield      #1                  // Field mergedMapOutputsCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+     142: goto          146
+     145: aconst_null
+     146: invokespecial #161                // Method org/apache/hadoop/mapred/Merger$Segment."<init>":(Lorg/apache/hadoop/mapred/IFile$Reader;ZLorg/apache/hadoop/mapred/Counters$Counter;)V
+     149: invokeinterface #162,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     154: pop
+     155: goto          51
+     158: lload         5
+     160: lreturn
+
+  final long getMaxInMemReduceLimit();
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field jobConf:Lorg/apache/hadoop/mapred/JobConf;
+       4: ldc           #163                // String mapreduce.reduce.input.buffer.percent
+       6: fconst_0
+       7: invokevirtual #35                 // Method org/apache/hadoop/mapred/JobConf.getFloat:(Ljava/lang/String;F)F
+      10: fstore_1
+      11: fload_1
+      12: f2d
+      13: dconst_1
+      14: dcmpl
+      15: ifgt          25
+      18: fload_1
+      19: f2d
+      20: dconst_0
+      21: dcmpg
+      22: ifge          62
+      25: new           #75                 // class java/lang/RuntimeException
+      28: dup
+      29: new           #37                 // class java/lang/StringBuilder
+      32: dup
+      33: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+      36: fload_1
+      37: invokevirtual #41                 // Method java/lang/StringBuilder.append:(F)Ljava/lang/StringBuilder;
+      40: ldc           #164                // String :
+      42: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      45: ldc           #163                // String mapreduce.reduce.input.buffer.percent
+      47: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      50: ldc           #165                // String  must be a float between 0 and 1.0
+      52: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      55: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      58: invokespecial #78                 // Method java/lang/RuntimeException."<init>":(Ljava/lang/String;)V
+      61: athrow
+      62: aload_0
+      63: getfield      #48                 // Field memoryLimit:J
+      66: l2f
+      67: fload_1
+      68: fmul
+      69: f2l
+      70: lreturn
+
+  private org.apache.hadoop.mapred.RawKeyValueIterator finalMerge(org.apache.hadoop.mapred.JobConf, org.apache.hadoop.fs.FileSystem, java.util.List<org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput<K, V>>, java.util.List<org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl$CompressAwarePath>) throws java.io.IOException;
+    Code:
+       0: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+       3: new           #37                 // class java/lang/StringBuilder
+       6: dup
+       7: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+      10: ldc           #166                // String finalMerge called with
+      12: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      15: aload_3
+      16: invokeinterface #167,  1          // InterfaceMethod java/util/List.size:()I
+      21: invokevirtual #73                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      24: ldc           #168                // String  in-memory map-outputs and
+      26: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: aload         4
+      31: invokeinterface #167,  1          // InterfaceMethod java/util/List.size:()I
+      36: invokevirtual #73                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      39: ldc           #169                // String  on-disk map-outputs
+      41: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      44: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      47: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      52: aload_0
+      53: invokevirtual #170                // Method getMaxInMemReduceLimit:()J
+      56: lstore        5
+      58: aload_1
+      59: invokevirtual #140                // Method org/apache/hadoop/mapred/JobConf.getMapOutputKeyClass:()Ljava/lang/Class;
+      62: astore        7
+      64: aload_1
+      65: invokevirtual #141                // Method org/apache/hadoop/mapred/JobConf.getMapOutputValueClass:()Ljava/lang/Class;
+      68: astore        8
+      70: aload_1
+      71: invokevirtual #171                // Method org/apache/hadoop/mapred/JobConf.getKeepFailedTaskFiles:()Z
+      74: istore        9
+      76: new           #172                // class org/apache/hadoop/fs/Path
+      79: dup
+      80: aload_0
+      81: getfield      #12                 // Field reduceId:Lorg/apache/hadoop/mapreduce/TaskAttemptID;
+      84: invokevirtual #173                // Method org/apache/hadoop/mapreduce/TaskAttemptID.toString:()Ljava/lang/String;
+      87: invokespecial #174                // Method org/apache/hadoop/fs/Path."<init>":(Ljava/lang/String;)V
+      90: astore        10
+      92: aload_1
+      93: invokevirtual #175                // Method org/apache/hadoop/mapred/JobConf.getOutputKeyComparator:()Lorg/apache/hadoop/io/RawComparator;
+      96: astore        11
+      98: new           #134                // class java/util/ArrayList
+     101: dup
+     102: invokespecial #176                // Method java/util/ArrayList."<init>":()V
+     105: astore        12
+     107: lconst_0
+     108: lstore        13
+     110: iconst_0
+     111: istore        15
+     113: aload_3
+     114: invokeinterface #167,  1          // InterfaceMethod java/util/List.size:()I
+     119: ifle          476
+     122: aload_3
+     123: iconst_0
+     124: invokeinterface #177,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     129: checkcast     #112                // class org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput
+     132: invokevirtual #157                // Method org/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput.getMapId:()Lorg/apache/hadoop/mapreduce/TaskAttemptID;
+     135: invokevirtual #102                // Method org/apache/hadoop/mapreduce/TaskAttemptID.getTaskID:()Lorg/apache/hadoop/mapreduce/TaskID;
+     138: astore        16
+     140: aload_0
+     141: aload_3
+     142: aload         12
+     144: lload         5
+     146: invokespecial #17                 // Method createInMemorySegments:(Ljava/util/List;Ljava/util/List;J)J
+     149: lstore        13
+     151: aload         12
+     153: invokeinterface #167,  1          // InterfaceMethod java/util/List.size:()I
+     158: istore        17
+     160: iload         17
+     162: ifle          426
+     165: aload_0
+     166: getfield      #3                  // Field ioSortFactor:I
+     169: aload         4
+     171: invokeinterface #167,  1          // InterfaceMethod java/util/List.size:()I
+     176: if_icmple     426
+     179: iconst_1
+     180: istore        15
+     182: aload_0
+     183: getfield      #28                 // Field mapOutputFile:Lorg/apache/hadoop/mapred/MapOutputFile;
+     186: aload         16
+     188: lload         13
+     190: invokevirtual #103                // Method org/apache/hadoop/mapred/MapOutputFile.getInputFileForWrite:(Lorg/apache/hadoop/mapreduce/TaskID;J)Lorg/apache/hadoop/fs/Path;
+     193: getstatic     #178                // Field org/apache/hadoop/mapred/Task.MERGED_OUTPUT_PREFIX:Ljava/lang/String;
+     196: invokevirtual #179                // Method org/apache/hadoop/fs/Path.suffix:(Ljava/lang/String;)Lorg/apache/hadoop/fs/Path;
+     199: astore        18
+     201: aload_1
+     202: aload_2
+     203: aload         7
+     205: aload         8
+     207: aload         12
+     209: iload         17
+     211: aload         10
+     213: aload         11
+     215: aload_0
+     216: getfield      #11                 // Field reporter:Lorg/apache/hadoop/mapred/Reporter;
+     219: aload_0
+     220: getfield      #9                  // Field spilledRecordsCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+     223: aconst_null
+     224: aload_0
+     225: getfield      #92                 // Field mergePhase:Lorg/apache/hadoop/util/Progress;
+     228: invokestatic  #180                // Method org/apache/hadoop/mapred/Merger.merge:(Lorg/apache/hadoop/conf/Configuration;Lorg/apache/hadoop/fs/FileSystem;Ljava/lang/Class;Ljava/lang/Class;Ljava/util/List;ILorg/apache/hadoop/fs/Path;Lorg/apache/hadoop/io/RawComparator;Lorg/apache/hadoop/util/Progressable;Lorg/apache/hadoop/mapred/Counters$Counter;Lorg/apache/hadoop/mapred/Counters$Counter;Lorg/apache/hadoop/util/Progress;)Lorg/apache/hadoop/mapred/RawKeyValueIterator;
+     231: astore        19
+     233: aload_1
+     234: aload_2
+     235: aload         18
+     237: invokevirtual #181                // Method org/apache/hadoop/fs/FileSystem.create:(Lorg/apache/hadoop/fs/Path;)Lorg/apache/hadoop/fs/FSDataOutputStream;
+     240: aload         18
+     242: invokestatic  #182                // Method org/apache/hadoop/mapreduce/security/IntermediateEncryptedStream.wrapIfNecessary:(Lorg/apache/hadoop/conf/Configuration;Lorg/apache/hadoop/fs/FSDataOutputStream;Lorg/apache/hadoop/fs/Path;)Lorg/apache/hadoop/fs/FSDataOutputStream;
+     245: astore        20
+     247: new           #183                // class org/apache/hadoop/mapred/IFile$Writer
+     250: dup
+     251: aload_1
+     252: aload         20
+     254: aload         7
+     256: aload         8
+     258: aload_0
+     259: getfield      #10                 // Field codec:Lorg/apache/hadoop/io/compress/CompressionCodec;
+     262: aconst_null
+     263: iconst_1
+     264: invokespecial #184                // Method org/apache/hadoop/mapred/IFile$Writer."<init>":(Lorg/apache/hadoop/conf/Configuration;Lorg/apache/hadoop/fs/FSDataOutputStream;Ljava/lang/Class;Ljava/lang/Class;Lorg/apache/hadoop/io/compress/CompressionCodec;Lorg/apache/hadoop/mapred/Counters$Counter;Z)V
+     267: astore        21
+     269: aload         19
+     271: aload         21
+     273: aload_0
+     274: getfield      #11                 // Field reporter:Lorg/apache/hadoop/mapred/Reporter;
+     277: aload_1
+     278: invokestatic  #185                // Method org/apache/hadoop/mapred/Merger.writeFile:(Lorg/apache/hadoop/mapred/RawKeyValueIterator;Lorg/apache/hadoop/mapred/IFile$Writer;Lorg/apache/hadoop/util/Progressable;Lorg/apache/hadoop/conf/Configuration;)V
+     281: aload         21
+     283: invokevirtual #186                // Method org/apache/hadoop/mapred/IFile$Writer.close:()V
+     286: aload         4
+     288: new           #187                // class org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$CompressAwarePath
+     291: dup
+     292: aload         18
+     294: aload         21
+     296: invokevirtual #188                // Method org/apache/hadoop/mapred/IFile$Writer.getRawLength:()J
+     299: aload         21
+     301: invokevirtual #189                // Method org/apache/hadoop/mapred/IFile$Writer.getCompressedLength:()J
+     304: invokespecial #190                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$CompressAwarePath."<init>":(Lorg/apache/hadoop/fs/Path;JJ)V
+     307: invokeinterface #162,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     312: pop
+     313: aconst_null
+     314: astore        21
+     316: aconst_null
+     317: aload         21
+     319: if_acmpeq     370
+     322: aload         21
+     324: invokevirtual #186                // Method org/apache/hadoop/mapred/IFile$Writer.close:()V
+     327: goto          370
+     330: astore        22
+     332: aconst_null
+     333: aload         18
+     335: if_acmpeq     351
+     338: aload_2
+     339: aload         18
+     341: iconst_1
+     342: invokevirtual #192                // Method org/apache/hadoop/fs/FileSystem.delete:(Lorg/apache/hadoop/fs/Path;Z)Z
+     345: pop
+     346: goto          351
+     349: astore        23
+     351: aload         22
+     353: athrow
+     354: astore        24
+     356: aconst_null
+     357: aload         21
+     359: if_acmpeq     367
+     362: aload         21
+     364: invokevirtual #186                // Method org/apache/hadoop/mapred/IFile$Writer.close:()V
+     367: aload         24
+     369: athrow
+     370: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+     373: new           #37                 // class java/lang/StringBuilder
+     376: dup
+     377: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     380: ldc           #193                // String Merged
+     382: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     385: iload         17
+     387: invokevirtual #73                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     390: ldc           #194                // String  segments,
+     392: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     395: lload         13
+     397: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     400: ldc           #195                // String  bytes to disk to satisfy reduce memory limit
+     402: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     405: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     408: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     413: lconst_0
+     414: lstore        13
+     416: aload         12
+     418: invokeinterface #196,  1          // InterfaceMethod java/util/List.clear:()V
+     423: goto          476
+     426: lload         13
+     428: lconst_0
+     429: lcmp
+     430: ifeq          476
+     433: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+     436: new           #37                 // class java/lang/StringBuilder
+     439: dup
+     440: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     443: ldc           #197                // String Keeping
+     445: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     448: iload         17
+     450: invokevirtual #73                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     453: ldc           #194                // String  segments,
+     455: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     458: lload         13
+     460: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     463: ldc           #198                // String  bytes in memory for intermediate, on-disk merge
+     465: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     468: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     471: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     476: new           #134                // class java/util/ArrayList
+     479: dup
+     480: invokespecial #176                // Method java/util/ArrayList."<init>":()V
+     483: astore        16
+     485: lload         13
+     487: lstore        17
+     489: lload         13
+     491: lstore        19
+     493: aload         4
+     495: aload         4
+     497: invokeinterface #167,  1          // InterfaceMethod java/util/List.size:()I
+     502: anewarray     #187                // class org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$CompressAwarePath
+     505: invokeinterface #199,  2          // InterfaceMethod java/util/List.toArray:([Ljava/lang/Object;)[Ljava/lang/Object;
+     510: checkcast     #200                // class "[Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$CompressAwarePath;"
+     513: astore        21
+     515: aload         21
+     517: astore        22
+     519: aload         22
+     521: arraylength
+     522: istore        23
+     524: iconst_0
+     525: istore        24
+     527: iload         24
+     529: iload         23
+     531: if_icmpge     680
+     534: aload         22
+     536: iload         24
+     538: aaload
+     539: astore        25
+     541: aload_2
+     542: aload         25
+     544: invokevirtual #201                // Method org/apache/hadoop/fs/FileSystem.getFileStatus:(Lorg/apache/hadoop/fs/Path;)Lorg/apache/hadoop/fs/FileStatus;
+     547: invokevirtual #202                // Method org/apache/hadoop/fs/FileStatus.getLen:()J
+     550: lstore        26
+     552: lload         17
+     554: lload         26
+     556: ladd
+     557: lstore        17
+     559: lload         19
+     561: aload         25
+     563: invokevirtual #203                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$CompressAwarePath.getRawDataLength:()J
+     566: lconst_0
+     567: lcmp
+     568: ifle          579
+     571: aload         25
+     573: invokevirtual #203                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$CompressAwarePath.getRawDataLength:()J
+     576: goto          581
+     579: lload         26
+     581: ladd
+     582: lstore        19
+     584: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+     587: new           #37                 // class java/lang/StringBuilder
+     590: dup
+     591: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     594: ldc           #204                // String Disk file:
+     596: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     599: aload         25
+     601: invokevirtual #96                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     604: ldc           #205                // String  Length is
+     606: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     609: lload         26
+     611: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     614: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     617: invokeinterface #108,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     622: aload         16
+     624: new           #159                // class org/apache/hadoop/mapred/Merger$Segment
+     627: dup
+     628: aload_1
+     629: aload_2
+     630: aload         25
+     632: aload_0
+     633: getfield      #10                 // Field codec:Lorg/apache/hadoop/io/compress/CompressionCodec;
+     636: iload         9
+     638: aload         25
+     640: invokevirtual #206                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$CompressAwarePath.toString:()Ljava/lang/String;
+     643: getstatic     #178                // Field org/apache/hadoop/mapred/Task.MERGED_OUTPUT_PREFIX:Ljava/lang/String;
+     646: invokevirtual #207                // Method java/lang/String.endsWith:(Ljava/lang/String;)Z
+     649: ifeq          656
+     652: aconst_null
+     653: goto          660
+     656: aload_0
+     657: getfield      #1                  // Field mergedMapOutputsCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+     660: aload         25
+     662: invokevirtual #203                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$CompressAwarePath.getRawDataLength:()J
+     665: invokespecial #208                // Method org/apache/hadoop/mapred/Merger$Segment."<init>":(Lorg/apache/hadoop/conf/Configuration;Lorg/apache/hadoop/fs/FileSystem;Lorg/apache/hadoop/fs/Path;Lorg/apache/hadoop/io/compress/CompressionCodec;ZLorg/apache/hadoop/mapred/Counters$Counter;J)V
+     668: invokeinterface #162,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     673: pop
+     674: iinc          24, 1
+     677: goto          527
+     680: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+     683: new           #37                 // class java/lang/StringBuilder
+     686: dup
+     687: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     690: ldc           #209                // String Merging
+     692: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     695: aload         21
+     697: arraylength
+     698: invokevirtual #73                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     701: ldc           #210                // String  files,
+     703: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     706: lload         17
+     708: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     711: ldc           #211                // String  bytes from disk
+     713: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     716: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     719: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     724: aload         16
+     726: new           #212                // class org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$1
+     729: dup
+     730: aload_0
+     731: invokespecial #213                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$1."<init>":(Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;)V
+     734: invokestatic  #214                // Method java/util/Collections.sort:(Ljava/util/List;Ljava/util/Comparator;)V
+     737: new           #134                // class java/util/ArrayList
+     740: dup
+     741: invokespecial #176                // Method java/util/ArrayList."<init>":()V
+     744: astore        22
+     746: aload_0
+     747: aload_3
+     748: aload         22
+     750: lconst_0
+     751: invokespecial #17                 // Method createInMemorySegments:(Ljava/util/List;Ljava/util/List;J)J
+     754: lstore        23
+     756: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+     759: new           #37                 // class java/lang/StringBuilder
+     762: dup
+     763: invokespecial #38                 // Method java/lang/StringBuilder."<init>":()V
+     766: ldc           #209                // String Merging
+     768: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     771: aload         22
+     773: invokeinterface #167,  1          // InterfaceMethod java/util/List.size:()I
+     778: invokevirtual #73                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     781: ldc           #194                // String  segments,
+     783: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     786: lload         23
+     788: invokevirtual #69                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     791: ldc           #215                // String  bytes from memory into reduce
+     793: invokevirtual #40                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     796: invokevirtual #42                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     799: invokeinterface #61,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     804: lconst_0
+     805: lload         17
+     807: lcmp
+     808: ifeq          943
+     811: aload         12
+     813: invokeinterface #167,  1          // InterfaceMethod java/util/List.size:()I
+     818: istore        25
+     820: aload         16
+     822: iconst_0
+     823: aload         12
+     825: invokeinterface #216,  3          // InterfaceMethod java/util/List.addAll:(ILjava/util/Collection;)Z
+     830: pop
+     831: aload         12
+     833: invokeinterface #196,  1          // InterfaceMethod java/util/List.clear:()V
+     838: iload         15
+     840: ifeq          847
+     843: aconst_null
+     844: goto          851
+     847: aload_0
+     848: getfield      #92                 // Field mergePhase:Lorg/apache/hadoop/util/Progress;
+     851: astore        26
+     853: aload_1
+     854: aload_2
+     855: aload         7
+     857: aload         8
+     859: aload_0
+     860: getfield      #10                 // Field codec:Lorg/apache/hadoop/io/compress/CompressionCodec;
+     863: aload         16
+     865: aload_0
+     866: getfield      #3                  // Field ioSortFactor:I
+     869: iload         25
+     871: aload         10
+     873: aload         11
+     875: aload_0
+     876: getfield      #11                 // Field reporter:Lorg/apache/hadoop/mapred/Reporter;
+     879: iconst_0
+     880: aload_0
+     881: getfield      #9                  // Field spilledRecordsCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+     884: aconst_null
+     885: aload         26
+     887: invokestatic  #217                // Method org/apache/hadoop/mapred/Merger.merge:(Lorg/apache/hadoop/conf/Configuration;Lorg/apache/hadoop/fs/FileSystem;Ljava/lang/Class;Ljava/lang/Class;Lorg/apache/hadoop/io/compress/CompressionCodec;Ljava/util/List;IILorg/apache/hadoop/fs/Path;Lorg/apache/hadoop/io/RawComparator;Lorg/apache/hadoop/util/Progressable;ZLorg/apache/hadoop/mapred/Counters$Counter;Lorg/apache/hadoop/mapred/Counters$Counter;Lorg/apache/hadoop/util/Progress;)Lorg/apache/hadoop/mapred/RawKeyValueIterator;
+     890: astore        27
+     892: aload         16
+     894: invokeinterface #196,  1          // InterfaceMethod java/util/List.clear:()V
+     899: iconst_0
+     900: aload         22
+     902: invokeinterface #167,  1          // InterfaceMethod java/util/List.size:()I
+     907: if_icmpne     913
+     910: aload         27
+     912: areturn
+     913: aload         22
+     915: new           #159                // class org/apache/hadoop/mapred/Merger$Segment
+     918: dup
+     919: new           #218                // class org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$RawKVIteratorReader
+     922: dup
+     923: aload_0
+     924: aload         27
+     926: lload         17
+     928: invokespecial #219                // Method org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl$RawKVIteratorReader."<init>":(Lorg/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl;Lorg/apache/hadoop/mapred/RawKeyValueIterator;J)V
+     931: iconst_1
+     932: lload         19
+     934: invokespecial #220                // Method org/apache/hadoop/mapred/Merger$Segment."<init>":(Lorg/apache/hadoop/mapred/IFile$Reader;ZJ)V
+     937: invokeinterface #162,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     942: pop
+     943: aload_1
+     944: aload_2
+     945: aload         7
+     947: aload         8
+     949: aload         22
+     951: aload         22
+     953: invokeinterface #167,  1          // InterfaceMethod java/util/List.size:()I
+     958: aload         10
+     960: aload         11
+     962: aload_0
+     963: getfield      #11                 // Field reporter:Lorg/apache/hadoop/mapred/Reporter;
+     966: aload_0
+     967: getfield      #9                  // Field spilledRecordsCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+     970: aconst_null
+     971: aconst_null
+     972: invokestatic  #180                // Method org/apache/hadoop/mapred/Merger.merge:(Lorg/apache/hadoop/conf/Configuration;Lorg/apache/hadoop/fs/FileSystem;Ljava/lang/Class;Ljava/lang/Class;Ljava/util/List;ILorg/apache/hadoop/fs/Path;Lorg/apache/hadoop/io/RawComparator;Lorg/apache/hadoop/util/Progressable;Lorg/apache/hadoop/mapred/Counters$Counter;Lorg/apache/hadoop/mapred/Counters$Counter;Lorg/apache/hadoop/util/Progress;)Lorg/apache/hadoop/mapred/RawKeyValueIterator;
+     975: areturn
+    Exception table:
+       from    to  target type
+         269   316   330   Class java/io/IOException
+         338   346   349   Class java/io/IOException
+         269   316   354   any
+         330   356   354   any
+
+  static org.apache.hadoop.mapreduce.task.reduce.ExceptionReporter access$000(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field exceptionReporter:Lorg/apache/hadoop/mapreduce/task/reduce/ExceptionReporter;
+       4: areturn
+
+  static long access$100(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl, java.util.List, java.util.List, long) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: lload_3
+       4: invokespecial #17                 // Method createInMemorySegments:(Ljava/util/List;Ljava/util/List;J)J
+       7: lreturn
+
+  static org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput access$200(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl, org.apache.hadoop.mapreduce.TaskAttemptID, long, boolean);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: lload_2
+       3: iload         4
+       5: invokespecial #16                 // Method unconditionalReserve:(Lorg/apache/hadoop/mapreduce/TaskAttemptID;JZ)Lorg/apache/hadoop/mapreduce/task/reduce/InMemoryMapOutput;
+       8: areturn
+
+  static org.slf4j.Logger access$300();
+    Code:
+       0: getstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static org.apache.hadoop.mapred.JobConf access$400(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #14                 // Field jobConf:Lorg/apache/hadoop/mapred/JobConf;
+       4: areturn
+
+  static org.apache.hadoop.fs.FileSystem access$500(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #13                 // Field rfs:Lorg/apache/hadoop/fs/FileSystem;
+       4: areturn
+
+  static org.apache.hadoop.mapreduce.TaskAttemptID access$600(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field reduceId:Lorg/apache/hadoop/mapreduce/TaskAttemptID;
+       4: areturn
+
+  static org.apache.hadoop.mapred.Reporter access$700(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field reporter:Lorg/apache/hadoop/mapred/Reporter;
+       4: areturn
+
+  static org.apache.hadoop.io.compress.CompressionCodec access$800(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field codec:Lorg/apache/hadoop/io/compress/CompressionCodec;
+       4: areturn
+
+  static org.apache.hadoop.mapred.Counters$Counter access$900(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field spilledRecordsCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+       4: areturn
+
+  static java.lang.Class access$1000(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field combinerClass:Ljava/lang/Class;
+       4: areturn
+
+  static org.apache.hadoop.mapred.Task$CombineOutputCollector access$1100(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field combineCollector:Lorg/apache/hadoop/mapred/Task$CombineOutputCollector;
+       4: areturn
+
+  static org.apache.hadoop.mapred.Counters$Counter access$1200(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field reduceCombineInputCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+       4: areturn
+
+  static void access$1300(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl, org.apache.hadoop.mapred.RawKeyValueIterator, org.apache.hadoop.mapred.Counters$Counter) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #5                  // Method combineAndSpill:(Lorg/apache/hadoop/mapred/RawKeyValueIterator;Lorg/apache/hadoop/mapred/Counters$Counter;)V
+       6: return
+
+  static org.apache.hadoop.fs.FileSystem access$1400(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field localFS:Lorg/apache/hadoop/fs/FileSystem;
+       4: areturn
+
+  static int access$1500(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field ioSortFactor:I
+       4: ireturn
+
+  static org.apache.hadoop.fs.LocalDirAllocator access$1600(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field localDirAllocator:Lorg/apache/hadoop/fs/LocalDirAllocator;
+       4: areturn
+
+  static org.apache.hadoop.mapred.Counters$Counter access$1700(org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field mergedMapOutputsCounter:Lorg/apache/hadoop/mapred/Counters$Counter;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc           #52                 // class org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl
+       2: invokestatic  #221                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #15                 // Field LOG:Lorg/slf4j/Logger;
+       8: return
+}

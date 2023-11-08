@@ -1,0 +1,340 @@
+Compiled from "OutputBufferProcessor.java"
+public class org.graylog2.buffers.processors.OutputBufferProcessor implements com.lmax.disruptor.WorkHandler<org.graylog2.plugin.buffers.MessageEvent> {
+  private static final org.slf4j.Logger LOG;
+
+  private static final java.lang.String INCOMING_MESSAGES_METRICNAME;
+
+  private static final java.lang.String PROCESS_TIME_METRICNAME;
+
+  private final java.util.concurrent.ExecutorService executor;
+
+  private final org.graylog2.Configuration configuration;
+
+  private final org.graylog2.plugin.ServerStatus serverStatus;
+
+  private final com.codahale.metrics.Meter incomingMessages;
+
+  private final com.codahale.metrics.Counter outputThroughput;
+
+  private final com.codahale.metrics.Timer processTime;
+
+  private final org.graylog2.outputs.OutputRouter outputRouter;
+
+  private final org.graylog2.plugin.outputs.MessageOutput defaultMessageOutput;
+
+  public org.graylog2.buffers.processors.OutputBufferProcessor(org.graylog2.Configuration, com.codahale.metrics.MetricRegistry, org.graylog2.plugin.ServerStatus, org.graylog2.outputs.OutputRouter, org.graylog2.plugin.outputs.MessageOutput);
+    Code:
+       0: aload_0
+       1: invokespecial #3                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aload_1
+       6: putfield      #4                  // Field configuration:Lorg/graylog2/Configuration;
+       9: aload_0
+      10: aload_3
+      11: putfield      #5                  // Field serverStatus:Lorg/graylog2/plugin/ServerStatus;
+      14: aload_0
+      15: aload         4
+      17: putfield      #6                  // Field outputRouter:Lorg/graylog2/outputs/OutputRouter;
+      20: aload_0
+      21: aload         5
+      23: putfield      #7                  // Field defaultMessageOutput:Lorg/graylog2/plugin/outputs/MessageOutput;
+      26: ldc           #8                  // String outputbuffer-processor-executor-%d
+      28: astore        6
+      30: aload_1
+      31: invokevirtual #9                  // Method org/graylog2/Configuration.getOutputBufferProcessorThreadsCorePoolSize:()I
+      34: istore        7
+      36: aload_1
+      37: invokevirtual #10                 // Method org/graylog2/Configuration.getOutputBufferProcessorThreadsMaxPoolSize:()I
+      40: istore        8
+      42: aload_1
+      43: invokevirtual #11                 // Method org/graylog2/Configuration.getOutputBufferProcessorKeepAliveTime:()I
+      46: istore        9
+      48: aload_0
+      49: aload_0
+      50: aload_2
+      51: ldc           #8                  // String outputbuffer-processor-executor-%d
+      53: iload         7
+      55: iload         8
+      57: iload         9
+      59: invokespecial #12                 // Method executorService:(Lcom/codahale/metrics/MetricRegistry;Ljava/lang/String;III)Ljava/util/concurrent/ExecutorService;
+      62: putfield      #13                 // Field executor:Ljava/util/concurrent/ExecutorService;
+      65: aload_0
+      66: aload_2
+      67: getstatic     #14                 // Field INCOMING_MESSAGES_METRICNAME:Ljava/lang/String;
+      70: invokevirtual #15                 // Method com/codahale/metrics/MetricRegistry.meter:(Ljava/lang/String;)Lcom/codahale/metrics/Meter;
+      73: putfield      #16                 // Field incomingMessages:Lcom/codahale/metrics/Meter;
+      76: aload_0
+      77: aload_2
+      78: ldc           #18                 // String org.graylog2.throughput.output
+      80: invokevirtual #19                 // Method com/codahale/metrics/MetricRegistry.counter:(Ljava/lang/String;)Lcom/codahale/metrics/Counter;
+      83: putfield      #20                 // Field outputThroughput:Lcom/codahale/metrics/Counter;
+      86: aload_0
+      87: aload_2
+      88: getstatic     #21                 // Field PROCESS_TIME_METRICNAME:Ljava/lang/String;
+      91: invokevirtual #22                 // Method com/codahale/metrics/MetricRegistry.timer:(Ljava/lang/String;)Lcom/codahale/metrics/Timer;
+      94: putfield      #2                  // Field processTime:Lcom/codahale/metrics/Timer;
+      97: return
+
+  private java.util.concurrent.ExecutorService executorService(com.codahale.metrics.MetricRegistry, java.lang.String, int, int, int);
+    Code:
+       0: new           #23                 // class com/google/common/util/concurrent/ThreadFactoryBuilder
+       3: dup
+       4: invokespecial #24                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder."<init>":()V
+       7: aload_2
+       8: invokevirtual #25                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder.setNameFormat:(Ljava/lang/String;)Lcom/google/common/util/concurrent/ThreadFactoryBuilder;
+      11: invokevirtual #26                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder.build:()Ljava/util/concurrent/ThreadFactory;
+      14: astore        6
+      16: new           #27                 // class com/codahale/metrics/InstrumentedExecutorService
+      19: dup
+      20: new           #28                 // class java/util/concurrent/ThreadPoolExecutor
+      23: dup
+      24: iload_3
+      25: iload         4
+      27: iload         5
+      29: i2l
+      30: getstatic     #29                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      33: new           #30                 // class java/util/concurrent/LinkedBlockingQueue
+      36: dup
+      37: invokespecial #31                 // Method java/util/concurrent/LinkedBlockingQueue."<init>":()V
+      40: aload         6
+      42: invokespecial #32                 // Method java/util/concurrent/ThreadPoolExecutor."<init>":(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/ThreadFactory;)V
+      45: aload_1
+      46: aload_0
+      47: invokevirtual #33                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      50: iconst_1
+      51: anewarray     #34                 // class java/lang/String
+      54: dup
+      55: iconst_0
+      56: ldc           #35                 // String executor-service
+      58: aastore
+      59: invokestatic  #36                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+      62: invokespecial #37                 // Method com/codahale/metrics/InstrumentedExecutorService."<init>":(Ljava/util/concurrent/ExecutorService;Lcom/codahale/metrics/MetricRegistry;Ljava/lang/String;)V
+      65: areturn
+
+  public void onEvent(org.graylog2.plugin.buffers.MessageEvent) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: getfield      #16                 // Field incomingMessages:Lcom/codahale/metrics/Meter;
+       4: invokevirtual #38                 // Method com/codahale/metrics/Meter.mark:()V
+       7: aload_1
+       8: invokevirtual #39                 // Method org/graylog2/plugin/buffers/MessageEvent.getMessage:()Lorg/graylog2/plugin/Message;
+      11: astore_2
+      12: aload_2
+      13: ifnonnull     27
+      16: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+      19: ldc           #40                 // String Skipping null message.
+      21: invokeinterface #41,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      26: return
+      27: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+      30: ldc           #42                 // String Processing message <{}> from OutputBuffer.
+      32: aload_2
+      33: invokevirtual #43                 // Method org/graylog2/plugin/Message.getId:()Ljava/lang/String;
+      36: invokeinterface #44,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      41: aload_0
+      42: getfield      #6                  // Field outputRouter:Lorg/graylog2/outputs/OutputRouter;
+      45: aload_2
+      46: invokevirtual #45                 // Method org/graylog2/outputs/OutputRouter.getStreamOutputsForMessage:(Lorg/graylog2/plugin/Message;)Ljava/util/Set;
+      49: astore_3
+      50: aload_2
+      51: aload_0
+      52: getfield      #5                  // Field serverStatus:Lorg/graylog2/plugin/ServerStatus;
+      55: ldc           #46                 // String matched-outputs
+      57: aload_3
+      58: invokeinterface #47,  1           // InterfaceMethod java/util/Set.size:()I
+      63: invokevirtual #48                 // Method org/graylog2/plugin/Message.recordCounter:(Lorg/graylog2/plugin/ServerStatus;Ljava/lang/String;I)V
+      66: aload_0
+      67: aload_2
+      68: aload_0
+      69: getfield      #7                  // Field defaultMessageOutput:Lorg/graylog2/plugin/outputs/MessageOutput;
+      72: invokespecial #49                 // Method processMessage:(Lorg/graylog2/plugin/Message;Lorg/graylog2/plugin/outputs/MessageOutput;)Ljava/util/concurrent/Future;
+      75: astore        4
+      77: new           #50                 // class java/util/concurrent/CountDownLatch
+      80: dup
+      81: aload_3
+      82: invokeinterface #47,  1           // InterfaceMethod java/util/Set.size:()I
+      87: invokespecial #51                 // Method java/util/concurrent/CountDownLatch."<init>":(I)V
+      90: astore        5
+      92: aload_3
+      93: invokeinterface #52,  1           // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      98: astore        6
+     100: aload         6
+     102: invokeinterface #53,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+     107: ifeq          135
+     110: aload         6
+     112: invokeinterface #54,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     117: checkcast     #55                 // class org/graylog2/plugin/outputs/MessageOutput
+     120: astore        7
+     122: aload_0
+     123: aload_2
+     124: aload         7
+     126: aload         5
+     128: invokespecial #56                 // Method processMessage:(Lorg/graylog2/plugin/Message;Lorg/graylog2/plugin/outputs/MessageOutput;Ljava/util/concurrent/CountDownLatch;)Ljava/util/concurrent/Future;
+     131: pop
+     132: goto          100
+     135: aload         5
+     137: aload_0
+     138: getfield      #4                  // Field configuration:Lorg/graylog2/Configuration;
+     141: invokevirtual #57                 // Method org/graylog2/Configuration.getOutputModuleTimeout:()J
+     144: getstatic     #29                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     147: invokevirtual #58                 // Method java/util/concurrent/CountDownLatch.await:(JLjava/util/concurrent/TimeUnit;)Z
+     150: ifne          163
+     153: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+     156: ldc           #59                 // String Timeout reached. Not waiting any longer for stream output writer threads to complete.
+     158: invokeinterface #60,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     163: aload         4
+     165: ifnull        177
+     168: aload         4
+     170: invokestatic  #61                 // Method com/google/common/util/concurrent/Uninterruptibles.getUninterruptibly:(Ljava/util/concurrent/Future;)Ljava/lang/Object;
+     173: pop
+     174: goto          187
+     177: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+     180: ldc           #62                 // String The default output future was null, this is a bug!
+     182: invokeinterface #63,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+     187: aload_2
+     188: invokevirtual #64                 // Method org/graylog2/plugin/Message.hasRecordings:()Z
+     191: ifeq          208
+     194: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+     197: ldc           #65                 // String Message event trace: {}
+     199: aload_2
+     200: invokevirtual #66                 // Method org/graylog2/plugin/Message.recordingsAsString:()Ljava/lang/String;
+     203: invokeinterface #44,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     208: aload_0
+     209: getfield      #20                 // Field outputThroughput:Lcom/codahale/metrics/Counter;
+     212: invokevirtual #67                 // Method com/codahale/metrics/Counter.inc:()V
+     215: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+     218: ldc           #68                 // String Wrote message <{}> to all outputs. Finished handling.
+     220: aload_2
+     221: invokevirtual #43                 // Method org/graylog2/plugin/Message.getId:()Ljava/lang/String;
+     224: invokeinterface #44,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     229: aload_1
+     230: invokevirtual #69                 // Method org/graylog2/plugin/buffers/MessageEvent.clearMessages:()V
+     233: return
+
+  private java.util.concurrent.Future<?> processMessage(org.graylog2.plugin.Message, org.graylog2.plugin.outputs.MessageOutput);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: new           #50                 // class java/util/concurrent/CountDownLatch
+       6: dup
+       7: iconst_0
+       8: invokespecial #51                 // Method java/util/concurrent/CountDownLatch."<init>":(I)V
+      11: invokespecial #56                 // Method processMessage:(Lorg/graylog2/plugin/Message;Lorg/graylog2/plugin/outputs/MessageOutput;Ljava/util/concurrent/CountDownLatch;)Ljava/util/concurrent/Future;
+      14: areturn
+
+  private java.util.concurrent.Future<?> processMessage(org.graylog2.plugin.Message, org.graylog2.plugin.outputs.MessageOutput, java.util.concurrent.CountDownLatch);
+    Code:
+       0: aload_2
+       1: ifnonnull     18
+       4: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+       7: ldc           #70                 // String Output was null!
+       9: invokeinterface #63,  2           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+      14: invokestatic  #71                 // Method com/google/common/util/concurrent/Futures.immediateCancelledFuture:()Lcom/google/common/util/concurrent/ListenableFuture;
+      17: areturn
+      18: aload_2
+      19: invokeinterface #72,  1           // InterfaceMethod org/graylog2/plugin/outputs/MessageOutput.isRunning:()Z
+      24: ifne          48
+      27: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+      30: ldc           #73                 // String Skipping stopped output {}
+      32: aload_2
+      33: invokevirtual #33                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      36: invokevirtual #74                 // Method java/lang/Class.getName:()Ljava/lang/String;
+      39: invokeinterface #44,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      44: invokestatic  #71                 // Method com/google/common/util/concurrent/Futures.immediateCancelledFuture:()Lcom/google/common/util/concurrent/ListenableFuture;
+      47: areturn
+      48: aconst_null
+      49: astore        4
+      51: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+      54: ldc           #75                 // String Writing message to [{}].
+      56: aload_2
+      57: invokevirtual #33                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      60: invokeinterface #44,  3           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      65: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+      68: invokeinterface #76,  1           // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+      73: ifeq          94
+      76: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+      79: ldc           #77                 // String Message id for [{}]: <{}>
+      81: aload_2
+      82: invokevirtual #33                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      85: aload_1
+      86: invokevirtual #43                 // Method org/graylog2/plugin/Message.getId:()Ljava/lang/String;
+      89: invokeinterface #78,  4           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      94: aload_0
+      95: getfield      #13                 // Field executor:Ljava/util/concurrent/ExecutorService;
+      98: new           #79                 // class org/graylog2/buffers/processors/OutputBufferProcessor$1
+     101: dup
+     102: aload_0
+     103: aload_2
+     104: aload_1
+     105: aload_3
+     106: invokespecial #80                 // Method org/graylog2/buffers/processors/OutputBufferProcessor$1."<init>":(Lorg/graylog2/buffers/processors/OutputBufferProcessor;Lorg/graylog2/plugin/outputs/MessageOutput;Lorg/graylog2/plugin/Message;Ljava/util/concurrent/CountDownLatch;)V
+     109: invokeinterface #81,  2           // InterfaceMethod java/util/concurrent/ExecutorService.submit:(Ljava/lang/Runnable;)Ljava/util/concurrent/Future;
+     114: astore        4
+     116: goto          162
+     119: astore        5
+     121: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+     124: new           #83                 // class java/lang/StringBuilder
+     127: dup
+     128: invokespecial #84                 // Method java/lang/StringBuilder."<init>":()V
+     131: ldc           #85                 // String Could not write message batch to output [
+     133: invokevirtual #86                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     136: aload_2
+     137: invokevirtual #33                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     140: invokevirtual #87                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     143: ldc           #88                 // String ].
+     145: invokevirtual #86                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     148: invokevirtual #89                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     151: aload         5
+     153: invokeinterface #90,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     158: aload_3
+     159: invokevirtual #91                 // Method java/util/concurrent/CountDownLatch.countDown:()V
+     162: aload         4
+     164: areturn
+    Exception table:
+       from    to  target type
+          51   116   119   Class java/lang/Exception
+
+  public void onEvent(java.lang.Object) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: checkcast     #92                 // class org/graylog2/plugin/buffers/MessageEvent
+       5: invokevirtual #93                 // Method onEvent:(Lorg/graylog2/plugin/buffers/MessageEvent;)V
+       8: return
+
+  static com.codahale.metrics.Timer access$000(org.graylog2.buffers.processors.OutputBufferProcessor);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field processTime:Lcom/codahale/metrics/Timer;
+       4: areturn
+
+  static org.slf4j.Logger access$100();
+    Code:
+       0: getstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static {};
+    Code:
+       0: ldc           #94                 // class org/graylog2/buffers/processors/OutputBufferProcessor
+       2: invokestatic  #95                 // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #1                  // Field LOG:Lorg/slf4j/Logger;
+       8: ldc           #94                 // class org/graylog2/buffers/processors/OutputBufferProcessor
+      10: iconst_1
+      11: anewarray     #34                 // class java/lang/String
+      14: dup
+      15: iconst_0
+      16: ldc           #96                 // String incomingMessages
+      18: aastore
+      19: invokestatic  #36                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+      22: putstatic     #14                 // Field INCOMING_MESSAGES_METRICNAME:Ljava/lang/String;
+      25: ldc           #94                 // class org/graylog2/buffers/processors/OutputBufferProcessor
+      27: iconst_1
+      28: anewarray     #34                 // class java/lang/String
+      31: dup
+      32: iconst_0
+      33: ldc           #97                 // String processTime
+      35: aastore
+      36: invokestatic  #36                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+      39: putstatic     #21                 // Field PROCESS_TIME_METRICNAME:Ljava/lang/String;
+      42: return
+}

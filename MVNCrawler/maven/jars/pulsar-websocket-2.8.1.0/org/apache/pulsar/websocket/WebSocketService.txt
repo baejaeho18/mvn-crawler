@@ -1,0 +1,643 @@
+Compiled from "WebSocketService.java"
+public class org.apache.pulsar.websocket.WebSocketService implements java.io.Closeable {
+  org.apache.pulsar.broker.authentication.AuthenticationService authenticationService;
+
+  org.apache.pulsar.broker.authorization.AuthorizationService authorizationService;
+
+  org.apache.pulsar.client.api.PulsarClient pulsarClient;
+
+  private final java.util.concurrent.ScheduledExecutorService executor;
+
+  private final org.apache.bookkeeper.common.util.OrderedScheduler orderedExecutor;
+
+  private org.apache.pulsar.broker.resources.PulsarResources pulsarResources;
+
+  private org.apache.pulsar.metadata.api.extended.MetadataStoreExtended configMetadataStore;
+
+  private org.apache.pulsar.broker.ServiceConfiguration config;
+
+  private org.apache.pulsar.broker.cache.ConfigurationMetadataCacheService configurationCacheService;
+
+  private org.apache.pulsar.common.policies.data.ClusterData localCluster;
+
+  private final org.apache.pulsar.common.util.collections.ConcurrentOpenHashMap<java.lang.String, org.apache.pulsar.common.util.collections.ConcurrentOpenHashSet<org.apache.pulsar.websocket.ProducerHandler>> topicProducerMap;
+
+  private final org.apache.pulsar.common.util.collections.ConcurrentOpenHashMap<java.lang.String, org.apache.pulsar.common.util.collections.ConcurrentOpenHashSet<org.apache.pulsar.websocket.ConsumerHandler>> topicConsumerMap;
+
+  private final org.apache.pulsar.common.util.collections.ConcurrentOpenHashMap<java.lang.String, org.apache.pulsar.common.util.collections.ConcurrentOpenHashSet<org.apache.pulsar.websocket.ReaderHandler>> topicReaderMap;
+
+  private final org.apache.pulsar.websocket.stats.ProxyStats proxyStats;
+
+  private static final org.slf4j.Logger log;
+
+  public org.apache.pulsar.websocket.WebSocketService(org.apache.pulsar.websocket.service.WebSocketProxyConfiguration);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokestatic  #1                  // Method createClusterData:(Lorg/apache/pulsar/websocket/service/WebSocketProxyConfiguration;)Lorg/apache/pulsar/common/policies/data/ClusterData;
+       5: aload_1
+       6: invokestatic  #2                  // Method org/apache/pulsar/common/configuration/PulsarConfigurationLoader.convertFrom:(Lorg/apache/pulsar/common/configuration/PulsarConfiguration;)Lorg/apache/pulsar/broker/ServiceConfiguration;
+       9: invokespecial #3                  // Method "<init>":(Lorg/apache/pulsar/common/policies/data/ClusterData;Lorg/apache/pulsar/broker/ServiceConfiguration;)V
+      12: return
+
+  public org.apache.pulsar.websocket.WebSocketService(org.apache.pulsar.common.policies.data.ClusterData, org.apache.pulsar.broker.ServiceConfiguration);
+    Code:
+       0: aload_0
+       1: invokespecial #4                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: bipush        20
+       7: new           #6                  // class io/netty/util/concurrent/DefaultThreadFactory
+      10: dup
+      11: ldc           #7                  // String pulsar-websocket
+      13: invokespecial #8                  // Method io/netty/util/concurrent/DefaultThreadFactory."<init>":(Ljava/lang/String;)V
+      16: invokestatic  #9                  // Method java/util/concurrent/Executors.newScheduledThreadPool:(ILjava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ScheduledExecutorService;
+      19: putfield      #10                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      22: aload_0
+      23: invokestatic  #11                 // Method org/apache/bookkeeper/common/util/OrderedScheduler.newSchedulerBuilder:()Lorg/apache/bookkeeper/common/util/OrderedScheduler$SchedulerBuilder;
+      26: bipush        8
+      28: invokevirtual #12                 // Method org/apache/bookkeeper/common/util/OrderedScheduler$SchedulerBuilder.numThreads:(I)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+      31: ldc           #13                 // String pulsar-websocket-ordered
+      33: invokevirtual #14                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.name:(Ljava/lang/String;)Lorg/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder;
+      36: invokevirtual #15                 // Method org/apache/bookkeeper/common/util/OrderedExecutor$AbstractBuilder.build:()Lorg/apache/bookkeeper/common/util/OrderedExecutor;
+      39: checkcast     #16                 // class org/apache/bookkeeper/common/util/OrderedScheduler
+      42: putfield      #17                 // Field orderedExecutor:Lorg/apache/bookkeeper/common/util/OrderedScheduler;
+      45: aload_0
+      46: aload_2
+      47: putfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      50: aload_0
+      51: aload_1
+      52: putfield      #19                 // Field localCluster:Lorg/apache/pulsar/common/policies/data/ClusterData;
+      55: aload_0
+      56: new           #20                 // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap
+      59: dup
+      60: invokespecial #21                 // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap."<init>":()V
+      63: putfield      #22                 // Field topicProducerMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+      66: aload_0
+      67: new           #20                 // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap
+      70: dup
+      71: invokespecial #21                 // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap."<init>":()V
+      74: putfield      #23                 // Field topicConsumerMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+      77: aload_0
+      78: new           #20                 // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap
+      81: dup
+      82: invokespecial #21                 // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap."<init>":()V
+      85: putfield      #24                 // Field topicReaderMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+      88: aload_0
+      89: new           #25                 // class org/apache/pulsar/websocket/stats/ProxyStats
+      92: dup
+      93: aload_0
+      94: invokespecial #26                 // Method org/apache/pulsar/websocket/stats/ProxyStats."<init>":(Lorg/apache/pulsar/websocket/WebSocketService;)V
+      97: putfield      #27                 // Field proxyStats:Lorg/apache/pulsar/websocket/stats/ProxyStats;
+     100: return
+
+  public void start() throws org.apache.pulsar.broker.PulsarServerException, org.apache.pulsar.client.api.PulsarClientException, java.net.MalformedURLException, javax.servlet.ServletException, javax.websocket.DeploymentException;
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+       4: invokevirtual #28                 // Method org/apache/pulsar/broker/ServiceConfiguration.getConfigurationStoreServers:()Ljava/lang/String;
+       7: invokestatic  #29                 // Method org/apache/commons/lang3/StringUtils.isNotBlank:(Ljava/lang/CharSequence;)Z
+      10: ifeq          81
+      13: aload_0
+      14: aload_0
+      15: aload_0
+      16: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      19: invokevirtual #28                 // Method org/apache/pulsar/broker/ServiceConfiguration.getConfigurationStoreServers:()Ljava/lang/String;
+      22: aload_0
+      23: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      26: invokevirtual #30                 // Method org/apache/pulsar/broker/ServiceConfiguration.getZooKeeperSessionTimeoutMillis:()J
+      29: l2i
+      30: invokevirtual #31                 // Method createMetadataStore:(Ljava/lang/String;I)Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      33: putfield      #32                 // Field configMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      36: goto          49
+      39: astore_1
+      40: new           #34                 // class org/apache/pulsar/broker/PulsarServerException
+      43: dup
+      44: aload_1
+      45: invokespecial #35                 // Method org/apache/pulsar/broker/PulsarServerException."<init>":(Ljava/lang/Throwable;)V
+      48: athrow
+      49: aload_0
+      50: new           #36                 // class org/apache/pulsar/broker/resources/PulsarResources
+      53: dup
+      54: aconst_null
+      55: aload_0
+      56: getfield      #32                 // Field configMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      59: invokespecial #37                 // Method org/apache/pulsar/broker/resources/PulsarResources."<init>":(Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;)V
+      62: putfield      #38                 // Field pulsarResources:Lorg/apache/pulsar/broker/resources/PulsarResources;
+      65: aload_0
+      66: new           #39                 // class org/apache/pulsar/broker/cache/ConfigurationMetadataCacheService
+      69: dup
+      70: aload_0
+      71: getfield      #38                 // Field pulsarResources:Lorg/apache/pulsar/broker/resources/PulsarResources;
+      74: aconst_null
+      75: invokespecial #40                 // Method org/apache/pulsar/broker/cache/ConfigurationMetadataCacheService."<init>":(Lorg/apache/pulsar/broker/resources/PulsarResources;Ljava/lang/String;)V
+      78: putfield      #41                 // Field configurationCacheService:Lorg/apache/pulsar/broker/cache/ConfigurationMetadataCacheService;
+      81: aload_0
+      82: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      85: invokevirtual #42                 // Method org/apache/pulsar/broker/ServiceConfiguration.isAuthorizationEnabled:()Z
+      88: ifeq          127
+      91: aload_0
+      92: getfield      #41                 // Field configurationCacheService:Lorg/apache/pulsar/broker/cache/ConfigurationMetadataCacheService;
+      95: ifnonnull     108
+      98: new           #34                 // class org/apache/pulsar/broker/PulsarServerException
+     101: dup
+     102: ldc           #43                 // String Failed to initialize authorization manager due to empty ConfigurationStoreServers
+     104: invokespecial #44                 // Method org/apache/pulsar/broker/PulsarServerException."<init>":(Ljava/lang/String;)V
+     107: athrow
+     108: aload_0
+     109: new           #45                 // class org/apache/pulsar/broker/authorization/AuthorizationService
+     112: dup
+     113: aload_0
+     114: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+     117: aload_0
+     118: getfield      #41                 // Field configurationCacheService:Lorg/apache/pulsar/broker/cache/ConfigurationMetadataCacheService;
+     121: invokespecial #46                 // Method org/apache/pulsar/broker/authorization/AuthorizationService."<init>":(Lorg/apache/pulsar/broker/ServiceConfiguration;Lorg/apache/pulsar/broker/cache/ConfigurationCacheService;)V
+     124: putfield      #47                 // Field authorizationService:Lorg/apache/pulsar/broker/authorization/AuthorizationService;
+     127: aload_0
+     128: new           #48                 // class org/apache/pulsar/broker/authentication/AuthenticationService
+     131: dup
+     132: aload_0
+     133: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+     136: invokespecial #49                 // Method org/apache/pulsar/broker/authentication/AuthenticationService."<init>":(Lorg/apache/pulsar/broker/ServiceConfiguration;)V
+     139: putfield      #50                 // Field authenticationService:Lorg/apache/pulsar/broker/authentication/AuthenticationService;
+     142: getstatic     #51                 // Field log:Lorg/slf4j/Logger;
+     145: ldc           #52                 // String Pulsar WebSocket Service started
+     147: invokeinterface #53,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     152: return
+    Exception table:
+       from    to  target type
+          13    36    39   Class org/apache/pulsar/metadata/api/MetadataStoreException
+
+  public org.apache.pulsar.metadata.api.extended.MetadataStoreExtended createMetadataStore(java.lang.String, int) throws org.apache.pulsar.metadata.api.MetadataStoreException;
+    Code:
+       0: aload_1
+       1: iload_2
+       2: invokestatic  #54                 // Method org/apache/pulsar/broker/resources/PulsarResources.createMetadataStore:(Ljava/lang/String;I)Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+       5: areturn
+
+  public void close() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field pulsarClient:Lorg/apache/pulsar/client/api/PulsarClient;
+       4: ifnull        16
+       7: aload_0
+       8: getfield      #55                 // Field pulsarClient:Lorg/apache/pulsar/client/api/PulsarClient;
+      11: invokeinterface #56,  1           // InterfaceMethod org/apache/pulsar/client/api/PulsarClient.close:()V
+      16: aload_0
+      17: getfield      #50                 // Field authenticationService:Lorg/apache/pulsar/broker/authentication/AuthenticationService;
+      20: ifnull        30
+      23: aload_0
+      24: getfield      #50                 // Field authenticationService:Lorg/apache/pulsar/broker/authentication/AuthenticationService;
+      27: invokevirtual #57                 // Method org/apache/pulsar/broker/authentication/AuthenticationService.close:()V
+      30: aload_0
+      31: getfield      #32                 // Field configMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      34: ifnull        59
+      37: aload_0
+      38: getfield      #32                 // Field configMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      41: invokeinterface #58,  1           // InterfaceMethod org/apache/pulsar/metadata/api/extended/MetadataStoreExtended.close:()V
+      46: goto          59
+      49: astore_1
+      50: new           #60                 // class java/io/IOException
+      53: dup
+      54: aload_1
+      55: invokespecial #61                 // Method java/io/IOException."<init>":(Ljava/lang/Throwable;)V
+      58: athrow
+      59: aload_0
+      60: getfield      #10                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+      63: invokeinterface #62,  1           // InterfaceMethod java/util/concurrent/ScheduledExecutorService.shutdown:()V
+      68: aload_0
+      69: getfield      #17                 // Field orderedExecutor:Lorg/apache/bookkeeper/common/util/OrderedScheduler;
+      72: invokevirtual #63                 // Method org/apache/bookkeeper/common/util/OrderedScheduler.shutdown:()V
+      75: return
+    Exception table:
+       from    to  target type
+          37    46    49   Class java/lang/Exception
+
+  public org.apache.pulsar.broker.authentication.AuthenticationService getAuthenticationService();
+    Code:
+       0: aload_0
+       1: getfield      #50                 // Field authenticationService:Lorg/apache/pulsar/broker/authentication/AuthenticationService;
+       4: areturn
+
+  public org.apache.pulsar.broker.authorization.AuthorizationService getAuthorizationService();
+    Code:
+       0: aload_0
+       1: getfield      #47                 // Field authorizationService:Lorg/apache/pulsar/broker/authorization/AuthorizationService;
+       4: areturn
+
+  public synchronized org.apache.pulsar.client.api.PulsarClient getPulsarClient() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field pulsarClient:Lorg/apache/pulsar/client/api/PulsarClient;
+       4: ifnonnull     34
+       7: aload_0
+       8: getfield      #19                 // Field localCluster:Lorg/apache/pulsar/common/policies/data/ClusterData;
+      11: ifnonnull     22
+      14: aload_0
+      15: aload_0
+      16: invokespecial #64                 // Method retrieveClusterData:()Lorg/apache/pulsar/common/policies/data/ClusterData;
+      19: putfield      #19                 // Field localCluster:Lorg/apache/pulsar/common/policies/data/ClusterData;
+      22: aload_0
+      23: aload_0
+      24: aload_0
+      25: getfield      #19                 // Field localCluster:Lorg/apache/pulsar/common/policies/data/ClusterData;
+      28: invokespecial #65                 // Method createClientInstance:(Lorg/apache/pulsar/common/policies/data/ClusterData;)Lorg/apache/pulsar/client/api/PulsarClient;
+      31: putfield      #55                 // Field pulsarClient:Lorg/apache/pulsar/client/api/PulsarClient;
+      34: aload_0
+      35: getfield      #55                 // Field pulsarClient:Lorg/apache/pulsar/client/api/PulsarClient;
+      38: areturn
+
+  public synchronized void setLocalCluster(org.apache.pulsar.common.policies.data.ClusterData);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #19                 // Field localCluster:Lorg/apache/pulsar/common/policies/data/ClusterData;
+       5: return
+
+  private org.apache.pulsar.client.api.PulsarClient createClientInstance(org.apache.pulsar.common.policies.data.ClusterData) throws java.io.IOException;
+    Code:
+       0: invokestatic  #66                 // InterfaceMethod org/apache/pulsar/client/api/PulsarClient.builder:()Lorg/apache/pulsar/client/api/ClientBuilder;
+       3: lconst_0
+       4: getstatic     #67                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+       7: invokeinterface #68,  4           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.statsInterval:(JLjava/util/concurrent/TimeUnit;)Lorg/apache/pulsar/client/api/ClientBuilder;
+      12: aload_0
+      13: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      16: invokevirtual #69                 // Method org/apache/pulsar/broker/ServiceConfiguration.isTlsEnabled:()Z
+      19: invokeinterface #70,  2           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.enableTls:(Z)Lorg/apache/pulsar/client/api/ClientBuilder;
+      24: aload_0
+      25: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      28: invokevirtual #71                 // Method org/apache/pulsar/broker/ServiceConfiguration.isTlsAllowInsecureConnection:()Z
+      31: invokeinterface #72,  2           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.allowTlsInsecureConnection:(Z)Lorg/apache/pulsar/client/api/ClientBuilder;
+      36: aload_0
+      37: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      40: invokevirtual #73                 // Method org/apache/pulsar/broker/ServiceConfiguration.getBrokerClientTrustCertsFilePath:()Ljava/lang/String;
+      43: invokeinterface #74,  2           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.tlsTrustCertsFilePath:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/ClientBuilder;
+      48: aload_0
+      49: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      52: invokevirtual #75                 // Method org/apache/pulsar/broker/ServiceConfiguration.getWebSocketNumIoThreads:()I
+      55: invokeinterface #76,  2           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.ioThreads:(I)Lorg/apache/pulsar/client/api/ClientBuilder;
+      60: aload_0
+      61: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      64: invokevirtual #77                 // Method org/apache/pulsar/broker/ServiceConfiguration.getWebSocketConnectionsPerBroker:()I
+      67: invokeinterface #78,  2           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.connectionsPerBroker:(I)Lorg/apache/pulsar/client/api/ClientBuilder;
+      72: astore_2
+      73: aload_0
+      74: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      77: invokevirtual #79                 // Method org/apache/pulsar/broker/ServiceConfiguration.getBrokerClientAuthenticationPlugin:()Ljava/lang/String;
+      80: invokestatic  #29                 // Method org/apache/commons/lang3/StringUtils.isNotBlank:(Ljava/lang/CharSequence;)Z
+      83: ifeq          120
+      86: aload_0
+      87: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      90: invokevirtual #80                 // Method org/apache/pulsar/broker/ServiceConfiguration.getBrokerClientAuthenticationParameters:()Ljava/lang/String;
+      93: invokestatic  #29                 // Method org/apache/commons/lang3/StringUtils.isNotBlank:(Ljava/lang/CharSequence;)Z
+      96: ifeq          120
+      99: aload_2
+     100: aload_0
+     101: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+     104: invokevirtual #79                 // Method org/apache/pulsar/broker/ServiceConfiguration.getBrokerClientAuthenticationPlugin:()Ljava/lang/String;
+     107: aload_0
+     108: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+     111: invokevirtual #80                 // Method org/apache/pulsar/broker/ServiceConfiguration.getBrokerClientAuthenticationParameters:()Ljava/lang/String;
+     114: invokeinterface #81,  3           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.authentication:(Ljava/lang/String;Ljava/lang/String;)Lorg/apache/pulsar/client/api/ClientBuilder;
+     119: pop
+     120: aload_0
+     121: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+     124: invokevirtual #82                 // Method org/apache/pulsar/broker/ServiceConfiguration.isBrokerClientTlsEnabled:()Z
+     127: ifeq          186
+     130: aload_1
+     131: invokeinterface #83,  1           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData.getBrokerServiceUrlTls:()Ljava/lang/String;
+     136: invokestatic  #29                 // Method org/apache/commons/lang3/StringUtils.isNotBlank:(Ljava/lang/CharSequence;)Z
+     139: ifeq          158
+     142: aload_2
+     143: aload_1
+     144: invokeinterface #83,  1           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData.getBrokerServiceUrlTls:()Ljava/lang/String;
+     149: invokeinterface #84,  2           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.serviceUrl:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/ClientBuilder;
+     154: pop
+     155: goto          227
+     158: aload_1
+     159: invokeinterface #85,  1           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData.getServiceUrlTls:()Ljava/lang/String;
+     164: invokestatic  #29                 // Method org/apache/commons/lang3/StringUtils.isNotBlank:(Ljava/lang/CharSequence;)Z
+     167: ifeq          227
+     170: aload_2
+     171: aload_1
+     172: invokeinterface #85,  1           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData.getServiceUrlTls:()Ljava/lang/String;
+     177: invokeinterface #84,  2           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.serviceUrl:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/ClientBuilder;
+     182: pop
+     183: goto          227
+     186: aload_1
+     187: invokeinterface #86,  1           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData.getBrokerServiceUrl:()Ljava/lang/String;
+     192: invokestatic  #29                 // Method org/apache/commons/lang3/StringUtils.isNotBlank:(Ljava/lang/CharSequence;)Z
+     195: ifeq          214
+     198: aload_2
+     199: aload_1
+     200: invokeinterface #86,  1           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData.getBrokerServiceUrl:()Ljava/lang/String;
+     205: invokeinterface #84,  2           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.serviceUrl:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/ClientBuilder;
+     210: pop
+     211: goto          227
+     214: aload_2
+     215: aload_1
+     216: invokeinterface #87,  1           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData.getServiceUrl:()Ljava/lang/String;
+     221: invokeinterface #84,  2           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.serviceUrl:(Ljava/lang/String;)Lorg/apache/pulsar/client/api/ClientBuilder;
+     226: pop
+     227: aload_2
+     228: invokeinterface #88,  1           // InterfaceMethod org/apache/pulsar/client/api/ClientBuilder.build:()Lorg/apache/pulsar/client/api/PulsarClient;
+     233: areturn
+
+  private static org.apache.pulsar.common.policies.data.ClusterData createClusterData(org.apache.pulsar.websocket.service.WebSocketProxyConfiguration);
+    Code:
+       0: aload_0
+       1: invokevirtual #89                 // Method org/apache/pulsar/websocket/service/WebSocketProxyConfiguration.getBrokerServiceUrl:()Ljava/lang/String;
+       4: invokestatic  #29                 // Method org/apache/commons/lang3/StringUtils.isNotBlank:(Ljava/lang/CharSequence;)Z
+       7: ifne          20
+      10: aload_0
+      11: invokevirtual #90                 // Method org/apache/pulsar/websocket/service/WebSocketProxyConfiguration.getBrokerServiceUrlTls:()Ljava/lang/String;
+      14: invokestatic  #29                 // Method org/apache/commons/lang3/StringUtils.isNotBlank:(Ljava/lang/CharSequence;)Z
+      17: ifeq          65
+      20: invokestatic  #91                 // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData.builder:()Lorg/apache/pulsar/common/policies/data/ClusterData$Builder;
+      23: aload_0
+      24: invokevirtual #92                 // Method org/apache/pulsar/websocket/service/WebSocketProxyConfiguration.getServiceUrl:()Ljava/lang/String;
+      27: invokeinterface #93,  2           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData$Builder.serviceUrl:(Ljava/lang/String;)Lorg/apache/pulsar/common/policies/data/ClusterData$Builder;
+      32: aload_0
+      33: invokevirtual #94                 // Method org/apache/pulsar/websocket/service/WebSocketProxyConfiguration.getServiceUrlTls:()Ljava/lang/String;
+      36: invokeinterface #95,  2           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData$Builder.serviceUrlTls:(Ljava/lang/String;)Lorg/apache/pulsar/common/policies/data/ClusterData$Builder;
+      41: aload_0
+      42: invokevirtual #89                 // Method org/apache/pulsar/websocket/service/WebSocketProxyConfiguration.getBrokerServiceUrl:()Ljava/lang/String;
+      45: invokeinterface #96,  2           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData$Builder.brokerServiceUrl:(Ljava/lang/String;)Lorg/apache/pulsar/common/policies/data/ClusterData$Builder;
+      50: aload_0
+      51: invokevirtual #90                 // Method org/apache/pulsar/websocket/service/WebSocketProxyConfiguration.getBrokerServiceUrlTls:()Ljava/lang/String;
+      54: invokeinterface #97,  2           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData$Builder.brokerServiceUrlTls:(Ljava/lang/String;)Lorg/apache/pulsar/common/policies/data/ClusterData$Builder;
+      59: invokeinterface #98,  1           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData$Builder.build:()Lorg/apache/pulsar/common/policies/data/ClusterData;
+      64: areturn
+      65: aload_0
+      66: invokevirtual #92                 // Method org/apache/pulsar/websocket/service/WebSocketProxyConfiguration.getServiceUrl:()Ljava/lang/String;
+      69: invokestatic  #29                 // Method org/apache/commons/lang3/StringUtils.isNotBlank:(Ljava/lang/CharSequence;)Z
+      72: ifne          85
+      75: aload_0
+      76: invokevirtual #94                 // Method org/apache/pulsar/websocket/service/WebSocketProxyConfiguration.getServiceUrlTls:()Ljava/lang/String;
+      79: invokestatic  #29                 // Method org/apache/commons/lang3/StringUtils.isNotBlank:(Ljava/lang/CharSequence;)Z
+      82: ifeq          112
+      85: invokestatic  #91                 // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData.builder:()Lorg/apache/pulsar/common/policies/data/ClusterData$Builder;
+      88: aload_0
+      89: invokevirtual #92                 // Method org/apache/pulsar/websocket/service/WebSocketProxyConfiguration.getServiceUrl:()Ljava/lang/String;
+      92: invokeinterface #93,  2           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData$Builder.serviceUrl:(Ljava/lang/String;)Lorg/apache/pulsar/common/policies/data/ClusterData$Builder;
+      97: aload_0
+      98: invokevirtual #94                 // Method org/apache/pulsar/websocket/service/WebSocketProxyConfiguration.getServiceUrlTls:()Ljava/lang/String;
+     101: invokeinterface #95,  2           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData$Builder.serviceUrlTls:(Ljava/lang/String;)Lorg/apache/pulsar/common/policies/data/ClusterData$Builder;
+     106: invokeinterface #98,  1           // InterfaceMethod org/apache/pulsar/common/policies/data/ClusterData$Builder.build:()Lorg/apache/pulsar/common/policies/data/ClusterData;
+     111: areturn
+     112: aconst_null
+     113: areturn
+
+  private org.apache.pulsar.common.policies.data.ClusterData retrieveClusterData() throws org.apache.pulsar.broker.PulsarServerException;
+    Code:
+       0: aload_0
+       1: getfield      #41                 // Field configurationCacheService:Lorg/apache/pulsar/broker/cache/ConfigurationMetadataCacheService;
+       4: ifnonnull     17
+       7: new           #34                 // class org/apache/pulsar/broker/PulsarServerException
+      10: dup
+      11: ldc           #99                 // String Failed to retrieve Cluster data due to empty ConfigurationStoreServers
+      13: invokespecial #44                 // Method org/apache/pulsar/broker/PulsarServerException."<init>":(Ljava/lang/String;)V
+      16: athrow
+      17: new           #100                // class java/lang/StringBuilder
+      20: dup
+      21: invokespecial #101                // Method java/lang/StringBuilder."<init>":()V
+      24: ldc           #102                // String /admin/clusters/
+      26: invokevirtual #103                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      29: aload_0
+      30: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      33: invokevirtual #104                // Method org/apache/pulsar/broker/ServiceConfiguration.getClusterName:()Ljava/lang/String;
+      36: invokevirtual #103                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      39: invokevirtual #105                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      42: astore_1
+      43: aload_0
+      44: aload_0
+      45: getfield      #38                 // Field pulsarResources:Lorg/apache/pulsar/broker/resources/PulsarResources;
+      48: invokevirtual #106                // Method org/apache/pulsar/broker/resources/PulsarResources.getClusterResources:()Lorg/apache/pulsar/broker/resources/ClusterResources;
+      51: aload_1
+      52: invokevirtual #107                // Method org/apache/pulsar/broker/resources/ClusterResources.get:(Ljava/lang/String;)Ljava/util/Optional;
+      55: aload_1
+      56: invokedynamic #108,  0            // InvokeDynamic #0:get:(Ljava/lang/String;)Ljava/util/function/Supplier;
+      61: invokevirtual #109                // Method java/util/Optional.orElseThrow:(Ljava/util/function/Supplier;)Ljava/lang/Object;
+      64: checkcast     #110                // class org/apache/pulsar/common/policies/data/ClusterData
+      67: dup_x1
+      68: putfield      #19                 // Field localCluster:Lorg/apache/pulsar/common/policies/data/ClusterData;
+      71: areturn
+      72: astore_1
+      73: new           #34                 // class org/apache/pulsar/broker/PulsarServerException
+      76: dup
+      77: aload_1
+      78: invokespecial #35                 // Method org/apache/pulsar/broker/PulsarServerException."<init>":(Ljava/lang/Throwable;)V
+      81: athrow
+    Exception table:
+       from    to  target type
+          17    71    72   Class java/lang/Exception
+
+  public org.apache.pulsar.websocket.stats.ProxyStats getProxyStats();
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field proxyStats:Lorg/apache/pulsar/websocket/stats/ProxyStats;
+       4: areturn
+
+  public org.apache.pulsar.broker.cache.ConfigurationCacheService getConfigurationCache();
+    Code:
+       0: aload_0
+       1: getfield      #41                 // Field configurationCacheService:Lorg/apache/pulsar/broker/cache/ConfigurationMetadataCacheService;
+       4: areturn
+
+  public java.util.concurrent.ScheduledExecutorService getExecutor();
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field executor:Ljava/util/concurrent/ScheduledExecutorService;
+       4: areturn
+
+  public boolean isAuthenticationEnabled();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+       4: ifnonnull     9
+       7: iconst_0
+       8: ireturn
+       9: aload_0
+      10: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      13: invokevirtual #111                // Method org/apache/pulsar/broker/ServiceConfiguration.isAuthenticationEnabled:()Z
+      16: ireturn
+
+  public boolean isAuthorizationEnabled();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+       4: ifnonnull     9
+       7: iconst_0
+       8: ireturn
+       9: aload_0
+      10: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+      13: invokevirtual #42                 // Method org/apache/pulsar/broker/ServiceConfiguration.isAuthorizationEnabled:()Z
+      16: ireturn
+
+  public boolean addProducer(org.apache.pulsar.websocket.ProducerHandler);
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field topicProducerMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+       4: aload_1
+       5: invokevirtual #112                // Method org/apache/pulsar/websocket/ProducerHandler.getProducer:()Lorg/apache/pulsar/client/api/Producer;
+       8: invokeinterface #113,  1          // InterfaceMethod org/apache/pulsar/client/api/Producer.getTopic:()Ljava/lang/String;
+      13: invokedynamic #114,  0            // InvokeDynamic #1:apply:()Ljava/util/function/Function;
+      18: invokevirtual #115                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap.computeIfAbsent:(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;
+      21: checkcast     #116                // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet
+      24: aload_1
+      25: invokevirtual #117                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet.add:(Ljava/lang/Object;)Z
+      28: ireturn
+
+  public org.apache.pulsar.common.util.collections.ConcurrentOpenHashMap<java.lang.String, org.apache.pulsar.common.util.collections.ConcurrentOpenHashSet<org.apache.pulsar.websocket.ProducerHandler>> getProducers();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field topicProducerMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+       4: areturn
+
+  public boolean removeProducer(org.apache.pulsar.websocket.ProducerHandler);
+    Code:
+       0: aload_1
+       1: invokevirtual #112                // Method org/apache/pulsar/websocket/ProducerHandler.getProducer:()Lorg/apache/pulsar/client/api/Producer;
+       4: invokeinterface #113,  1          // InterfaceMethod org/apache/pulsar/client/api/Producer.getTopic:()Ljava/lang/String;
+       9: astore_2
+      10: aload_0
+      11: getfield      #22                 // Field topicProducerMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+      14: aload_2
+      15: invokevirtual #118                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap.containsKey:(Ljava/lang/Object;)Z
+      18: ifeq          37
+      21: aload_0
+      22: getfield      #22                 // Field topicProducerMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+      25: aload_2
+      26: invokevirtual #119                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      29: checkcast     #116                // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet
+      32: aload_1
+      33: invokevirtual #120                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet.remove:(Ljava/lang/Object;)Z
+      36: ireturn
+      37: iconst_0
+      38: ireturn
+
+  public boolean addConsumer(org.apache.pulsar.websocket.ConsumerHandler);
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field topicConsumerMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+       4: aload_1
+       5: invokevirtual #121                // Method org/apache/pulsar/websocket/ConsumerHandler.getConsumer:()Lorg/apache/pulsar/client/api/Consumer;
+       8: invokeinterface #122,  1          // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      13: invokedynamic #123,  0            // InvokeDynamic #2:apply:()Ljava/util/function/Function;
+      18: invokevirtual #115                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap.computeIfAbsent:(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;
+      21: checkcast     #116                // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet
+      24: aload_1
+      25: invokevirtual #117                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet.add:(Ljava/lang/Object;)Z
+      28: ireturn
+
+  public org.apache.pulsar.common.util.collections.ConcurrentOpenHashMap<java.lang.String, org.apache.pulsar.common.util.collections.ConcurrentOpenHashSet<org.apache.pulsar.websocket.ConsumerHandler>> getConsumers();
+    Code:
+       0: aload_0
+       1: getfield      #23                 // Field topicConsumerMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+       4: areturn
+
+  public boolean removeConsumer(org.apache.pulsar.websocket.ConsumerHandler);
+    Code:
+       0: aload_1
+       1: invokevirtual #121                // Method org/apache/pulsar/websocket/ConsumerHandler.getConsumer:()Lorg/apache/pulsar/client/api/Consumer;
+       4: invokeinterface #122,  1          // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+       9: astore_2
+      10: aload_0
+      11: getfield      #23                 // Field topicConsumerMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+      14: aload_2
+      15: invokevirtual #118                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap.containsKey:(Ljava/lang/Object;)Z
+      18: ifeq          37
+      21: aload_0
+      22: getfield      #23                 // Field topicConsumerMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+      25: aload_2
+      26: invokevirtual #119                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      29: checkcast     #116                // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet
+      32: aload_1
+      33: invokevirtual #120                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet.remove:(Ljava/lang/Object;)Z
+      36: ireturn
+      37: iconst_0
+      38: ireturn
+
+  public boolean addReader(org.apache.pulsar.websocket.ReaderHandler);
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field topicReaderMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+       4: aload_1
+       5: invokevirtual #124                // Method org/apache/pulsar/websocket/ReaderHandler.getConsumer:()Lorg/apache/pulsar/client/api/Consumer;
+       8: invokeinterface #122,  1          // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+      13: invokedynamic #125,  0            // InvokeDynamic #3:apply:()Ljava/util/function/Function;
+      18: invokevirtual #115                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap.computeIfAbsent:(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;
+      21: checkcast     #116                // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet
+      24: aload_1
+      25: invokevirtual #117                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet.add:(Ljava/lang/Object;)Z
+      28: ireturn
+
+  public org.apache.pulsar.common.util.collections.ConcurrentOpenHashMap<java.lang.String, org.apache.pulsar.common.util.collections.ConcurrentOpenHashSet<org.apache.pulsar.websocket.ReaderHandler>> getReaders();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field topicReaderMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+       4: areturn
+
+  public boolean removeReader(org.apache.pulsar.websocket.ReaderHandler);
+    Code:
+       0: aload_1
+       1: invokevirtual #124                // Method org/apache/pulsar/websocket/ReaderHandler.getConsumer:()Lorg/apache/pulsar/client/api/Consumer;
+       4: invokeinterface #122,  1          // InterfaceMethod org/apache/pulsar/client/api/Consumer.getTopic:()Ljava/lang/String;
+       9: astore_2
+      10: aload_0
+      11: getfield      #24                 // Field topicReaderMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+      14: aload_2
+      15: invokevirtual #118                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap.containsKey:(Ljava/lang/Object;)Z
+      18: ifeq          37
+      21: aload_0
+      22: getfield      #24                 // Field topicReaderMap:Lorg/apache/pulsar/common/util/collections/ConcurrentOpenHashMap;
+      25: aload_2
+      26: invokevirtual #119                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      29: checkcast     #116                // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet
+      32: aload_1
+      33: invokevirtual #120                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet.remove:(Ljava/lang/Object;)Z
+      36: ireturn
+      37: iconst_0
+      38: ireturn
+
+  public org.apache.pulsar.broker.ServiceConfiguration getConfig();
+    Code:
+       0: aload_0
+       1: getfield      #18                 // Field config:Lorg/apache/pulsar/broker/ServiceConfiguration;
+       4: areturn
+
+  private static org.apache.pulsar.common.util.collections.ConcurrentOpenHashSet lambda$addReader$3(java.lang.String);
+    Code:
+       0: new           #116                // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet
+       3: dup
+       4: invokespecial #126                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet."<init>":()V
+       7: areturn
+
+  private static org.apache.pulsar.common.util.collections.ConcurrentOpenHashSet lambda$addConsumer$2(java.lang.String);
+    Code:
+       0: new           #116                // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet
+       3: dup
+       4: invokespecial #126                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet."<init>":()V
+       7: areturn
+
+  private static org.apache.pulsar.common.util.collections.ConcurrentOpenHashSet lambda$addProducer$1(java.lang.String);
+    Code:
+       0: new           #116                // class org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet
+       3: dup
+       4: invokespecial #126                // Method org/apache/pulsar/common/util/collections/ConcurrentOpenHashSet."<init>":()V
+       7: areturn
+
+  private static org.apache.pulsar.metadata.api.MetadataStoreException$NotFoundException lambda$retrieveClusterData$0(java.lang.String);
+    Code:
+       0: new           #127                // class org/apache/pulsar/metadata/api/MetadataStoreException$NotFoundException
+       3: dup
+       4: aload_0
+       5: invokespecial #128                // Method org/apache/pulsar/metadata/api/MetadataStoreException$NotFoundException."<init>":(Ljava/lang/String;)V
+       8: areturn
+
+  static {};
+    Code:
+       0: ldc           #129                // class org/apache/pulsar/websocket/WebSocketService
+       2: invokestatic  #130                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #51                 // Field log:Lorg/slf4j/Logger;
+       8: return
+}

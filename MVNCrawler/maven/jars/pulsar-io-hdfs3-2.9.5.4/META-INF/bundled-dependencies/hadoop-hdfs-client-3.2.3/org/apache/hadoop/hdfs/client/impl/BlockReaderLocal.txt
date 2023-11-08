@@ -1,0 +1,1504 @@
+Compiled from "BlockReaderLocal.java"
+class org.apache.hadoop.hdfs.client.impl.BlockReaderLocal implements org.apache.hadoop.hdfs.BlockReader {
+  static final org.slf4j.Logger LOG;
+
+  private static final org.apache.hadoop.util.DirectBufferPool bufferPool;
+
+  private static org.apache.hadoop.hdfs.client.impl.metrics.BlockReaderLocalMetrics metrics;
+
+  private static java.util.concurrent.locks.Lock metricsInitializationLock;
+
+  private final org.apache.hadoop.hdfs.client.impl.metrics.BlockReaderIoProvider blockReaderIoProvider;
+
+  private static final org.apache.hadoop.util.Timer TIMER;
+
+  private boolean closed;
+
+  private final org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplica replica;
+
+  private final java.nio.channels.FileChannel dataIn;
+
+  private long dataPos;
+
+  private final java.nio.channels.FileChannel checksumIn;
+
+  private final org.apache.hadoop.util.DataChecksum checksum;
+
+  private final boolean verifyChecksum;
+
+  private final java.lang.String filename;
+
+  private final org.apache.hadoop.hdfs.protocol.ExtendedBlock block;
+
+  private final int bytesPerChecksum;
+
+  private final int checksumSize;
+
+  private final int maxAllocatedChunks;
+
+  private final boolean zeroReadaheadRequested;
+
+  private final int maxReadaheadLength;
+
+  private java.nio.ByteBuffer dataBuf;
+
+  private java.nio.ByteBuffer checksumBuf;
+
+  private org.apache.hadoop.fs.StorageType storageType;
+
+  private org.apache.hadoop.hdfs.client.impl.BlockReaderLocal(org.apache.hadoop.hdfs.client.impl.BlockReaderLocal$Builder);
+    Code:
+       0: aload_0
+       1: invokespecial #2                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: iconst_0
+       6: putfield      #3                  // Field closed:Z
+       9: aload_0
+      10: aload_1
+      11: invokestatic  #4                  // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$100:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      14: putfield      #5                  // Field replica:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      17: aload_0
+      18: aload_0
+      19: getfield      #5                  // Field replica:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      22: invokevirtual #6                  // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getDataStream:()Ljava/io/FileInputStream;
+      25: invokevirtual #7                  // Method java/io/FileInputStream.getChannel:()Ljava/nio/channels/FileChannel;
+      28: putfield      #8                  // Field dataIn:Ljava/nio/channels/FileChannel;
+      31: aload_0
+      32: aload_1
+      33: invokestatic  #9                  // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$200:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)J
+      36: putfield      #10                 // Field dataPos:J
+      39: aload_0
+      40: aload_0
+      41: getfield      #5                  // Field replica:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      44: invokevirtual #11                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getMetaStream:()Ljava/io/FileInputStream;
+      47: invokevirtual #7                  // Method java/io/FileInputStream.getChannel:()Ljava/nio/channels/FileChannel;
+      50: putfield      #12                 // Field checksumIn:Ljava/nio/channels/FileChannel;
+      53: aload_1
+      54: invokestatic  #4                  // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$100:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      57: invokevirtual #13                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getMetaHeader:()Lorg/apache/hadoop/hdfs/server/datanode/BlockMetadataHeader;
+      60: astore_2
+      61: aload_0
+      62: aload_2
+      63: invokevirtual #14                 // Method org/apache/hadoop/hdfs/server/datanode/BlockMetadataHeader.getChecksum:()Lorg/apache/hadoop/util/DataChecksum;
+      66: putfield      #15                 // Field checksum:Lorg/apache/hadoop/util/DataChecksum;
+      69: aload_0
+      70: aload_1
+      71: invokestatic  #16                 // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$300:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)Z
+      74: ifeq          94
+      77: aload_0
+      78: getfield      #15                 // Field checksum:Lorg/apache/hadoop/util/DataChecksum;
+      81: invokevirtual #17                 // Method org/apache/hadoop/util/DataChecksum.getChecksumType:()Lorg/apache/hadoop/util/DataChecksum$Type;
+      84: getfield      #18                 // Field org/apache/hadoop/util/DataChecksum$Type.id:I
+      87: ifeq          94
+      90: iconst_1
+      91: goto          95
+      94: iconst_0
+      95: putfield      #19                 // Field verifyChecksum:Z
+      98: aload_0
+      99: aload_1
+     100: invokestatic  #20                 // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$400:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)Ljava/lang/String;
+     103: putfield      #21                 // Field filename:Ljava/lang/String;
+     106: aload_0
+     107: aload_1
+     108: invokestatic  #22                 // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$500:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+     111: putfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+     114: aload_0
+     115: aload_0
+     116: getfield      #15                 // Field checksum:Lorg/apache/hadoop/util/DataChecksum;
+     119: invokevirtual #24                 // Method org/apache/hadoop/util/DataChecksum.getBytesPerChecksum:()I
+     122: putfield      #25                 // Field bytesPerChecksum:I
+     125: aload_0
+     126: aload_0
+     127: getfield      #15                 // Field checksum:Lorg/apache/hadoop/util/DataChecksum;
+     130: invokevirtual #26                 // Method org/apache/hadoop/util/DataChecksum.getChecksumSize:()I
+     133: putfield      #27                 // Field checksumSize:I
+     136: aload_0
+     137: aload_0
+     138: getfield      #25                 // Field bytesPerChecksum:I
+     141: ifne          148
+     144: iconst_0
+     145: goto          164
+     148: aload_1
+     149: invokestatic  #28                 // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$600:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)I
+     152: aload_0
+     153: getfield      #25                 // Field bytesPerChecksum:I
+     156: iadd
+     157: iconst_1
+     158: isub
+     159: aload_0
+     160: getfield      #25                 // Field bytesPerChecksum:I
+     163: idiv
+     164: putfield      #29                 // Field maxAllocatedChunks:I
+     167: aload_0
+     168: getfield      #25                 // Field bytesPerChecksum:I
+     171: ifne          178
+     174: iconst_0
+     175: goto          201
+     178: aload_1
+     179: invokestatic  #28                 // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$600:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)I
+     182: aload_1
+     183: invokestatic  #30                 // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$700:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)I
+     186: invokestatic  #31                 // Method java/lang/Math.min:(II)I
+     189: aload_0
+     190: getfield      #25                 // Field bytesPerChecksum:I
+     193: iadd
+     194: iconst_1
+     195: isub
+     196: aload_0
+     197: getfield      #25                 // Field bytesPerChecksum:I
+     200: idiv
+     201: istore_3
+     202: iload_3
+     203: ifne          216
+     206: aload_0
+     207: iconst_1
+     208: putfield      #32                 // Field zeroReadaheadRequested:Z
+     211: iconst_1
+     212: istore_3
+     213: goto          221
+     216: aload_0
+     217: iconst_0
+     218: putfield      #32                 // Field zeroReadaheadRequested:Z
+     221: aload_0
+     222: iload_3
+     223: aload_0
+     224: getfield      #25                 // Field bytesPerChecksum:I
+     227: imul
+     228: putfield      #33                 // Field maxReadaheadLength:I
+     231: aload_0
+     232: aload_1
+     233: invokestatic  #34                 // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$800:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)Lorg/apache/hadoop/fs/StorageType;
+     236: putfield      #35                 // Field storageType:Lorg/apache/hadoop/fs/StorageType;
+     239: aload_1
+     240: invokestatic  #36                 // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$900:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)Lorg/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf;
+     243: invokevirtual #37                 // Method org/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf.isScrMetricsEnabled:()Z
+     246: ifeq          293
+     249: getstatic     #38                 // Field metricsInitializationLock:Ljava/util/concurrent/locks/Lock;
+     252: invokeinterface #39,  1           // InterfaceMethod java/util/concurrent/locks/Lock.lock:()V
+     257: getstatic     #40                 // Field metrics:Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderLocalMetrics;
+     260: ifnonnull     269
+     263: invokestatic  #41                 // Method org/apache/hadoop/hdfs/client/impl/metrics/BlockReaderLocalMetrics.create:()Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderLocalMetrics;
+     266: putstatic     #40                 // Field metrics:Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderLocalMetrics;
+     269: getstatic     #38                 // Field metricsInitializationLock:Ljava/util/concurrent/locks/Lock;
+     272: invokeinterface #42,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     277: goto          293
+     280: astore        4
+     282: getstatic     #38                 // Field metricsInitializationLock:Ljava/util/concurrent/locks/Lock;
+     285: invokeinterface #42,  1           // InterfaceMethod java/util/concurrent/locks/Lock.unlock:()V
+     290: aload         4
+     292: athrow
+     293: aload_0
+     294: new           #43                 // class org/apache/hadoop/hdfs/client/impl/metrics/BlockReaderIoProvider
+     297: dup
+     298: aload_1
+     299: invokestatic  #36                 // Method org/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder.access$900:(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)Lorg/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf;
+     302: getstatic     #40                 // Field metrics:Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderLocalMetrics;
+     305: getstatic     #44                 // Field TIMER:Lorg/apache/hadoop/util/Timer;
+     308: invokespecial #45                 // Method org/apache/hadoop/hdfs/client/impl/metrics/BlockReaderIoProvider."<init>":(Lorg/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf;Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderLocalMetrics;Lorg/apache/hadoop/util/Timer;)V
+     311: putfield      #46                 // Field blockReaderIoProvider:Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderIoProvider;
+     314: return
+    Exception table:
+       from    to  target type
+         257   269   280   any
+         280   282   280   any
+
+  private synchronized void createDataBufIfNeeded();
+    Code:
+       0: aload_0
+       1: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+       4: ifnonnull     44
+       7: aload_0
+       8: getstatic     #48                 // Field bufferPool:Lorg/apache/hadoop/util/DirectBufferPool;
+      11: aload_0
+      12: getfield      #29                 // Field maxAllocatedChunks:I
+      15: aload_0
+      16: getfield      #25                 // Field bytesPerChecksum:I
+      19: imul
+      20: invokevirtual #49                 // Method org/apache/hadoop/util/DirectBufferPool.getBuffer:(I)Ljava/nio/ByteBuffer;
+      23: putfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      26: aload_0
+      27: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      30: iconst_0
+      31: invokevirtual #50                 // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+      34: pop
+      35: aload_0
+      36: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      39: iconst_0
+      40: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+      43: pop
+      44: return
+
+  private synchronized void freeDataBufIfExists();
+    Code:
+       0: aload_0
+       1: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+       4: ifnull        47
+       7: aload_0
+       8: dup
+       9: getfield      #10                 // Field dataPos:J
+      12: aload_0
+      13: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      16: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+      19: i2l
+      20: lsub
+      21: putfield      #10                 // Field dataPos:J
+      24: aload_0
+      25: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      28: invokevirtual #53                 // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+      31: pop
+      32: getstatic     #48                 // Field bufferPool:Lorg/apache/hadoop/util/DirectBufferPool;
+      35: aload_0
+      36: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      39: invokevirtual #54                 // Method org/apache/hadoop/util/DirectBufferPool.returnBuffer:(Ljava/nio/ByteBuffer;)V
+      42: aload_0
+      43: aconst_null
+      44: putfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      47: return
+
+  private synchronized void createChecksumBufIfNeeded();
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+       4: ifnonnull     44
+       7: aload_0
+       8: getstatic     #48                 // Field bufferPool:Lorg/apache/hadoop/util/DirectBufferPool;
+      11: aload_0
+      12: getfield      #29                 // Field maxAllocatedChunks:I
+      15: aload_0
+      16: getfield      #27                 // Field checksumSize:I
+      19: imul
+      20: invokevirtual #49                 // Method org/apache/hadoop/util/DirectBufferPool.getBuffer:(I)Ljava/nio/ByteBuffer;
+      23: putfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+      26: aload_0
+      27: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+      30: iconst_0
+      31: invokevirtual #50                 // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+      34: pop
+      35: aload_0
+      36: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+      39: iconst_0
+      40: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+      43: pop
+      44: return
+
+  private synchronized void freeChecksumBufIfExists();
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+       4: ifnull        30
+       7: aload_0
+       8: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+      11: invokevirtual #53                 // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+      14: pop
+      15: getstatic     #48                 // Field bufferPool:Lorg/apache/hadoop/util/DirectBufferPool;
+      18: aload_0
+      19: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+      22: invokevirtual #54                 // Method org/apache/hadoop/util/DirectBufferPool.returnBuffer:(Ljava/nio/ByteBuffer;)V
+      25: aload_0
+      26: aconst_null
+      27: putfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+      30: return
+
+  private synchronized int drainDataBuf(java.nio.ByteBuffer);
+    Code:
+       0: aload_0
+       1: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+       4: ifnonnull     9
+       7: iconst_m1
+       8: ireturn
+       9: aload_0
+      10: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      13: invokevirtual #56                 // Method java/nio/ByteBuffer.limit:()I
+      16: istore_2
+      17: aload_0
+      18: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      21: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+      24: aload_1
+      25: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+      28: invokestatic  #31                 // Method java/lang/Math.min:(II)I
+      31: istore_3
+      32: iload_3
+      33: ifne          52
+      36: aload_0
+      37: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      40: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+      43: ifne          50
+      46: iconst_m1
+      47: goto          51
+      50: iconst_0
+      51: ireturn
+      52: aload_0
+      53: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      56: aload_0
+      57: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      60: invokevirtual #57                 // Method java/nio/ByteBuffer.position:()I
+      63: iload_3
+      64: iadd
+      65: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+      68: pop
+      69: aload_1
+      70: aload_0
+      71: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      74: invokevirtual #58                 // Method java/nio/ByteBuffer.put:(Ljava/nio/ByteBuffer;)Ljava/nio/ByteBuffer;
+      77: pop
+      78: aload_0
+      79: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      82: iload_2
+      83: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+      86: pop
+      87: goto          104
+      90: astore        4
+      92: aload_0
+      93: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      96: iload_2
+      97: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+     100: pop
+     101: aload         4
+     103: athrow
+     104: iload_3
+     105: ireturn
+    Exception table:
+       from    to  target type
+          52    78    90   any
+          90    92    90   any
+
+  private synchronized int fillBuffer(java.nio.ByteBuffer, boolean) throws java.io.IOException;
+    Code:
+       0: iconst_0
+       1: istore_3
+       2: aload_0
+       3: getfield      #10                 // Field dataPos:J
+       6: lstore        4
+       8: aload_1
+       9: invokevirtual #57                 // Method java/nio/ByteBuffer.position:()I
+      12: istore        6
+      14: aload_1
+      15: invokevirtual #59                 // Method java/nio/ByteBuffer.hasRemaining:()Z
+      18: ifeq          67
+      21: aload_0
+      22: getfield      #46                 // Field blockReaderIoProvider:Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderIoProvider;
+      25: aload_0
+      26: getfield      #8                  // Field dataIn:Ljava/nio/channels/FileChannel;
+      29: aload_1
+      30: aload_0
+      31: getfield      #10                 // Field dataPos:J
+      34: invokevirtual #60                 // Method org/apache/hadoop/hdfs/client/impl/metrics/BlockReaderIoProvider.read:(Ljava/nio/channels/FileChannel;Ljava/nio/ByteBuffer;J)I
+      37: istore        7
+      39: iload         7
+      41: ifge          47
+      44: goto          67
+      47: aload_0
+      48: dup
+      49: getfield      #10                 // Field dataPos:J
+      52: iload         7
+      54: i2l
+      55: ladd
+      56: putfield      #10                 // Field dataPos:J
+      59: iload_3
+      60: iload         7
+      62: iadd
+      63: istore_3
+      64: goto          14
+      67: iload_2
+      68: ifeq          77
+      71: aload_0
+      72: invokespecial #61                 // Method freeChecksumBufIfExists:()V
+      75: iload_3
+      76: ireturn
+      77: iload_3
+      78: ifle          315
+      81: aload_1
+      82: aload_1
+      83: invokevirtual #57                 // Method java/nio/ByteBuffer.position:()I
+      86: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+      89: pop
+      90: aload_1
+      91: iload         6
+      93: invokevirtual #50                 // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+      96: pop
+      97: aload_0
+      98: invokespecial #62                 // Method createChecksumBufIfNeeded:()V
+     101: iload_3
+     102: aload_0
+     103: getfield      #25                 // Field bytesPerChecksum:I
+     106: iadd
+     107: iconst_1
+     108: isub
+     109: aload_0
+     110: getfield      #25                 // Field bytesPerChecksum:I
+     113: idiv
+     114: istore        7
+     116: aload_0
+     117: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+     120: invokevirtual #53                 // Method java/nio/ByteBuffer.clear:()Ljava/nio/Buffer;
+     123: pop
+     124: aload_0
+     125: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+     128: iload         7
+     130: aload_0
+     131: getfield      #27                 // Field checksumSize:I
+     134: imul
+     135: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+     138: pop
+     139: invokestatic  #63                 // Method org/apache/hadoop/hdfs/server/datanode/BlockMetadataHeader.getHeaderSize:()I
+     142: i2l
+     143: lload         4
+     145: aload_0
+     146: getfield      #25                 // Field bytesPerChecksum:I
+     149: i2l
+     150: ldiv
+     151: aload_0
+     152: getfield      #27                 // Field checksumSize:I
+     155: i2l
+     156: lmul
+     157: ladd
+     158: lstore        8
+     160: aload_0
+     161: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+     164: invokevirtual #59                 // Method java/nio/ByteBuffer.hasRemaining:()Z
+     167: ifeq          263
+     170: aload_0
+     171: getfield      #12                 // Field checksumIn:Ljava/nio/channels/FileChannel;
+     174: aload_0
+     175: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+     178: lload         8
+     180: invokevirtual #64                 // Method java/nio/channels/FileChannel.read:(Ljava/nio/ByteBuffer;J)I
+     183: istore        10
+     185: iload         10
+     187: ifge          252
+     190: new           #65                 // class java/io/IOException
+     193: dup
+     194: new           #66                 // class java/lang/StringBuilder
+     197: dup
+     198: invokespecial #67                 // Method java/lang/StringBuilder."<init>":()V
+     201: ldc           #68                 // String Got unexpected checksum file EOF at
+     203: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     206: lload         8
+     208: invokevirtual #70                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     211: ldc           #71                 // String , block file position
+     213: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     216: lload         4
+     218: invokevirtual #70                 // Method java/lang/StringBuilder.append:(J)Ljava/lang/StringBuilder;
+     221: ldc           #72                 // String  for block
+     223: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     226: aload_0
+     227: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+     230: invokevirtual #73                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     233: ldc           #74                 // String  of file
+     235: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     238: aload_0
+     239: getfield      #21                 // Field filename:Ljava/lang/String;
+     242: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     245: invokevirtual #75                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     248: invokespecial #76                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     251: athrow
+     252: lload         8
+     254: iload         10
+     256: i2l
+     257: ladd
+     258: lstore        8
+     260: goto          160
+     263: aload_0
+     264: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+     267: invokevirtual #77                 // Method java/nio/ByteBuffer.flip:()Ljava/nio/Buffer;
+     270: pop
+     271: aload_0
+     272: getfield      #15                 // Field checksum:Lorg/apache/hadoop/util/DataChecksum;
+     275: aload_1
+     276: aload_0
+     277: getfield      #55                 // Field checksumBuf:Ljava/nio/ByteBuffer;
+     280: aload_0
+     281: getfield      #21                 // Field filename:Ljava/lang/String;
+     284: lload         4
+     286: invokevirtual #78                 // Method org/apache/hadoop/util/DataChecksum.verifyChunkedSums:(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;Ljava/lang/String;J)V
+     289: aload_1
+     290: aload_1
+     291: invokevirtual #56                 // Method java/nio/ByteBuffer.limit:()I
+     294: invokevirtual #50                 // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+     297: pop
+     298: goto          315
+     301: astore        11
+     303: aload_1
+     304: aload_1
+     305: invokevirtual #56                 // Method java/nio/ByteBuffer.limit:()I
+     308: invokevirtual #50                 // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+     311: pop
+     312: aload         11
+     314: athrow
+     315: iload_3
+     316: ireturn
+    Exception table:
+       from    to  target type
+          81   289   301   any
+         301   303   301   any
+
+  private boolean createNoChecksumContext();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field verifyChecksum:Z
+       4: ifeq          34
+       7: aload_0
+       8: getfield      #35                 // Field storageType:Lorg/apache/hadoop/fs/StorageType;
+      11: ifnull        24
+      14: aload_0
+      15: getfield      #35                 // Field storageType:Lorg/apache/hadoop/fs/StorageType;
+      18: invokevirtual #79                 // Method org/apache/hadoop/fs/StorageType.isTransient:()Z
+      21: ifne          34
+      24: aload_0
+      25: getfield      #5                  // Field replica:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      28: invokevirtual #80                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.addNoChecksumAnchor:()Z
+      31: ifeq          38
+      34: iconst_1
+      35: goto          39
+      38: iconst_0
+      39: ireturn
+
+  private void releaseNoChecksumContext();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field verifyChecksum:Z
+       4: ifeq          31
+       7: aload_0
+       8: getfield      #35                 // Field storageType:Lorg/apache/hadoop/fs/StorageType;
+      11: ifnull        24
+      14: aload_0
+      15: getfield      #35                 // Field storageType:Lorg/apache/hadoop/fs/StorageType;
+      18: invokevirtual #79                 // Method org/apache/hadoop/fs/StorageType.isTransient:()Z
+      21: ifne          31
+      24: aload_0
+      25: getfield      #5                  // Field replica:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      28: invokevirtual #81                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.removeNoChecksumAnchor:()V
+      31: return
+
+  public synchronized int read(java.nio.ByteBuffer) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #82                 // Method createNoChecksumContext:()Z
+       4: istore_2
+       5: ldc           #83                 // String read(buf.remaining={}, block={}, filename={}, canSkipChecksum={})
+       7: astore_3
+       8: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+      11: new           #66                 // class java/lang/StringBuilder
+      14: dup
+      15: invokespecial #67                 // Method java/lang/StringBuilder."<init>":()V
+      18: aload_3
+      19: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: ldc           #85                 // String : starting
+      24: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      27: invokevirtual #75                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      30: iconst_4
+      31: anewarray     #86                 // class java/lang/Object
+      34: dup
+      35: iconst_0
+      36: aload_1
+      37: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+      40: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      43: aastore
+      44: dup
+      45: iconst_1
+      46: aload_0
+      47: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+      50: aastore
+      51: dup
+      52: iconst_2
+      53: aload_0
+      54: getfield      #21                 // Field filename:Ljava/lang/String;
+      57: aastore
+      58: dup
+      59: iconst_3
+      60: iload_2
+      61: invokestatic  #88                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      64: aastore
+      65: invokeinterface #89,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+      70: iload_2
+      71: ifeq          91
+      74: aload_0
+      75: getfield      #32                 // Field zeroReadaheadRequested:Z
+      78: ifeq          91
+      81: aload_0
+      82: aload_1
+      83: invokespecial #90                 // Method readWithoutBounceBuffer:(Ljava/nio/ByteBuffer;)I
+      86: istore        4
+      88: goto          99
+      91: aload_0
+      92: aload_1
+      93: iload_2
+      94: invokespecial #91                 // Method readWithBounceBuffer:(Ljava/nio/ByteBuffer;Z)I
+      97: istore        4
+      99: goto          174
+     102: astore        5
+     104: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+     107: new           #66                 // class java/lang/StringBuilder
+     110: dup
+     111: invokespecial #67                 // Method java/lang/StringBuilder."<init>":()V
+     114: aload_3
+     115: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     118: ldc           #92                 // String : I/O error
+     120: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     123: invokevirtual #75                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     126: iconst_5
+     127: anewarray     #86                 // class java/lang/Object
+     130: dup
+     131: iconst_0
+     132: aload_1
+     133: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+     136: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     139: aastore
+     140: dup
+     141: iconst_1
+     142: aload_0
+     143: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+     146: aastore
+     147: dup
+     148: iconst_2
+     149: aload_0
+     150: getfield      #21                 // Field filename:Ljava/lang/String;
+     153: aastore
+     154: dup
+     155: iconst_3
+     156: iload_2
+     157: invokestatic  #88                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     160: aastore
+     161: dup
+     162: iconst_4
+     163: aload         5
+     165: aastore
+     166: invokeinterface #89,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+     171: aload         5
+     173: athrow
+     174: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+     177: new           #66                 // class java/lang/StringBuilder
+     180: dup
+     181: invokespecial #67                 // Method java/lang/StringBuilder."<init>":()V
+     184: aload_3
+     185: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     188: ldc           #93                 // String : returning {}
+     190: invokevirtual #69                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     193: invokevirtual #75                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     196: iconst_5
+     197: anewarray     #86                 // class java/lang/Object
+     200: dup
+     201: iconst_0
+     202: aload_1
+     203: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+     206: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     209: aastore
+     210: dup
+     211: iconst_1
+     212: aload_0
+     213: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+     216: aastore
+     217: dup
+     218: iconst_2
+     219: aload_0
+     220: getfield      #21                 // Field filename:Ljava/lang/String;
+     223: aastore
+     224: dup
+     225: iconst_3
+     226: iload_2
+     227: invokestatic  #88                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     230: aastore
+     231: dup
+     232: iconst_4
+     233: iload         4
+     235: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     238: aastore
+     239: invokeinterface #89,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+     244: iload         4
+     246: istore        5
+     248: iload_2
+     249: ifeq          256
+     252: aload_0
+     253: invokespecial #94                 // Method releaseNoChecksumContext:()V
+     256: iload         5
+     258: ireturn
+     259: astore        6
+     261: iload_2
+     262: ifeq          269
+     265: aload_0
+     266: invokespecial #94                 // Method releaseNoChecksumContext:()V
+     269: aload         6
+     271: athrow
+    Exception table:
+       from    to  target type
+          70    99   102   Class java/io/IOException
+           5   248   259   any
+         259   261   259   any
+
+  private synchronized int readWithoutBounceBuffer(java.nio.ByteBuffer) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #95                 // Method freeDataBufIfExists:()V
+       4: aload_0
+       5: invokespecial #61                 // Method freeChecksumBufIfExists:()V
+       8: iconst_0
+       9: istore_2
+      10: aload_1
+      11: invokevirtual #59                 // Method java/nio/ByteBuffer.hasRemaining:()Z
+      14: ifeq          59
+      17: aload_0
+      18: getfield      #46                 // Field blockReaderIoProvider:Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderIoProvider;
+      21: aload_0
+      22: getfield      #8                  // Field dataIn:Ljava/nio/channels/FileChannel;
+      25: aload_1
+      26: aload_0
+      27: getfield      #10                 // Field dataPos:J
+      30: invokevirtual #60                 // Method org/apache/hadoop/hdfs/client/impl/metrics/BlockReaderIoProvider.read:(Ljava/nio/channels/FileChannel;Ljava/nio/ByteBuffer;J)I
+      33: istore_3
+      34: iload_3
+      35: ifgt          41
+      38: goto          59
+      41: aload_0
+      42: dup
+      43: getfield      #10                 // Field dataPos:J
+      46: iload_3
+      47: i2l
+      48: ladd
+      49: putfield      #10                 // Field dataPos:J
+      52: iload_2
+      53: iload_3
+      54: iadd
+      55: istore_2
+      56: goto          10
+      59: iload_2
+      60: ifne          82
+      63: aload_0
+      64: getfield      #10                 // Field dataPos:J
+      67: aload_0
+      68: getfield      #8                  // Field dataIn:Ljava/nio/channels/FileChannel;
+      71: invokevirtual #96                 // Method java/nio/channels/FileChannel.size:()J
+      74: lcmp
+      75: ifne          82
+      78: iconst_m1
+      79: goto          83
+      82: iload_2
+      83: ireturn
+
+  private synchronized boolean fillDataBuf(boolean) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #97                 // Method createDataBufIfNeeded:()V
+       4: aload_0
+       5: getfield      #10                 // Field dataPos:J
+       8: aload_0
+       9: getfield      #25                 // Field bytesPerChecksum:I
+      12: i2l
+      13: lrem
+      14: l2i
+      15: istore_2
+      16: aload_0
+      17: getfield      #10                 // Field dataPos:J
+      20: lstore_3
+      21: aload_0
+      22: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      25: aload_0
+      26: getfield      #33                 // Field maxReadaheadLength:I
+      29: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+      32: pop
+      33: iload_1
+      34: ifeq          59
+      37: aload_0
+      38: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      41: iload_2
+      42: invokevirtual #50                 // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+      45: pop
+      46: aload_0
+      47: aload_0
+      48: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      51: iconst_1
+      52: invokespecial #98                 // Method fillBuffer:(Ljava/nio/ByteBuffer;Z)I
+      55: pop
+      56: goto          89
+      59: aload_0
+      60: dup
+      61: getfield      #10                 // Field dataPos:J
+      64: iload_2
+      65: i2l
+      66: lsub
+      67: putfield      #10                 // Field dataPos:J
+      70: aload_0
+      71: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      74: iconst_0
+      75: invokevirtual #50                 // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+      78: pop
+      79: aload_0
+      80: aload_0
+      81: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      84: iconst_0
+      85: invokespecial #98                 // Method fillBuffer:(Ljava/nio/ByteBuffer;Z)I
+      88: pop
+      89: aload_0
+      90: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      93: aload_0
+      94: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      97: invokevirtual #57                 // Method java/nio/ByteBuffer.position:()I
+     100: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+     103: pop
+     104: aload_0
+     105: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+     108: aload_0
+     109: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+     112: invokevirtual #57                 // Method java/nio/ByteBuffer.position:()I
+     115: iload_2
+     116: invokestatic  #31                 // Method java/lang/Math.min:(II)I
+     119: invokevirtual #50                 // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+     122: pop
+     123: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+     126: ldc           #99                 // String loaded {} bytes into bounce buffer from offset {} of {}
+     128: iconst_3
+     129: anewarray     #86                 // class java/lang/Object
+     132: dup
+     133: iconst_0
+     134: aload_0
+     135: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+     138: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+     141: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     144: aastore
+     145: dup
+     146: iconst_1
+     147: lload_3
+     148: invokestatic  #100                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     151: aastore
+     152: dup
+     153: iconst_2
+     154: aload_0
+     155: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+     158: aastore
+     159: invokeinterface #89,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+     164: aload_0
+     165: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+     168: invokevirtual #56                 // Method java/nio/ByteBuffer.limit:()I
+     171: aload_0
+     172: getfield      #33                 // Field maxReadaheadLength:I
+     175: if_icmpeq     182
+     178: iconst_1
+     179: goto          183
+     182: iconst_0
+     183: ireturn
+
+  private synchronized int readWithBounceBuffer(java.nio.ByteBuffer, boolean) throws java.io.IOException;
+    Code:
+       0: iconst_0
+       1: istore_3
+       2: aload_0
+       3: aload_1
+       4: invokespecial #101                // Method drainDataBuf:(Ljava/nio/ByteBuffer;)I
+       7: istore        4
+       9: iload         4
+      11: iflt          28
+      14: iload_3
+      15: iload         4
+      17: iadd
+      18: istore_3
+      19: aload_1
+      20: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+      23: ifne          28
+      26: iload_3
+      27: ireturn
+      28: iconst_1
+      29: istore        5
+      31: iconst_0
+      32: istore        6
+      34: aload_1
+      35: invokevirtual #102                // Method java/nio/ByteBuffer.isDirect:()Z
+      38: ifeq          145
+      41: aload_1
+      42: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+      45: aload_0
+      46: getfield      #33                 // Field maxReadaheadLength:I
+      49: if_icmplt     145
+      52: aload_0
+      53: getfield      #10                 // Field dataPos:J
+      56: aload_0
+      57: getfield      #25                 // Field bytesPerChecksum:I
+      60: i2l
+      61: lrem
+      62: lconst_0
+      63: lcmp
+      64: ifne          145
+      67: aload_1
+      68: invokevirtual #56                 // Method java/nio/ByteBuffer.limit:()I
+      71: istore        7
+      73: aload_1
+      74: aload_1
+      75: invokevirtual #57                 // Method java/nio/ByteBuffer.position:()I
+      78: aload_0
+      79: getfield      #33                 // Field maxReadaheadLength:I
+      82: iadd
+      83: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+      86: pop
+      87: aload_0
+      88: aload_1
+      89: iload_2
+      90: invokespecial #98                 // Method fillBuffer:(Ljava/nio/ByteBuffer;Z)I
+      93: istore        8
+      95: aload_1
+      96: iload         7
+      98: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+     101: pop
+     102: goto          117
+     105: astore        9
+     107: aload_1
+     108: iload         7
+     110: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+     113: pop
+     114: aload         9
+     116: athrow
+     117: iload         8
+     119: aload_0
+     120: getfield      #33                 // Field maxReadaheadLength:I
+     123: if_icmpge     129
+     126: iconst_1
+     127: istore        6
+     129: iload         8
+     131: ifle          137
+     134: iconst_0
+     135: istore        5
+     137: iload_3
+     138: iload         8
+     140: iadd
+     141: istore_3
+     142: goto          176
+     145: aload_0
+     146: iload_2
+     147: invokespecial #103                // Method fillDataBuf:(Z)Z
+     150: ifeq          156
+     153: iconst_1
+     154: istore        6
+     156: aload_0
+     157: aload_1
+     158: invokespecial #101                // Method drainDataBuf:(Ljava/nio/ByteBuffer;)I
+     161: istore        4
+     163: iload         4
+     165: iflt          176
+     168: iconst_0
+     169: istore        5
+     171: iload_3
+     172: iload         4
+     174: iadd
+     175: istore_3
+     176: iload         6
+     178: ifne          188
+     181: aload_1
+     182: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+     185: ifgt          34
+     188: iload         5
+     190: ifeq          201
+     193: iload_3
+     194: ifne          201
+     197: iconst_m1
+     198: goto          202
+     201: iload_3
+     202: ireturn
+    Exception table:
+       from    to  target type
+          73    95   105   any
+         105   107   105   any
+
+  public synchronized int read(byte[], int, int) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #82                 // Method createNoChecksumContext:()Z
+       4: istore        4
+       6: ldc           #104                // String read(arr.length={}, off={}, len={}, filename={}, block={}, canSkipChecksum={})
+       8: astore        6
+      10: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+      13: ldc           #105                // String read(arr.length={}, off={}, len={}, filename={}, block={}, canSkipChecksum={}): starting
+      15: bipush        6
+      17: anewarray     #86                 // class java/lang/Object
+      20: dup
+      21: iconst_0
+      22: aload_1
+      23: arraylength
+      24: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      27: aastore
+      28: dup
+      29: iconst_1
+      30: iload_2
+      31: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      34: aastore
+      35: dup
+      36: iconst_2
+      37: iload_3
+      38: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      41: aastore
+      42: dup
+      43: iconst_3
+      44: aload_0
+      45: getfield      #21                 // Field filename:Ljava/lang/String;
+      48: aastore
+      49: dup
+      50: iconst_4
+      51: aload_0
+      52: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+      55: aastore
+      56: dup
+      57: iconst_5
+      58: iload         4
+      60: invokestatic  #88                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      63: aastore
+      64: invokeinterface #89,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+      69: iload         4
+      71: ifeq          93
+      74: aload_0
+      75: getfield      #32                 // Field zeroReadaheadRequested:Z
+      78: ifeq          93
+      81: aload_0
+      82: aload_1
+      83: iload_2
+      84: iload_3
+      85: invokespecial #106                // Method readWithoutBounceBuffer:([BII)I
+      88: istore        5
+      90: goto          104
+      93: aload_0
+      94: aload_1
+      95: iload_2
+      96: iload_3
+      97: iload         4
+      99: invokespecial #107                // Method readWithBounceBuffer:([BIIZ)I
+     102: istore        5
+     104: goto          177
+     107: astore        7
+     109: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+     112: ldc           #108                // String read(arr.length={}, off={}, len={}, filename={}, block={}, canSkipChecksum={}): I/O error
+     114: bipush        7
+     116: anewarray     #86                 // class java/lang/Object
+     119: dup
+     120: iconst_0
+     121: aload_1
+     122: arraylength
+     123: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     126: aastore
+     127: dup
+     128: iconst_1
+     129: iload_2
+     130: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     133: aastore
+     134: dup
+     135: iconst_2
+     136: iload_3
+     137: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     140: aastore
+     141: dup
+     142: iconst_3
+     143: aload_0
+     144: getfield      #21                 // Field filename:Ljava/lang/String;
+     147: aastore
+     148: dup
+     149: iconst_4
+     150: aload_0
+     151: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+     154: aastore
+     155: dup
+     156: iconst_5
+     157: iload         4
+     159: invokestatic  #88                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     162: aastore
+     163: dup
+     164: bipush        6
+     166: aload         7
+     168: aastore
+     169: invokeinterface #89,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+     174: aload         7
+     176: athrow
+     177: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+     180: ldc           #109                // String read(arr.length={}, off={}, len={}, filename={}, block={}, canSkipChecksum={}): returning {}
+     182: bipush        7
+     184: anewarray     #86                 // class java/lang/Object
+     187: dup
+     188: iconst_0
+     189: aload_1
+     190: arraylength
+     191: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     194: aastore
+     195: dup
+     196: iconst_1
+     197: iload_2
+     198: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     201: aastore
+     202: dup
+     203: iconst_2
+     204: iload_3
+     205: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     208: aastore
+     209: dup
+     210: iconst_3
+     211: aload_0
+     212: getfield      #21                 // Field filename:Ljava/lang/String;
+     215: aastore
+     216: dup
+     217: iconst_4
+     218: aload_0
+     219: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+     222: aastore
+     223: dup
+     224: iconst_5
+     225: iload         4
+     227: invokestatic  #88                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     230: aastore
+     231: dup
+     232: bipush        6
+     234: iload         5
+     236: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     239: aastore
+     240: invokeinterface #89,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+     245: iload         4
+     247: ifeq          271
+     250: aload_0
+     251: invokespecial #94                 // Method releaseNoChecksumContext:()V
+     254: goto          271
+     257: astore        8
+     259: iload         4
+     261: ifeq          268
+     264: aload_0
+     265: invokespecial #94                 // Method releaseNoChecksumContext:()V
+     268: aload         8
+     270: athrow
+     271: iload         5
+     273: ireturn
+    Exception table:
+       from    to  target type
+          69   104   107   Class java/io/IOException
+           6   245   257   any
+         257   259   257   any
+
+  private synchronized int readWithoutBounceBuffer(byte[], int, int) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #95                 // Method freeDataBufIfExists:()V
+       4: aload_0
+       5: invokespecial #61                 // Method freeChecksumBufIfExists:()V
+       8: aload_0
+       9: getfield      #46                 // Field blockReaderIoProvider:Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderIoProvider;
+      12: aload_0
+      13: getfield      #8                  // Field dataIn:Ljava/nio/channels/FileChannel;
+      16: aload_1
+      17: iload_2
+      18: iload_3
+      19: invokestatic  #110                // Method java/nio/ByteBuffer.wrap:([BII)Ljava/nio/ByteBuffer;
+      22: aload_0
+      23: getfield      #10                 // Field dataPos:J
+      26: invokevirtual #60                 // Method org/apache/hadoop/hdfs/client/impl/metrics/BlockReaderIoProvider.read:(Ljava/nio/channels/FileChannel;Ljava/nio/ByteBuffer;J)I
+      29: istore        4
+      31: iload         4
+      33: ifle          51
+      36: aload_0
+      37: dup
+      38: getfield      #10                 // Field dataPos:J
+      41: iload         4
+      43: i2l
+      44: ladd
+      45: putfield      #10                 // Field dataPos:J
+      48: goto          73
+      51: iload         4
+      53: ifne          73
+      56: aload_0
+      57: getfield      #10                 // Field dataPos:J
+      60: aload_0
+      61: getfield      #8                  // Field dataIn:Ljava/nio/channels/FileChannel;
+      64: invokevirtual #96                 // Method java/nio/channels/FileChannel.size:()J
+      67: lcmp
+      68: ifne          73
+      71: iconst_m1
+      72: ireturn
+      73: iload         4
+      75: ireturn
+
+  private synchronized int readWithBounceBuffer(byte[], int, int, boolean) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #97                 // Method createDataBufIfNeeded:()V
+       4: aload_0
+       5: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+       8: invokevirtual #59                 // Method java/nio/ByteBuffer.hasRemaining:()Z
+      11: ifne          42
+      14: aload_0
+      15: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      18: iconst_0
+      19: invokevirtual #50                 // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+      22: pop
+      23: aload_0
+      24: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      27: aload_0
+      28: getfield      #33                 // Field maxReadaheadLength:I
+      31: invokevirtual #51                 // Method java/nio/ByteBuffer.limit:(I)Ljava/nio/Buffer;
+      34: pop
+      35: aload_0
+      36: iload         4
+      38: invokespecial #103                // Method fillDataBuf:(Z)Z
+      41: pop
+      42: aload_0
+      43: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      46: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+      49: ifne          54
+      52: iconst_m1
+      53: ireturn
+      54: aload_0
+      55: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      58: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+      61: iload_3
+      62: invokestatic  #31                 // Method java/lang/Math.min:(II)I
+      65: istore        5
+      67: aload_0
+      68: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      71: aload_1
+      72: iload_2
+      73: iload         5
+      75: invokevirtual #111                // Method java/nio/ByteBuffer.get:([BII)Ljava/nio/ByteBuffer;
+      78: pop
+      79: iload         5
+      81: ireturn
+
+  public synchronized long skip(long) throws java.io.IOException;
+    Code:
+       0: iconst_0
+       1: istore_3
+       2: lload_1
+       3: lstore        4
+       5: aload_0
+       6: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+       9: ifnull        60
+      12: aload_0
+      13: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      16: invokevirtual #59                 // Method java/nio/ByteBuffer.hasRemaining:()Z
+      19: ifeq          60
+      22: aload_0
+      23: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      26: invokevirtual #52                 // Method java/nio/ByteBuffer.remaining:()I
+      29: i2l
+      30: lload_1
+      31: invokestatic  #112                // Method java/lang/Math.min:(JJ)J
+      34: l2i
+      35: istore_3
+      36: aload_0
+      37: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      40: aload_0
+      41: getfield      #47                 // Field dataBuf:Ljava/nio/ByteBuffer;
+      44: invokevirtual #57                 // Method java/nio/ByteBuffer.position:()I
+      47: iload_3
+      48: iadd
+      49: invokevirtual #50                 // Method java/nio/ByteBuffer.position:(I)Ljava/nio/Buffer;
+      52: pop
+      53: lload         4
+      55: iload_3
+      56: i2l
+      57: lsub
+      58: lstore        4
+      60: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+      63: ldc           #113                // String skip(n={}, block={}, filename={}): discarded {} bytes from dataBuf and advanced dataPos by {}
+      65: iconst_5
+      66: anewarray     #86                 // class java/lang/Object
+      69: dup
+      70: iconst_0
+      71: lload_1
+      72: invokestatic  #100                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      75: aastore
+      76: dup
+      77: iconst_1
+      78: aload_0
+      79: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+      82: aastore
+      83: dup
+      84: iconst_2
+      85: aload_0
+      86: getfield      #21                 // Field filename:Ljava/lang/String;
+      89: aastore
+      90: dup
+      91: iconst_3
+      92: iload_3
+      93: invokestatic  #87                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      96: aastore
+      97: dup
+      98: iconst_4
+      99: lload         4
+     101: invokestatic  #100                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     104: aastore
+     105: invokeinterface #89,  3           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+     110: aload_0
+     111: dup
+     112: getfield      #10                 // Field dataPos:J
+     115: lload         4
+     117: ladd
+     118: putfield      #10                 // Field dataPos:J
+     121: lload_1
+     122: lreturn
+
+  public int available();
+    Code:
+       0: ldc           #115                // int 2147483647
+       2: ireturn
+
+  public synchronized void close() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field closed:Z
+       4: ifeq          8
+       7: return
+       8: aload_0
+       9: iconst_1
+      10: putfield      #3                  // Field closed:Z
+      13: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+      16: ldc           #116                // String close(filename={}, block={})
+      18: aload_0
+      19: getfield      #21                 // Field filename:Ljava/lang/String;
+      22: aload_0
+      23: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+      26: invokeinterface #117,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      31: aload_0
+      32: getfield      #5                  // Field replica:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      35: invokevirtual #118                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.unref:()V
+      38: aload_0
+      39: invokespecial #95                 // Method freeDataBufIfExists:()V
+      42: aload_0
+      43: invokespecial #61                 // Method freeChecksumBufIfExists:()V
+      46: getstatic     #40                 // Field metrics:Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderLocalMetrics;
+      49: ifnull        58
+      52: getstatic     #40                 // Field metrics:Lorg/apache/hadoop/hdfs/client/impl/metrics/BlockReaderLocalMetrics;
+      55: invokevirtual #119                // Method org/apache/hadoop/hdfs/client/impl/metrics/BlockReaderLocalMetrics.collectThreadLocalStates:()V
+      58: return
+
+  public synchronized void readFully(byte[], int, int) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: iload_3
+       4: invokestatic  #120                // Method org/apache/hadoop/hdfs/client/impl/BlockReaderUtil.readFully:(Lorg/apache/hadoop/hdfs/BlockReader;[BII)V
+       7: return
+
+  public synchronized int readAll(byte[], int, int) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: iload_2
+       3: iload_3
+       4: invokestatic  #121                // Method org/apache/hadoop/hdfs/client/impl/BlockReaderUtil.readAll:(Lorg/apache/hadoop/hdfs/BlockReader;[BII)I
+       7: ireturn
+
+  public boolean isShortCircuit();
+    Code:
+       0: iconst_1
+       1: ireturn
+
+  public org.apache.hadoop.hdfs.shortcircuit.ClientMmap getClientMmap(java.util.EnumSet<org.apache.hadoop.fs.ReadOption>);
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field verifyChecksum:Z
+       4: ifeq          21
+       7: aload_1
+       8: getstatic     #122                // Field org/apache/hadoop/fs/ReadOption.SKIP_CHECKSUMS:Lorg/apache/hadoop/fs/ReadOption;
+      11: invokevirtual #123                // Method java/util/EnumSet.contains:(Ljava/lang/Object;)Z
+      14: ifne          21
+      17: iconst_1
+      18: goto          22
+      21: iconst_0
+      22: istore_2
+      23: iload_2
+      24: ifeq          54
+      27: aload_0
+      28: invokespecial #82                 // Method createNoChecksumContext:()Z
+      31: ifne          54
+      34: getstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+      37: ldc           #124                // String can\'t get an mmap for {} of {} since SKIP_CHECKSUMS was not given, we aren\'t skipping checksums, and the block is not mlocked.
+      39: aload_0
+      40: getfield      #23                 // Field block:Lorg/apache/hadoop/hdfs/protocol/ExtendedBlock;
+      43: aload_0
+      44: getfield      #21                 // Field filename:Ljava/lang/String;
+      47: invokeinterface #117,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      52: aconst_null
+      53: areturn
+      54: aconst_null
+      55: astore_3
+      56: aload_0
+      57: getfield      #5                  // Field replica:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      60: iload_2
+      61: invokevirtual #125                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getOrCreateClientMmap:(Z)Lorg/apache/hadoop/hdfs/shortcircuit/ClientMmap;
+      64: astore_3
+      65: aload_3
+      66: ifnonnull     97
+      69: iload_2
+      70: ifeq          97
+      73: aload_0
+      74: invokespecial #94                 // Method releaseNoChecksumContext:()V
+      77: goto          97
+      80: astore        4
+      82: aload_3
+      83: ifnonnull     94
+      86: iload_2
+      87: ifeq          94
+      90: aload_0
+      91: invokespecial #94                 // Method releaseNoChecksumContext:()V
+      94: aload         4
+      96: athrow
+      97: aload_3
+      98: areturn
+    Exception table:
+       from    to  target type
+          56    65    80   any
+          80    82    80   any
+
+  boolean getVerifyChecksum();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field verifyChecksum:Z
+       4: ireturn
+
+  int getMaxReadaheadLength();
+    Code:
+       0: aload_0
+       1: getfield      #33                 // Field maxReadaheadLength:I
+       4: ireturn
+
+  void forceAnchorable();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field replica:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+       4: invokevirtual #126                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getSlot:()Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitShm$Slot;
+       7: invokevirtual #127                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitShm$Slot.makeAnchorable:()V
+      10: return
+
+  void forceUnanchorable();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field replica:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+       4: invokevirtual #126                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getSlot:()Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitShm$Slot;
+       7: invokevirtual #128                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitShm$Slot.makeUnanchorable:()V
+      10: return
+
+  public org.apache.hadoop.util.DataChecksum getDataChecksum();
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field checksum:Lorg/apache/hadoop/util/DataChecksum;
+       4: areturn
+
+  public int getNetworkDistance();
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  org.apache.hadoop.hdfs.client.impl.BlockReaderLocal(org.apache.hadoop.hdfs.client.impl.BlockReaderLocal$Builder, org.apache.hadoop.hdfs.client.impl.BlockReaderLocal$1);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #1                  // Method "<init>":(Lorg/apache/hadoop/hdfs/client/impl/BlockReaderLocal$Builder;)V
+       5: return
+
+  static {};
+    Code:
+       0: ldc           #129                // class org/apache/hadoop/hdfs/client/impl/BlockReaderLocal
+       2: invokestatic  #130                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #84                 // Field LOG:Lorg/slf4j/Logger;
+       8: new           #131                // class org/apache/hadoop/util/DirectBufferPool
+      11: dup
+      12: invokespecial #132                // Method org/apache/hadoop/util/DirectBufferPool."<init>":()V
+      15: putstatic     #48                 // Field bufferPool:Lorg/apache/hadoop/util/DirectBufferPool;
+      18: new           #133                // class java/util/concurrent/locks/ReentrantLock
+      21: dup
+      22: invokespecial #134                // Method java/util/concurrent/locks/ReentrantLock."<init>":()V
+      25: putstatic     #38                 // Field metricsInitializationLock:Ljava/util/concurrent/locks/Lock;
+      28: new           #135                // class org/apache/hadoop/util/Timer
+      31: dup
+      32: invokespecial #136                // Method org/apache/hadoop/util/Timer."<init>":()V
+      35: putstatic     #44                 // Field TIMER:Lorg/apache/hadoop/util/Timer;
+      38: return
+}

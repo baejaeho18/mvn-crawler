@@ -1,0 +1,1921 @@
+Compiled from "DecayRpcScheduler.java"
+public class org.apache.hadoop.ipc.DecayRpcScheduler implements org.apache.hadoop.ipc.RpcScheduler,org.apache.hadoop.ipc.DecayRpcSchedulerMXBean,org.apache.hadoop.metrics2.MetricsSource {
+  public static final java.lang.String IPC_SCHEDULER_DECAYSCHEDULER_PERIOD_KEY;
+
+  public static final long IPC_SCHEDULER_DECAYSCHEDULER_PERIOD_DEFAULT;
+
+  public static final java.lang.String IPC_FCQ_DECAYSCHEDULER_PERIOD_KEY;
+
+  public static final java.lang.String IPC_SCHEDULER_DECAYSCHEDULER_FACTOR_KEY;
+
+  public static final double IPC_SCHEDULER_DECAYSCHEDULER_FACTOR_DEFAULT;
+
+  public static final java.lang.String IPC_FCQ_DECAYSCHEDULER_FACTOR_KEY;
+
+  public static final java.lang.String IPC_DECAYSCHEDULER_THRESHOLDS_KEY;
+
+  public static final java.lang.String IPC_FCQ_DECAYSCHEDULER_THRESHOLDS_KEY;
+
+  public static final java.lang.String DECAYSCHEDULER_UNKNOWN_IDENTITY;
+
+  public static final java.lang.String IPC_DECAYSCHEDULER_BACKOFF_RESPONSETIME_ENABLE_KEY;
+
+  public static final java.lang.Boolean IPC_DECAYSCHEDULER_BACKOFF_RESPONSETIME_ENABLE_DEFAULT;
+
+  public static final java.lang.String IPC_DECAYSCHEDULER_BACKOFF_RESPONSETIME_THRESHOLDS_KEY;
+
+  public static final java.lang.String DECAYSCHEDULER_METRICS_TOP_USER_COUNT;
+
+  public static final int DECAYSCHEDULER_METRICS_TOP_USER_COUNT_DEFAULT;
+
+  public static final org.slf4j.Logger LOG;
+
+  private static final com.fasterxml.jackson.databind.ObjectWriter WRITER;
+
+  private final java.util.concurrent.ConcurrentHashMap<java.lang.Object, java.util.List<java.util.concurrent.atomic.AtomicLong>> callCosts;
+
+  private final java.util.concurrent.atomic.AtomicLong totalDecayedCallCost;
+
+  private final java.util.concurrent.atomic.AtomicLong totalRawCallCost;
+
+  private final java.util.concurrent.atomic.AtomicLongArray responseTimeCountInCurrWindow;
+
+  private final java.util.concurrent.atomic.AtomicLongArray responseTimeTotalInCurrWindow;
+
+  private final com.google.common.util.concurrent.AtomicDoubleArray responseTimeAvgInLastWindow;
+
+  private final java.util.concurrent.atomic.AtomicLongArray responseTimeCountInLastWindow;
+
+  private final java.util.concurrent.atomic.AtomicReference<java.util.Map<java.lang.Object, java.lang.Integer>> scheduleCacheRef;
+
+  private final long decayPeriodMillis;
+
+  private final double decayFactor;
+
+  private final int numLevels;
+
+  private final double[] thresholds;
+
+  private final org.apache.hadoop.ipc.IdentityProvider identityProvider;
+
+  private final boolean backOffByResponseTimeEnabled;
+
+  private final long[] backOffResponseTimeThresholds;
+
+  private final java.lang.String namespace;
+
+  private final int topUsersCount;
+
+  private static final double PRECISION;
+
+  private org.apache.hadoop.ipc.DecayRpcScheduler$MetricsProxy metricsProxy;
+
+  private final org.apache.hadoop.ipc.CostProvider costProvider;
+
+  private final java.util.Map<java.lang.String, java.lang.Integer> staticPriorities;
+
+  public org.apache.hadoop.ipc.DecayRpcScheduler(int, java.lang.String, org.apache.hadoop.conf.Configuration);
+    Code:
+       0: aload_0
+       1: invokespecial #2                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #3                  // class java/util/concurrent/ConcurrentHashMap
+       8: dup
+       9: invokespecial #4                  // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      12: putfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+      15: aload_0
+      16: new           #6                  // class java/util/concurrent/atomic/AtomicLong
+      19: dup
+      20: invokespecial #7                  // Method java/util/concurrent/atomic/AtomicLong."<init>":()V
+      23: putfield      #8                  // Field totalDecayedCallCost:Ljava/util/concurrent/atomic/AtomicLong;
+      26: aload_0
+      27: new           #6                  // class java/util/concurrent/atomic/AtomicLong
+      30: dup
+      31: invokespecial #7                  // Method java/util/concurrent/atomic/AtomicLong."<init>":()V
+      34: putfield      #9                  // Field totalRawCallCost:Ljava/util/concurrent/atomic/AtomicLong;
+      37: aload_0
+      38: new           #10                 // class java/util/concurrent/atomic/AtomicReference
+      41: dup
+      42: invokespecial #11                 // Method java/util/concurrent/atomic/AtomicReference."<init>":()V
+      45: putfield      #12                 // Field scheduleCacheRef:Ljava/util/concurrent/atomic/AtomicReference;
+      48: aload_0
+      49: new           #13                 // class java/util/HashMap
+      52: dup
+      53: invokespecial #14                 // Method java/util/HashMap."<init>":()V
+      56: putfield      #15                 // Field staticPriorities:Ljava/util/Map;
+      59: iload_1
+      60: iconst_1
+      61: if_icmpge     74
+      64: new           #16                 // class java/lang/IllegalArgumentException
+      67: dup
+      68: ldc           #17                 // String Number of Priority Levels must be at least 1
+      70: invokespecial #18                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      73: athrow
+      74: aload_0
+      75: iload_1
+      76: putfield      #19                 // Field numLevels:I
+      79: aload_0
+      80: aload_2
+      81: putfield      #20                 // Field namespace:Ljava/lang/String;
+      84: aload_0
+      85: aload_2
+      86: aload_3
+      87: invokestatic  #21                 // Method parseDecayFactor:(Ljava/lang/String;Lorg/apache/hadoop/conf/Configuration;)D
+      90: putfield      #22                 // Field decayFactor:D
+      93: aload_0
+      94: aload_2
+      95: aload_3
+      96: invokestatic  #23                 // Method parseDecayPeriodMillis:(Ljava/lang/String;Lorg/apache/hadoop/conf/Configuration;)J
+      99: putfield      #24                 // Field decayPeriodMillis:J
+     102: aload_0
+     103: aload_0
+     104: aload_2
+     105: aload_3
+     106: invokespecial #25                 // Method parseIdentityProvider:(Ljava/lang/String;Lorg/apache/hadoop/conf/Configuration;)Lorg/apache/hadoop/ipc/IdentityProvider;
+     109: putfield      #26                 // Field identityProvider:Lorg/apache/hadoop/ipc/IdentityProvider;
+     112: aload_0
+     113: aload_0
+     114: aload_2
+     115: aload_3
+     116: invokespecial #27                 // Method parseCostProvider:(Ljava/lang/String;Lorg/apache/hadoop/conf/Configuration;)Lorg/apache/hadoop/ipc/CostProvider;
+     119: putfield      #28                 // Field costProvider:Lorg/apache/hadoop/ipc/CostProvider;
+     122: aload_0
+     123: aload_2
+     124: aload_3
+     125: iload_1
+     126: invokestatic  #29                 // Method parseThresholds:(Ljava/lang/String;Lorg/apache/hadoop/conf/Configuration;I)[D
+     129: putfield      #30                 // Field thresholds:[D
+     132: aload_0
+     133: aload_2
+     134: aload_3
+     135: invokestatic  #31                 // Method parseBackOffByResponseTimeEnabled:(Ljava/lang/String;Lorg/apache/hadoop/conf/Configuration;)Ljava/lang/Boolean;
+     138: invokevirtual #32                 // Method java/lang/Boolean.booleanValue:()Z
+     141: putfield      #33                 // Field backOffByResponseTimeEnabled:Z
+     144: aload_0
+     145: aload_2
+     146: aload_3
+     147: iload_1
+     148: invokestatic  #34                 // Method parseBackOffResponseTimeThreshold:(Ljava/lang/String;Lorg/apache/hadoop/conf/Configuration;I)[J
+     151: putfield      #35                 // Field backOffResponseTimeThresholds:[J
+     154: aload_0
+     155: new           #36                 // class java/util/concurrent/atomic/AtomicLongArray
+     158: dup
+     159: iload_1
+     160: invokespecial #37                 // Method java/util/concurrent/atomic/AtomicLongArray."<init>":(I)V
+     163: putfield      #38                 // Field responseTimeTotalInCurrWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+     166: aload_0
+     167: new           #36                 // class java/util/concurrent/atomic/AtomicLongArray
+     170: dup
+     171: iload_1
+     172: invokespecial #37                 // Method java/util/concurrent/atomic/AtomicLongArray."<init>":(I)V
+     175: putfield      #39                 // Field responseTimeCountInCurrWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+     178: aload_0
+     179: new           #40                 // class com/google/common/util/concurrent/AtomicDoubleArray
+     182: dup
+     183: iload_1
+     184: invokespecial #41                 // Method com/google/common/util/concurrent/AtomicDoubleArray."<init>":(I)V
+     187: putfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+     190: aload_0
+     191: new           #36                 // class java/util/concurrent/atomic/AtomicLongArray
+     194: dup
+     195: iload_1
+     196: invokespecial #37                 // Method java/util/concurrent/atomic/AtomicLongArray."<init>":(I)V
+     199: putfield      #43                 // Field responseTimeCountInLastWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+     202: aload_0
+     203: aload_3
+     204: ldc           #45                 // String decay-scheduler.metrics.top.user.count
+     206: bipush        10
+     208: invokevirtual #46                 // Method org/apache/hadoop/conf/Configuration.getInt:(Ljava/lang/String;I)I
+     211: putfield      #47                 // Field topUsersCount:I
+     214: aload_0
+     215: getfield      #47                 // Field topUsersCount:I
+     218: ifle          225
+     221: iconst_1
+     222: goto          226
+     225: iconst_0
+     226: ldc           #48                 // String the number of top users for scheduler metrics must be at least 1
+     228: invokestatic  #49                 // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/Object;)V
+     231: new           #50                 // class java/util/Timer
+     234: dup
+     235: iconst_1
+     236: invokespecial #51                 // Method java/util/Timer."<init>":(Z)V
+     239: astore        4
+     241: new           #52                 // class org/apache/hadoop/ipc/DecayRpcScheduler$DecayTask
+     244: dup
+     245: aload_0
+     246: aload         4
+     248: invokespecial #53                 // Method org/apache/hadoop/ipc/DecayRpcScheduler$DecayTask."<init>":(Lorg/apache/hadoop/ipc/DecayRpcScheduler;Ljava/util/Timer;)V
+     251: astore        5
+     253: aload         4
+     255: aload         5
+     257: aload_0
+     258: getfield      #24                 // Field decayPeriodMillis:J
+     261: aload_0
+     262: getfield      #24                 // Field decayPeriodMillis:J
+     265: invokevirtual #54                 // Method java/util/Timer.scheduleAtFixedRate:(Ljava/util/TimerTask;JJ)V
+     268: aload_0
+     269: aload_2
+     270: iload_1
+     271: aload_0
+     272: invokestatic  #55                 // Method org/apache/hadoop/ipc/DecayRpcScheduler$MetricsProxy.getInstance:(Ljava/lang/String;ILorg/apache/hadoop/ipc/DecayRpcScheduler;)Lorg/apache/hadoop/ipc/DecayRpcScheduler$MetricsProxy;
+     275: putfield      #56                 // Field metricsProxy:Lorg/apache/hadoop/ipc/DecayRpcScheduler$MetricsProxy;
+     278: aload_0
+     279: invokespecial #57                 // Method recomputeScheduleCache:()V
+     282: return
+
+  private org.apache.hadoop.ipc.CostProvider parseCostProvider(java.lang.String, org.apache.hadoop.conf.Configuration);
+    Code:
+       0: aload_2
+       1: new           #58                 // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+       8: aload_1
+       9: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: ldc           #61                 // String .
+      14: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: ldc           #63                 // String cost-provider.impl
+      19: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      25: ldc           #65                 // class org/apache/hadoop/ipc/CostProvider
+      27: invokevirtual #66                 // Method org/apache/hadoop/conf/Configuration.getInstances:(Ljava/lang/String;Ljava/lang/Class;)Ljava/util/List;
+      30: astore_3
+      31: aload_3
+      32: invokeinterface #67,  1           // InterfaceMethod java/util/List.size:()I
+      37: iconst_1
+      38: if_icmpge     59
+      41: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      44: ldc           #69                 // String CostProvider not specified, defaulting to DefaultCostProvider
+      46: invokeinterface #70,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      51: new           #71                 // class org/apache/hadoop/ipc/DefaultCostProvider
+      54: dup
+      55: invokespecial #72                 // Method org/apache/hadoop/ipc/DefaultCostProvider."<init>":()V
+      58: areturn
+      59: aload_3
+      60: invokeinterface #67,  1           // InterfaceMethod java/util/List.size:()I
+      65: iconst_1
+      66: if_icmple     92
+      69: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      72: ldc           #73                 // String Found multiple CostProviders; using: {}
+      74: aload_3
+      75: iconst_0
+      76: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      81: checkcast     #65                 // class org/apache/hadoop/ipc/CostProvider
+      84: invokevirtual #75                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      87: invokeinterface #76,  3           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;)V
+      92: aload_3
+      93: iconst_0
+      94: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      99: checkcast     #65                 // class org/apache/hadoop/ipc/CostProvider
+     102: astore        4
+     104: aload         4
+     106: aload_1
+     107: aload_2
+     108: invokeinterface #77,  3           // InterfaceMethod org/apache/hadoop/ipc/CostProvider.init:(Ljava/lang/String;Lorg/apache/hadoop/conf/Configuration;)V
+     113: aload         4
+     115: areturn
+
+  private org.apache.hadoop.ipc.IdentityProvider parseIdentityProvider(java.lang.String, org.apache.hadoop.conf.Configuration);
+    Code:
+       0: aload_2
+       1: new           #58                 // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+       8: aload_1
+       9: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: ldc           #61                 // String .
+      14: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: ldc           #78                 // String identity-provider.impl
+      19: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      25: ldc           #79                 // class org/apache/hadoop/ipc/IdentityProvider
+      27: invokevirtual #66                 // Method org/apache/hadoop/conf/Configuration.getInstances:(Ljava/lang/String;Ljava/lang/Class;)Ljava/util/List;
+      30: astore_3
+      31: aload_3
+      32: invokeinterface #67,  1           // InterfaceMethod java/util/List.size:()I
+      37: iconst_1
+      38: if_icmpge     59
+      41: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      44: ldc           #80                 // String IdentityProvider not specified, defaulting to UserIdentityProvider
+      46: invokeinterface #70,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      51: new           #81                 // class org/apache/hadoop/ipc/UserIdentityProvider
+      54: dup
+      55: invokespecial #82                 // Method org/apache/hadoop/ipc/UserIdentityProvider."<init>":()V
+      58: areturn
+      59: aload_3
+      60: iconst_0
+      61: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      66: checkcast     #79                 // class org/apache/hadoop/ipc/IdentityProvider
+      69: areturn
+
+  private static double parseDecayFactor(java.lang.String, org.apache.hadoop.conf.Configuration);
+    Code:
+       0: aload_1
+       1: new           #58                 // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+       8: aload_0
+       9: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: ldc           #61                 // String .
+      14: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: ldc           #83                 // String faircallqueue.decay-scheduler.decay-factor
+      19: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      25: dconst_0
+      26: invokevirtual #84                 // Method org/apache/hadoop/conf/Configuration.getDouble:(Ljava/lang/String;D)D
+      29: dstore_2
+      30: dload_2
+      31: dconst_0
+      32: dcmpl
+      33: ifne          71
+      36: aload_1
+      37: new           #58                 // class java/lang/StringBuilder
+      40: dup
+      41: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      44: aload_0
+      45: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      48: ldc           #61                 // String .
+      50: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      53: ldc           #85                 // String decay-scheduler.decay-factor
+      55: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      58: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      61: ldc2_w        #86                 // double 0.5d
+      64: invokevirtual #84                 // Method org/apache/hadoop/conf/Configuration.getDouble:(Ljava/lang/String;D)D
+      67: dstore_2
+      68: goto          93
+      71: dload_2
+      72: dconst_0
+      73: dcmpl
+      74: ifle          93
+      77: dload_2
+      78: dconst_1
+      79: dcmpg
+      80: ifge          93
+      83: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      86: ldc           #88                 // String faircallqueue.decay-scheduler.decay-factor is deprecated. Please use decay-scheduler.decay-factor.
+      88: invokeinterface #89,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      93: dload_2
+      94: dconst_0
+      95: dcmpg
+      96: ifle          105
+      99: dload_2
+     100: dconst_1
+     101: dcmpl
+     102: iflt          115
+     105: new           #16                 // class java/lang/IllegalArgumentException
+     108: dup
+     109: ldc           #90                 // String Decay Factor must be between 0 and 1
+     111: invokespecial #18                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     114: athrow
+     115: dload_2
+     116: dreturn
+
+  private static long parseDecayPeriodMillis(java.lang.String, org.apache.hadoop.conf.Configuration);
+    Code:
+       0: aload_1
+       1: new           #58                 // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+       8: aload_0
+       9: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: ldc           #61                 // String .
+      14: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: ldc           #91                 // String faircallqueue.decay-scheduler.period-ms
+      19: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      25: lconst_0
+      26: invokevirtual #92                 // Method org/apache/hadoop/conf/Configuration.getLong:(Ljava/lang/String;J)J
+      29: lstore_2
+      30: lload_2
+      31: lconst_0
+      32: lcmp
+      33: ifne          71
+      36: aload_1
+      37: new           #58                 // class java/lang/StringBuilder
+      40: dup
+      41: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      44: aload_0
+      45: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      48: ldc           #61                 // String .
+      50: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      53: ldc           #93                 // String decay-scheduler.period-ms
+      55: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      58: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      61: ldc2_w        #94                 // long 5000l
+      64: invokevirtual #92                 // Method org/apache/hadoop/conf/Configuration.getLong:(Ljava/lang/String;J)J
+      67: lstore_2
+      68: goto          87
+      71: lload_2
+      72: lconst_0
+      73: lcmp
+      74: ifle          87
+      77: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      80: ldc           #96                 // String faircallqueue.decay-scheduler.period-ms is deprecated. Please use decay-scheduler.period-ms
+      82: invokeinterface #89,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      87: lload_2
+      88: lconst_0
+      89: lcmp
+      90: ifgt          103
+      93: new           #16                 // class java/lang/IllegalArgumentException
+      96: dup
+      97: ldc           #97                 // String Period millis must be >= 0
+      99: invokespecial #18                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     102: athrow
+     103: lload_2
+     104: lreturn
+
+  private static double[] parseThresholds(java.lang.String, org.apache.hadoop.conf.Configuration, int);
+    Code:
+       0: aload_1
+       1: new           #58                 // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+       8: aload_0
+       9: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: ldc           #61                 // String .
+      14: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: ldc           #98                 // String faircallqueue.decay-scheduler.thresholds
+      19: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      25: invokevirtual #99                 // Method org/apache/hadoop/conf/Configuration.getInts:(Ljava/lang/String;)[I
+      28: astore_3
+      29: aload_3
+      30: arraylength
+      31: ifne          73
+      34: aload_1
+      35: new           #58                 // class java/lang/StringBuilder
+      38: dup
+      39: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      42: aload_0
+      43: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      46: ldc           #61                 // String .
+      48: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      51: ldc           #100                // String decay-scheduler.thresholds
+      53: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      56: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      59: invokevirtual #99                 // Method org/apache/hadoop/conf/Configuration.getInts:(Ljava/lang/String;)[I
+      62: astore_3
+      63: aload_3
+      64: arraylength
+      65: ifne          83
+      68: iload_2
+      69: invokestatic  #101                // Method getDefaultThresholds:(I)[D
+      72: areturn
+      73: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      76: ldc           #102                // String faircallqueue.decay-scheduler.thresholds is deprecated. Please use decay-scheduler.thresholds
+      78: invokeinterface #89,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      83: aload_3
+      84: arraylength
+      85: iload_2
+      86: iconst_1
+      87: isub
+      88: if_icmpeq     130
+      91: new           #16                 // class java/lang/IllegalArgumentException
+      94: dup
+      95: new           #58                 // class java/lang/StringBuilder
+      98: dup
+      99: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     102: ldc           #103                // String Number of thresholds should be
+     104: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     107: iload_2
+     108: iconst_1
+     109: isub
+     110: invokevirtual #104                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     113: ldc           #105                // String . Was:
+     115: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     118: aload_3
+     119: arraylength
+     120: invokevirtual #104                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     123: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     126: invokespecial #18                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+     129: athrow
+     130: aload_3
+     131: arraylength
+     132: newarray       double
+     134: astore        4
+     136: iconst_0
+     137: istore        5
+     139: iload         5
+     141: aload_3
+     142: arraylength
+     143: if_icmpge     166
+     146: aload         4
+     148: iload         5
+     150: aload_3
+     151: iload         5
+     153: iaload
+     154: i2d
+     155: ldc2_w        #106                // double 100.0d
+     158: ddiv
+     159: dastore
+     160: iinc          5, 1
+     163: goto          139
+     166: aload         4
+     168: areturn
+
+  private static double[] getDefaultThresholds(int);
+    Code:
+       0: iload_0
+       1: iconst_1
+       2: isub
+       3: newarray       double
+       5: astore_1
+       6: ldc2_w        #108                // double 2.0d
+       9: iload_0
+      10: iconst_1
+      11: isub
+      12: i2d
+      13: invokestatic  #110                // Method java/lang/Math.pow:(DD)D
+      16: dstore_2
+      17: iconst_0
+      18: istore        4
+      20: iload         4
+      22: aload_1
+      23: arraylength
+      24: if_icmpge     48
+      27: aload_1
+      28: iload         4
+      30: ldc2_w        #108                // double 2.0d
+      33: iload         4
+      35: i2d
+      36: invokestatic  #110                // Method java/lang/Math.pow:(DD)D
+      39: dload_2
+      40: ddiv
+      41: dastore
+      42: iinc          4, 1
+      45: goto          20
+      48: aload_1
+      49: areturn
+
+  private static long[] parseBackOffResponseTimeThreshold(java.lang.String, org.apache.hadoop.conf.Configuration, int);
+    Code:
+       0: aload_1
+       1: new           #58                 // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+       8: aload_0
+       9: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: ldc           #61                 // String .
+      14: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: ldc           #111                // String decay-scheduler.backoff.responsetime.thresholds
+      19: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      25: getstatic     #112                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      28: invokevirtual #113                // Method org/apache/hadoop/conf/Configuration.getTimeDurations:(Ljava/lang/String;Ljava/util/concurrent/TimeUnit;)[J
+      31: astore_3
+      32: aload_3
+      33: arraylength
+      34: ifne          42
+      37: iload_2
+      38: invokestatic  #114                // Method getDefaultBackOffResponseTimeThresholds:(I)[J
+      41: areturn
+      42: aload_3
+      43: arraylength
+      44: iload_2
+      45: if_icmpeq     58
+      48: new           #16                 // class java/lang/IllegalArgumentException
+      51: dup
+      52: ldc           #115                // String responseTimeThresholds must match with the number of priority levels
+      54: invokespecial #18                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      57: athrow
+      58: aload_3
+      59: astore        4
+      61: aload         4
+      63: arraylength
+      64: istore        5
+      66: iconst_0
+      67: istore        6
+      69: iload         6
+      71: iload         5
+      73: if_icmpge     106
+      76: aload         4
+      78: iload         6
+      80: laload
+      81: lstore        7
+      83: lload         7
+      85: lconst_0
+      86: lcmp
+      87: ifgt          100
+      90: new           #16                 // class java/lang/IllegalArgumentException
+      93: dup
+      94: ldc           #116                // String responseTimeThreshold millis must be >= 0
+      96: invokespecial #18                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      99: athrow
+     100: iinc          6, 1
+     103: goto          69
+     106: aload_3
+     107: areturn
+
+  private static long[] getDefaultBackOffResponseTimeThresholds(int);
+    Code:
+       0: iload_0
+       1: newarray       long
+       3: astore_1
+       4: iconst_0
+       5: istore_2
+       6: iload_2
+       7: aload_1
+       8: arraylength
+       9: if_icmpge     29
+      12: aload_1
+      13: iload_2
+      14: sipush        10000
+      17: iload_2
+      18: iconst_1
+      19: iadd
+      20: imul
+      21: i2l
+      22: lastore
+      23: iinc          2, 1
+      26: goto          6
+      29: aload_1
+      30: areturn
+
+  private static java.lang.Boolean parseBackOffByResponseTimeEnabled(java.lang.String, org.apache.hadoop.conf.Configuration);
+    Code:
+       0: aload_1
+       1: new           #58                 // class java/lang/StringBuilder
+       4: dup
+       5: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+       8: aload_0
+       9: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: ldc           #61                 // String .
+      14: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: ldc           #117                // String decay-scheduler.backoff.responsetime.enable
+      19: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      25: getstatic     #118                // Field IPC_DECAYSCHEDULER_BACKOFF_RESPONSETIME_ENABLE_DEFAULT:Ljava/lang/Boolean;
+      28: invokevirtual #32                 // Method java/lang/Boolean.booleanValue:()Z
+      31: invokevirtual #119                // Method org/apache/hadoop/conf/Configuration.getBoolean:(Ljava/lang/String;Z)Z
+      34: invokestatic  #120                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      37: areturn
+
+  private void decayCurrentCosts();
+    Code:
+       0: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #121                // String Start to decay current costs.
+       5: invokeinterface #122,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      10: lconst_0
+      11: lstore_1
+      12: lconst_0
+      13: lstore_3
+      14: aload_0
+      15: getfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+      18: invokevirtual #123                // Method java/util/concurrent/ConcurrentHashMap.entrySet:()Ljava/util/Set;
+      21: invokeinterface #124,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      26: astore        5
+      28: aload         5
+      30: invokeinterface #125,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      35: ifeq          207
+      38: aload         5
+      40: invokeinterface #126,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      45: checkcast     #127                // class java/util/Map$Entry
+      48: astore        6
+      50: aload         6
+      52: invokeinterface #128,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      57: checkcast     #129                // class java/util/List
+      60: iconst_0
+      61: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      66: checkcast     #6                  // class java/util/concurrent/atomic/AtomicLong
+      69: astore        7
+      71: aload         6
+      73: invokeinterface #128,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      78: checkcast     #129                // class java/util/List
+      81: iconst_1
+      82: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      87: checkcast     #6                  // class java/util/concurrent/atomic/AtomicLong
+      90: astore        8
+      92: lload_3
+      93: aload         8
+      95: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      98: ladd
+      99: lstore_3
+     100: aload         7
+     102: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     105: lstore        9
+     107: lload         9
+     109: l2d
+     110: aload_0
+     111: getfield      #22                 // Field decayFactor:D
+     114: dmul
+     115: d2l
+     116: lstore        11
+     118: lload_1
+     119: lload         11
+     121: ladd
+     122: lstore_1
+     123: aload         7
+     125: lload         11
+     127: invokevirtual #131                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     130: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+     133: ldc           #132                // String Decaying costs for the user: {}, its decayedCost: {}, rawCost: {}
+     135: iconst_3
+     136: anewarray     #133                // class java/lang/Object
+     139: dup
+     140: iconst_0
+     141: aload         6
+     143: invokeinterface #134,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     148: aastore
+     149: dup
+     150: iconst_1
+     151: lload         11
+     153: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     156: aastore
+     157: dup
+     158: iconst_2
+     159: aload         8
+     161: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     164: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     167: aastore
+     168: invokeinterface #136,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     173: lload         11
+     175: lconst_0
+     176: lcmp
+     177: ifne          204
+     180: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+     183: ldc           #137                // String The decayed cost for the user {} is zero and being cleaned.
+     185: aload         6
+     187: invokeinterface #134,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     192: invokeinterface #138,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     197: aload         5
+     199: invokeinterface #139,  1          // InterfaceMethod java/util/Iterator.remove:()V
+     204: goto          28
+     207: aload_0
+     208: getfield      #8                  // Field totalDecayedCallCost:Ljava/util/concurrent/atomic/AtomicLong;
+     211: lload_1
+     212: invokevirtual #131                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     215: aload_0
+     216: getfield      #9                  // Field totalRawCallCost:Ljava/util/concurrent/atomic/AtomicLong;
+     219: lload_3
+     220: invokevirtual #131                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     223: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+     226: ldc           #140                // String After decaying the stored costs, totalDecayedCost: {}, totalRawCallCost: {}.
+     228: lload_1
+     229: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     232: lload_3
+     233: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     236: invokeinterface #141,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     241: aload_0
+     242: invokespecial #57                 // Method recomputeScheduleCache:()V
+     245: aload_0
+     246: iconst_1
+     247: invokevirtual #142                // Method updateAverageResponseTime:(Z)V
+     250: goto          286
+     253: astore_1
+     254: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+     257: new           #58                 // class java/lang/StringBuilder
+     260: dup
+     261: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     264: ldc           #144                // String decayCurrentCosts exception:
+     266: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     269: aload_1
+     270: invokestatic  #145                // Method org/apache/commons/lang3/exception/ExceptionUtils.getStackTrace:(Ljava/lang/Throwable;)Ljava/lang/String;
+     273: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     276: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     279: invokeinterface #146,  2          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+     284: aload_1
+     285: athrow
+     286: return
+    Exception table:
+       from    to  target type
+          10   250   253   Class java/lang/Exception
+
+  private void recomputeScheduleCache();
+    Code:
+       0: new           #13                 // class java/util/HashMap
+       3: dup
+       4: invokespecial #14                 // Method java/util/HashMap."<init>":()V
+       7: astore_1
+       8: aload_0
+       9: getfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+      12: invokevirtual #123                // Method java/util/concurrent/ConcurrentHashMap.entrySet:()Ljava/util/Set;
+      15: invokeinterface #124,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      20: astore_2
+      21: aload_2
+      22: invokeinterface #125,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      27: ifeq          102
+      30: aload_2
+      31: invokeinterface #126,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      36: checkcast     #127                // class java/util/Map$Entry
+      39: astore_3
+      40: aload_3
+      41: invokeinterface #134,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      46: astore        4
+      48: aload_3
+      49: invokeinterface #128,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      54: checkcast     #129                // class java/util/List
+      57: iconst_0
+      58: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      63: checkcast     #6                  // class java/util/concurrent/atomic/AtomicLong
+      66: astore        5
+      68: aload         5
+      70: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      73: lstore        6
+      75: aload_0
+      76: lload         6
+      78: aload         4
+      80: invokespecial #147                // Method computePriorityLevel:(JLjava/lang/Object;)I
+      83: istore        8
+      85: aload_1
+      86: aload         4
+      88: iload         8
+      90: invokestatic  #148                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      93: invokeinterface #149,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      98: pop
+      99: goto          21
+     102: aload_0
+     103: getfield      #12                 // Field scheduleCacheRef:Ljava/util/concurrent/atomic/AtomicReference;
+     106: aload_1
+     107: invokestatic  #150                // Method java/util/Collections.unmodifiableMap:(Ljava/util/Map;)Ljava/util/Map;
+     110: invokevirtual #151                // Method java/util/concurrent/atomic/AtomicReference.set:(Ljava/lang/Object;)V
+     113: return
+
+  private void addCost(java.lang.Object, long);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+       4: aload_1
+       5: invokevirtual #152                // Method java/util/concurrent/ConcurrentHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+       8: checkcast     #129                // class java/util/List
+      11: astore        4
+      13: aload         4
+      15: ifnonnull     84
+      18: new           #153                // class java/util/ArrayList
+      21: dup
+      22: iconst_2
+      23: invokespecial #154                // Method java/util/ArrayList."<init>":(I)V
+      26: astore        4
+      28: aload         4
+      30: new           #6                  // class java/util/concurrent/atomic/AtomicLong
+      33: dup
+      34: lconst_0
+      35: invokespecial #155                // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      38: invokeinterface #156,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      43: pop
+      44: aload         4
+      46: new           #6                  // class java/util/concurrent/atomic/AtomicLong
+      49: dup
+      50: lconst_0
+      51: invokespecial #155                // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      54: invokeinterface #156,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+      59: pop
+      60: aload_0
+      61: getfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+      64: aload_1
+      65: aload         4
+      67: invokevirtual #157                // Method java/util/concurrent/ConcurrentHashMap.putIfAbsent:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      70: checkcast     #129                // class java/util/List
+      73: astore        5
+      75: aload         5
+      77: ifnull        84
+      80: aload         5
+      82: astore        4
+      84: aload_0
+      85: getfield      #8                  // Field totalDecayedCallCost:Ljava/util/concurrent/atomic/AtomicLong;
+      88: lload_2
+      89: invokevirtual #158                // Method java/util/concurrent/atomic/AtomicLong.getAndAdd:(J)J
+      92: pop2
+      93: aload_0
+      94: getfield      #9                  // Field totalRawCallCost:Ljava/util/concurrent/atomic/AtomicLong;
+      97: lload_2
+      98: invokevirtual #158                // Method java/util/concurrent/atomic/AtomicLong.getAndAdd:(J)J
+     101: pop2
+     102: aload         4
+     104: iconst_1
+     105: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     110: checkcast     #6                  // class java/util/concurrent/atomic/AtomicLong
+     113: lload_2
+     114: invokevirtual #158                // Method java/util/concurrent/atomic/AtomicLong.getAndAdd:(J)J
+     117: pop2
+     118: aload         4
+     120: iconst_0
+     121: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+     126: checkcast     #6                  // class java/util/concurrent/atomic/AtomicLong
+     129: lload_2
+     130: invokevirtual #158                // Method java/util/concurrent/atomic/AtomicLong.getAndAdd:(J)J
+     133: pop2
+     134: return
+
+  private int computePriorityLevel(long, java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field staticPriorities:Ljava/util/Map;
+       4: aload_3
+       5: invokeinterface #159,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      10: checkcast     #160                // class java/lang/Integer
+      13: astore        4
+      15: aload         4
+      17: ifnull        26
+      20: aload         4
+      22: invokevirtual #161                // Method java/lang/Integer.intValue:()I
+      25: ireturn
+      26: aload_0
+      27: getfield      #8                  // Field totalDecayedCallCost:Ljava/util/concurrent/atomic/AtomicLong;
+      30: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      33: lstore        5
+      35: dconst_0
+      36: dstore        7
+      38: lload         5
+      40: lconst_0
+      41: lcmp
+      42: ifle          53
+      45: lload_1
+      46: l2d
+      47: lload         5
+      49: l2d
+      50: ddiv
+      51: dstore        7
+      53: aload_0
+      54: getfield      #19                 // Field numLevels:I
+      57: iconst_1
+      58: isub
+      59: istore        9
+      61: iload         9
+      63: ifle          90
+      66: dload         7
+      68: aload_0
+      69: getfield      #30                 // Field thresholds:[D
+      72: iload         9
+      74: iconst_1
+      75: isub
+      76: daload
+      77: dcmpl
+      78: iflt          84
+      81: iload         9
+      83: ireturn
+      84: iinc          9, -1
+      87: goto          61
+      90: iconst_0
+      91: ireturn
+
+  private int cachedOrComputedPriorityLevel(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field scheduleCacheRef:Ljava/util/concurrent/atomic/AtomicReference;
+       4: invokevirtual #162                // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+       7: checkcast     #163                // class java/util/Map
+      10: astore_2
+      11: aload_2
+      12: ifnull        47
+      15: aload_2
+      16: aload_1
+      17: invokeinterface #159,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      22: checkcast     #160                // class java/lang/Integer
+      25: astore_3
+      26: aload_3
+      27: ifnull        47
+      30: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      33: ldc           #164                // String Cache priority for: {} with priority: {}
+      35: aload_1
+      36: aload_3
+      37: invokeinterface #141,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      42: aload_3
+      43: invokevirtual #161                // Method java/lang/Integer.intValue:()I
+      46: ireturn
+      47: aload_0
+      48: getfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+      51: aload_1
+      52: invokevirtual #152                // Method java/util/concurrent/ConcurrentHashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      55: checkcast     #129                // class java/util/List
+      58: astore_3
+      59: aload_3
+      60: ifnonnull     67
+      63: lconst_0
+      64: goto          80
+      67: aload_3
+      68: iconst_0
+      69: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      74: checkcast     #6                  // class java/util/concurrent/atomic/AtomicLong
+      77: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      80: lstore        4
+      82: aload_0
+      83: lload         4
+      85: aload_1
+      86: invokespecial #147                // Method computePriorityLevel:(JLjava/lang/Object;)I
+      89: istore        6
+      91: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      94: ldc           #165                // String compute priority for {} priority {}
+      96: aload_1
+      97: iload         6
+      99: invokestatic  #148                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     102: invokeinterface #141,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     107: iload         6
+     109: ireturn
+
+  private java.lang.String getIdentity(org.apache.hadoop.ipc.Schedulable);
+    Code:
+       0: aload_0
+       1: getfield      #26                 // Field identityProvider:Lorg/apache/hadoop/ipc/IdentityProvider;
+       4: aload_1
+       5: invokeinterface #166,  2          // InterfaceMethod org/apache/hadoop/ipc/IdentityProvider.makeIdentity:(Lorg/apache/hadoop/ipc/Schedulable;)Ljava/lang/String;
+      10: astore_2
+      11: aload_2
+      12: ifnonnull     18
+      15: ldc           #167                // String IdentityProvider.Unknown
+      17: astore_2
+      18: aload_2
+      19: areturn
+
+  public int getPriorityLevel(org.apache.hadoop.ipc.Schedulable);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #168                // Method getIdentity:(Lorg/apache/hadoop/ipc/Schedulable;)Ljava/lang/String;
+       5: astore_2
+       6: iconst_0
+       7: aload_0
+       8: aload_2
+       9: invokespecial #169                // Method cachedOrComputedPriorityLevel:(Ljava/lang/Object;)I
+      12: invokestatic  #170                // Method java/lang/Math.max:(II)I
+      15: ireturn
+
+  int getPriorityLevel(org.apache.hadoop.security.UserGroupInformation);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokestatic  #171                // Method newSchedulable:(Lorg/apache/hadoop/security/UserGroupInformation;)Lorg/apache/hadoop/ipc/Schedulable;
+       5: invokespecial #168                // Method getIdentity:(Lorg/apache/hadoop/ipc/Schedulable;)Ljava/lang/String;
+       8: astore_2
+       9: aload_0
+      10: aload_2
+      11: invokespecial #169                // Method cachedOrComputedPriorityLevel:(Ljava/lang/Object;)I
+      14: ireturn
+
+  void setPriorityLevel(org.apache.hadoop.security.UserGroupInformation, int);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokestatic  #171                // Method newSchedulable:(Lorg/apache/hadoop/security/UserGroupInformation;)Lorg/apache/hadoop/ipc/Schedulable;
+       5: invokespecial #168                // Method getIdentity:(Lorg/apache/hadoop/ipc/Schedulable;)Ljava/lang/String;
+       8: astore_3
+       9: aload_0
+      10: getfield      #19                 // Field numLevels:I
+      13: iconst_1
+      14: isub
+      15: iload_2
+      16: invokestatic  #172                // Method java/lang/Math.min:(II)I
+      19: istore_2
+      20: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      23: new           #58                 // class java/lang/StringBuilder
+      26: dup
+      27: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      30: ldc           #173                // String Setting priority for user:
+      32: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      35: aload_3
+      36: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      39: ldc           #174                // String =
+      41: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      44: iload_2
+      45: invokevirtual #104                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      48: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      51: invokeinterface #70,  2           // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      56: aload_0
+      57: getfield      #15                 // Field staticPriorities:Ljava/util/Map;
+      60: aload_3
+      61: iload_2
+      62: invokestatic  #148                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      65: invokeinterface #149,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      70: pop
+      71: return
+
+  private static org.apache.hadoop.ipc.Schedulable newSchedulable(org.apache.hadoop.security.UserGroupInformation);
+    Code:
+       0: new           #175                // class org/apache/hadoop/ipc/DecayRpcScheduler$1
+       3: dup
+       4: aload_0
+       5: invokespecial #176                // Method org/apache/hadoop/ipc/DecayRpcScheduler$1."<init>":(Lorg/apache/hadoop/security/UserGroupInformation;)V
+       8: areturn
+
+  public boolean shouldBackOff(org.apache.hadoop.ipc.Schedulable);
+    Code:
+       0: iconst_0
+       1: invokestatic  #120                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+       4: astore_2
+       5: aload_0
+       6: getfield      #33                 // Field backOffByResponseTimeEnabled:Z
+       9: ifeq          174
+      12: aload_1
+      13: invokeinterface #177,  1          // InterfaceMethod org/apache/hadoop/ipc/Schedulable.getPriorityLevel:()I
+      18: istore_3
+      19: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      22: invokeinterface #178,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      27: ifeq          128
+      30: aload_0
+      31: invokevirtual #179                // Method getAverageResponseTime:()[D
+      34: astore        4
+      36: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      39: ldc           #180                // String Current Caller: {}  Priority: {}
+      41: aload_1
+      42: invokeinterface #181,  1          // InterfaceMethod org/apache/hadoop/ipc/Schedulable.getUserGroupInformation:()Lorg/apache/hadoop/security/UserGroupInformation;
+      47: invokevirtual #182                // Method org/apache/hadoop/security/UserGroupInformation.getUserName:()Ljava/lang/String;
+      50: aload_1
+      51: invokeinterface #177,  1          // InterfaceMethod org/apache/hadoop/ipc/Schedulable.getPriorityLevel:()I
+      56: invokestatic  #148                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      59: invokeinterface #141,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      64: iconst_0
+      65: istore        5
+      67: iload         5
+      69: aload_0
+      70: getfield      #19                 // Field numLevels:I
+      73: if_icmpge     128
+      76: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      79: ldc           #183                // String Queue: {} responseTime: {} backoffThreshold: {}
+      81: iconst_3
+      82: anewarray     #133                // class java/lang/Object
+      85: dup
+      86: iconst_0
+      87: iload         5
+      89: invokestatic  #148                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      92: aastore
+      93: dup
+      94: iconst_1
+      95: aload         4
+      97: iload         5
+      99: daload
+     100: invokestatic  #184                // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+     103: aastore
+     104: dup
+     105: iconst_2
+     106: aload_0
+     107: getfield      #35                 // Field backOffResponseTimeThresholds:[J
+     110: iload         5
+     112: laload
+     113: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     116: aastore
+     117: invokeinterface #136,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     122: iinc          5, 1
+     125: goto          67
+     128: iconst_0
+     129: istore        4
+     131: iload         4
+     133: iload_3
+     134: iconst_1
+     135: iadd
+     136: if_icmpge     174
+     139: aload_0
+     140: getfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+     143: iload         4
+     145: invokevirtual #185                // Method com/google/common/util/concurrent/AtomicDoubleArray.get:(I)D
+     148: aload_0
+     149: getfield      #35                 // Field backOffResponseTimeThresholds:[J
+     152: iload         4
+     154: laload
+     155: l2d
+     156: dcmpl
+     157: ifle          168
+     160: iconst_1
+     161: invokestatic  #120                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     164: astore_2
+     165: goto          174
+     168: iinc          4, 1
+     171: goto          131
+     174: aload_2
+     175: invokevirtual #32                 // Method java/lang/Boolean.booleanValue:()Z
+     178: ireturn
+
+  public void addResponseTime(java.lang.String, org.apache.hadoop.ipc.Schedulable, org.apache.hadoop.ipc.ProcessingDetails);
+    Code:
+       0: aload_0
+       1: getfield      #26                 // Field identityProvider:Lorg/apache/hadoop/ipc/IdentityProvider;
+       4: aload_2
+       5: invokeinterface #166,  2          // InterfaceMethod org/apache/hadoop/ipc/IdentityProvider.makeIdentity:(Lorg/apache/hadoop/ipc/Schedulable;)Ljava/lang/String;
+      10: astore        4
+      12: aload_0
+      13: getfield      #28                 // Field costProvider:Lorg/apache/hadoop/ipc/CostProvider;
+      16: aload_3
+      17: invokeinterface #186,  2          // InterfaceMethod org/apache/hadoop/ipc/CostProvider.getCost:(Lorg/apache/hadoop/ipc/ProcessingDetails;)J
+      22: lstore        5
+      24: aload_0
+      25: aload         4
+      27: lload         5
+      29: invokespecial #187                // Method addCost:(Ljava/lang/Object;J)V
+      32: aload_2
+      33: invokeinterface #177,  1          // InterfaceMethod org/apache/hadoop/ipc/Schedulable.getPriorityLevel:()I
+      38: istore        7
+      40: aload_3
+      41: getstatic     #188                // Field org/apache/hadoop/ipc/ProcessingDetails$Timing.QUEUE:Lorg/apache/hadoop/ipc/ProcessingDetails$Timing;
+      44: getstatic     #189                // Field org/apache/hadoop/ipc/metrics/RpcMetrics.TIMEUNIT:Ljava/util/concurrent/TimeUnit;
+      47: invokevirtual #190                // Method org/apache/hadoop/ipc/ProcessingDetails.get:(Lorg/apache/hadoop/ipc/ProcessingDetails$Timing;Ljava/util/concurrent/TimeUnit;)J
+      50: lstore        8
+      52: aload_3
+      53: getstatic     #191                // Field org/apache/hadoop/ipc/ProcessingDetails$Timing.PROCESSING:Lorg/apache/hadoop/ipc/ProcessingDetails$Timing;
+      56: getstatic     #189                // Field org/apache/hadoop/ipc/metrics/RpcMetrics.TIMEUNIT:Ljava/util/concurrent/TimeUnit;
+      59: invokevirtual #190                // Method org/apache/hadoop/ipc/ProcessingDetails.get:(Lorg/apache/hadoop/ipc/ProcessingDetails$Timing;Ljava/util/concurrent/TimeUnit;)J
+      62: lstore        10
+      64: aload_0
+      65: getfield      #39                 // Field responseTimeCountInCurrWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+      68: iload         7
+      70: invokevirtual #192                // Method java/util/concurrent/atomic/AtomicLongArray.getAndIncrement:(I)J
+      73: pop2
+      74: aload_0
+      75: getfield      #38                 // Field responseTimeTotalInCurrWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+      78: iload         7
+      80: lload         8
+      82: lload         10
+      84: ladd
+      85: invokevirtual #193                // Method java/util/concurrent/atomic/AtomicLongArray.getAndAdd:(IJ)J
+      88: pop2
+      89: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      92: invokeinterface #178,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      97: ifeq          142
+     100: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+     103: ldc           #194                // String addResponseTime for call: {}  priority: {} queueTime: {} processingTime: {}
+     105: iconst_4
+     106: anewarray     #133                // class java/lang/Object
+     109: dup
+     110: iconst_0
+     111: aload_1
+     112: aastore
+     113: dup
+     114: iconst_1
+     115: iload         7
+     117: invokestatic  #148                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     120: aastore
+     121: dup
+     122: iconst_2
+     123: lload         8
+     125: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     128: aastore
+     129: dup
+     130: iconst_3
+     131: lload         10
+     133: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     136: aastore
+     137: invokeinterface #136,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     142: return
+
+  void updateAverageResponseTime(boolean);
+    Code:
+       0: iconst_0
+       1: istore_2
+       2: iload_2
+       3: aload_0
+       4: getfield      #19                 // Field numLevels:I
+       7: if_icmpge     204
+      10: dconst_0
+      11: dstore_3
+      12: aload_0
+      13: getfield      #38                 // Field responseTimeTotalInCurrWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+      16: iload_2
+      17: invokevirtual #195                // Method java/util/concurrent/atomic/AtomicLongArray.get:(I)J
+      20: lstore        5
+      22: aload_0
+      23: getfield      #39                 // Field responseTimeCountInCurrWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+      26: iload_2
+      27: invokevirtual #195                // Method java/util/concurrent/atomic/AtomicLongArray.get:(I)J
+      30: lstore        7
+      32: lload         7
+      34: lconst_0
+      35: lcmp
+      36: ifle          47
+      39: lload         5
+      41: l2d
+      42: lload         7
+      44: l2d
+      45: ddiv
+      46: dstore_3
+      47: aload_0
+      48: getfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+      51: iload_2
+      52: invokevirtual #185                // Method com/google/common/util/concurrent/AtomicDoubleArray.get:(I)D
+      55: dstore        9
+      57: dload         9
+      59: ldc2_w        #196                // double 1.0E-4d
+      62: dcmpl
+      63: ifgt          74
+      66: dload_3
+      67: ldc2_w        #196                // double 1.0E-4d
+      70: dcmpl
+      71: ifle          114
+      74: iload_1
+      75: ifeq          102
+      78: aload_0
+      79: getfield      #22                 // Field decayFactor:D
+      82: dload         9
+      84: dmul
+      85: dload_3
+      86: dadd
+      87: dstore        11
+      89: aload_0
+      90: getfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+      93: iload_2
+      94: dload         11
+      96: invokevirtual #198                // Method com/google/common/util/concurrent/AtomicDoubleArray.set:(ID)V
+      99: goto          123
+     102: aload_0
+     103: getfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+     106: iload_2
+     107: dload_3
+     108: invokevirtual #198                // Method com/google/common/util/concurrent/AtomicDoubleArray.set:(ID)V
+     111: goto          123
+     114: aload_0
+     115: getfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+     118: iload_2
+     119: dconst_0
+     120: invokevirtual #198                // Method com/google/common/util/concurrent/AtomicDoubleArray.set:(ID)V
+     123: aload_0
+     124: getfield      #43                 // Field responseTimeCountInLastWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+     127: iload_2
+     128: lload         7
+     130: invokevirtual #199                // Method java/util/concurrent/atomic/AtomicLongArray.set:(IJ)V
+     133: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+     136: invokeinterface #178,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     141: ifeq          180
+     144: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+     147: ldc           #200                // String updateAverageResponseTime queue: {} Average: {} Count: {}
+     149: iconst_3
+     150: anewarray     #133                // class java/lang/Object
+     153: dup
+     154: iconst_0
+     155: iload_2
+     156: invokestatic  #148                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     159: aastore
+     160: dup
+     161: iconst_1
+     162: dload_3
+     163: invokestatic  #184                // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+     166: aastore
+     167: dup
+     168: iconst_2
+     169: lload         7
+     171: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     174: aastore
+     175: invokeinterface #136,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     180: aload_0
+     181: getfield      #38                 // Field responseTimeTotalInCurrWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+     184: iload_2
+     185: lconst_0
+     186: invokevirtual #199                // Method java/util/concurrent/atomic/AtomicLongArray.set:(IJ)V
+     189: aload_0
+     190: getfield      #39                 // Field responseTimeCountInCurrWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+     193: iload_2
+     194: lconst_0
+     195: invokevirtual #199                // Method java/util/concurrent/atomic/AtomicLongArray.set:(IJ)V
+     198: iinc          2, 1
+     201: goto          2
+     204: return
+
+  double getDecayFactor();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field decayFactor:D
+       4: dreturn
+
+  long getDecayPeriodMillis();
+    Code:
+       0: aload_0
+       1: getfield      #24                 // Field decayPeriodMillis:J
+       4: lreturn
+
+  double[] getThresholds();
+    Code:
+       0: aload_0
+       1: getfield      #30                 // Field thresholds:[D
+       4: areturn
+
+  void forceDecay();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method decayCurrentCosts:()V
+       4: return
+
+  java.util.Map<java.lang.Object, java.lang.Long> getCallCostSnapshot();
+    Code:
+       0: new           #13                 // class java/util/HashMap
+       3: dup
+       4: invokespecial #14                 // Method java/util/HashMap."<init>":()V
+       7: astore_1
+       8: aload_0
+       9: getfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+      12: invokevirtual #123                // Method java/util/concurrent/ConcurrentHashMap.entrySet:()Ljava/util/Set;
+      15: invokeinterface #124,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      20: astore_2
+      21: aload_2
+      22: invokeinterface #125,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      27: ifeq          78
+      30: aload_2
+      31: invokeinterface #126,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      36: checkcast     #127                // class java/util/Map$Entry
+      39: astore_3
+      40: aload_1
+      41: aload_3
+      42: invokeinterface #134,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      47: aload_3
+      48: invokeinterface #128,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      53: checkcast     #129                // class java/util/List
+      56: iconst_0
+      57: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      62: checkcast     #6                  // class java/util/concurrent/atomic/AtomicLong
+      65: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      68: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      71: invokevirtual #201                // Method java/util/HashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      74: pop
+      75: goto          21
+      78: aload_1
+      79: invokestatic  #150                // Method java/util/Collections.unmodifiableMap:(Ljava/util/Map;)Ljava/util/Map;
+      82: areturn
+
+  long getTotalCallSnapshot();
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field totalDecayedCallCost:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  public int getUniqueIdentityCount();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+       4: invokevirtual #202                // Method java/util/concurrent/ConcurrentHashMap.size:()I
+       7: ireturn
+
+  public long getTotalCallVolume();
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field totalDecayedCallCost:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  public long getTotalRawCallVolume();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field totalRawCallCost:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  public long[] getResponseTimeCountInLastWindow();
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field responseTimeCountInLastWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+       4: invokevirtual #203                // Method java/util/concurrent/atomic/AtomicLongArray.length:()I
+       7: newarray       long
+       9: astore_1
+      10: iconst_0
+      11: istore_2
+      12: iload_2
+      13: aload_0
+      14: getfield      #43                 // Field responseTimeCountInLastWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+      17: invokevirtual #203                // Method java/util/concurrent/atomic/AtomicLongArray.length:()I
+      20: if_icmpge     40
+      23: aload_1
+      24: iload_2
+      25: aload_0
+      26: getfield      #43                 // Field responseTimeCountInLastWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+      29: iload_2
+      30: invokevirtual #195                // Method java/util/concurrent/atomic/AtomicLongArray.get:(I)J
+      33: lastore
+      34: iinc          2, 1
+      37: goto          12
+      40: aload_1
+      41: areturn
+
+  public double[] getAverageResponseTime();
+    Code:
+       0: aload_0
+       1: getfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+       4: invokevirtual #204                // Method com/google/common/util/concurrent/AtomicDoubleArray.length:()I
+       7: newarray       double
+       9: astore_1
+      10: iconst_0
+      11: istore_2
+      12: iload_2
+      13: aload_0
+      14: getfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+      17: invokevirtual #204                // Method com/google/common/util/concurrent/AtomicDoubleArray.length:()I
+      20: if_icmpge     40
+      23: aload_1
+      24: iload_2
+      25: aload_0
+      26: getfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+      29: iload_2
+      30: invokevirtual #185                // Method com/google/common/util/concurrent/AtomicDoubleArray.get:(I)D
+      33: dastore
+      34: iinc          2, 1
+      37: goto          12
+      40: aload_1
+      41: areturn
+
+  public void getMetrics(org.apache.hadoop.metrics2.MetricsCollector, boolean);
+    Code:
+       0: aload_1
+       1: aload_0
+       2: invokevirtual #75                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+       5: invokevirtual #205                // Method java/lang/Class.getName:()Ljava/lang/String;
+       8: invokeinterface #206,  2          // InterfaceMethod org/apache/hadoop/metrics2/MetricsCollector.addRecord:(Ljava/lang/String;)Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;
+      13: aload_0
+      14: getfield      #20                 // Field namespace:Ljava/lang/String;
+      17: invokevirtual #207                // Method org/apache/hadoop/metrics2/MetricsRecordBuilder.setContext:(Ljava/lang/String;)Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;
+      20: astore_3
+      21: aload_0
+      22: aload_3
+      23: invokespecial #208                // Method addDecayedCallVolume:(Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;)V
+      26: aload_0
+      27: aload_3
+      28: invokespecial #209                // Method addUniqueIdentityCount:(Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;)V
+      31: aload_0
+      32: aload_3
+      33: invokespecial #210                // Method addTopNCallerSummary:(Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;)V
+      36: aload_0
+      37: aload_3
+      38: invokespecial #211                // Method addAvgResponseTimePerPriority:(Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;)V
+      41: aload_0
+      42: aload_3
+      43: invokespecial #212                // Method addCallVolumePerPriority:(Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;)V
+      46: aload_0
+      47: aload_3
+      48: invokespecial #213                // Method addRawCallVolume:(Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;)V
+      51: goto          85
+      54: astore_3
+      55: getstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      58: new           #58                 // class java/lang/StringBuilder
+      61: dup
+      62: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      65: ldc           #214                // String Exception thrown while metric collection. Exception :
+      67: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      70: aload_3
+      71: invokevirtual #215                // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+      74: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      77: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      80: invokeinterface #89,  2           // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+      85: return
+    Exception table:
+       from    to  target type
+           0    51    54   Class java/lang/Exception
+
+  private void addUniqueIdentityCount(org.apache.hadoop.metrics2.MetricsRecordBuilder);
+    Code:
+       0: aload_1
+       1: ldc           #216                // String UniqueCallers
+       3: ldc           #217                // String Total unique callers
+       5: invokestatic  #218                // Method org/apache/hadoop/metrics2/lib/Interns.info:(Ljava/lang/String;Ljava/lang/String;)Lorg/apache/hadoop/metrics2/MetricsInfo;
+       8: aload_0
+       9: invokevirtual #219                // Method getUniqueIdentityCount:()I
+      12: invokevirtual #220                // Method org/apache/hadoop/metrics2/MetricsRecordBuilder.addCounter:(Lorg/apache/hadoop/metrics2/MetricsInfo;I)Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;
+      15: pop
+      16: return
+
+  private void addDecayedCallVolume(org.apache.hadoop.metrics2.MetricsRecordBuilder);
+    Code:
+       0: aload_1
+       1: ldc           #221                // String DecayedCallVolume
+       3: ldc           #222                // String Decayed Total incoming Call Volume
+       5: invokestatic  #218                // Method org/apache/hadoop/metrics2/lib/Interns.info:(Ljava/lang/String;Ljava/lang/String;)Lorg/apache/hadoop/metrics2/MetricsInfo;
+       8: aload_0
+       9: invokevirtual #223                // Method getTotalCallVolume:()J
+      12: invokevirtual #224                // Method org/apache/hadoop/metrics2/MetricsRecordBuilder.addCounter:(Lorg/apache/hadoop/metrics2/MetricsInfo;J)Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;
+      15: pop
+      16: return
+
+  private void addRawCallVolume(org.apache.hadoop.metrics2.MetricsRecordBuilder);
+    Code:
+       0: aload_1
+       1: ldc           #225                // String CallVolume
+       3: ldc           #226                // String Raw Total incoming Call Volume
+       5: invokestatic  #218                // Method org/apache/hadoop/metrics2/lib/Interns.info:(Ljava/lang/String;Ljava/lang/String;)Lorg/apache/hadoop/metrics2/MetricsInfo;
+       8: aload_0
+       9: invokevirtual #227                // Method getTotalRawCallVolume:()J
+      12: invokevirtual #224                // Method org/apache/hadoop/metrics2/MetricsRecordBuilder.addCounter:(Lorg/apache/hadoop/metrics2/MetricsInfo;J)Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;
+      15: pop
+      16: return
+
+  private void addCallVolumePerPriority(org.apache.hadoop.metrics2.MetricsRecordBuilder);
+    Code:
+       0: iconst_0
+       1: istore_2
+       2: iload_2
+       3: aload_0
+       4: getfield      #43                 // Field responseTimeCountInLastWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+       7: invokevirtual #203                // Method java/util/concurrent/atomic/AtomicLongArray.length:()I
+      10: if_icmpge     78
+      13: aload_1
+      14: new           #58                 // class java/lang/StringBuilder
+      17: dup
+      18: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      21: ldc           #228                // String Priority.
+      23: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: iload_2
+      27: invokevirtual #104                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      30: ldc           #229                // String .CompletedCallVolume
+      32: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      35: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      38: new           #58                 // class java/lang/StringBuilder
+      41: dup
+      42: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      45: ldc           #230                // String Completed Call volume of priority
+      47: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      50: iload_2
+      51: invokevirtual #104                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      54: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      57: invokestatic  #218                // Method org/apache/hadoop/metrics2/lib/Interns.info:(Ljava/lang/String;Ljava/lang/String;)Lorg/apache/hadoop/metrics2/MetricsInfo;
+      60: aload_0
+      61: getfield      #43                 // Field responseTimeCountInLastWindow:Ljava/util/concurrent/atomic/AtomicLongArray;
+      64: iload_2
+      65: invokevirtual #195                // Method java/util/concurrent/atomic/AtomicLongArray.get:(I)J
+      68: invokevirtual #231                // Method org/apache/hadoop/metrics2/MetricsRecordBuilder.addGauge:(Lorg/apache/hadoop/metrics2/MetricsInfo;J)Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;
+      71: pop
+      72: iinc          2, 1
+      75: goto          2
+      78: return
+
+  private void addAvgResponseTimePerPriority(org.apache.hadoop.metrics2.MetricsRecordBuilder);
+    Code:
+       0: iconst_0
+       1: istore_2
+       2: iload_2
+       3: aload_0
+       4: getfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+       7: invokevirtual #204                // Method com/google/common/util/concurrent/AtomicDoubleArray.length:()I
+      10: if_icmpge     78
+      13: aload_1
+      14: new           #58                 // class java/lang/StringBuilder
+      17: dup
+      18: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      21: ldc           #228                // String Priority.
+      23: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      26: iload_2
+      27: invokevirtual #104                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      30: ldc           #232                // String .AvgResponseTime
+      32: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      35: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      38: new           #58                 // class java/lang/StringBuilder
+      41: dup
+      42: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      45: ldc           #233                // String Average response time of priority
+      47: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      50: iload_2
+      51: invokevirtual #104                // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      54: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      57: invokestatic  #218                // Method org/apache/hadoop/metrics2/lib/Interns.info:(Ljava/lang/String;Ljava/lang/String;)Lorg/apache/hadoop/metrics2/MetricsInfo;
+      60: aload_0
+      61: getfield      #42                 // Field responseTimeAvgInLastWindow:Lcom/google/common/util/concurrent/AtomicDoubleArray;
+      64: iload_2
+      65: invokevirtual #185                // Method com/google/common/util/concurrent/AtomicDoubleArray.get:(I)D
+      68: invokevirtual #234                // Method org/apache/hadoop/metrics2/MetricsRecordBuilder.addGauge:(Lorg/apache/hadoop/metrics2/MetricsInfo;D)Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;
+      71: pop
+      72: iinc          2, 1
+      75: goto          2
+      78: return
+
+  private void addTopNCallerSummary(org.apache.hadoop.metrics2.MetricsRecordBuilder);
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #47                 // Field topUsersCount:I
+       5: invokespecial #235                // Method getTopCallers:(I)Lorg/apache/hadoop/metrics2/util/Metrics2Util$TopN;
+       8: astore_2
+       9: aload_0
+      10: getfield      #12                 // Field scheduleCacheRef:Ljava/util/concurrent/atomic/AtomicReference;
+      13: invokevirtual #162                // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+      16: checkcast     #163                // class java/util/Map
+      19: astore_3
+      20: aload_2
+      21: invokevirtual #236                // Method org/apache/hadoop/metrics2/util/Metrics2Util$TopN.size:()I
+      24: istore        4
+      26: iconst_0
+      27: istore        5
+      29: iload         5
+      31: iload         4
+      33: if_icmpge     180
+      36: aload_2
+      37: invokevirtual #237                // Method org/apache/hadoop/metrics2/util/Metrics2Util$TopN.poll:()Ljava/lang/Object;
+      40: checkcast     #238                // class org/apache/hadoop/metrics2/util/Metrics2Util$NameValuePair
+      43: astore        6
+      45: new           #58                 // class java/lang/StringBuilder
+      48: dup
+      49: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      52: ldc           #239                // String Caller(
+      54: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      57: aload         6
+      59: invokevirtual #240                // Method org/apache/hadoop/metrics2/util/Metrics2Util$NameValuePair.getName:()Ljava/lang/String;
+      62: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      65: ldc           #241                // String )
+      67: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      70: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      73: astore        7
+      75: new           #58                 // class java/lang/StringBuilder
+      78: dup
+      79: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      82: aload         7
+      84: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      87: ldc           #242                // String .Volume
+      89: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      92: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      95: astore        8
+      97: new           #58                 // class java/lang/StringBuilder
+     100: dup
+     101: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     104: aload         7
+     106: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     109: ldc           #243                // String .Priority
+     111: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     114: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     117: astore        9
+     119: aload_1
+     120: aload         8
+     122: aload         8
+     124: invokestatic  #218                // Method org/apache/hadoop/metrics2/lib/Interns.info:(Ljava/lang/String;Ljava/lang/String;)Lorg/apache/hadoop/metrics2/MetricsInfo;
+     127: aload         6
+     129: invokevirtual #244                // Method org/apache/hadoop/metrics2/util/Metrics2Util$NameValuePair.getValue:()J
+     132: invokevirtual #224                // Method org/apache/hadoop/metrics2/MetricsRecordBuilder.addCounter:(Lorg/apache/hadoop/metrics2/MetricsInfo;J)Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;
+     135: pop
+     136: aload_3
+     137: aload         6
+     139: invokevirtual #240                // Method org/apache/hadoop/metrics2/util/Metrics2Util$NameValuePair.getName:()Ljava/lang/String;
+     142: invokeinterface #159,  2          // InterfaceMethod java/util/Map.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     147: checkcast     #160                // class java/lang/Integer
+     150: astore        10
+     152: aload         10
+     154: ifnull        174
+     157: aload_1
+     158: aload         9
+     160: aload         9
+     162: invokestatic  #218                // Method org/apache/hadoop/metrics2/lib/Interns.info:(Ljava/lang/String;Ljava/lang/String;)Lorg/apache/hadoop/metrics2/MetricsInfo;
+     165: aload         10
+     167: invokevirtual #161                // Method java/lang/Integer.intValue:()I
+     170: invokevirtual #220                // Method org/apache/hadoop/metrics2/MetricsRecordBuilder.addCounter:(Lorg/apache/hadoop/metrics2/MetricsInfo;I)Lorg/apache/hadoop/metrics2/MetricsRecordBuilder;
+     173: pop
+     174: iinc          5, 1
+     177: goto          29
+     180: return
+
+  private org.apache.hadoop.metrics2.util.Metrics2Util$TopN getTopCallers(int);
+    Code:
+       0: new           #245                // class org/apache/hadoop/metrics2/util/Metrics2Util$TopN
+       3: dup
+       4: iload_1
+       5: invokespecial #246                // Method org/apache/hadoop/metrics2/util/Metrics2Util$TopN."<init>":(I)V
+       8: astore_2
+       9: aload_0
+      10: getfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+      13: invokevirtual #123                // Method java/util/concurrent/ConcurrentHashMap.entrySet:()Ljava/util/Set;
+      16: invokeinterface #124,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      21: astore_3
+      22: aload_3
+      23: invokeinterface #125,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      28: ifeq          113
+      31: aload_3
+      32: invokeinterface #126,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      37: checkcast     #127                // class java/util/Map$Entry
+      40: astore        4
+      42: aload         4
+      44: invokeinterface #134,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      49: invokevirtual #247                // Method java/lang/Object.toString:()Ljava/lang/String;
+      52: astore        5
+      54: aload         4
+      56: invokeinterface #128,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      61: checkcast     #129                // class java/util/List
+      64: iconst_1
+      65: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      70: checkcast     #6                  // class java/util/concurrent/atomic/AtomicLong
+      73: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      76: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      79: astore        6
+      81: aload         6
+      83: invokevirtual #248                // Method java/lang/Long.longValue:()J
+      86: lconst_0
+      87: lcmp
+      88: ifle          110
+      91: aload_2
+      92: new           #238                // class org/apache/hadoop/metrics2/util/Metrics2Util$NameValuePair
+      95: dup
+      96: aload         5
+      98: aload         6
+     100: invokevirtual #248                // Method java/lang/Long.longValue:()J
+     103: invokespecial #249                // Method org/apache/hadoop/metrics2/util/Metrics2Util$NameValuePair."<init>":(Ljava/lang/String;J)V
+     106: invokevirtual #250                // Method org/apache/hadoop/metrics2/util/Metrics2Util$TopN.offer:(Lorg/apache/hadoop/metrics2/util/Metrics2Util$NameValuePair;)Z
+     109: pop
+     110: goto          22
+     113: aload_2
+     114: areturn
+
+  public java.lang.String getSchedulingDecisionSummary();
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field scheduleCacheRef:Ljava/util/concurrent/atomic/AtomicReference;
+       4: invokevirtual #162                // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+       7: checkcast     #163                // class java/util/Map
+      10: astore_1
+      11: aload_1
+      12: ifnonnull     18
+      15: ldc           #251                // String {}
+      17: areturn
+      18: getstatic     #252                // Field WRITER:Lcom/fasterxml/jackson/databind/ObjectWriter;
+      21: aload_1
+      22: invokevirtual #253                // Method com/fasterxml/jackson/databind/ObjectWriter.writeValueAsString:(Ljava/lang/Object;)Ljava/lang/String;
+      25: areturn
+      26: astore_2
+      27: new           #58                 // class java/lang/StringBuilder
+      30: dup
+      31: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      34: ldc           #254                // String Error:
+      36: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      39: aload_2
+      40: invokevirtual #215                // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+      43: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      46: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      49: areturn
+    Exception table:
+       from    to  target type
+          18    25    26   Class java/lang/Exception
+
+  public java.lang.String getCallVolumeSummary();
+    Code:
+       0: getstatic     #252                // Field WRITER:Lcom/fasterxml/jackson/databind/ObjectWriter;
+       3: aload_0
+       4: invokespecial #255                // Method getDecayedCallCosts:()Ljava/util/Map;
+       7: invokevirtual #253                // Method com/fasterxml/jackson/databind/ObjectWriter.writeValueAsString:(Ljava/lang/Object;)Ljava/lang/String;
+      10: areturn
+      11: astore_1
+      12: new           #58                 // class java/lang/StringBuilder
+      15: dup
+      16: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      19: ldc           #254                // String Error:
+      21: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      24: aload_1
+      25: invokevirtual #215                // Method java/lang/Exception.getMessage:()Ljava/lang/String;
+      28: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      31: invokevirtual #64                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      34: areturn
+    Exception table:
+       from    to  target type
+           0    10    11   Class java/lang/Exception
+
+  private java.util.Map<java.lang.Object, java.lang.Long> getDecayedCallCosts();
+    Code:
+       0: new           #13                 // class java/util/HashMap
+       3: dup
+       4: aload_0
+       5: getfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+       8: invokevirtual #202                // Method java/util/concurrent/ConcurrentHashMap.size:()I
+      11: invokespecial #256                // Method java/util/HashMap."<init>":(I)V
+      14: astore_1
+      15: aload_0
+      16: getfield      #5                  // Field callCosts:Ljava/util/concurrent/ConcurrentHashMap;
+      19: invokevirtual #123                // Method java/util/concurrent/ConcurrentHashMap.entrySet:()Ljava/util/Set;
+      22: invokeinterface #124,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      27: astore_2
+      28: aload_2
+      29: invokeinterface #125,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      34: ifeq          105
+      37: aload_2
+      38: invokeinterface #126,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      43: checkcast     #127                // class java/util/Map$Entry
+      46: astore_3
+      47: aload_3
+      48: invokeinterface #134,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      53: astore        4
+      55: aload_3
+      56: invokeinterface #128,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      61: checkcast     #129                // class java/util/List
+      64: iconst_0
+      65: invokeinterface #74,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      70: checkcast     #6                  // class java/util/concurrent/atomic/AtomicLong
+      73: invokevirtual #130                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      76: invokestatic  #135                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      79: astore        5
+      81: aload         5
+      83: invokevirtual #248                // Method java/lang/Long.longValue:()J
+      86: lconst_0
+      87: lcmp
+      88: ifle          102
+      91: aload_1
+      92: aload         4
+      94: aload         5
+      96: invokeinterface #149,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     101: pop
+     102: goto          28
+     105: aload_1
+     106: areturn
+
+  public void stop();
+    Code:
+       0: aload_0
+       1: getfield      #56                 // Field metricsProxy:Lorg/apache/hadoop/ipc/DecayRpcScheduler$MetricsProxy;
+       4: aload_0
+       5: getfield      #20                 // Field namespace:Ljava/lang/String;
+       8: invokevirtual #257                // Method org/apache/hadoop/ipc/DecayRpcScheduler$MetricsProxy.unregisterSource:(Ljava/lang/String;)V
+      11: aload_0
+      12: getfield      #20                 // Field namespace:Ljava/lang/String;
+      15: invokestatic  #258                // Method org/apache/hadoop/ipc/DecayRpcScheduler$MetricsProxy.removeInstance:(Ljava/lang/String;)V
+      18: return
+
+  static void access$000(org.apache.hadoop.ipc.DecayRpcScheduler);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method decayCurrentCosts:()V
+       4: return
+
+  static {};
+    Code:
+       0: iconst_0
+       1: invokestatic  #120                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+       4: putstatic     #118                // Field IPC_DECAYSCHEDULER_BACKOFF_RESPONSETIME_ENABLE_DEFAULT:Ljava/lang/Boolean;
+       7: ldc           #44                 // class org/apache/hadoop/ipc/DecayRpcScheduler
+       9: invokestatic  #259                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+      12: putstatic     #68                 // Field LOG:Lorg/slf4j/Logger;
+      15: new           #260                // class com/fasterxml/jackson/databind/ObjectMapper
+      18: dup
+      19: invokespecial #261                // Method com/fasterxml/jackson/databind/ObjectMapper."<init>":()V
+      22: invokevirtual #262                // Method com/fasterxml/jackson/databind/ObjectMapper.writer:()Lcom/fasterxml/jackson/databind/ObjectWriter;
+      25: putstatic     #252                // Field WRITER:Lcom/fasterxml/jackson/databind/ObjectWriter;
+      28: return
+}

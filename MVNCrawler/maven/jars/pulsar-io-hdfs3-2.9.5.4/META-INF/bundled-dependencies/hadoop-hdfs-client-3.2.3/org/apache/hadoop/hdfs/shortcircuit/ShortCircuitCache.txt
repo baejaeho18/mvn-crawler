@@ -1,0 +1,1805 @@
+Compiled from "ShortCircuitCache.java"
+public class org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache implements java.io.Closeable {
+  public static final org.slf4j.Logger LOG;
+
+  private final java.util.concurrent.locks.ReentrantLock lock;
+
+  private final java.util.concurrent.ScheduledThreadPoolExecutor cleanerExecutor;
+
+  private final java.util.concurrent.ScheduledThreadPoolExecutor releaserExecutor;
+
+  private final java.util.HashMap<org.apache.hadoop.hdfs.ExtendedBlockId, org.apache.hadoop.util.Waitable<org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplicaInfo>> replicaInfoMap;
+
+  private org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache$CacheCleaner cacheCleaner;
+
+  private final org.apache.commons.collections.map.LinkedMap evictable;
+
+  private int maxTotalSize;
+
+  private long maxNonMmappedEvictableLifespanMs;
+
+  private final org.apache.commons.collections.map.LinkedMap evictableMmapped;
+
+  private int maxEvictableMmapedSize;
+
+  private final long maxEvictableMmapedLifespanMs;
+
+  private final long mmapRetryTimeoutMs;
+
+  private final long staleThresholdMs;
+
+  private boolean closed;
+
+  private int outstandingMmapCount;
+
+  private final org.apache.hadoop.hdfs.shortcircuit.DfsClientShmManager shmManager;
+
+  static final int FETCH_OR_CREATE_RETRY_TIMES;
+
+  public static org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache fromConf(org.apache.hadoop.hdfs.client.impl.DfsClientConf$ShortCircuitConf);
+    Code:
+       0: new           #9                  // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache
+       3: dup
+       4: aload_0
+       5: invokevirtual #10                 // Method org/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf.getShortCircuitStreamsCacheSize:()I
+       8: aload_0
+       9: invokevirtual #11                 // Method org/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf.getShortCircuitStreamsCacheExpiryMs:()J
+      12: aload_0
+      13: invokevirtual #12                 // Method org/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf.getShortCircuitMmapCacheSize:()I
+      16: aload_0
+      17: invokevirtual #13                 // Method org/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf.getShortCircuitMmapCacheExpiryMs:()J
+      20: aload_0
+      21: invokevirtual #14                 // Method org/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf.getShortCircuitMmapCacheRetryTimeout:()J
+      24: aload_0
+      25: invokevirtual #15                 // Method org/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf.getShortCircuitCacheStaleThresholdMs:()J
+      28: aload_0
+      29: invokevirtual #16                 // Method org/apache/hadoop/hdfs/client/impl/DfsClientConf$ShortCircuitConf.getShortCircuitSharedMemoryWatcherInterruptCheckMs:()I
+      32: invokespecial #17                 // Method "<init>":(IJIJJJI)V
+      35: areturn
+
+  public org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache(int, long, int, long, long, long, int);
+    Code:
+       0: aload_0
+       1: invokespecial #18                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #19                 // class java/util/concurrent/locks/ReentrantLock
+       8: dup
+       9: invokespecial #20                 // Method java/util/concurrent/locks/ReentrantLock."<init>":()V
+      12: putfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+      15: aload_0
+      16: new           #21                 // class java/util/concurrent/ScheduledThreadPoolExecutor
+      19: dup
+      20: iconst_1
+      21: new           #22                 // class com/google/common/util/concurrent/ThreadFactoryBuilder
+      24: dup
+      25: invokespecial #23                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder."<init>":()V
+      28: iconst_1
+      29: invokevirtual #24                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder.setDaemon:(Z)Lcom/google/common/util/concurrent/ThreadFactoryBuilder;
+      32: ldc           #25                 // String ShortCircuitCache_Cleaner
+      34: invokevirtual #26                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder.setNameFormat:(Ljava/lang/String;)Lcom/google/common/util/concurrent/ThreadFactoryBuilder;
+      37: invokevirtual #27                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder.build:()Ljava/util/concurrent/ThreadFactory;
+      40: invokespecial #28                 // Method java/util/concurrent/ScheduledThreadPoolExecutor."<init>":(ILjava/util/concurrent/ThreadFactory;)V
+      43: putfield      #29                 // Field cleanerExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+      46: aload_0
+      47: new           #21                 // class java/util/concurrent/ScheduledThreadPoolExecutor
+      50: dup
+      51: iconst_1
+      52: new           #22                 // class com/google/common/util/concurrent/ThreadFactoryBuilder
+      55: dup
+      56: invokespecial #23                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder."<init>":()V
+      59: iconst_1
+      60: invokevirtual #24                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder.setDaemon:(Z)Lcom/google/common/util/concurrent/ThreadFactoryBuilder;
+      63: ldc           #30                 // String ShortCircuitCache_SlotReleaser
+      65: invokevirtual #26                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder.setNameFormat:(Ljava/lang/String;)Lcom/google/common/util/concurrent/ThreadFactoryBuilder;
+      68: invokevirtual #27                 // Method com/google/common/util/concurrent/ThreadFactoryBuilder.build:()Ljava/util/concurrent/ThreadFactory;
+      71: invokespecial #28                 // Method java/util/concurrent/ScheduledThreadPoolExecutor."<init>":(ILjava/util/concurrent/ThreadFactory;)V
+      74: putfield      #31                 // Field releaserExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+      77: aload_0
+      78: new           #32                 // class java/util/HashMap
+      81: dup
+      82: invokespecial #33                 // Method java/util/HashMap."<init>":()V
+      85: putfield      #34                 // Field replicaInfoMap:Ljava/util/HashMap;
+      88: aload_0
+      89: new           #35                 // class org/apache/commons/collections/map/LinkedMap
+      92: dup
+      93: invokespecial #36                 // Method org/apache/commons/collections/map/LinkedMap."<init>":()V
+      96: putfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+      99: aload_0
+     100: new           #35                 // class org/apache/commons/collections/map/LinkedMap
+     103: dup
+     104: invokespecial #36                 // Method org/apache/commons/collections/map/LinkedMap."<init>":()V
+     107: putfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+     110: aload_0
+     111: iconst_0
+     112: putfield      #7                  // Field closed:Z
+     115: aload_0
+     116: iconst_0
+     117: putfield      #38                 // Field outstandingMmapCount:I
+     120: iload_1
+     121: iflt          128
+     124: iconst_1
+     125: goto          129
+     128: iconst_0
+     129: invokestatic  #39                 // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+     132: aload_0
+     133: iload_1
+     134: putfield      #40                 // Field maxTotalSize:I
+     137: lload_2
+     138: lconst_0
+     139: lcmp
+     140: iflt          147
+     143: iconst_1
+     144: goto          148
+     147: iconst_0
+     148: invokestatic  #39                 // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+     151: aload_0
+     152: lload_2
+     153: putfield      #4                  // Field maxNonMmappedEvictableLifespanMs:J
+     156: iload         4
+     158: iflt          165
+     161: iconst_1
+     162: goto          166
+     165: iconst_0
+     166: invokestatic  #39                 // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+     169: aload_0
+     170: iload         4
+     172: putfield      #41                 // Field maxEvictableMmapedSize:I
+     175: lload         5
+     177: lconst_0
+     178: lcmp
+     179: iflt          186
+     182: iconst_1
+     183: goto          187
+     186: iconst_0
+     187: invokestatic  #39                 // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+     190: aload_0
+     191: lload         5
+     193: putfield      #2                  // Field maxEvictableMmapedLifespanMs:J
+     196: aload_0
+     197: lload         7
+     199: putfield      #42                 // Field mmapRetryTimeoutMs:J
+     202: aload_0
+     203: lload         9
+     205: putfield      #43                 // Field staleThresholdMs:J
+     208: aconst_null
+     209: astore        12
+     211: iload         11
+     213: ifle          250
+     216: invokestatic  #44                 // Method org/apache/hadoop/net/unix/DomainSocketWatcher.getLoadingFailureReason:()Ljava/lang/String;
+     219: ifnonnull     250
+     222: new           #45                 // class org/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager
+     225: dup
+     226: iload         11
+     228: invokespecial #46                 // Method org/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager."<init>":(I)V
+     231: astore        12
+     233: goto          250
+     236: astore        13
+     238: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     241: ldc           #49                 // String failed to create ShortCircuitShmManager
+     243: aload         13
+     245: invokeinterface #50,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     250: aload_0
+     251: aload         12
+     253: putfield      #1                  // Field shmManager:Lorg/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager;
+     256: return
+    Exception table:
+       from    to  target type
+         222   233   236   Class java/io/IOException
+
+  public long getStaleThresholdMs();
+    Code:
+       0: aload_0
+       1: getfield      #43                 // Field staleThresholdMs:J
+       4: lreturn
+
+  public void setMaxTotalSize(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #40                 // Field maxTotalSize:I
+       5: return
+
+  private void ref(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplica);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+       4: invokevirtual #51                 // Method java/util/concurrent/locks/ReentrantLock.lock:()V
+       7: aload_1
+       8: getfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+      11: ifle          18
+      14: iconst_1
+      15: goto          19
+      18: iconst_0
+      19: ldc           #53                 // String can\'t ref %s because its refCount reached %d
+      21: aload_1
+      22: aload_1
+      23: getfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+      26: invokestatic  #54                 // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/String;Ljava/lang/Object;I)V
+      29: aload_1
+      30: invokevirtual #55                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getEvictableTimeNs:()Ljava/lang/Long;
+      33: astore_2
+      34: aload_1
+      35: dup
+      36: getfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+      39: iconst_1
+      40: iadd
+      41: putfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+      44: aload_2
+      45: ifnull        143
+      48: aload_0
+      49: aload_1
+      50: invokespecial #56                 // Method removeEvictable:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)Ljava/lang/String;
+      53: astore_3
+      54: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      57: invokeinterface #57,  1           // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+      62: ifeq          140
+      65: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      68: new           #58                 // class java/lang/StringBuilder
+      71: dup
+      72: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      75: aload_0
+      76: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      79: ldc           #61                 // String :
+      81: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      84: aload_3
+      85: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      88: ldc           #63                 // String  no longer contains
+      90: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      93: aload_1
+      94: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      97: ldc           #64                 // String .  refCount
+      99: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     102: aload_1
+     103: getfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+     106: iconst_1
+     107: isub
+     108: invokevirtual #65                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     111: ldc           #66                 // String  ->
+     113: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     116: aload_1
+     117: getfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+     120: invokevirtual #65                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     123: invokestatic  #67                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     126: invokestatic  #68                 // Method org/apache/hadoop/util/StringUtils.getStackTrace:(Ljava/lang/Thread;)Ljava/lang/String;
+     129: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     132: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     135: invokeinterface #70,  2           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+     140: goto          211
+     143: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     146: invokeinterface #57,  1           // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+     151: ifeq          211
+     154: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     157: new           #58                 // class java/lang/StringBuilder
+     160: dup
+     161: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     164: aload_0
+     165: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     168: ldc           #71                 // String : replica  refCount
+     170: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     173: aload_1
+     174: getfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+     177: iconst_1
+     178: isub
+     179: invokevirtual #65                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     182: ldc           #66                 // String  ->
+     184: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     187: aload_1
+     188: getfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+     191: invokevirtual #65                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     194: invokestatic  #67                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     197: invokestatic  #68                 // Method org/apache/hadoop/util/StringUtils.getStackTrace:(Ljava/lang/Thread;)Ljava/lang/String;
+     200: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     203: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     206: invokeinterface #70,  2           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+     211: aload_0
+     212: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     215: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     218: goto          233
+     221: astore        4
+     223: aload_0
+     224: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     227: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     230: aload         4
+     232: athrow
+     233: return
+    Exception table:
+       from    to  target type
+           7   211   221   any
+         221   223   221   any
+
+  void unref(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplica);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+       4: invokevirtual #51                 // Method java/util/concurrent/locks/ReentrantLock.lock:()V
+       7: aload_1
+       8: getfield      #73                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.purged:Z
+      11: ifne          85
+      14: aconst_null
+      15: astore_2
+      16: aload_1
+      17: invokevirtual #74                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getDataStream:()Ljava/io/FileInputStream;
+      20: invokevirtual #75                 // Method java/io/FileInputStream.getChannel:()Ljava/nio/channels/FileChannel;
+      23: invokevirtual #76                 // Method java/nio/channels/FileChannel.isOpen:()Z
+      26: ifne          35
+      29: ldc           #77                 // String purging replica because its data channel is closed.
+      31: astore_2
+      32: goto          64
+      35: aload_1
+      36: invokevirtual #78                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getMetaStream:()Ljava/io/FileInputStream;
+      39: invokevirtual #75                 // Method java/io/FileInputStream.getChannel:()Ljava/nio/channels/FileChannel;
+      42: invokevirtual #76                 // Method java/nio/channels/FileChannel.isOpen:()Z
+      45: ifne          54
+      48: ldc           #79                 // String purging replica because its meta channel is closed.
+      50: astore_2
+      51: goto          64
+      54: aload_1
+      55: invokevirtual #80                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.isStale:()Z
+      58: ifeq          64
+      61: ldc           #81                 // String purging replica because it is stale.
+      63: astore_2
+      64: aload_2
+      65: ifnull        85
+      68: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      71: ldc           #82                 // String {}: {}
+      73: aload_0
+      74: aload_2
+      75: invokeinterface #83,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      80: aload_0
+      81: aload_1
+      82: invokespecial #3                  // Method purge:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+      85: ldc           #84                 // String
+      87: astore_2
+      88: iconst_0
+      89: istore_3
+      90: aload_1
+      91: dup
+      92: getfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+      95: iconst_1
+      96: isub
+      97: dup_x1
+      98: putfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+     101: istore        4
+     103: iload         4
+     105: ifne          125
+     108: aload_1
+     109: getfield      #73                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.purged:Z
+     112: ldc           #85                 // String Replica %s reached a refCount of 0 without being purged
+     114: aload_1
+     115: invokestatic  #86                 // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/String;Ljava/lang/Object;)V
+     118: aload_1
+     119: invokevirtual #87                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.close:()V
+     122: goto          234
+     125: iload         4
+     127: iconst_1
+     128: if_icmpne     212
+     131: aconst_null
+     132: aload_1
+     133: invokevirtual #55                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getEvictableTimeNs:()Ljava/lang/Long;
+     136: if_acmpne     143
+     139: iconst_1
+     140: goto          144
+     143: iconst_0
+     144: ldc           #88                 // String Replica %s had a refCount higher than 1, but was still evictable (evictableTimeNs = %d)
+     146: aload_1
+     147: aload_1
+     148: invokevirtual #55                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getEvictableTimeNs:()Ljava/lang/Long;
+     151: invokestatic  #89                 // Method com/google/common/base/Preconditions.checkState:(ZLjava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     154: aload_1
+     155: getfield      #73                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.purged:Z
+     158: ifne          234
+     161: aload_1
+     162: invokevirtual #90                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.hasMmap:()Z
+     165: ifeq          189
+     168: aload_0
+     169: invokestatic  #91                 // Method java/lang/System.nanoTime:()J
+     172: invokestatic  #92                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     175: aload_1
+     176: aload_0
+     177: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+     180: invokespecial #93                 // Method insertEvictable:(Ljava/lang/Long;Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;Lorg/apache/commons/collections/map/LinkedMap;)V
+     183: ldc           #94                 // String added to evictableMmapped,
+     185: astore_2
+     186: goto          207
+     189: aload_0
+     190: invokestatic  #91                 // Method java/lang/System.nanoTime:()J
+     193: invokestatic  #92                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     196: aload_1
+     197: aload_0
+     198: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+     201: invokespecial #93                 // Method insertEvictable:(Ljava/lang/Long;Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;Lorg/apache/commons/collections/map/LinkedMap;)V
+     204: ldc           #95                 // String added to evictable,
+     206: astore_2
+     207: iconst_1
+     208: istore_3
+     209: goto          234
+     212: aload_1
+     213: getfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+     216: iflt          223
+     219: iconst_1
+     220: goto          224
+     223: iconst_0
+     224: ldc           #96                 // String replica\'s refCount went negative (refCount = %d for %s)
+     226: aload_1
+     227: getfield      #52                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.refCount:I
+     230: aload_1
+     231: invokestatic  #97                 // Method com/google/common/base/Preconditions.checkArgument:(ZLjava/lang/String;ILjava/lang/Object;)V
+     234: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     237: invokeinterface #57,  1           // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+     242: ifeq          316
+     245: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     248: new           #58                 // class java/lang/StringBuilder
+     251: dup
+     252: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     255: aload_0
+     256: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     259: ldc           #98                 // String : unref replica
+     261: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     264: aload_1
+     265: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     268: ldc           #61                 // String :
+     270: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     273: aload_2
+     274: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     277: ldc           #99                 // String  refCount
+     279: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     282: iload         4
+     284: iconst_1
+     285: iadd
+     286: invokevirtual #65                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     289: ldc           #66                 // String  ->
+     291: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     294: iload         4
+     296: invokevirtual #65                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+     299: invokestatic  #67                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     302: invokestatic  #68                 // Method org/apache/hadoop/util/StringUtils.getStackTrace:(Ljava/lang/Thread;)Ljava/lang/String;
+     305: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     308: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     311: invokeinterface #70,  2           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+     316: iload_3
+     317: ifeq          324
+     320: aload_0
+     321: invokespecial #100                // Method trimEvictionMaps:()V
+     324: aload_0
+     325: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     328: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     331: goto          346
+     334: astore        5
+     336: aload_0
+     337: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     340: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     343: aload         5
+     345: athrow
+     346: return
+    Exception table:
+       from    to  target type
+           7   324   334   any
+         334   336   334   any
+
+  private int demoteOldEvictableMmaped(long);
+    Code:
+       0: iconst_0
+       1: istore_3
+       2: iconst_0
+       3: istore        4
+       5: aload_0
+       6: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+       9: invokevirtual #101                // Method org/apache/commons/collections/map/LinkedMap.isEmpty:()Z
+      12: ifne          204
+      15: aload_0
+      16: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+      19: invokevirtual #102                // Method org/apache/commons/collections/map/LinkedMap.firstKey:()Ljava/lang/Object;
+      22: astore        6
+      24: aload         6
+      26: checkcast     #103                // class java/lang/Long
+      29: astore        5
+      31: getstatic     #104                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      34: aload         5
+      36: invokevirtual #105                // Method java/lang/Long.longValue:()J
+      39: getstatic     #106                // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+      42: invokevirtual #107                // Method java/util/concurrent/TimeUnit.convert:(JLjava/util/concurrent/TimeUnit;)J
+      45: lstore        7
+      47: lload         7
+      49: aload_0
+      50: getfield      #2                  // Field maxEvictableMmapedLifespanMs:J
+      53: ladd
+      54: lload_1
+      55: lcmp
+      56: iflt          79
+      59: aload_0
+      60: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+      63: invokevirtual #108                // Method org/apache/commons/collections/map/LinkedMap.size:()I
+      66: aload_0
+      67: getfield      #41                 // Field maxEvictableMmapedSize:I
+      70: if_icmpge     76
+      73: goto          204
+      76: iconst_1
+      77: istore        4
+      79: aload_0
+      80: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+      83: aload         6
+      85: invokevirtual #109                // Method org/apache/commons/collections/map/LinkedMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      88: checkcast     #110                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica
+      91: astore        9
+      93: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      96: invokeinterface #57,  1           // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+     101: ifeq          170
+     104: iload         4
+     106: ifeq          114
+     109: ldc           #111                // String because we need more space
+     111: goto          116
+     114: ldc           #112                // String because it\'s too old
+     116: astore        10
+     118: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     121: new           #58                 // class java/lang/StringBuilder
+     124: dup
+     125: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     128: ldc           #113                // String demoteOldEvictable: demoting
+     130: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     133: aload         9
+     135: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     138: ldc           #61                 // String :
+     140: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     143: aload         10
+     145: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     148: ldc           #61                 // String :
+     150: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     153: invokestatic  #67                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     156: invokestatic  #68                 // Method org/apache/hadoop/util/StringUtils.getStackTrace:(Ljava/lang/Thread;)Ljava/lang/String;
+     159: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     162: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     165: invokeinterface #70,  2           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+     170: aload_0
+     171: aload         9
+     173: aload_0
+     174: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+     177: invokespecial #114                // Method removeEvictable:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;Lorg/apache/commons/collections/map/LinkedMap;)V
+     180: aload_0
+     181: aload         9
+     183: invokespecial #115                // Method munmap:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+     186: aload_0
+     187: aload         5
+     189: aload         9
+     191: aload_0
+     192: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+     195: invokespecial #93                 // Method insertEvictable:(Ljava/lang/Long;Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;Lorg/apache/commons/collections/map/LinkedMap;)V
+     198: iinc          3, 1
+     201: goto          5
+     204: iload_3
+     205: ireturn
+
+  private void trimEvictionMaps();
+    Code:
+       0: invokestatic  #116                // Method org/apache/hadoop/util/Time.monotonicNow:()J
+       3: lstore_1
+       4: aload_0
+       5: lload_1
+       6: invokespecial #6                  // Method demoteOldEvictableMmaped:(J)I
+       9: pop
+      10: aload_0
+      11: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+      14: invokevirtual #108                // Method org/apache/commons/collections/map/LinkedMap.size:()I
+      17: aload_0
+      18: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+      21: invokevirtual #108                // Method org/apache/commons/collections/map/LinkedMap.size:()I
+      24: iadd
+      25: aload_0
+      26: getfield      #40                 // Field maxTotalSize:I
+      29: if_icmple     140
+      32: aload_0
+      33: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+      36: invokevirtual #101                // Method org/apache/commons/collections/map/LinkedMap.isEmpty:()Z
+      39: ifeq          63
+      42: aload_0
+      43: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+      46: aload_0
+      47: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+      50: invokevirtual #102                // Method org/apache/commons/collections/map/LinkedMap.firstKey:()Ljava/lang/Object;
+      53: invokevirtual #109                // Method org/apache/commons/collections/map/LinkedMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      56: checkcast     #110                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica
+      59: astore_3
+      60: goto          81
+      63: aload_0
+      64: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+      67: aload_0
+      68: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+      71: invokevirtual #102                // Method org/apache/commons/collections/map/LinkedMap.firstKey:()Ljava/lang/Object;
+      74: invokevirtual #109                // Method org/apache/commons/collections/map/LinkedMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      77: checkcast     #110                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica
+      80: astore_3
+      81: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      84: invokeinterface #57,  1           // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+      89: ifeq          132
+      92: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      95: new           #58                 // class java/lang/StringBuilder
+      98: dup
+      99: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     102: aload_0
+     103: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     106: ldc           #117                // String : trimEvictionMaps is purging
+     108: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     111: aload_3
+     112: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     115: invokestatic  #67                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     118: invokestatic  #68                 // Method org/apache/hadoop/util/StringUtils.getStackTrace:(Ljava/lang/Thread;)Ljava/lang/String;
+     121: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     124: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     127: invokeinterface #70,  2           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+     132: aload_0
+     133: aload_3
+     134: invokespecial #3                  // Method purge:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+     137: goto          10
+     140: return
+
+  private void munmap(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplica);
+    Code:
+       0: aload_1
+       1: invokevirtual #118                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.munmap:()V
+       4: aload_0
+       5: dup
+       6: getfield      #38                 // Field outstandingMmapCount:I
+       9: iconst_1
+      10: isub
+      11: putfield      #38                 // Field outstandingMmapCount:I
+      14: return
+
+  private java.lang.String removeEvictable(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplica);
+    Code:
+       0: aload_1
+       1: invokevirtual #90                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.hasMmap:()Z
+       4: ifeq          19
+       7: aload_0
+       8: aload_1
+       9: aload_0
+      10: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+      13: invokespecial #114                // Method removeEvictable:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;Lorg/apache/commons/collections/map/LinkedMap;)V
+      16: ldc           #119                // String evictableMmapped
+      18: areturn
+      19: aload_0
+      20: aload_1
+      21: aload_0
+      22: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+      25: invokespecial #114                // Method removeEvictable:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;Lorg/apache/commons/collections/map/LinkedMap;)V
+      28: ldc           #120                // String evictable
+      30: areturn
+
+  private void removeEvictable(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplica, org.apache.commons.collections.map.LinkedMap);
+    Code:
+       0: aload_1
+       1: invokevirtual #55                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getEvictableTimeNs:()Ljava/lang/Long;
+       4: astore_3
+       5: aload_3
+       6: invokestatic  #121                // Method com/google/common/base/Preconditions.checkNotNull:(Ljava/lang/Object;)Ljava/lang/Object;
+       9: pop
+      10: aload_2
+      11: aload_3
+      12: invokevirtual #122                // Method org/apache/commons/collections/map/LinkedMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      15: checkcast     #110                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica
+      18: astore        4
+      20: aload         4
+      22: aload_1
+      23: if_acmpne     30
+      26: iconst_1
+      27: goto          31
+      30: iconst_0
+      31: ldc           #123                // String failed to make %s unevictable
+      33: aload_1
+      34: invokestatic  #124                // Method com/google/common/base/Preconditions.checkState:(ZLjava/lang/String;Ljava/lang/Object;)V
+      37: aload_1
+      38: aconst_null
+      39: invokevirtual #125                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.setEvictableTimeNs:(Ljava/lang/Long;)V
+      42: return
+
+  private void insertEvictable(java.lang.Long, org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplica, org.apache.commons.collections.map.LinkedMap);
+    Code:
+       0: aload_3
+       1: aload_1
+       2: invokevirtual #126                // Method org/apache/commons/collections/map/LinkedMap.containsKey:(Ljava/lang/Object;)Z
+       5: ifeq          30
+       8: aload_1
+       9: astore        4
+      11: aload_1
+      12: invokevirtual #105                // Method java/lang/Long.longValue:()J
+      15: lconst_1
+      16: ladd
+      17: invokestatic  #92                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      20: dup
+      21: astore_1
+      22: astore        5
+      24: aload         4
+      26: pop
+      27: goto          0
+      30: aconst_null
+      31: aload_2
+      32: invokevirtual #55                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getEvictableTimeNs:()Ljava/lang/Long;
+      35: if_acmpne     42
+      38: iconst_1
+      39: goto          43
+      42: iconst_0
+      43: invokestatic  #127                // Method com/google/common/base/Preconditions.checkState:(Z)V
+      46: aload_2
+      47: aload_1
+      48: invokevirtual #125                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.setEvictableTimeNs:(Ljava/lang/Long;)V
+      51: aload_3
+      52: aload_1
+      53: aload_2
+      54: invokevirtual #128                // Method org/apache/commons/collections/map/LinkedMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+      57: pop
+      58: return
+
+  private void purge(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplica);
+    Code:
+       0: iconst_0
+       1: istore_2
+       2: aconst_null
+       3: astore_3
+       4: aload_1
+       5: getfield      #73                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.purged:Z
+       8: ifne          15
+      11: iconst_1
+      12: goto          16
+      15: iconst_0
+      16: invokestatic  #39                 // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+      19: aload_1
+      20: iconst_1
+      21: putfield      #73                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.purged:Z
+      24: aload_0
+      25: getfield      #34                 // Field replicaInfoMap:Ljava/util/HashMap;
+      28: aload_1
+      29: getfield      #129                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.key:Lorg/apache/hadoop/hdfs/ExtendedBlockId;
+      32: invokevirtual #130                // Method java/util/HashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      35: checkcast     #131                // class org/apache/hadoop/util/Waitable
+      38: astore        4
+      40: aload         4
+      42: ifnull        83
+      45: aload         4
+      47: invokevirtual #132                // Method org/apache/hadoop/util/Waitable.getVal:()Ljava/lang/Object;
+      50: checkcast     #133                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo
+      53: astore        5
+      55: aload         5
+      57: ifnull        83
+      60: aload         5
+      62: invokevirtual #134                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getReplica:()Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      65: aload_1
+      66: if_acmpne     83
+      69: aload_0
+      70: getfield      #34                 // Field replicaInfoMap:Ljava/util/HashMap;
+      73: aload_1
+      74: getfield      #129                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.key:Lorg/apache/hadoop/hdfs/ExtendedBlockId;
+      77: invokevirtual #135                // Method java/util/HashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+      80: pop
+      81: iconst_1
+      82: istore_2
+      83: aload_1
+      84: invokevirtual #55                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.getEvictableTimeNs:()Ljava/lang/Long;
+      87: astore        5
+      89: aload         5
+      91: ifnull        100
+      94: aload_0
+      95: aload_1
+      96: invokespecial #56                 // Method removeEvictable:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)Ljava/lang/String;
+      99: astore_3
+     100: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     103: invokeinterface #57,  1           // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+     108: ifeq          187
+     111: new           #58                 // class java/lang/StringBuilder
+     114: dup
+     115: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     118: astore        6
+     120: aload         6
+     122: aload_0
+     123: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     126: ldc           #61                 // String :
+     128: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     131: ldc           #136                // String : purged
+     133: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     136: aload_1
+     137: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     140: ldc           #137                // String  from the cache.
+     142: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     145: pop
+     146: iload_2
+     147: ifeq          158
+     150: aload         6
+     152: ldc           #138                // String   Removed from the replicaInfoMap.
+     154: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     157: pop
+     158: aload_3
+     159: ifnull        174
+     162: aload         6
+     164: ldc           #139                // String   Removed from
+     166: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     169: aload_3
+     170: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     173: pop
+     174: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     177: aload         6
+     179: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     182: invokeinterface #70,  2           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+     187: aload_0
+     188: aload_1
+     189: invokevirtual #140                // Method unref:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+     192: return
+
+  public org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplicaInfo fetchOrCreate(org.apache.hadoop.hdfs.ExtendedBlockId, org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache$ShortCircuitReplicaCreator);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+       4: invokevirtual #51                 // Method java/util/concurrent/locks/ReentrantLock.lock:()V
+       7: aconst_null
+       8: astore        4
+      10: iconst_0
+      11: istore        5
+      13: iload         5
+      15: iconst_3
+      16: if_icmpge     105
+      19: aload_0
+      20: getfield      #7                  // Field closed:Z
+      23: ifeq          51
+      26: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      29: ldc           #141                // String {}: can\'t fethchOrCreate {} because the cache is closed.
+      31: aload_0
+      32: aload_1
+      33: invokeinterface #142,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      38: aconst_null
+      39: astore        6
+      41: aload_0
+      42: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+      45: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+      48: aload         6
+      50: areturn
+      51: aload_0
+      52: getfield      #34                 // Field replicaInfoMap:Ljava/util/HashMap;
+      55: aload_1
+      56: invokevirtual #130                // Method java/util/HashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+      59: checkcast     #131                // class org/apache/hadoop/util/Waitable
+      62: astore        6
+      64: aload         6
+      66: ifnull        99
+      69: aload_0
+      70: aload_1
+      71: aload         6
+      73: invokevirtual #143                // Method fetch:(Lorg/apache/hadoop/hdfs/ExtendedBlockId;Lorg/apache/hadoop/util/Waitable;)Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo;
+      76: astore        4
+      78: goto          105
+      81: astore        7
+      83: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      86: ldc           #145                // String {}: retrying {}
+      88: aload_0
+      89: aload         7
+      91: invokevirtual #146                // Method org/apache/hadoop/ipc/RetriableException.getMessage:()Ljava/lang/String;
+      94: invokeinterface #83,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      99: iinc          5, 1
+     102: goto          13
+     105: aload         4
+     107: ifnull        124
+     110: aload         4
+     112: astore        5
+     114: aload_0
+     115: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     118: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     121: aload         5
+     123: areturn
+     124: new           #131                // class org/apache/hadoop/util/Waitable
+     127: dup
+     128: aload_0
+     129: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     132: invokevirtual #147                // Method java/util/concurrent/locks/ReentrantLock.newCondition:()Ljava/util/concurrent/locks/Condition;
+     135: invokespecial #148                // Method org/apache/hadoop/util/Waitable."<init>":(Ljava/util/concurrent/locks/Condition;)V
+     138: astore_3
+     139: aload_0
+     140: getfield      #34                 // Field replicaInfoMap:Ljava/util/HashMap;
+     143: aload_1
+     144: aload_3
+     145: invokevirtual #149                // Method java/util/HashMap.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     148: pop
+     149: aload_0
+     150: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     153: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     156: goto          171
+     159: astore        8
+     161: aload_0
+     162: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     165: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     168: aload         8
+     170: athrow
+     171: aload_0
+     172: aload_1
+     173: aload_2
+     174: aload_3
+     175: invokespecial #150                // Method create:(Lorg/apache/hadoop/hdfs/ExtendedBlockId;Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$ShortCircuitReplicaCreator;Lorg/apache/hadoop/util/Waitable;)Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo;
+     178: areturn
+    Exception table:
+       from    to  target type
+          69    78    81   Class org/apache/hadoop/ipc/RetriableException
+           7    41   159   any
+          51   114   159   any
+         124   149   159   any
+         159   161   159   any
+
+  protected org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplicaInfo fetch(org.apache.hadoop.hdfs.ExtendedBlockId, org.apache.hadoop.util.Waitable<org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplicaInfo>) throws org.apache.hadoop.ipc.RetriableException;
+    Code:
+       0: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+       3: ldc           #151                // String {}: found waitable for {}
+       5: aload_0
+       6: aload_1
+       7: invokeinterface #142,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      12: aload_2
+      13: invokevirtual #152                // Method org/apache/hadoop/util/Waitable.await:()Ljava/lang/Object;
+      16: checkcast     #133                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo
+      19: astore_3
+      20: goto          72
+      23: astore        4
+      25: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      28: new           #58                 // class java/lang/StringBuilder
+      31: dup
+      32: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      35: aload_0
+      36: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      39: ldc           #154                // String : interrupted while waiting for
+      41: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      44: aload_1
+      45: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      48: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      51: invokeinterface #155,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      56: invokestatic  #67                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      59: invokevirtual #156                // Method java/lang/Thread.interrupt:()V
+      62: new           #144                // class org/apache/hadoop/ipc/RetriableException
+      65: dup
+      66: ldc           #157                // String interrupted
+      68: invokespecial #158                // Method org/apache/hadoop/ipc/RetriableException."<init>":(Ljava/lang/String;)V
+      71: athrow
+      72: aload_3
+      73: invokevirtual #159                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getInvalidTokenException:()Lorg/apache/hadoop/security/token/SecretManager$InvalidToken;
+      76: ifnull        121
+      79: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      82: new           #58                 // class java/lang/StringBuilder
+      85: dup
+      86: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      89: aload_0
+      90: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      93: ldc           #160                // String : could not get
+      95: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      98: aload_1
+      99: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     102: ldc           #161                // String  due to InvalidToken exception.
+     104: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     107: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     110: aload_3
+     111: invokevirtual #159                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getInvalidTokenException:()Lorg/apache/hadoop/security/token/SecretManager$InvalidToken;
+     114: invokeinterface #162,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     119: aload_3
+     120: areturn
+     121: aload_3
+     122: invokevirtual #134                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getReplica:()Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+     125: astore        4
+     127: aload         4
+     129: ifnonnull     165
+     132: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     135: new           #58                 // class java/lang/StringBuilder
+     138: dup
+     139: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     142: aload_0
+     143: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     146: ldc           #163                // String : failed to get
+     148: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     151: aload_1
+     152: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     155: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     158: invokeinterface #164,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     163: aload_3
+     164: areturn
+     165: aload         4
+     167: getfield      #73                 // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.purged:Z
+     170: ifeq          206
+     173: new           #144                // class org/apache/hadoop/ipc/RetriableException
+     176: dup
+     177: new           #58                 // class java/lang/StringBuilder
+     180: dup
+     181: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     184: ldc           #165                // String Ignoring purged replica
+     186: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     189: aload         4
+     191: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     194: ldc           #166                // String .  Retrying.
+     196: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     199: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     202: invokespecial #158                // Method org/apache/hadoop/ipc/RetriableException."<init>":(Ljava/lang/String;)V
+     205: athrow
+     206: aload         4
+     208: invokevirtual #80                 // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.isStale:()Z
+     211: ifeq          285
+     214: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     217: new           #58                 // class java/lang/StringBuilder
+     220: dup
+     221: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     224: aload_0
+     225: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     228: ldc           #167                // String : got stale replica
+     230: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     233: aload         4
+     235: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     238: ldc           #168                // String .  Removing this replica from the replicaInfoMap and retrying.
+     240: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     243: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     246: invokeinterface #155,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+     251: aload_0
+     252: aload         4
+     254: invokespecial #3                  // Method purge:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+     257: new           #144                // class org/apache/hadoop/ipc/RetriableException
+     260: dup
+     261: new           #58                 // class java/lang/StringBuilder
+     264: dup
+     265: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     268: ldc           #169                // String ignoring stale replica
+     270: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     273: aload         4
+     275: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     278: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     281: invokespecial #158                // Method org/apache/hadoop/ipc/RetriableException."<init>":(Ljava/lang/String;)V
+     284: athrow
+     285: aload_0
+     286: aload         4
+     288: invokespecial #170                // Method ref:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+     291: aload_3
+     292: areturn
+    Exception table:
+       from    to  target type
+           0    20    23   Class java/lang/InterruptedException
+
+  private org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplicaInfo create(org.apache.hadoop.hdfs.ExtendedBlockId, org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache$ShortCircuitReplicaCreator, org.apache.hadoop.util.Waitable<org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplicaInfo>);
+    Code:
+       0: aconst_null
+       1: astore        4
+       3: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+       6: ldc           #171                // String {}: loading {}
+       8: aload_0
+       9: aload_1
+      10: invokeinterface #142,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      15: aload_2
+      16: invokeinterface #172,  1          // InterfaceMethod org/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$ShortCircuitReplicaCreator.createShortCircuitReplicaInfo:()Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo;
+      21: astore        4
+      23: goto          61
+      26: astore        5
+      28: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      31: new           #58                 // class java/lang/StringBuilder
+      34: dup
+      35: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      38: aload_0
+      39: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      42: ldc           #174                // String : failed to load
+      44: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      47: aload_1
+      48: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      51: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      54: aload         5
+      56: invokeinterface #175,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      61: aload         4
+      63: ifnonnull     75
+      66: new           #133                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo
+      69: dup
+      70: invokespecial #176                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo."<init>":()V
+      73: astore        4
+      75: aload_0
+      76: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+      79: invokevirtual #51                 // Method java/util/concurrent/locks/ReentrantLock.lock:()V
+      82: aload         4
+      84: invokevirtual #134                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getReplica:()Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      87: ifnull        113
+      90: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      93: ldc           #177                // String {}: successfully loaded {}
+      95: aload_0
+      96: aload         4
+      98: invokevirtual #134                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getReplica:()Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+     101: invokeinterface #142,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     106: aload_0
+     107: invokespecial #178                // Method startCacheCleanerThreadIfNeeded:()V
+     110: goto          224
+     113: aload_0
+     114: getfield      #34                 // Field replicaInfoMap:Ljava/util/HashMap;
+     117: aload_1
+     118: invokevirtual #130                // Method java/util/HashMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     121: checkcast     #131                // class org/apache/hadoop/util/Waitable
+     124: astore        5
+     126: aload         5
+     128: aload_3
+     129: if_acmpne     141
+     132: aload_0
+     133: getfield      #34                 // Field replicaInfoMap:Ljava/util/HashMap;
+     136: aload_1
+     137: invokevirtual #135                // Method java/util/HashMap.remove:(Ljava/lang/Object;)Ljava/lang/Object;
+     140: pop
+     141: aload         4
+     143: invokevirtual #159                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getInvalidTokenException:()Lorg/apache/hadoop/security/token/SecretManager$InvalidToken;
+     146: ifnull        193
+     149: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     152: new           #58                 // class java/lang/StringBuilder
+     155: dup
+     156: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     159: aload_0
+     160: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     163: ldc           #179                // String : could not load
+     165: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     168: aload_1
+     169: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     172: ldc           #161                // String  due to InvalidToken exception.
+     174: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     177: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     180: aload         4
+     182: invokevirtual #159                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getInvalidTokenException:()Lorg/apache/hadoop/security/token/SecretManager$InvalidToken;
+     185: invokeinterface #162,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     190: goto          224
+     193: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     196: new           #58                 // class java/lang/StringBuilder
+     199: dup
+     200: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+     203: aload_0
+     204: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     207: ldc           #174                // String : failed to load
+     209: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     212: aload_1
+     213: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     216: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     219: invokeinterface #164,  2          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;)V
+     224: aload_3
+     225: aload         4
+     227: invokevirtual #180                // Method org/apache/hadoop/util/Waitable.provide:(Ljava/lang/Object;)V
+     230: aload_0
+     231: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     234: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     237: goto          252
+     240: astore        6
+     242: aload_0
+     243: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     246: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     249: aload         6
+     251: athrow
+     252: aload         4
+     254: areturn
+    Exception table:
+       from    to  target type
+           3    23    26   Class java/lang/RuntimeException
+          82   230   240   any
+         240   242   240   any
+
+  private void startCacheCleanerThreadIfNeeded();
+    Code:
+       0: aload_0
+       1: getfield      #181                // Field cacheCleaner:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheCleaner;
+       4: ifnonnull     68
+       7: aload_0
+       8: new           #182                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheCleaner
+      11: dup
+      12: aload_0
+      13: aconst_null
+      14: invokespecial #183                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheCleaner."<init>":(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache;Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$1;)V
+      17: putfield      #181                // Field cacheCleaner:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheCleaner;
+      20: aload_0
+      21: getfield      #181                // Field cacheCleaner:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheCleaner;
+      24: invokevirtual #184                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheCleaner.getRateInMs:()J
+      27: lstore_1
+      28: aload_0
+      29: getfield      #29                 // Field cleanerExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+      32: aload_0
+      33: getfield      #181                // Field cacheCleaner:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheCleaner;
+      36: lload_1
+      37: lload_1
+      38: getstatic     #104                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      41: invokevirtual #185                // Method java/util/concurrent/ScheduledThreadPoolExecutor.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+      44: astore_3
+      45: aload_0
+      46: getfield      #181                // Field cacheCleaner:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheCleaner;
+      49: aload_3
+      50: invokevirtual #186                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheCleaner.setFuture:(Ljava/util/concurrent/ScheduledFuture;)V
+      53: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      56: ldc           #187                // String {}: starting cache cleaner thread which will run every {} ms
+      58: aload_0
+      59: lload_1
+      60: invokestatic  #92                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      63: invokeinterface #83,  4           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      68: return
+
+  org.apache.hadoop.hdfs.shortcircuit.ClientMmap getOrCreateClientMmap(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplica, boolean);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+       4: invokevirtual #51                 // Method java/util/concurrent/locks/ReentrantLock.lock:()V
+       7: aload_1
+       8: getfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+      11: ifnull        225
+      14: aload_1
+      15: getfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+      18: instanceof    #189                // class java/nio/MappedByteBuffer
+      21: ifeq          61
+      24: aload_0
+      25: aload_1
+      26: invokespecial #170                // Method ref:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+      29: aload_1
+      30: getfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+      33: checkcast     #189                // class java/nio/MappedByteBuffer
+      36: astore        4
+      38: new           #190                // class org/apache/hadoop/hdfs/shortcircuit/ClientMmap
+      41: dup
+      42: aload_1
+      43: aload         4
+      45: iload_2
+      46: invokespecial #191                // Method org/apache/hadoop/hdfs/shortcircuit/ClientMmap."<init>":(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;Ljava/nio/MappedByteBuffer;Z)V
+      49: astore        5
+      51: aload_0
+      52: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+      55: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+      58: aload         5
+      60: areturn
+      61: aload_1
+      62: getfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+      65: instanceof    #103                // class java/lang/Long
+      68: ifeq          177
+      71: aload_1
+      72: getfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+      75: checkcast     #103                // class java/lang/Long
+      78: invokevirtual #105                // Method java/lang/Long.longValue:()J
+      81: lstore        4
+      83: invokestatic  #116                // Method org/apache/hadoop/util/Time.monotonicNow:()J
+      86: lload         4
+      88: lsub
+      89: lstore        6
+      91: lload         6
+      93: aload_0
+      94: getfield      #42                 // Field mmapRetryTimeoutMs:J
+      97: lcmp
+      98: ifge          144
+     101: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     104: ldc           #192                // String {}: can\'t create client mmap for {} because we failed to create one just {}ms ago.
+     106: iconst_3
+     107: anewarray     #193                // class java/lang/Object
+     110: dup
+     111: iconst_0
+     112: aload_0
+     113: aastore
+     114: dup
+     115: iconst_1
+     116: aload_1
+     117: aastore
+     118: dup
+     119: iconst_2
+     120: lload         6
+     122: invokestatic  #92                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     125: aastore
+     126: invokeinterface #194,  3          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+     131: aconst_null
+     132: astore        8
+     134: aload_0
+     135: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     138: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     141: aload         8
+     143: areturn
+     144: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     147: ldc           #195                // String {}: retrying client mmap for {}, {} ms after the previous failure.
+     149: iconst_3
+     150: anewarray     #193                // class java/lang/Object
+     153: dup
+     154: iconst_0
+     155: aload_0
+     156: aastore
+     157: dup
+     158: iconst_1
+     159: aload_1
+     160: aastore
+     161: dup
+     162: iconst_2
+     163: lload         6
+     165: invokestatic  #92                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     168: aastore
+     169: invokeinterface #194,  3          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;[Ljava/lang/Object;)V
+     174: goto          7
+     177: aload_1
+     178: getfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+     181: instanceof    #196                // class java/util/concurrent/locks/Condition
+     184: ifeq          206
+     187: aload_1
+     188: getfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+     191: checkcast     #196                // class java/util/concurrent/locks/Condition
+     194: astore        4
+     196: aload         4
+     198: invokeinterface #197,  1          // InterfaceMethod java/util/concurrent/locks/Condition.awaitUninterruptibly:()V
+     203: goto          7
+     206: iconst_0
+     207: ldc           #198                // String invalid mmapData type %s
+     209: aload_1
+     210: getfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+     213: invokevirtual #199                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     216: invokevirtual #200                // Method java/lang/Class.getName:()Ljava/lang/String;
+     219: invokestatic  #124                // Method com/google/common/base/Preconditions.checkState:(ZLjava/lang/String;Ljava/lang/Object;)V
+     222: goto          7
+     225: aload_0
+     226: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     229: invokevirtual #147                // Method java/util/concurrent/locks/ReentrantLock.newCondition:()Ljava/util/concurrent/locks/Condition;
+     232: astore_3
+     233: aload_1
+     234: aload_3
+     235: putfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+     238: aload_0
+     239: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     242: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     245: goto          260
+     248: astore        9
+     250: aload_0
+     251: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     254: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     257: aload         9
+     259: athrow
+     260: aload_1
+     261: invokevirtual #201                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.loadMmapInternal:()Ljava/nio/MappedByteBuffer;
+     264: astore        4
+     266: aload_0
+     267: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     270: invokevirtual #51                 // Method java/util/concurrent/locks/ReentrantLock.lock:()V
+     273: aload         4
+     275: ifnonnull     307
+     278: aload_1
+     279: invokestatic  #116                // Method org/apache/hadoop/util/Time.monotonicNow:()J
+     282: invokestatic  #92                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     285: putfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+     288: aload_3
+     289: invokeinterface #202,  1          // InterfaceMethod java/util/concurrent/locks/Condition.signalAll:()V
+     294: aconst_null
+     295: astore        5
+     297: aload_0
+     298: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     301: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     304: aload         5
+     306: areturn
+     307: aload_0
+     308: dup
+     309: getfield      #38                 // Field outstandingMmapCount:I
+     312: iconst_1
+     313: iadd
+     314: putfield      #38                 // Field outstandingMmapCount:I
+     317: aload_1
+     318: aload         4
+     320: putfield      #188                // Field org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica.mmapData:Ljava/lang/Object;
+     323: aload_0
+     324: aload_1
+     325: invokespecial #170                // Method ref:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+     328: aload_3
+     329: invokeinterface #202,  1          // InterfaceMethod java/util/concurrent/locks/Condition.signalAll:()V
+     334: new           #190                // class org/apache/hadoop/hdfs/shortcircuit/ClientMmap
+     337: dup
+     338: aload_1
+     339: aload         4
+     341: iload_2
+     342: invokespecial #191                // Method org/apache/hadoop/hdfs/shortcircuit/ClientMmap."<init>":(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;Ljava/nio/MappedByteBuffer;Z)V
+     345: astore        5
+     347: aload_0
+     348: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     351: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     354: aload         5
+     356: areturn
+     357: astore        10
+     359: aload_0
+     360: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     363: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     366: aload         10
+     368: athrow
+    Exception table:
+       from    to  target type
+           7    51   248   any
+          61   134   248   any
+         144   238   248   any
+         248   250   248   any
+         273   297   357   any
+         307   347   357   any
+         357   359   357   any
+
+  public void close();
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+       4: invokevirtual #51                 // Method java/util/concurrent/locks/ReentrantLock.lock:()V
+       7: aload_0
+       8: getfield      #7                  // Field closed:Z
+      11: ifeq          22
+      14: aload_0
+      15: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+      18: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+      21: return
+      22: aload_0
+      23: iconst_1
+      24: putfield      #7                  // Field closed:Z
+      27: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      30: new           #58                 // class java/lang/StringBuilder
+      33: dup
+      34: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+      37: aload_0
+      38: invokevirtual #60                 // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      41: ldc           #203                // String : closing
+      43: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      46: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      49: invokeinterface #155,  2          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;)V
+      54: aload_0
+      55: lconst_0
+      56: putfield      #4                  // Field maxNonMmappedEvictableLifespanMs:J
+      59: aload_0
+      60: iconst_0
+      61: putfield      #41                 // Field maxEvictableMmapedSize:I
+      64: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+      67: iconst_1
+      68: anewarray     #204                // class java/io/Closeable
+      71: dup
+      72: iconst_0
+      73: aload_0
+      74: getfield      #181                // Field cacheCleaner:Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheCleaner;
+      77: aastore
+      78: invokestatic  #205                // Method org/apache/hadoop/hdfs/util/IOUtilsClient.cleanupWithLogger:(Lorg/slf4j/Logger;[Ljava/io/Closeable;)V
+      81: aload_0
+      82: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+      85: invokevirtual #101                // Method org/apache/commons/collections/map/LinkedMap.isEmpty:()Z
+      88: ifne          117
+      91: aload_0
+      92: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+      95: invokevirtual #102                // Method org/apache/commons/collections/map/LinkedMap.firstKey:()Ljava/lang/Object;
+      98: astore_1
+      99: aload_0
+     100: aload_0
+     101: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+     104: aload_1
+     105: invokevirtual #109                // Method org/apache/commons/collections/map/LinkedMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     108: checkcast     #110                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica
+     111: invokespecial #3                  // Method purge:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+     114: goto          81
+     117: aload_0
+     118: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+     121: invokevirtual #101                // Method org/apache/commons/collections/map/LinkedMap.isEmpty:()Z
+     124: ifne          153
+     127: aload_0
+     128: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+     131: invokevirtual #102                // Method org/apache/commons/collections/map/LinkedMap.firstKey:()Ljava/lang/Object;
+     134: astore_1
+     135: aload_0
+     136: aload_0
+     137: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+     140: aload_1
+     141: invokevirtual #109                // Method org/apache/commons/collections/map/LinkedMap.get:(Ljava/lang/Object;)Ljava/lang/Object;
+     144: checkcast     #110                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica
+     147: invokespecial #3                  // Method purge:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+     150: goto          117
+     153: aload_0
+     154: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     157: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     160: goto          173
+     163: astore_2
+     164: aload_0
+     165: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     168: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     171: aload_2
+     172: athrow
+     173: aload_0
+     174: getfield      #31                 // Field releaserExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+     177: invokevirtual #206                // Method java/util/concurrent/ScheduledThreadPoolExecutor.shutdown:()V
+     180: aload_0
+     181: getfield      #29                 // Field cleanerExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+     184: invokevirtual #206                // Method java/util/concurrent/ScheduledThreadPoolExecutor.shutdown:()V
+     187: aload_0
+     188: getfield      #31                 // Field releaserExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+     191: ldc2_w        #207                // long 30l
+     194: getstatic     #209                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     197: invokevirtual #210                // Method java/util/concurrent/ScheduledThreadPoolExecutor.awaitTermination:(JLjava/util/concurrent/TimeUnit;)Z
+     200: ifne          221
+     203: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     206: ldc           #211                // String Forcing SlotReleaserThreadPool to shutdown!
+     208: invokeinterface #212,  2          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+     213: aload_0
+     214: getfield      #31                 // Field releaserExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+     217: invokevirtual #213                // Method java/util/concurrent/ScheduledThreadPoolExecutor.shutdownNow:()Ljava/util/List;
+     220: pop
+     221: goto          250
+     224: astore_1
+     225: aload_0
+     226: getfield      #31                 // Field releaserExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+     229: invokevirtual #213                // Method java/util/concurrent/ScheduledThreadPoolExecutor.shutdownNow:()Ljava/util/List;
+     232: pop
+     233: invokestatic  #67                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     236: invokevirtual #156                // Method java/lang/Thread.interrupt:()V
+     239: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     242: ldc           #214                // String Interrupted while waiting for SlotReleaserThreadPool to terminate
+     244: aload_1
+     245: invokeinterface #50,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     250: aload_0
+     251: getfield      #29                 // Field cleanerExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+     254: ldc2_w        #207                // long 30l
+     257: getstatic     #209                // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     260: invokevirtual #210                // Method java/util/concurrent/ScheduledThreadPoolExecutor.awaitTermination:(JLjava/util/concurrent/TimeUnit;)Z
+     263: ifne          284
+     266: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     269: ldc           #215                // String Forcing CleanerThreadPool to shutdown!
+     271: invokeinterface #212,  2          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;)V
+     276: aload_0
+     277: getfield      #29                 // Field cleanerExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+     280: invokevirtual #213                // Method java/util/concurrent/ScheduledThreadPoolExecutor.shutdownNow:()Ljava/util/List;
+     283: pop
+     284: goto          313
+     287: astore_1
+     288: aload_0
+     289: getfield      #29                 // Field cleanerExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+     292: invokevirtual #213                // Method java/util/concurrent/ScheduledThreadPoolExecutor.shutdownNow:()Ljava/util/List;
+     295: pop
+     296: invokestatic  #67                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     299: invokevirtual #156                // Method java/lang/Thread.interrupt:()V
+     302: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     305: ldc           #216                // String Interrupted while waiting for CleanerThreadPool to terminate
+     307: aload_1
+     308: invokeinterface #50,  3           // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     313: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     316: iconst_1
+     317: anewarray     #204                // class java/io/Closeable
+     320: dup
+     321: iconst_0
+     322: aload_0
+     323: getfield      #1                  // Field shmManager:Lorg/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager;
+     326: aastore
+     327: invokestatic  #205                // Method org/apache/hadoop/hdfs/util/IOUtilsClient.cleanupWithLogger:(Lorg/slf4j/Logger;[Ljava/io/Closeable;)V
+     330: return
+    Exception table:
+       from    to  target type
+           0    14   163   any
+          22   153   163   any
+         187   221   224   Class java/lang/InterruptedException
+         250   284   287   Class java/lang/InterruptedException
+
+  public void accept(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache$CacheVisitor);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+       4: invokevirtual #51                 // Method java/util/concurrent/locks/ReentrantLock.lock:()V
+       7: new           #32                 // class java/util/HashMap
+      10: dup
+      11: invokespecial #33                 // Method java/util/HashMap."<init>":()V
+      14: astore_2
+      15: new           #32                 // class java/util/HashMap
+      18: dup
+      19: invokespecial #33                 // Method java/util/HashMap."<init>":()V
+      22: astore_3
+      23: aload_0
+      24: getfield      #34                 // Field replicaInfoMap:Ljava/util/HashMap;
+      27: invokevirtual #217                // Method java/util/HashMap.entrySet:()Ljava/util/Set;
+      30: invokeinterface #218,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      35: astore        4
+      37: aload         4
+      39: invokeinterface #219,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      44: ifeq          149
+      47: aload         4
+      49: invokeinterface #220,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      54: checkcast     #221                // class java/util/Map$Entry
+      57: astore        5
+      59: aload         5
+      61: invokeinterface #222,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      66: checkcast     #131                // class org/apache/hadoop/util/Waitable
+      69: astore        6
+      71: aload         6
+      73: invokevirtual #223                // Method org/apache/hadoop/util/Waitable.hasVal:()Z
+      76: ifeq          146
+      79: aload         6
+      81: invokevirtual #132                // Method org/apache/hadoop/util/Waitable.getVal:()Ljava/lang/Object;
+      84: checkcast     #133                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo
+      87: invokevirtual #134                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getReplica:()Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+      90: ifnull        121
+      93: aload_2
+      94: aload         5
+      96: invokeinterface #224,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     101: aload         6
+     103: invokevirtual #132                // Method org/apache/hadoop/util/Waitable.getVal:()Ljava/lang/Object;
+     106: checkcast     #133                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo
+     109: invokevirtual #134                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getReplica:()Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;
+     112: invokeinterface #225,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     117: pop
+     118: goto          146
+     121: aload_3
+     122: aload         5
+     124: invokeinterface #224,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+     129: aload         6
+     131: invokevirtual #132                // Method org/apache/hadoop/util/Waitable.getVal:()Ljava/lang/Object;
+     134: checkcast     #133                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo
+     137: invokevirtual #159                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplicaInfo.getInvalidTokenException:()Lorg/apache/hadoop/security/token/SecretManager$InvalidToken;
+     140: invokeinterface #225,  3          // InterfaceMethod java/util/Map.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+     145: pop
+     146: goto          37
+     149: getstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+     152: ldc           #226                // String visiting {} with outstandingMmapCount={}, replicas={}, failedLoads={}, evictable={}, evictableMmapped={}
+     154: bipush        6
+     156: anewarray     #193                // class java/lang/Object
+     159: dup
+     160: iconst_0
+     161: aload_1
+     162: invokevirtual #199                // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     165: invokevirtual #200                // Method java/lang/Class.getName:()Ljava/lang/String;
+     168: aastore
+     169: dup
+     170: iconst_1
+     171: aload_0
+     172: getfield      #38                 // Field outstandingMmapCount:I
+     175: invokestatic  #227                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     178: aastore
+     179: dup
+     180: iconst_2
+     181: aload_2
+     182: aastore
+     183: dup
+     184: iconst_3
+     185: aload_3
+     186: aastore
+     187: dup
+     188: iconst_4
+     189: aload_0
+     190: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+     193: aastore
+     194: dup
+     195: iconst_5
+     196: aload_0
+     197: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+     200: aastore
+     201: invokeinterface #228,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     206: aload_1
+     207: aload_0
+     208: getfield      #38                 // Field outstandingMmapCount:I
+     211: aload_2
+     212: aload_3
+     213: aload_0
+     214: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+     217: aload_0
+     218: getfield      #37                 // Field evictableMmapped:Lorg/apache/commons/collections/map/LinkedMap;
+     221: invokeinterface #229,  6          // InterfaceMethod org/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$CacheVisitor.visit:(ILjava/util/Map;Ljava/util/Map;Lorg/apache/commons/collections/map/LinkedMap;Lorg/apache/commons/collections/map/LinkedMap;)V
+     226: aload_0
+     227: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     230: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     233: goto          248
+     236: astore        7
+     238: aload_0
+     239: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+     242: invokevirtual #72                 // Method java/util/concurrent/locks/ReentrantLock.unlock:()V
+     245: aload         7
+     247: athrow
+     248: return
+    Exception table:
+       from    to  target type
+           7   226   236   any
+         236   238   236   any
+
+  public java.lang.String toString();
+    Code:
+       0: new           #58                 // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #59                 // Method java/lang/StringBuilder."<init>":()V
+       7: ldc           #230                // String ShortCircuitCache(0x
+       9: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: aload_0
+      13: invokestatic  #231                // Method java/lang/System.identityHashCode:(Ljava/lang/Object;)I
+      16: invokestatic  #232                // Method java/lang/Integer.toHexString:(I)Ljava/lang/String;
+      19: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: ldc           #233                // String )
+      24: invokevirtual #62                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      27: invokevirtual #69                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      30: areturn
+
+  public org.apache.hadoop.hdfs.shortcircuit.ShortCircuitShm$Slot allocShmSlot(org.apache.hadoop.hdfs.protocol.DatanodeInfo, org.apache.hadoop.hdfs.net.DomainPeer, org.apache.commons.lang3.mutable.MutableBoolean, org.apache.hadoop.hdfs.ExtendedBlockId, java.lang.String) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field shmManager:Lorg/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager;
+       4: ifnull        22
+       7: aload_0
+       8: getfield      #1                  // Field shmManager:Lorg/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager;
+      11: aload_1
+      12: aload_2
+      13: aload_3
+      14: aload         4
+      16: aload         5
+      18: invokevirtual #234                // Method org/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager.allocSlot:(Lorg/apache/hadoop/hdfs/protocol/DatanodeInfo;Lorg/apache/hadoop/hdfs/net/DomainPeer;Lorg/apache/commons/lang3/mutable/MutableBoolean;Lorg/apache/hadoop/hdfs/ExtendedBlockId;Ljava/lang/String;)Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitShm$Slot;
+      21: areturn
+      22: aconst_null
+      23: areturn
+
+  public void freeSlot(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitShm$Slot);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field shmManager:Lorg/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager;
+       4: ifnull        11
+       7: iconst_1
+       8: goto          12
+      11: iconst_0
+      12: invokestatic  #127                // Method com/google/common/base/Preconditions.checkState:(Z)V
+      15: aload_1
+      16: invokevirtual #235                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitShm$Slot.makeInvalid:()V
+      19: aload_0
+      20: getfield      #1                  // Field shmManager:Lorg/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager;
+      23: aload_1
+      24: invokevirtual #236                // Method org/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager.freeSlot:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitShm$Slot;)V
+      27: return
+
+  public void scheduleSlotReleaser(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitShm$Slot);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field shmManager:Lorg/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager;
+       4: ifnull        11
+       7: iconst_1
+       8: goto          12
+      11: iconst_0
+      12: invokestatic  #127                // Method com/google/common/base/Preconditions.checkState:(Z)V
+      15: aload_0
+      16: getfield      #31                 // Field releaserExecutor:Ljava/util/concurrent/ScheduledThreadPoolExecutor;
+      19: new           #237                // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$SlotReleaser
+      22: dup
+      23: aload_0
+      24: aload_1
+      25: invokespecial #238                // Method org/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache$SlotReleaser."<init>":(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache;Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitShm$Slot;)V
+      28: invokevirtual #239                // Method java/util/concurrent/ScheduledThreadPoolExecutor.execute:(Ljava/lang/Runnable;)V
+      31: return
+
+  public org.apache.hadoop.hdfs.shortcircuit.DfsClientShmManager getDfsClientShmManager();
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field shmManager:Lorg/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager;
+       4: areturn
+
+  public int getReplicaInfoMapSize();
+    Code:
+       0: aload_0
+       1: getfield      #34                 // Field replicaInfoMap:Ljava/util/HashMap;
+       4: invokevirtual #240                // Method java/util/HashMap.size:()I
+       7: ireturn
+
+  static java.util.concurrent.locks.ReentrantLock access$000(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field lock:Ljava/util/concurrent/locks/ReentrantLock;
+       4: areturn
+
+  static boolean access$100(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field closed:Z
+       4: ireturn
+
+  static int access$200(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache, long);
+    Code:
+       0: aload_0
+       1: lload_1
+       2: invokespecial #6                  // Method demoteOldEvictableMmaped:(J)I
+       5: ireturn
+
+  static org.apache.commons.collections.map.LinkedMap access$300(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field evictable:Lorg/apache/commons/collections/map/LinkedMap;
+       4: areturn
+
+  static long access$400(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field maxNonMmappedEvictableLifespanMs:J
+       4: lreturn
+
+  static void access$500(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache, org.apache.hadoop.hdfs.shortcircuit.ShortCircuitReplica);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #3                  // Method purge:(Lorg/apache/hadoop/hdfs/shortcircuit/ShortCircuitReplica;)V
+       5: return
+
+  static long access$600(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field maxEvictableMmapedLifespanMs:J
+       4: lreturn
+
+  static org.apache.hadoop.hdfs.shortcircuit.DfsClientShmManager access$700(org.apache.hadoop.hdfs.shortcircuit.ShortCircuitCache);
+    Code:
+       0: aload_0
+       1: getfield      #1                  // Field shmManager:Lorg/apache/hadoop/hdfs/shortcircuit/DfsClientShmManager;
+       4: areturn
+
+  static {};
+    Code:
+       0: ldc           #9                  // class org/apache/hadoop/hdfs/shortcircuit/ShortCircuitCache
+       2: invokestatic  #241                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #48                 // Field LOG:Lorg/slf4j/Logger;
+       8: return
+}

@@ -1,0 +1,974 @@
+Compiled from "Client.java"
+public class org.apache.hadoop.ipc.Client implements java.lang.AutoCloseable {
+  public static final org.slf4j.Logger LOG;
+
+  private static final java.util.concurrent.atomic.AtomicInteger callIdCounter;
+
+  private static final java.lang.ThreadLocal<java.lang.Integer> callId;
+
+  private static final java.lang.ThreadLocal<java.lang.Integer> retryCount;
+
+  private static final java.lang.ThreadLocal<java.lang.Object> EXTERNAL_CALL_HANDLER;
+
+  private static final java.lang.ThreadLocal<org.apache.hadoop.util.concurrent.AsyncGet<? extends org.apache.hadoop.io.Writable, java.io.IOException>> ASYNC_RPC_RESPONSE;
+
+  private static final java.lang.ThreadLocal<java.lang.Boolean> asynchronousMode;
+
+  private final java.util.concurrent.ConcurrentMap<org.apache.hadoop.ipc.Client$ConnectionId, org.apache.hadoop.ipc.Client$Connection> connections;
+
+  private final java.lang.Object putLock;
+
+  private final java.lang.Object emptyCondition;
+
+  private final java.util.concurrent.atomic.AtomicBoolean running;
+
+  private java.lang.Class<? extends org.apache.hadoop.io.Writable> valueClass;
+
+  private final org.apache.hadoop.conf.Configuration conf;
+
+  private javax.net.SocketFactory socketFactory;
+
+  private final java.util.concurrent.atomic.AtomicInteger refCount;
+
+  private final int connectionTimeout;
+
+  private final boolean fallbackAllowed;
+
+  private final boolean bindToWildCardAddress;
+
+  private final byte[] clientId;
+
+  private final int maxAsyncCalls;
+
+  private final java.util.concurrent.atomic.AtomicInteger asyncCallCounter;
+
+  private final java.util.concurrent.ExecutorService sendParamsExecutor;
+
+  private static final org.apache.hadoop.ipc.Client$ClientExecutorServiceFactory clientExcecutorFactory;
+
+  public static <T extends org.apache.hadoop.io.Writable> org.apache.hadoop.util.concurrent.AsyncGet<T, java.io.IOException> getAsyncRpcResponse();
+    Code:
+       0: getstatic     #16                 // Field ASYNC_RPC_RESPONSE:Ljava/lang/ThreadLocal;
+       3: invokevirtual #17                 // Method java/lang/ThreadLocal.get:()Ljava/lang/Object;
+       6: checkcast     #18                 // class org/apache/hadoop/util/concurrent/AsyncGet
+       9: areturn
+
+  public static void setCallIdAndRetryCount(int, int, java.lang.Object);
+    Code:
+       0: iload_0
+       1: bipush        -2
+       3: if_icmpeq     10
+       6: iconst_1
+       7: goto          11
+      10: iconst_0
+      11: invokestatic  #20                 // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+      14: getstatic     #15                 // Field callId:Ljava/lang/ThreadLocal;
+      17: invokevirtual #17                 // Method java/lang/ThreadLocal.get:()Ljava/lang/Object;
+      20: ifnonnull     27
+      23: iconst_1
+      24: goto          28
+      27: iconst_0
+      28: invokestatic  #21                 // Method com/google/common/base/Preconditions.checkState:(Z)V
+      31: iload_1
+      32: iconst_m1
+      33: if_icmpeq     40
+      36: iconst_1
+      37: goto          41
+      40: iconst_0
+      41: invokestatic  #20                 // Method com/google/common/base/Preconditions.checkArgument:(Z)V
+      44: getstatic     #15                 // Field callId:Ljava/lang/ThreadLocal;
+      47: iload_0
+      48: invokestatic  #22                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      51: invokevirtual #23                 // Method java/lang/ThreadLocal.set:(Ljava/lang/Object;)V
+      54: getstatic     #14                 // Field retryCount:Ljava/lang/ThreadLocal;
+      57: iload_1
+      58: invokestatic  #22                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      61: invokevirtual #23                 // Method java/lang/ThreadLocal.set:(Ljava/lang/Object;)V
+      64: getstatic     #13                 // Field EXTERNAL_CALL_HANDLER:Ljava/lang/ThreadLocal;
+      67: aload_2
+      68: invokevirtual #23                 // Method java/lang/ThreadLocal.set:(Ljava/lang/Object;)V
+      71: return
+
+  public static final void setPingInterval(org.apache.hadoop.conf.Configuration, int);
+    Code:
+       0: aload_0
+       1: ldc           #25                 // String ipc.ping.interval
+       3: iload_1
+       4: invokevirtual #26                 // Method org/apache/hadoop/conf/Configuration.setInt:(Ljava/lang/String;I)V
+       7: return
+
+  public static final int getPingInterval(org.apache.hadoop.conf.Configuration);
+    Code:
+       0: aload_0
+       1: ldc           #25                 // String ipc.ping.interval
+       3: ldc           #27                 // int 60000
+       5: invokevirtual #28                 // Method org/apache/hadoop/conf/Configuration.getInt:(Ljava/lang/String;I)I
+       8: ireturn
+
+  public static final int getTimeout(org.apache.hadoop.conf.Configuration);
+    Code:
+       0: aload_0
+       1: invokestatic  #29                 // Method getRpcTimeout:(Lorg/apache/hadoop/conf/Configuration;)I
+       4: istore_1
+       5: iload_1
+       6: ifle          11
+       9: iload_1
+      10: ireturn
+      11: aload_0
+      12: ldc           #30                 // String ipc.client.ping
+      14: iconst_1
+      15: invokevirtual #31                 // Method org/apache/hadoop/conf/Configuration.getBoolean:(Ljava/lang/String;Z)Z
+      18: ifne          26
+      21: aload_0
+      22: invokestatic  #32                 // Method getPingInterval:(Lorg/apache/hadoop/conf/Configuration;)I
+      25: ireturn
+      26: iconst_m1
+      27: ireturn
+
+  public static final int getRpcTimeout(org.apache.hadoop.conf.Configuration);
+    Code:
+       0: aload_0
+       1: ldc           #33                 // String ipc.client.rpc-timeout.ms
+       3: iconst_0
+       4: invokevirtual #28                 // Method org/apache/hadoop/conf/Configuration.getInt:(Ljava/lang/String;I)I
+       7: istore_1
+       8: iload_1
+       9: ifge          16
+      12: iconst_0
+      13: goto          17
+      16: iload_1
+      17: ireturn
+
+  public static final void setConnectTimeout(org.apache.hadoop.conf.Configuration, int);
+    Code:
+       0: aload_0
+       1: ldc           #34                 // String ipc.client.connect.timeout
+       3: iload_1
+       4: invokevirtual #26                 // Method org/apache/hadoop/conf/Configuration.setInt:(Ljava/lang/String;I)V
+       7: return
+
+  public static final java.util.concurrent.ExecutorService getClientExecutor();
+    Code:
+       0: getstatic     #35                 // Field clientExcecutorFactory:Lorg/apache/hadoop/ipc/Client$ClientExecutorServiceFactory;
+       3: invokestatic  #36                 // Method org/apache/hadoop/ipc/Client$ClientExecutorServiceFactory.access$100:(Lorg/apache/hadoop/ipc/Client$ClientExecutorServiceFactory;)Ljava/util/concurrent/ExecutorService;
+       6: areturn
+
+  void incCount();
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field refCount:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #38                 // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+       7: pop
+       8: return
+
+  int decAndGetCount();
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field refCount:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #39                 // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+       7: ireturn
+
+  void checkResponse(org.apache.hadoop.ipc.protobuf.RpcHeaderProtos$RpcResponseHeaderProto) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: ifnonnull     14
+       4: new           #40                 // class java/io/EOFException
+       7: dup
+       8: ldc           #41                 // String Response is null.
+      10: invokespecial #42                 // Method java/io/EOFException."<init>":(Ljava/lang/String;)V
+      13: athrow
+      14: aload_1
+      15: invokevirtual #43                 // Method org/apache/hadoop/ipc/protobuf/RpcHeaderProtos$RpcResponseHeaderProto.hasClientId:()Z
+      18: ifeq          101
+      21: aload_1
+      22: invokevirtual #44                 // Method org/apache/hadoop/ipc/protobuf/RpcHeaderProtos$RpcResponseHeaderProto.getClientId:()Lcom/google/protobuf/ByteString;
+      25: invokevirtual #45                 // Method com/google/protobuf/ByteString.toByteArray:()[B
+      28: astore_2
+      29: aload_2
+      30: getstatic     #46                 // Field org/apache/hadoop/ipc/RpcConstants.DUMMY_CLIENT_ID:[B
+      33: invokestatic  #47                 // Method java/util/Arrays.equals:([B[B)Z
+      36: ifne          101
+      39: aload_2
+      40: aload_0
+      41: getfield      #12                 // Field clientId:[B
+      44: invokestatic  #47                 // Method java/util/Arrays.equals:([B[B)Z
+      47: ifne          101
+      50: new           #48                 // class java/io/IOException
+      53: dup
+      54: new           #49                 // class java/lang/StringBuilder
+      57: dup
+      58: invokespecial #50                 // Method java/lang/StringBuilder."<init>":()V
+      61: ldc           #51                 // String Client IDs not matched: local ID=
+      63: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      66: aload_0
+      67: getfield      #12                 // Field clientId:[B
+      70: invokestatic  #53                 // Method org/apache/hadoop/util/StringUtils.byteToHexString:([B)Ljava/lang/String;
+      73: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      76: ldc           #54                 // String , ID in response=
+      78: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      81: aload_1
+      82: invokevirtual #44                 // Method org/apache/hadoop/ipc/protobuf/RpcHeaderProtos$RpcResponseHeaderProto.getClientId:()Lcom/google/protobuf/ByteString;
+      85: invokevirtual #45                 // Method com/google/protobuf/ByteString.toByteArray:()[B
+      88: invokestatic  #53                 // Method org/apache/hadoop/util/StringUtils.byteToHexString:([B)Ljava/lang/String;
+      91: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      94: invokevirtual #55                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      97: invokespecial #56                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     100: athrow
+     101: return
+
+  org.apache.hadoop.ipc.Client$Call createCall(org.apache.hadoop.ipc.RPC$RpcKind, org.apache.hadoop.io.Writable);
+    Code:
+       0: new           #57                 // class org/apache/hadoop/ipc/Client$Call
+       3: dup
+       4: aload_1
+       5: aload_2
+       6: aconst_null
+       7: invokespecial #58                 // Method org/apache/hadoop/ipc/Client$Call."<init>":(Lorg/apache/hadoop/ipc/RPC$RpcKind;Lorg/apache/hadoop/io/Writable;Lorg/apache/hadoop/ipc/Client$1;)V
+      10: areturn
+
+  public org.apache.hadoop.ipc.Client(java.lang.Class<? extends org.apache.hadoop.io.Writable>, org.apache.hadoop.conf.Configuration, javax.net.SocketFactory);
+    Code:
+       0: aload_0
+       1: invokespecial #59                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #60                 // class java/util/concurrent/ConcurrentHashMap
+       8: dup
+       9: invokespecial #61                 // Method java/util/concurrent/ConcurrentHashMap."<init>":()V
+      12: putfield      #6                  // Field connections:Ljava/util/concurrent/ConcurrentMap;
+      15: aload_0
+      16: new           #62                 // class java/lang/Object
+      19: dup
+      20: invokespecial #59                 // Method java/lang/Object."<init>":()V
+      23: putfield      #63                 // Field putLock:Ljava/lang/Object;
+      26: aload_0
+      27: new           #62                 // class java/lang/Object
+      30: dup
+      31: invokespecial #59                 // Method java/lang/Object."<init>":()V
+      34: putfield      #64                 // Field emptyCondition:Ljava/lang/Object;
+      37: aload_0
+      38: new           #65                 // class java/util/concurrent/atomic/AtomicBoolean
+      41: dup
+      42: iconst_1
+      43: invokespecial #66                 // Method java/util/concurrent/atomic/AtomicBoolean."<init>":(Z)V
+      46: putfield      #10                 // Field running:Ljava/util/concurrent/atomic/AtomicBoolean;
+      49: aload_0
+      50: new           #67                 // class java/util/concurrent/atomic/AtomicInteger
+      53: dup
+      54: iconst_1
+      55: invokespecial #68                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      58: putfield      #37                 // Field refCount:Ljava/util/concurrent/atomic/AtomicInteger;
+      61: aload_0
+      62: new           #67                 // class java/util/concurrent/atomic/AtomicInteger
+      65: dup
+      66: iconst_0
+      67: invokespecial #68                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":(I)V
+      70: putfield      #69                 // Field asyncCallCounter:Ljava/util/concurrent/atomic/AtomicInteger;
+      73: aload_0
+      74: aload_1
+      75: putfield      #4                  // Field valueClass:Ljava/lang/Class;
+      78: aload_0
+      79: aload_2
+      80: putfield      #3                  // Field conf:Lorg/apache/hadoop/conf/Configuration;
+      83: aload_0
+      84: aload_3
+      85: putfield      #11                 // Field socketFactory:Ljavax/net/SocketFactory;
+      88: aload_0
+      89: aload_2
+      90: ldc           #34                 // String ipc.client.connect.timeout
+      92: sipush        20000
+      95: invokevirtual #28                 // Method org/apache/hadoop/conf/Configuration.getInt:(Ljava/lang/String;I)I
+      98: putfield      #8                  // Field connectionTimeout:I
+     101: aload_0
+     102: aload_2
+     103: ldc           #70                 // String ipc.client.fallback-to-simple-auth-allowed
+     105: iconst_0
+     106: invokevirtual #31                 // Method org/apache/hadoop/conf/Configuration.getBoolean:(Ljava/lang/String;Z)Z
+     109: putfield      #7                  // Field fallbackAllowed:Z
+     112: aload_0
+     113: aload_2
+     114: ldc           #71                 // String ipc.client.bind.wildcard.addr
+     116: iconst_0
+     117: invokevirtual #31                 // Method org/apache/hadoop/conf/Configuration.getBoolean:(Ljava/lang/String;Z)Z
+     120: putfield      #9                  // Field bindToWildCardAddress:Z
+     123: aload_0
+     124: invokestatic  #72                 // Method org/apache/hadoop/ipc/ClientId.getClientId:()[B
+     127: putfield      #12                 // Field clientId:[B
+     130: aload_0
+     131: getstatic     #35                 // Field clientExcecutorFactory:Lorg/apache/hadoop/ipc/Client$ClientExecutorServiceFactory;
+     134: invokevirtual #73                 // Method org/apache/hadoop/ipc/Client$ClientExecutorServiceFactory.refAndGetInstance:()Ljava/util/concurrent/ExecutorService;
+     137: putfield      #5                  // Field sendParamsExecutor:Ljava/util/concurrent/ExecutorService;
+     140: aload_0
+     141: aload_2
+     142: ldc           #74                 // String ipc.client.async.calls.max
+     144: bipush        100
+     146: invokevirtual #28                 // Method org/apache/hadoop/conf/Configuration.getInt:(Ljava/lang/String;I)I
+     149: putfield      #75                 // Field maxAsyncCalls:I
+     152: return
+
+  public org.apache.hadoop.ipc.Client(java.lang.Class<? extends org.apache.hadoop.io.Writable>, org.apache.hadoop.conf.Configuration);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_2
+       4: invokestatic  #76                 // Method org/apache/hadoop/net/NetUtils.getDefaultSocketFactory:(Lorg/apache/hadoop/conf/Configuration;)Ljavax/net/SocketFactory;
+       7: invokespecial #77                 // Method "<init>":(Ljava/lang/Class;Lorg/apache/hadoop/conf/Configuration;Ljavax/net/SocketFactory;)V
+      10: return
+
+  public java.lang.String toString();
+    Code:
+       0: new           #49                 // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #50                 // Method java/lang/StringBuilder."<init>":()V
+       7: aload_0
+       8: invokevirtual #78                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      11: invokevirtual #79                 // Method java/lang/Class.getSimpleName:()Ljava/lang/String;
+      14: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      17: ldc           #80                 // String -
+      19: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      22: aload_0
+      23: getfield      #12                 // Field clientId:[B
+      26: invokestatic  #53                 // Method org/apache/hadoop/util/StringUtils.byteToHexString:([B)Ljava/lang/String;
+      29: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      32: invokevirtual #55                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      35: areturn
+
+  javax.net.SocketFactory getSocketFactory();
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field socketFactory:Ljavax/net/SocketFactory;
+       4: areturn
+
+  public void stop();
+    Code:
+       0: getstatic     #81                 // Field LOG:Lorg/slf4j/Logger;
+       3: invokeinterface #82,  1           // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+       8: ifeq          21
+      11: getstatic     #81                 // Field LOG:Lorg/slf4j/Logger;
+      14: ldc           #83                 // String Stopping client
+      16: invokeinterface #84,  2           // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      21: aload_0
+      22: getfield      #63                 // Field putLock:Ljava/lang/Object;
+      25: dup
+      26: astore_1
+      27: monitorenter
+      28: aload_0
+      29: getfield      #10                 // Field running:Ljava/util/concurrent/atomic/AtomicBoolean;
+      32: iconst_1
+      33: iconst_0
+      34: invokevirtual #85                 // Method java/util/concurrent/atomic/AtomicBoolean.compareAndSet:(ZZ)Z
+      37: ifne          43
+      40: aload_1
+      41: monitorexit
+      42: return
+      43: aload_1
+      44: monitorexit
+      45: goto          53
+      48: astore_2
+      49: aload_1
+      50: monitorexit
+      51: aload_2
+      52: athrow
+      53: aload_0
+      54: getfield      #6                  // Field connections:Ljava/util/concurrent/ConcurrentMap;
+      57: invokeinterface #86,  1           // InterfaceMethod java/util/concurrent/ConcurrentMap.values:()Ljava/util/Collection;
+      62: invokeinterface #87,  1           // InterfaceMethod java/util/Collection.iterator:()Ljava/util/Iterator;
+      67: astore_1
+      68: aload_1
+      69: invokeinterface #88,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z
+      74: ifeq          98
+      77: aload_1
+      78: invokeinterface #89,  1           // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      83: checkcast     #90                 // class org/apache/hadoop/ipc/Client$Connection
+      86: astore_2
+      87: aload_2
+      88: invokevirtual #91                 // Method org/apache/hadoop/ipc/Client$Connection.interrupt:()V
+      91: aload_2
+      92: invokestatic  #92                 // Method org/apache/hadoop/ipc/Client$Connection.access$3400:(Lorg/apache/hadoop/ipc/Client$Connection;)V
+      95: goto          68
+      98: aload_0
+      99: getfield      #64                 // Field emptyCondition:Ljava/lang/Object;
+     102: dup
+     103: astore_1
+     104: monitorenter
+     105: aload_0
+     106: getfield      #6                  // Field connections:Ljava/util/concurrent/ConcurrentMap;
+     109: invokeinterface #93,  1           // InterfaceMethod java/util/concurrent/ConcurrentMap.isEmpty:()Z
+     114: ifne          147
+     117: aload_0
+     118: getfield      #64                 // Field emptyCondition:Ljava/lang/Object;
+     121: invokevirtual #94                 // Method java/lang/Object.wait:()V
+     124: goto          105
+     127: astore_2
+     128: getstatic     #81                 // Field LOG:Lorg/slf4j/Logger;
+     131: ldc           #96                 // String Interrupted while waiting on all connections to be closed.
+     133: invokeinterface #97,  2           // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;)V
+     138: invokestatic  #98                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+     141: invokevirtual #99                 // Method java/lang/Thread.interrupt:()V
+     144: goto          105
+     147: aload_1
+     148: monitorexit
+     149: goto          157
+     152: astore_3
+     153: aload_1
+     154: monitorexit
+     155: aload_3
+     156: athrow
+     157: getstatic     #35                 // Field clientExcecutorFactory:Lorg/apache/hadoop/ipc/Client$ClientExecutorServiceFactory;
+     160: invokevirtual #100                // Method org/apache/hadoop/ipc/Client$ClientExecutorServiceFactory.unrefAndCleanup:()Ljava/util/concurrent/ExecutorService;
+     163: pop
+     164: return
+    Exception table:
+       from    to  target type
+          28    42    48   any
+          43    45    48   any
+          48    51    48   any
+         117   124   127   Class java/lang/InterruptedException
+         105   149   152   any
+         152   155   152   any
+
+  public org.apache.hadoop.io.Writable call(org.apache.hadoop.ipc.RPC$RpcKind, org.apache.hadoop.io.Writable, org.apache.hadoop.ipc.Client$ConnectionId, java.util.concurrent.atomic.AtomicBoolean) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: iconst_0
+       5: aload         4
+       7: aconst_null
+       8: invokevirtual #102                // Method call:(Lorg/apache/hadoop/ipc/RPC$RpcKind;Lorg/apache/hadoop/io/Writable;Lorg/apache/hadoop/ipc/Client$ConnectionId;ILjava/util/concurrent/atomic/AtomicBoolean;Lorg/apache/hadoop/ipc/AlignmentContext;)Lorg/apache/hadoop/io/Writable;
+      11: areturn
+
+  public org.apache.hadoop.io.Writable call(org.apache.hadoop.ipc.RPC$RpcKind, org.apache.hadoop.io.Writable, org.apache.hadoop.ipc.Client$ConnectionId, java.util.concurrent.atomic.AtomicBoolean, org.apache.hadoop.ipc.AlignmentContext) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: iconst_0
+       5: aload         4
+       7: aload         5
+       9: invokevirtual #102                // Method call:(Lorg/apache/hadoop/ipc/RPC$RpcKind;Lorg/apache/hadoop/io/Writable;Lorg/apache/hadoop/ipc/Client$ConnectionId;ILjava/util/concurrent/atomic/AtomicBoolean;Lorg/apache/hadoop/ipc/AlignmentContext;)Lorg/apache/hadoop/io/Writable;
+      12: areturn
+
+  private void checkAsyncCall() throws java.io.IOException;
+    Code:
+       0: invokestatic  #103                // Method isAsynchronousMode:()Z
+       3: ifeq          62
+       6: aload_0
+       7: getfield      #69                 // Field asyncCallCounter:Ljava/util/concurrent/atomic/AtomicInteger;
+      10: invokevirtual #38                 // Method java/util/concurrent/atomic/AtomicInteger.incrementAndGet:()I
+      13: aload_0
+      14: getfield      #75                 // Field maxAsyncCalls:I
+      17: if_icmple     62
+      20: aload_0
+      21: getfield      #69                 // Field asyncCallCounter:Ljava/util/concurrent/atomic/AtomicInteger;
+      24: invokevirtual #39                 // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+      27: pop
+      28: ldc           #104                // String Exceeded limit of max asynchronous calls: %d, please configure %s to adjust it.
+      30: iconst_2
+      31: anewarray     #62                 // class java/lang/Object
+      34: dup
+      35: iconst_0
+      36: aload_0
+      37: getfield      #75                 // Field maxAsyncCalls:I
+      40: invokestatic  #22                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      43: aastore
+      44: dup
+      45: iconst_1
+      46: ldc           #74                 // String ipc.client.async.calls.max
+      48: aastore
+      49: invokestatic  #105                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+      52: astore_1
+      53: new           #106                // class org/apache/hadoop/ipc/AsyncCallLimitExceededException
+      56: dup
+      57: aload_1
+      58: invokespecial #107                // Method org/apache/hadoop/ipc/AsyncCallLimitExceededException."<init>":(Ljava/lang/String;)V
+      61: athrow
+      62: return
+
+  org.apache.hadoop.io.Writable call(org.apache.hadoop.ipc.RPC$RpcKind, org.apache.hadoop.io.Writable, org.apache.hadoop.ipc.Client$ConnectionId, int, java.util.concurrent.atomic.AtomicBoolean) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: aload_3
+       4: iload         4
+       6: aload         5
+       8: aconst_null
+       9: invokevirtual #102                // Method call:(Lorg/apache/hadoop/ipc/RPC$RpcKind;Lorg/apache/hadoop/io/Writable;Lorg/apache/hadoop/ipc/Client$ConnectionId;ILjava/util/concurrent/atomic/AtomicBoolean;Lorg/apache/hadoop/ipc/AlignmentContext;)Lorg/apache/hadoop/io/Writable;
+      12: areturn
+
+  org.apache.hadoop.io.Writable call(org.apache.hadoop.ipc.RPC$RpcKind, org.apache.hadoop.io.Writable, org.apache.hadoop.ipc.Client$ConnectionId, int, java.util.concurrent.atomic.AtomicBoolean, org.apache.hadoop.ipc.AlignmentContext) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokevirtual #108                // Method createCall:(Lorg/apache/hadoop/ipc/RPC$RpcKind;Lorg/apache/hadoop/io/Writable;)Lorg/apache/hadoop/ipc/Client$Call;
+       6: astore        7
+       8: aload         7
+      10: aload         6
+      12: invokevirtual #109                // Method org/apache/hadoop/ipc/Client$Call.setAlignmentContext:(Lorg/apache/hadoop/ipc/AlignmentContext;)V
+      15: aload_0
+      16: aload_3
+      17: aload         7
+      19: iload         4
+      21: aload         5
+      23: invokespecial #110                // Method getConnection:(Lorg/apache/hadoop/ipc/Client$ConnectionId;Lorg/apache/hadoop/ipc/Client$Call;ILjava/util/concurrent/atomic/AtomicBoolean;)Lorg/apache/hadoop/ipc/Client$Connection;
+      26: astore        8
+      28: aload_0
+      29: invokespecial #111                // Method checkAsyncCall:()V
+      32: aload         8
+      34: aload         7
+      36: invokevirtual #112                // Method org/apache/hadoop/ipc/Client$Connection.sendRpcRequest:(Lorg/apache/hadoop/ipc/Client$Call;)V
+      39: goto          86
+      42: astore        9
+      44: new           #48                 // class java/io/IOException
+      47: dup
+      48: ldc           #114                // String connection has been closed
+      50: aload         9
+      52: invokespecial #115                // Method java/io/IOException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+      55: athrow
+      56: astore        9
+      58: invokestatic  #98                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      61: invokevirtual #99                 // Method java/lang/Thread.interrupt:()V
+      64: new           #116                // class java/io/InterruptedIOException
+      67: dup
+      68: ldc           #117                // String Interrupted waiting to send RPC request to server
+      70: invokespecial #118                // Method java/io/InterruptedIOException."<init>":(Ljava/lang/String;)V
+      73: astore        10
+      75: aload         10
+      77: aload         9
+      79: invokevirtual #119                // Method java/io/IOException.initCause:(Ljava/lang/Throwable;)Ljava/lang/Throwable;
+      82: pop
+      83: aload         10
+      85: athrow
+      86: goto          104
+      89: astore        9
+      91: invokestatic  #103                // Method isAsynchronousMode:()Z
+      94: ifeq          101
+      97: aload_0
+      98: invokespecial #1                  // Method releaseAsyncCall:()V
+     101: aload         9
+     103: athrow
+     104: invokestatic  #103                // Method isAsynchronousMode:()Z
+     107: ifeq          134
+     110: new           #121                // class org/apache/hadoop/ipc/Client$2
+     113: dup
+     114: aload_0
+     115: aload         7
+     117: aload         8
+     119: invokespecial #122                // Method org/apache/hadoop/ipc/Client$2."<init>":(Lorg/apache/hadoop/ipc/Client;Lorg/apache/hadoop/ipc/Client$Call;Lorg/apache/hadoop/ipc/Client$Connection;)V
+     122: astore        9
+     124: getstatic     #16                 // Field ASYNC_RPC_RESPONSE:Ljava/lang/ThreadLocal;
+     127: aload         9
+     129: invokevirtual #23                 // Method java/lang/ThreadLocal.set:(Ljava/lang/Object;)V
+     132: aconst_null
+     133: areturn
+     134: aload_0
+     135: aload         7
+     137: aload         8
+     139: ldc2_w        #123                // long -1l
+     142: aconst_null
+     143: invokespecial #2                  // Method getRpcResponse:(Lorg/apache/hadoop/ipc/Client$Call;Lorg/apache/hadoop/ipc/Client$Connection;JLjava/util/concurrent/TimeUnit;)Lorg/apache/hadoop/io/Writable;
+     146: areturn
+    Exception table:
+       from    to  target type
+          32    39    42   Class java/util/concurrent/RejectedExecutionException
+          32    39    56   Class java/lang/InterruptedException
+          28    86    89   Class java/lang/Exception
+
+  public static boolean isAsynchronousMode();
+    Code:
+       0: getstatic     #125                // Field asynchronousMode:Ljava/lang/ThreadLocal;
+       3: invokevirtual #17                 // Method java/lang/ThreadLocal.get:()Ljava/lang/Object;
+       6: checkcast     #126                // class java/lang/Boolean
+       9: invokevirtual #127                // Method java/lang/Boolean.booleanValue:()Z
+      12: ireturn
+
+  public static void setAsynchronousMode(boolean);
+    Code:
+       0: getstatic     #125                // Field asynchronousMode:Ljava/lang/ThreadLocal;
+       3: iload_0
+       4: invokestatic  #128                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+       7: invokevirtual #23                 // Method java/lang/ThreadLocal.set:(Ljava/lang/Object;)V
+      10: return
+
+  private void releaseAsyncCall();
+    Code:
+       0: aload_0
+       1: getfield      #69                 // Field asyncCallCounter:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #39                 // Method java/util/concurrent/atomic/AtomicInteger.decrementAndGet:()I
+       7: pop
+       8: return
+
+  int getAsyncCallCount();
+    Code:
+       0: aload_0
+       1: getfield      #69                 // Field asyncCallCounter:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #129                // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+       7: ireturn
+
+  private org.apache.hadoop.io.Writable getRpcResponse(org.apache.hadoop.ipc.Client$Call, org.apache.hadoop.ipc.Client$Connection, long, java.util.concurrent.TimeUnit) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: dup
+       2: astore        6
+       4: monitorenter
+       5: aload_1
+       6: getfield      #130                // Field org/apache/hadoop/ipc/Client$Call.done:Z
+       9: ifne          58
+      12: aload_1
+      13: lload_3
+      14: aload         5
+      16: invokestatic  #131                // Method org/apache/hadoop/util/concurrent/AsyncGet$Util.wait:(Ljava/lang/Object;JLjava/util/concurrent/TimeUnit;)V
+      19: lload_3
+      20: lconst_0
+      21: lcmp
+      22: iflt          37
+      25: aload_1
+      26: getfield      #130                // Field org/apache/hadoop/ipc/Client$Call.done:Z
+      29: ifne          37
+      32: aconst_null
+      33: aload         6
+      35: monitorexit
+      36: areturn
+      37: goto          5
+      40: astore        7
+      42: invokestatic  #98                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      45: invokevirtual #99                 // Method java/lang/Thread.interrupt:()V
+      48: new           #116                // class java/io/InterruptedIOException
+      51: dup
+      52: ldc           #132                // String Call interrupted
+      54: invokespecial #118                // Method java/io/InterruptedIOException."<init>":(Ljava/lang/String;)V
+      57: athrow
+      58: aload_1
+      59: getfield      #133                // Field org/apache/hadoop/ipc/Client$Call.error:Ljava/io/IOException;
+      62: ifnull        116
+      65: aload_1
+      66: getfield      #133                // Field org/apache/hadoop/ipc/Client$Call.error:Ljava/io/IOException;
+      69: instanceof    #134                // class org/apache/hadoop/ipc/RemoteException
+      72: ifeq          88
+      75: aload_1
+      76: getfield      #133                // Field org/apache/hadoop/ipc/Client$Call.error:Ljava/io/IOException;
+      79: invokevirtual #135                // Method java/io/IOException.fillInStackTrace:()Ljava/lang/Throwable;
+      82: pop
+      83: aload_1
+      84: getfield      #133                // Field org/apache/hadoop/ipc/Client$Call.error:Ljava/io/IOException;
+      87: athrow
+      88: aload_2
+      89: invokevirtual #136                // Method org/apache/hadoop/ipc/Client$Connection.getRemoteAddress:()Ljava/net/InetSocketAddress;
+      92: astore        7
+      94: aload         7
+      96: invokevirtual #137                // Method java/net/InetSocketAddress.getHostName:()Ljava/lang/String;
+      99: aload         7
+     101: invokevirtual #138                // Method java/net/InetSocketAddress.getPort:()I
+     104: invokestatic  #139                // Method org/apache/hadoop/net/NetUtils.getHostname:()Ljava/lang/String;
+     107: iconst_0
+     108: aload_1
+     109: getfield      #133                // Field org/apache/hadoop/ipc/Client$Call.error:Ljava/io/IOException;
+     112: invokestatic  #140                // Method org/apache/hadoop/net/NetUtils.wrapException:(Ljava/lang/String;ILjava/lang/String;ILjava/io/IOException;)Ljava/io/IOException;
+     115: athrow
+     116: aload_1
+     117: invokevirtual #141                // Method org/apache/hadoop/ipc/Client$Call.getRpcResponse:()Lorg/apache/hadoop/io/Writable;
+     120: aload         6
+     122: monitorexit
+     123: areturn
+     124: astore        8
+     126: aload         6
+     128: monitorexit
+     129: aload         8
+     131: athrow
+    Exception table:
+       from    to  target type
+          12    33    40   Class java/lang/InterruptedException
+           5    36   124   any
+          37   123   124   any
+         124   129   124   any
+
+  java.util.Set<org.apache.hadoop.ipc.Client$ConnectionId> getConnectionIds();
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field connections:Ljava/util/concurrent/ConcurrentMap;
+       4: invokeinterface #142,  1          // InterfaceMethod java/util/concurrent/ConcurrentMap.keySet:()Ljava/util/Set;
+       9: areturn
+
+  private org.apache.hadoop.ipc.Client$Connection getConnection(org.apache.hadoop.ipc.Client$ConnectionId, org.apache.hadoop.ipc.Client$Call, int, java.util.concurrent.atomic.AtomicBoolean) throws java.io.IOException;
+    Code:
+       0: aload_1
+       1: invokevirtual #143                // Method org/apache/hadoop/ipc/Client$ConnectionId.getAddress:()Ljava/net/InetSocketAddress;
+       4: astore        5
+       6: aload         5
+       8: invokevirtual #144                // Method java/net/InetSocketAddress.isUnresolved:()Z
+      11: ifeq          37
+      14: aload         5
+      16: invokevirtual #137                // Method java/net/InetSocketAddress.getHostName:()Ljava/lang/String;
+      19: aload         5
+      21: invokevirtual #138                // Method java/net/InetSocketAddress.getPort:()I
+      24: aconst_null
+      25: iconst_0
+      26: new           #145                // class java/net/UnknownHostException
+      29: dup
+      30: invokespecial #146                // Method java/net/UnknownHostException."<init>":()V
+      33: invokestatic  #140                // Method org/apache/hadoop/net/NetUtils.wrapException:(Ljava/lang/String;ILjava/lang/String;ILjava/io/IOException;)Ljava/io/IOException;
+      36: athrow
+      37: aload_0
+      38: aload_1
+      39: invokedynamic #147,  0            // InvokeDynamic #0:accept:(Lorg/apache/hadoop/ipc/Client;Lorg/apache/hadoop/ipc/Client$ConnectionId;)Ljava/util/function/Consumer;
+      44: astore        6
+      46: aload_0
+      47: getfield      #63                 // Field putLock:Ljava/lang/Object;
+      50: dup
+      51: astore        8
+      53: monitorenter
+      54: aload_0
+      55: getfield      #10                 // Field running:Ljava/util/concurrent/atomic/AtomicBoolean;
+      58: invokevirtual #148                // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      61: ifne          114
+      64: new           #48                 // class java/io/IOException
+      67: dup
+      68: new           #49                 // class java/lang/StringBuilder
+      71: dup
+      72: invokespecial #50                 // Method java/lang/StringBuilder."<init>":()V
+      75: ldc           #149                // String Failed to get connection for
+      77: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      80: aload_1
+      81: invokevirtual #150                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      84: ldc           #151                // String ,
+      86: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      89: aload_2
+      90: invokevirtual #150                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+      93: ldc           #152                // String :
+      95: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      98: aload_0
+      99: invokevirtual #150                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     102: ldc           #153                // String  is already stopped
+     104: invokevirtual #52                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     107: invokevirtual #55                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     110: invokespecial #56                 // Method java/io/IOException."<init>":(Ljava/lang/String;)V
+     113: athrow
+     114: aload_0
+     115: getfield      #6                  // Field connections:Ljava/util/concurrent/ConcurrentMap;
+     118: aload_1
+     119: aload_0
+     120: iload_3
+     121: aload         6
+     123: invokedynamic #154,  0            // InvokeDynamic #1:apply:(Lorg/apache/hadoop/ipc/Client;ILjava/util/function/Consumer;)Ljava/util/function/Function;
+     128: invokeinterface #155,  3          // InterfaceMethod java/util/concurrent/ConcurrentMap.computeIfAbsent:(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;
+     133: checkcast     #90                 // class org/apache/hadoop/ipc/Client$Connection
+     136: astore        7
+     138: aload         8
+     140: monitorexit
+     141: goto          152
+     144: astore        9
+     146: aload         8
+     148: monitorexit
+     149: aload         9
+     151: athrow
+     152: aload         7
+     154: aload_2
+     155: invokestatic  #156                // Method org/apache/hadoop/ipc/Client$Connection.access$3700:(Lorg/apache/hadoop/ipc/Client$Connection;Lorg/apache/hadoop/ipc/Client$Call;)Z
+     158: ifeq          164
+     161: goto          176
+     164: aload         6
+     166: aload         7
+     168: invokeinterface #157,  2          // InterfaceMethod java/util/function/Consumer.accept:(Ljava/lang/Object;)V
+     173: goto          46
+     176: aload         7
+     178: aload         4
+     180: invokestatic  #158                // Method org/apache/hadoop/ipc/Client$Connection.access$3800:(Lorg/apache/hadoop/ipc/Client$Connection;Ljava/util/concurrent/atomic/AtomicBoolean;)V
+     183: aload         7
+     185: areturn
+    Exception table:
+       from    to  target type
+          54   141   144   any
+         144   149   144   any
+
+  public static int nextCallId();
+    Code:
+       0: getstatic     #159                // Field callIdCounter:Ljava/util/concurrent/atomic/AtomicInteger;
+       3: invokevirtual #160                // Method java/util/concurrent/atomic/AtomicInteger.getAndIncrement:()I
+       6: ldc           #161                // int 2147483647
+       8: iand
+       9: ireturn
+
+  public void close() throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: invokevirtual #162                // Method stop:()V
+       4: return
+
+  private org.apache.hadoop.ipc.Client$Connection lambda$getConnection$1(int, java.util.function.Consumer, org.apache.hadoop.ipc.Client$ConnectionId);
+    Code:
+       0: new           #90                 // class org/apache/hadoop/ipc/Client$Connection
+       3: dup
+       4: aload_0
+       5: aload_3
+       6: iload_1
+       7: aload_2
+       8: invokespecial #163                // Method org/apache/hadoop/ipc/Client$Connection."<init>":(Lorg/apache/hadoop/ipc/Client;Lorg/apache/hadoop/ipc/Client$ConnectionId;ILjava/util/function/Consumer;)V
+      11: areturn
+
+  private void lambda$getConnection$0(org.apache.hadoop.ipc.Client$ConnectionId, org.apache.hadoop.ipc.Client$Connection);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field connections:Ljava/util/concurrent/ConcurrentMap;
+       4: aload_1
+       5: aload_2
+       6: invokeinterface #164,  3          // InterfaceMethod java/util/concurrent/ConcurrentMap.remove:(Ljava/lang/Object;Ljava/lang/Object;)Z
+      11: istore_3
+      12: iload_3
+      13: ifeq          57
+      16: aload_0
+      17: getfield      #6                  // Field connections:Ljava/util/concurrent/ConcurrentMap;
+      20: invokeinterface #93,  1           // InterfaceMethod java/util/concurrent/ConcurrentMap.isEmpty:()Z
+      25: ifeq          57
+      28: aload_0
+      29: getfield      #64                 // Field emptyCondition:Ljava/lang/Object;
+      32: dup
+      33: astore        4
+      35: monitorenter
+      36: aload_0
+      37: getfield      #64                 // Field emptyCondition:Ljava/lang/Object;
+      40: invokevirtual #165                // Method java/lang/Object.notify:()V
+      43: aload         4
+      45: monitorexit
+      46: goto          57
+      49: astore        5
+      51: aload         4
+      53: monitorexit
+      54: aload         5
+      56: athrow
+      57: return
+    Exception table:
+       from    to  target type
+          36    46    49   any
+          49    54    49   any
+
+  static java.lang.ThreadLocal access$300();
+    Code:
+       0: getstatic     #15                 // Field callId:Ljava/lang/ThreadLocal;
+       3: areturn
+
+  static java.lang.ThreadLocal access$400();
+    Code:
+       0: getstatic     #14                 // Field retryCount:Ljava/lang/ThreadLocal;
+       3: areturn
+
+  static java.lang.ThreadLocal access$500();
+    Code:
+       0: getstatic     #13                 // Field EXTERNAL_CALL_HANDLER:Ljava/lang/ThreadLocal;
+       3: areturn
+
+  static byte[] access$900(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: getfield      #12                 // Field clientId:[B
+       4: areturn
+
+  static javax.net.SocketFactory access$1000(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: getfield      #11                 // Field socketFactory:Ljavax/net/SocketFactory;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicBoolean access$1200(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: getfield      #10                 // Field running:Ljava/util/concurrent/atomic/AtomicBoolean;
+       4: areturn
+
+  static boolean access$1600(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field bindToWildCardAddress:Z
+       4: ireturn
+
+  static int access$1700(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field connectionTimeout:I
+       4: ireturn
+
+  static boolean access$2500(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field fallbackAllowed:Z
+       4: ireturn
+
+  static java.util.concurrent.ConcurrentMap access$2800(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field connections:Ljava/util/concurrent/ConcurrentMap;
+       4: areturn
+
+  static java.util.concurrent.ExecutorService access$3100(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field sendParamsExecutor:Ljava/util/concurrent/ExecutorService;
+       4: areturn
+
+  static java.lang.Class access$3200(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: getfield      #4                  // Field valueClass:Ljava/lang/Class;
+       4: areturn
+
+  static org.apache.hadoop.conf.Configuration access$3300(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field conf:Lorg/apache/hadoop/conf/Configuration;
+       4: areturn
+
+  static org.apache.hadoop.io.Writable access$3500(org.apache.hadoop.ipc.Client, org.apache.hadoop.ipc.Client$Call, org.apache.hadoop.ipc.Client$Connection, long, java.util.concurrent.TimeUnit) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: lload_3
+       4: aload         5
+       6: invokespecial #2                  // Method getRpcResponse:(Lorg/apache/hadoop/ipc/Client$Call;Lorg/apache/hadoop/ipc/Client$Connection;JLjava/util/concurrent/TimeUnit;)Lorg/apache/hadoop/io/Writable;
+       9: areturn
+
+  static void access$3600(org.apache.hadoop.ipc.Client);
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method releaseAsyncCall:()V
+       4: return
+
+  static {};
+    Code:
+       0: ldc           #166                // class org/apache/hadoop/ipc/Client
+       2: invokestatic  #167                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #81                 // Field LOG:Lorg/slf4j/Logger;
+       8: new           #67                 // class java/util/concurrent/atomic/AtomicInteger
+      11: dup
+      12: invokespecial #168                // Method java/util/concurrent/atomic/AtomicInteger."<init>":()V
+      15: putstatic     #159                // Field callIdCounter:Ljava/util/concurrent/atomic/AtomicInteger;
+      18: new           #169                // class java/lang/ThreadLocal
+      21: dup
+      22: invokespecial #170                // Method java/lang/ThreadLocal."<init>":()V
+      25: putstatic     #15                 // Field callId:Ljava/lang/ThreadLocal;
+      28: new           #169                // class java/lang/ThreadLocal
+      31: dup
+      32: invokespecial #170                // Method java/lang/ThreadLocal."<init>":()V
+      35: putstatic     #14                 // Field retryCount:Ljava/lang/ThreadLocal;
+      38: new           #169                // class java/lang/ThreadLocal
+      41: dup
+      42: invokespecial #170                // Method java/lang/ThreadLocal."<init>":()V
+      45: putstatic     #13                 // Field EXTERNAL_CALL_HANDLER:Ljava/lang/ThreadLocal;
+      48: new           #169                // class java/lang/ThreadLocal
+      51: dup
+      52: invokespecial #170                // Method java/lang/ThreadLocal."<init>":()V
+      55: putstatic     #16                 // Field ASYNC_RPC_RESPONSE:Ljava/lang/ThreadLocal;
+      58: new           #171                // class org/apache/hadoop/ipc/Client$1
+      61: dup
+      62: invokespecial #172                // Method org/apache/hadoop/ipc/Client$1."<init>":()V
+      65: putstatic     #125                // Field asynchronousMode:Ljava/lang/ThreadLocal;
+      68: new           #173                // class org/apache/hadoop/ipc/Client$ClientExecutorServiceFactory
+      71: dup
+      72: aconst_null
+      73: invokespecial #174                // Method org/apache/hadoop/ipc/Client$ClientExecutorServiceFactory."<init>":(Lorg/apache/hadoop/ipc/Client$1;)V
+      76: putstatic     #35                 // Field clientExcecutorFactory:Lorg/apache/hadoop/ipc/Client$ClientExecutorServiceFactory;
+      79: return
+}

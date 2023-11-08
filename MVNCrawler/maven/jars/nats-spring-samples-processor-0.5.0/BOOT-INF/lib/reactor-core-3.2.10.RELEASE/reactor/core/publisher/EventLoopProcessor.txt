@@ -1,0 +1,760 @@
+Compiled from "EventLoopProcessor.java"
+abstract class reactor.core.publisher.EventLoopProcessor<IN> extends reactor.core.publisher.FluxProcessor<IN, IN> implements java.lang.Runnable {
+  final java.util.concurrent.ExecutorService executor;
+
+  final java.util.concurrent.ExecutorService requestTaskExecutor;
+
+  final reactor.core.publisher.EventLoopProcessor$EventLoopContext contextClassLoader;
+
+  final java.lang.String name;
+
+  final boolean autoCancel;
+
+  final reactor.core.publisher.RingBuffer<reactor.core.publisher.EventLoopProcessor$Slot<IN>> ringBuffer;
+
+  final reactor.util.concurrent.WaitStrategy readWait;
+
+  org.reactivestreams.Subscription upstreamSubscription;
+
+  volatile boolean cancelled;
+
+  volatile int terminated;
+
+  volatile java.lang.Throwable error;
+
+  volatile int subscriberCount;
+
+  static final int SHUTDOWN;
+
+  static final int FORCED_SHUTDOWN;
+
+  static final java.util.concurrent.atomic.AtomicIntegerFieldUpdater<reactor.core.publisher.EventLoopProcessor> SUBSCRIBER_COUNT;
+
+  static final java.util.concurrent.atomic.AtomicIntegerFieldUpdater<reactor.core.publisher.EventLoopProcessor> TERMINATED;
+
+  static <E> reactor.core.publisher.Flux<E> coldSource(reactor.core.publisher.RingBuffer<reactor.core.publisher.EventLoopProcessor$Slot<E>>, java.lang.Throwable, java.lang.Throwable, reactor.core.publisher.RingBuffer$Sequence);
+    Code:
+       0: aload_3
+       1: dup
+       2: invokevirtual #1                  // Method java/lang/Object.getClass:()Ljava/lang/Class;
+       5: pop
+       6: invokedynamic #2,  0              // InvokeDynamic #0:call:(Lreactor/core/publisher/RingBuffer$Sequence;)Ljava/util/concurrent/Callable;
+      11: aload_0
+      12: invokedynamic #3,  0              // InvokeDynamic #1:apply:(Lreactor/core/publisher/RingBuffer;)Ljava/util/function/BiFunction;
+      17: invokestatic  #4                  // Method generate:(Ljava/util/concurrent/Callable;Ljava/util/function/BiFunction;)Lreactor/core/publisher/Flux;
+      20: astore        4
+      22: aload_2
+      23: ifnull        76
+      26: aload_1
+      27: ifnull        56
+      30: aload_1
+      31: aload_2
+      32: invokestatic  #5                  // Method reactor/core/Exceptions.addSuppressed:(Ljava/lang/Throwable;Ljava/lang/Throwable;)Ljava/lang/Throwable;
+      35: astore_1
+      36: iconst_2
+      37: anewarray     #6                  // class org/reactivestreams/Publisher
+      40: dup
+      41: iconst_0
+      42: aload         4
+      44: aastore
+      45: dup
+      46: iconst_1
+      47: aload_1
+      48: invokestatic  #7                  // Method reactor/core/publisher/Flux.error:(Ljava/lang/Throwable;)Lreactor/core/publisher/Flux;
+      51: aastore
+      52: invokestatic  #8                  // Method concat:([Lorg/reactivestreams/Publisher;)Lreactor/core/publisher/Flux;
+      55: areturn
+      56: iconst_2
+      57: anewarray     #6                  // class org/reactivestreams/Publisher
+      60: dup
+      61: iconst_0
+      62: aload         4
+      64: aastore
+      65: dup
+      66: iconst_1
+      67: aload_2
+      68: invokestatic  #7                  // Method reactor/core/publisher/Flux.error:(Ljava/lang/Throwable;)Lreactor/core/publisher/Flux;
+      71: aastore
+      72: invokestatic  #8                  // Method concat:([Lorg/reactivestreams/Publisher;)Lreactor/core/publisher/Flux;
+      75: areturn
+      76: aload         4
+      78: areturn
+
+  static java.lang.Runnable createRequestTask(org.reactivestreams.Subscription, reactor.core.publisher.EventLoopProcessor<?>, java.util.function.Consumer<java.lang.Long>, java.util.function.LongSupplier);
+    Code:
+       0: new           #9                  // class reactor/core/publisher/EventLoopProcessor$RequestTask
+       3: dup
+       4: aload_0
+       5: aload_1
+       6: aload_2
+       7: aload_3
+       8: invokespecial #10                 // Method reactor/core/publisher/EventLoopProcessor$RequestTask."<init>":(Lorg/reactivestreams/Subscription;Lreactor/core/publisher/EventLoopProcessor;Ljava/util/function/Consumer;Ljava/util/function/LongSupplier;)V
+      11: areturn
+
+  static boolean waitRequestOrTerminalEvent(java.util.function.LongSupplier, reactor.core.publisher.RingBuffer$Reader, java.util.concurrent.atomic.AtomicBoolean, java.util.function.LongSupplier, java.lang.Runnable);
+    Code:
+       0: aload_0
+       1: invokeinterface #11,  1           // InterfaceMethod java/util/function/LongSupplier.getAsLong:()J
+       6: lconst_0
+       7: lcmp
+       8: ifgt          54
+      11: aload_3
+      12: invokeinterface #11,  1           // InterfaceMethod java/util/function/LongSupplier.getAsLong:()J
+      17: lconst_1
+      18: ladd
+      19: lstore        5
+      21: aload         4
+      23: invokeinterface #12,  1           // InterfaceMethod java/lang/Runnable.run:()V
+      28: aload_1
+      29: lload         5
+      31: aload         4
+      33: invokevirtual #13                 // Method reactor/core/publisher/RingBuffer$Reader.waitFor:(JLjava/lang/Runnable;)J
+      36: pop2
+      37: aload_2
+      38: invokevirtual #14                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      41: ifne          47
+      44: invokestatic  #15                 // Method reactor/util/concurrent/WaitStrategy.alert:()V
+      47: lconst_1
+      48: invokestatic  #16                 // Method java/util/concurrent/locks/LockSupport.parkNanos:(J)V
+      51: goto          0
+      54: goto          90
+      57: astore        5
+      59: invokestatic  #18                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      62: invokevirtual #19                 // Method java/lang/Thread.interrupt:()V
+      65: goto          90
+      68: astore        5
+      70: aload_2
+      71: invokevirtual #14                 // Method java/util/concurrent/atomic/AtomicBoolean.get:()Z
+      74: ifeq          85
+      77: aload         5
+      79: invokestatic  #21                 // Method reactor/util/concurrent/WaitStrategy.isAlert:(Ljava/lang/Throwable;)Z
+      82: ifeq          87
+      85: iconst_0
+      86: ireturn
+      87: aload         5
+      89: athrow
+      90: iconst_1
+      91: ireturn
+    Exception table:
+       from    to  target type
+           0    54    57   Class java/lang/InterruptedException
+           0    54    68   Class java/lang/Exception
+
+  static void addCap(reactor.core.publisher.RingBuffer$Sequence, long);
+    Code:
+       0: aload_0
+       1: invokeinterface #22,  1           // InterfaceMethod reactor/core/publisher/RingBuffer$Sequence.getAsLong:()J
+       6: lstore        5
+       8: lload         5
+      10: ldc2_w        #24                 // long 9223372036854775807l
+      13: lcmp
+      14: ifne          18
+      17: return
+      18: lload         5
+      20: lload_1
+      21: invokestatic  #26                 // Method reactor/core/publisher/Operators.addCap:(JJ)J
+      24: lstore_3
+      25: aload_0
+      26: lload         5
+      28: lload_3
+      29: invokeinterface #27,  5           // InterfaceMethod reactor/core/publisher/RingBuffer$Sequence.compareAndSet:(JJ)Z
+      34: ifeq          0
+      37: return
+
+  static long getAndSub(reactor.core.publisher.RingBuffer$Sequence, long);
+    Code:
+       0: aload_0
+       1: invokeinterface #22,  1           // InterfaceMethod reactor/core/publisher/RingBuffer$Sequence.getAsLong:()J
+       6: lstore_3
+       7: lload_3
+       8: lconst_0
+       9: lcmp
+      10: ifeq          21
+      13: lload_3
+      14: ldc2_w        #24                 // long 9223372036854775807l
+      17: lcmp
+      18: ifne          23
+      21: lload_3
+      22: lreturn
+      23: lload_3
+      24: lload_1
+      25: invokestatic  #28                 // Method reactor/core/publisher/Operators.subOrZero:(JJ)J
+      28: lstore        5
+      30: aload_0
+      31: lload_3
+      32: lload         5
+      34: invokeinterface #27,  5           // InterfaceMethod reactor/core/publisher/RingBuffer$Sequence.compareAndSet:(JJ)Z
+      39: ifeq          0
+      42: lload_3
+      43: lreturn
+
+  reactor.core.publisher.EventLoopProcessor(int, java.util.concurrent.ThreadFactory, java.util.concurrent.ExecutorService, java.util.concurrent.ExecutorService, boolean, boolean, java.util.function.Supplier<reactor.core.publisher.EventLoopProcessor$Slot<IN>>, reactor.util.concurrent.WaitStrategy);
+    Code:
+       0: aload_0
+       1: invokespecial #29                 // Method reactor/core/publisher/FluxProcessor."<init>":()V
+       4: aload_0
+       5: invokestatic  #30                 // Method reactor/util/concurrent/WaitStrategy.liteBlocking:()Lreactor/util/concurrent/WaitStrategy;
+       8: putfield      #31                 // Field readWait:Lreactor/util/concurrent/WaitStrategy;
+      11: iload_1
+      12: invokestatic  #32                 // Method reactor/util/concurrent/Queues.isPowerOfTwo:(I)Z
+      15: ifne          45
+      18: new           #33                 // class java/lang/IllegalArgumentException
+      21: dup
+      22: new           #34                 // class java/lang/StringBuilder
+      25: dup
+      26: invokespecial #35                 // Method java/lang/StringBuilder."<init>":()V
+      29: ldc           #36                 // String bufferSize must be a power of 2 :
+      31: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      34: iload_1
+      35: invokevirtual #38                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      38: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      41: invokespecial #40                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      44: athrow
+      45: iload_1
+      46: iconst_1
+      47: if_icmpge     77
+      50: new           #33                 // class java/lang/IllegalArgumentException
+      53: dup
+      54: new           #34                 // class java/lang/StringBuilder
+      57: dup
+      58: invokespecial #35                 // Method java/lang/StringBuilder."<init>":()V
+      61: ldc           #41                 // String bufferSize must be strictly positive, was:
+      63: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      66: iload_1
+      67: invokevirtual #38                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      70: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      73: invokespecial #40                 // Method java/lang/IllegalArgumentException."<init>":(Ljava/lang/String;)V
+      76: athrow
+      77: aload_0
+      78: iload         5
+      80: putfield      #42                 // Field autoCancel:Z
+      83: aload_0
+      84: new           #43                 // class reactor/core/publisher/EventLoopProcessor$EventLoopContext
+      87: dup
+      88: iload         6
+      90: invokespecial #44                 // Method reactor/core/publisher/EventLoopProcessor$EventLoopContext."<init>":(Z)V
+      93: putfield      #45                 // Field contextClassLoader:Lreactor/core/publisher/EventLoopProcessor$EventLoopContext;
+      96: aload_0
+      97: aload_2
+      98: aload_0
+      99: invokevirtual #1                  // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     102: invokestatic  #46                 // Method defaultName:(Ljava/util/concurrent/ThreadFactory;Ljava/lang/Class;)Ljava/lang/String;
+     105: putfield      #47                 // Field name:Ljava/lang/String;
+     108: aload_0
+     109: aload         4
+     111: ldc           #48                 // String requestTaskExecutor
+     113: invokestatic  #49                 // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+     116: checkcast     #50                 // class java/util/concurrent/ExecutorService
+     119: putfield      #51                 // Field requestTaskExecutor:Ljava/util/concurrent/ExecutorService;
+     122: aload_3
+     123: ifnonnull     137
+     126: aload_0
+     127: aload_2
+     128: invokestatic  #52                 // Method java/util/concurrent/Executors.newCachedThreadPool:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+     131: putfield      #53                 // Field executor:Ljava/util/concurrent/ExecutorService;
+     134: goto          142
+     137: aload_0
+     138: aload_3
+     139: putfield      #53                 // Field executor:Ljava/util/concurrent/ExecutorService;
+     142: iload         6
+     144: ifeq          163
+     147: aload_0
+     148: aload         7
+     150: iload_1
+     151: aload         8
+     153: aload_0
+     154: invokestatic  #54                 // Method reactor/core/publisher/RingBuffer.createMultiProducer:(Ljava/util/function/Supplier;ILreactor/util/concurrent/WaitStrategy;Ljava/lang/Runnable;)Lreactor/core/publisher/RingBuffer;
+     157: putfield      #55                 // Field ringBuffer:Lreactor/core/publisher/RingBuffer;
+     160: goto          176
+     163: aload_0
+     164: aload         7
+     166: iload_1
+     167: aload         8
+     169: aload_0
+     170: invokestatic  #56                 // Method reactor/core/publisher/RingBuffer.createSingleProducer:(Ljava/util/function/Supplier;ILreactor/util/concurrent/WaitStrategy;Ljava/lang/Runnable;)Lreactor/core/publisher/RingBuffer;
+     173: putfield      #55                 // Field ringBuffer:Lreactor/core/publisher/RingBuffer;
+     176: return
+
+  public abstract long getPending();
+
+  public java.lang.Object scanUnsafe(reactor.core.Scannable$Attr);
+    Code:
+       0: aload_1
+       1: getstatic     #57                 // Field reactor/core/Scannable$Attr.PARENT:Lreactor/core/Scannable$Attr;
+       4: if_acmpne     12
+       7: aload_0
+       8: getfield      #58                 // Field upstreamSubscription:Lorg/reactivestreams/Subscription;
+      11: areturn
+      12: aload_0
+      13: aload_1
+      14: invokespecial #59                 // Method reactor/core/publisher/FluxProcessor.scanUnsafe:(Lreactor/core/Scannable$Attr;)Ljava/lang/Object;
+      17: areturn
+
+  protected static java.lang.String defaultName(java.util.concurrent.ThreadFactory, java.lang.Class<? extends reactor.core.publisher.EventLoopProcessor>);
+    Code:
+       0: aload_0
+       1: instanceof    #60                 // class java/util/function/Supplier
+       4: ifeq          22
+       7: aload_0
+       8: checkcast     #60                 // class java/util/function/Supplier
+      11: invokeinterface #61,  1           // InterfaceMethod java/util/function/Supplier.get:()Ljava/lang/Object;
+      16: invokevirtual #62                 // Method java/lang/Object.toString:()Ljava/lang/String;
+      19: goto          23
+      22: aconst_null
+      23: astore_2
+      24: aconst_null
+      25: aload_2
+      26: if_acmpeq     33
+      29: aload_2
+      30: goto          37
+      33: aload_1
+      34: invokevirtual #63                 // Method java/lang/Class.getSimpleName:()Ljava/lang/String;
+      37: areturn
+
+  protected static java.util.concurrent.ExecutorService defaultRequestTaskExecutor(java.lang.String);
+    Code:
+       0: aload_0
+       1: invokedynamic #64,  0             // InvokeDynamic #2:newThread:(Ljava/lang/String;)Ljava/util/concurrent/ThreadFactory;
+       6: invokestatic  #52                 // Method java/util/concurrent/Executors.newCachedThreadPool:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ExecutorService;
+       9: areturn
+
+  public final boolean alive();
+    Code:
+       0: iconst_0
+       1: aload_0
+       2: getfield      #65                 // Field terminated:I
+       5: if_icmpne     12
+       8: iconst_1
+       9: goto          13
+      12: iconst_0
+      13: ireturn
+
+  public final boolean awaitAndShutdown();
+    Code:
+       0: aload_0
+       1: ldc2_w        #66                 // long -1l
+       4: invokestatic  #68                 // Method java/time/Duration.ofSeconds:(J)Ljava/time/Duration;
+       7: invokevirtual #69                 // Method awaitAndShutdown:(Ljava/time/Duration;)Z
+      10: ireturn
+
+  public final boolean awaitAndShutdown(long, java.util.concurrent.TimeUnit);
+    Code:
+       0: aload_0
+       1: invokevirtual #70                 // Method shutdown:()V
+       4: aload_0
+       5: getfield      #53                 // Field executor:Ljava/util/concurrent/ExecutorService;
+       8: lload_1
+       9: aload_3
+      10: invokeinterface #71,  4           // InterfaceMethod java/util/concurrent/ExecutorService.awaitTermination:(JLjava/util/concurrent/TimeUnit;)Z
+      15: ireturn
+      16: astore        4
+      18: invokestatic  #18                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      21: invokevirtual #19                 // Method java/lang/Thread.interrupt:()V
+      24: iconst_0
+      25: ireturn
+    Exception table:
+       from    to  target type
+           0    15    16   Class java/lang/InterruptedException
+
+  public final boolean awaitAndShutdown(java.time.Duration);
+    Code:
+       0: ldc2_w        #66                 // long -1l
+       3: lstore_2
+       4: aload_1
+       5: invokevirtual #72                 // Method java/time/Duration.isNegative:()Z
+       8: ifne          16
+      11: aload_1
+      12: invokevirtual #73                 // Method java/time/Duration.toNanos:()J
+      15: lstore_2
+      16: aload_0
+      17: invokevirtual #70                 // Method shutdown:()V
+      20: aload_0
+      21: getfield      #53                 // Field executor:Ljava/util/concurrent/ExecutorService;
+      24: lload_2
+      25: getstatic     #74                 // Field java/util/concurrent/TimeUnit.NANOSECONDS:Ljava/util/concurrent/TimeUnit;
+      28: invokeinterface #71,  4           // InterfaceMethod java/util/concurrent/ExecutorService.awaitTermination:(JLjava/util/concurrent/TimeUnit;)Z
+      33: ireturn
+      34: astore        4
+      36: invokestatic  #18                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      39: invokevirtual #19                 // Method java/lang/Thread.interrupt:()V
+      42: iconst_0
+      43: ireturn
+    Exception table:
+       from    to  target type
+          16    33    34   Class java/lang/InterruptedException
+
+  public java.util.stream.Stream<? extends reactor.core.Scannable> inners();
+    Code:
+       0: invokestatic  #75                 // InterfaceMethod java/util/stream/Stream.empty:()Ljava/util/stream/Stream;
+       3: areturn
+
+  public reactor.core.publisher.Flux<IN> drain();
+    Code:
+       0: invokestatic  #76                 // Method reactor/core/publisher/Flux.empty:()Lreactor/core/publisher/Flux;
+       3: areturn
+
+  public final reactor.core.publisher.Flux<IN> forceShutdown();
+    Code:
+       0: aload_0
+       1: getfield      #65                 // Field terminated:I
+       4: istore_1
+       5: iload_1
+       6: iconst_2
+       7: if_icmpeq     42
+      10: getstatic     #78                 // Field TERMINATED:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      13: aload_0
+      14: iload_1
+      15: iconst_2
+      16: invokevirtual #79                 // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.compareAndSet:(Ljava/lang/Object;II)Z
+      19: ifeq          42
+      22: aload_0
+      23: getfield      #53                 // Field executor:Ljava/util/concurrent/ExecutorService;
+      26: invokeinterface #80,  1           // InterfaceMethod java/util/concurrent/ExecutorService.shutdownNow:()Ljava/util/List;
+      31: pop
+      32: aload_0
+      33: getfield      #51                 // Field requestTaskExecutor:Ljava/util/concurrent/ExecutorService;
+      36: invokeinterface #80,  1           // InterfaceMethod java/util/concurrent/ExecutorService.shutdownNow:()Ljava/util/List;
+      41: pop
+      42: aload_0
+      43: invokevirtual #81                 // Method drain:()Lreactor/core/publisher/Flux;
+      46: areturn
+
+  public final long getAvailableCapacity();
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field ringBuffer:Lreactor/core/publisher/RingBuffer;
+       4: invokevirtual #82                 // Method reactor/core/publisher/RingBuffer.bufferSize:()I
+       7: aload_0
+       8: getfield      #55                 // Field ringBuffer:Lreactor/core/publisher/RingBuffer;
+      11: invokevirtual #83                 // Method reactor/core/publisher/RingBuffer.getPending:()I
+      14: isub
+      15: i2l
+      16: lreturn
+
+  public final java.lang.Throwable getError();
+    Code:
+       0: aload_0
+       1: getfield      #84                 // Field error:Ljava/lang/Throwable;
+       4: areturn
+
+  public final java.lang.String toString();
+    Code:
+       0: new           #34                 // class java/lang/StringBuilder
+       3: dup
+       4: invokespecial #35                 // Method java/lang/StringBuilder."<init>":()V
+       7: ldc           #85                 // String /Processors/
+       9: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      12: aload_0
+      13: getfield      #47                 // Field name:Ljava/lang/String;
+      16: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      19: ldc           #86                 // String /
+      21: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      24: aload_0
+      25: getfield      #45                 // Field contextClassLoader:Lreactor/core/publisher/EventLoopProcessor$EventLoopContext;
+      28: invokevirtual #87                 // Method java/lang/Object.hashCode:()I
+      31: invokevirtual #38                 // Method java/lang/StringBuilder.append:(I)Ljava/lang/StringBuilder;
+      34: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      37: areturn
+
+  public final int hashCode();
+    Code:
+       0: aload_0
+       1: getfield      #45                 // Field contextClassLoader:Lreactor/core/publisher/EventLoopProcessor$EventLoopContext;
+       4: invokevirtual #87                 // Method java/lang/Object.hashCode:()I
+       7: ireturn
+
+  public boolean isSerialized();
+    Code:
+       0: aload_0
+       1: getfield      #45                 // Field contextClassLoader:Lreactor/core/publisher/EventLoopProcessor$EventLoopContext;
+       4: getfield      #88                 // Field reactor/core/publisher/EventLoopProcessor$EventLoopContext.multiproducer:Z
+       7: ireturn
+
+  public final boolean isTerminated();
+    Code:
+       0: aload_0
+       1: getfield      #65                 // Field terminated:I
+       4: ifle          11
+       7: iconst_1
+       8: goto          12
+      11: iconst_0
+      12: ireturn
+
+  public final void onComplete();
+    Code:
+       0: getstatic     #78                 // Field TERMINATED:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+       3: aload_0
+       4: iconst_0
+       5: iconst_1
+       6: invokevirtual #79                 // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.compareAndSet:(Ljava/lang/Object;II)Z
+       9: ifeq          37
+      12: aload_0
+      13: aconst_null
+      14: putfield      #58                 // Field upstreamSubscription:Lorg/reactivestreams/Subscription;
+      17: aload_0
+      18: invokevirtual #89                 // Method doComplete:()V
+      21: aload_0
+      22: getfield      #53                 // Field executor:Ljava/util/concurrent/ExecutorService;
+      25: invokeinterface #90,  1           // InterfaceMethod java/util/concurrent/ExecutorService.shutdown:()V
+      30: aload_0
+      31: getfield      #31                 // Field readWait:Lreactor/util/concurrent/WaitStrategy;
+      34: invokevirtual #91                 // Method reactor/util/concurrent/WaitStrategy.signalAllWhenBlocking:()V
+      37: return
+
+  public final void onError(java.lang.Throwable);
+    Code:
+       0: aload_1
+       1: ldc           #92                 // String onError
+       3: invokestatic  #49                 // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+       6: pop
+       7: getstatic     #78                 // Field TERMINATED:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      10: aload_0
+      11: iconst_0
+      12: iconst_1
+      13: invokevirtual #79                 // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.compareAndSet:(Ljava/lang/Object;II)Z
+      16: ifeq          53
+      19: aload_0
+      20: aload_1
+      21: putfield      #84                 // Field error:Ljava/lang/Throwable;
+      24: aload_0
+      25: aconst_null
+      26: putfield      #58                 // Field upstreamSubscription:Lorg/reactivestreams/Subscription;
+      29: aload_0
+      30: aload_1
+      31: invokevirtual #93                 // Method doError:(Ljava/lang/Throwable;)V
+      34: aload_0
+      35: getfield      #53                 // Field executor:Ljava/util/concurrent/ExecutorService;
+      38: invokeinterface #90,  1           // InterfaceMethod java/util/concurrent/ExecutorService.shutdown:()V
+      43: aload_0
+      44: getfield      #31                 // Field readWait:Lreactor/util/concurrent/WaitStrategy;
+      47: invokevirtual #91                 // Method reactor/util/concurrent/WaitStrategy.signalAllWhenBlocking:()V
+      50: goto          60
+      53: aload_1
+      54: invokestatic  #94                 // InterfaceMethod reactor/util/context/Context.empty:()Lreactor/util/context/Context;
+      57: invokestatic  #95                 // Method reactor/core/publisher/Operators.onErrorDropped:(Ljava/lang/Throwable;Lreactor/util/context/Context;)V
+      60: return
+
+  public final void onNext(IN);
+    Code:
+       0: aload_1
+       1: ldc           #96                 // String onNext
+       3: invokestatic  #49                 // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+       6: pop
+       7: aload_0
+       8: getfield      #55                 // Field ringBuffer:Lreactor/core/publisher/RingBuffer;
+      11: invokevirtual #97                 // Method reactor/core/publisher/RingBuffer.next:()J
+      14: lstore_2
+      15: aload_0
+      16: getfield      #55                 // Field ringBuffer:Lreactor/core/publisher/RingBuffer;
+      19: lload_2
+      20: invokevirtual #98                 // Method reactor/core/publisher/RingBuffer.get:(J)Ljava/lang/Object;
+      23: checkcast     #99                 // class reactor/core/publisher/EventLoopProcessor$Slot
+      26: astore        4
+      28: aload         4
+      30: aload_1
+      31: putfield      #100                // Field reactor/core/publisher/EventLoopProcessor$Slot.value:Ljava/lang/Object;
+      34: aload_0
+      35: getfield      #55                 // Field ringBuffer:Lreactor/core/publisher/RingBuffer;
+      38: lload_2
+      39: invokevirtual #101                // Method reactor/core/publisher/RingBuffer.publish:(J)V
+      42: return
+
+  public final void onSubscribe(org.reactivestreams.Subscription);
+    Code:
+       0: aload_0
+       1: getfield      #58                 // Field upstreamSubscription:Lorg/reactivestreams/Subscription;
+       4: aload_1
+       5: invokestatic  #102                // Method reactor/core/publisher/Operators.validate:(Lorg/reactivestreams/Subscription;Lorg/reactivestreams/Subscription;)Z
+       8: ifeq          45
+      11: aload_0
+      12: aload_1
+      13: putfield      #58                 // Field upstreamSubscription:Lorg/reactivestreams/Subscription;
+      16: aload_1
+      17: invokestatic  #103                // Method reactor/core/publisher/Operators.emptySubscription:()Lorg/reactivestreams/Subscription;
+      20: if_acmpeq     28
+      23: aload_0
+      24: aload_1
+      25: invokevirtual #104                // Method requestTask:(Lorg/reactivestreams/Subscription;)V
+      28: goto          45
+      31: astore_2
+      32: aload_0
+      33: aload_1
+      34: aload_2
+      35: aload_0
+      36: invokevirtual #106                // Method currentContext:()Lreactor/util/context/Context;
+      39: invokestatic  #107                // Method reactor/core/publisher/Operators.onOperatorError:(Lorg/reactivestreams/Subscription;Ljava/lang/Throwable;Lreactor/util/context/Context;)Ljava/lang/Throwable;
+      42: invokevirtual #108                // Method onError:(Ljava/lang/Throwable;)V
+      45: return
+    Exception table:
+       from    to  target type
+          16    28    31   Class java/lang/Throwable
+
+  protected boolean serializeAlways();
+    Code:
+       0: aload_0
+       1: getfield      #45                 // Field contextClassLoader:Lreactor/core/publisher/EventLoopProcessor$EventLoopContext;
+       4: getfield      #88                 // Field reactor/core/publisher/EventLoopProcessor$EventLoopContext.multiproducer:Z
+       7: ifne          14
+      10: iconst_1
+      11: goto          15
+      14: iconst_0
+      15: ireturn
+
+  public final void shutdown();
+    Code:
+       0: aload_0
+       1: invokevirtual #109                // Method onComplete:()V
+       4: aload_0
+       5: getfield      #53                 // Field executor:Ljava/util/concurrent/ExecutorService;
+       8: invokeinterface #90,  1           // InterfaceMethod java/util/concurrent/ExecutorService.shutdown:()V
+      13: aload_0
+      14: getfield      #51                 // Field requestTaskExecutor:Ljava/util/concurrent/ExecutorService;
+      17: invokeinterface #90,  1           // InterfaceMethod java/util/concurrent/ExecutorService.shutdown:()V
+      22: goto          38
+      25: astore_1
+      26: aload_0
+      27: aload_1
+      28: aload_0
+      29: invokevirtual #106                // Method currentContext:()Lreactor/util/context/Context;
+      32: invokestatic  #110                // Method reactor/core/publisher/Operators.onOperatorError:(Ljava/lang/Throwable;Lreactor/util/context/Context;)Ljava/lang/Throwable;
+      35: invokevirtual #108                // Method onError:(Ljava/lang/Throwable;)V
+      38: return
+    Exception table:
+       from    to  target type
+           0    22    25   Class java/lang/Throwable
+
+  public final int getBufferSize();
+    Code:
+       0: aload_0
+       1: getfield      #55                 // Field ringBuffer:Lreactor/core/publisher/RingBuffer;
+       4: invokevirtual #82                 // Method reactor/core/publisher/RingBuffer.bufferSize:()I
+       7: ireturn
+
+  final void cancel();
+    Code:
+       0: aload_0
+       1: iconst_1
+       2: putfield      #111                // Field cancelled:Z
+       5: getstatic     #78                 // Field TERMINATED:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+       8: aload_0
+       9: iconst_0
+      10: iconst_1
+      11: invokevirtual #79                 // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.compareAndSet:(Ljava/lang/Object;II)Z
+      14: ifeq          26
+      17: aload_0
+      18: getfield      #53                 // Field executor:Ljava/util/concurrent/ExecutorService;
+      21: invokeinterface #90,  1           // InterfaceMethod java/util/concurrent/ExecutorService.shutdown:()V
+      26: aload_0
+      27: getfield      #31                 // Field readWait:Lreactor/util/concurrent/WaitStrategy;
+      30: invokevirtual #91                 // Method reactor/util/concurrent/WaitStrategy.signalAllWhenBlocking:()V
+      33: return
+
+  protected void doComplete();
+    Code:
+       0: return
+
+  protected void requestTask(org.reactivestreams.Subscription);
+    Code:
+       0: return
+
+  final void decrementSubscribers();
+    Code:
+       0: aload_0
+       1: getfield      #58                 // Field upstreamSubscription:Lorg/reactivestreams/Subscription;
+       4: astore_1
+       5: getstatic     #112                // Field SUBSCRIBER_COUNT:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+       8: aload_0
+       9: invokevirtual #113                // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.decrementAndGet:(Ljava/lang/Object;)I
+      12: istore_2
+      13: iload_2
+      14: ifne          37
+      17: aload_1
+      18: ifnull        37
+      21: aload_0
+      22: getfield      #42                 // Field autoCancel:Z
+      25: ifeq          37
+      28: aload_0
+      29: aconst_null
+      30: putfield      #58                 // Field upstreamSubscription:Lorg/reactivestreams/Subscription;
+      33: aload_0
+      34: invokevirtual #114                // Method cancel:()V
+      37: return
+
+  public long downstreamCount();
+    Code:
+       0: aload_0
+       1: getfield      #115                // Field subscriberCount:I
+       4: i2l
+       5: lreturn
+
+  abstract void doError(java.lang.Throwable);
+
+  final boolean incrementSubscribers();
+    Code:
+       0: getstatic     #112                // Field SUBSCRIBER_COUNT:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+       3: aload_0
+       4: invokevirtual #116                // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.getAndIncrement:(Ljava/lang/Object;)I
+       7: ifne          14
+      10: iconst_1
+      11: goto          15
+      14: iconst_0
+      15: ireturn
+
+  private static java.lang.Thread lambda$defaultRequestTaskExecutor$1(java.lang.String, java.lang.Runnable);
+    Code:
+       0: new           #117                // class java/lang/Thread
+       3: dup
+       4: aload_1
+       5: new           #34                 // class java/lang/StringBuilder
+       8: dup
+       9: invokespecial #35                 // Method java/lang/StringBuilder."<init>":()V
+      12: aload_0
+      13: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      16: ldc           #118                // String [request-task]
+      18: invokevirtual #37                 // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      21: invokevirtual #39                 // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+      24: invokespecial #119                // Method java/lang/Thread."<init>":(Ljava/lang/Runnable;Ljava/lang/String;)V
+      27: areturn
+
+  private static java.lang.Long lambda$coldSource$0(reactor.core.publisher.RingBuffer, java.lang.Long, reactor.core.publisher.SynchronousSink);
+    Code:
+       0: aload_1
+       1: invokevirtual #120                // Method java/lang/Long.longValue:()J
+       4: lconst_1
+       5: ladd
+       6: lstore_3
+       7: lload_3
+       8: aload_0
+       9: invokevirtual #121                // Method reactor/core/publisher/RingBuffer.getCursor:()J
+      12: lcmp
+      13: ifle          25
+      16: aload_2
+      17: invokeinterface #122,  1          // InterfaceMethod reactor/core/publisher/SynchronousSink.complete:()V
+      22: goto          51
+      25: aload_0
+      26: lload_3
+      27: invokevirtual #98                 // Method reactor/core/publisher/RingBuffer.get:(J)Ljava/lang/Object;
+      30: checkcast     #99                 // class reactor/core/publisher/EventLoopProcessor$Slot
+      33: getfield      #100                // Field reactor/core/publisher/EventLoopProcessor$Slot.value:Ljava/lang/Object;
+      36: astore        5
+      38: aload         5
+      40: ifnull        51
+      43: aload_2
+      44: aload         5
+      46: invokeinterface #123,  2          // InterfaceMethod reactor/core/publisher/SynchronousSink.next:(Ljava/lang/Object;)V
+      51: lload_3
+      52: invokestatic  #124                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      55: areturn
+
+  static {};
+    Code:
+       0: ldc           #77                 // class reactor/core/publisher/EventLoopProcessor
+       2: ldc           #125                // String subscriberCount
+       4: invokestatic  #126                // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.newUpdater:(Ljava/lang/Class;Ljava/lang/String;)Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+       7: putstatic     #112                // Field SUBSCRIBER_COUNT:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      10: ldc           #77                 // class reactor/core/publisher/EventLoopProcessor
+      12: ldc           #127                // String terminated
+      14: invokestatic  #126                // Method java/util/concurrent/atomic/AtomicIntegerFieldUpdater.newUpdater:(Ljava/lang/Class;Ljava/lang/String;)Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      17: putstatic     #78                 // Field TERMINATED:Ljava/util/concurrent/atomic/AtomicIntegerFieldUpdater;
+      20: return
+}

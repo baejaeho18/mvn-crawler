@@ -1,0 +1,1647 @@
+Compiled from "KafkaJournal.java"
+public class org.graylog2.shared.journal.KafkaJournal extends com.google.common.util.concurrent.AbstractIdleService implements org.graylog2.shared.journal.Journal {
+  private static final org.slf4j.Logger LOG;
+
+  private static final int NUM_IO_THREADS;
+
+  public static final long DEFAULT_COMMITTED_OFFSET;
+
+  public static final int NOTIFY_ON_UTILIZATION_PERCENTAGE;
+
+  private final org.graylog2.plugin.ServerStatus serverStatus;
+
+  private static final kafka.utils.Time JODA_TIME;
+
+  private final kafka.log.LogManager logManager;
+
+  private final kafka.log.Log kafkaLog;
+
+  private final java.io.File committedReadOffsetFile;
+
+  private final java.util.concurrent.atomic.AtomicLong committedOffset;
+
+  private final java.util.concurrent.ScheduledExecutorService scheduler;
+
+  private final com.codahale.metrics.Timer writeTime;
+
+  private final com.codahale.metrics.Timer readTime;
+
+  private final kafka.utils.KafkaScheduler kafkaScheduler;
+
+  private final com.codahale.metrics.Meter writtenMessages;
+
+  private final com.codahale.metrics.Meter readMessages;
+
+  private final com.codahale.metrics.Meter writeDiscardedMessages;
+
+  private final org.graylog2.shared.journal.KafkaJournal$OffsetFileFlusher offsetFlusher;
+
+  private final org.graylog2.shared.journal.KafkaJournal$DirtyLogFlusher dirtyLogFlusher;
+
+  private final org.graylog2.shared.journal.KafkaJournal$RecoveryCheckpointFlusher recoveryCheckpointFlusher;
+
+  private final org.graylog2.shared.journal.KafkaJournal$LogRetentionCleaner logRetentionCleaner;
+
+  private final long maxSegmentSize;
+
+  private final int maxMessageSize;
+
+  private long nextReadOffset;
+
+  private java.util.concurrent.ScheduledFuture<?> checkpointFlusherFuture;
+
+  private java.util.concurrent.ScheduledFuture<?> dirtyLogFlushFuture;
+
+  private java.util.concurrent.ScheduledFuture<?> logRetentionFuture;
+
+  private java.util.concurrent.ScheduledFuture<?> offsetFlusherFuture;
+
+  private volatile boolean shuttingDown;
+
+  private final java.util.concurrent.atomic.AtomicReference<org.graylog2.plugin.ThrottleState> throttleState;
+
+  private final java.util.concurrent.atomic.AtomicInteger purgedSegmentsInLastRetention;
+
+  private final int throttleThresholdPercentage;
+
+  public org.graylog2.shared.journal.KafkaJournal(java.nio.file.Path, java.util.concurrent.ScheduledExecutorService, com.github.joschi.jadconfig.util.Size, org.joda.time.Duration, com.github.joschi.jadconfig.util.Size, org.joda.time.Duration, long, org.joda.time.Duration, int, com.codahale.metrics.MetricRegistry, org.graylog2.plugin.ServerStatus);
+    Code:
+       0: aload_0
+       1: invokespecial #13                 // Method com/google/common/util/concurrent/AbstractIdleService."<init>":()V
+       4: aload_0
+       5: new           #14                 // class java/util/concurrent/atomic/AtomicLong
+       8: dup
+       9: ldc2_w        #16                 // long -9223372036854775808l
+      12: invokespecial #18                 // Method java/util/concurrent/atomic/AtomicLong."<init>":(J)V
+      15: putfield      #9                  // Field committedOffset:Ljava/util/concurrent/atomic/AtomicLong;
+      18: aload_0
+      19: lconst_0
+      20: putfield      #19                 // Field nextReadOffset:J
+      23: aload_0
+      24: new           #20                 // class java/util/concurrent/atomic/AtomicReference
+      27: dup
+      28: invokespecial #21                 // Method java/util/concurrent/atomic/AtomicReference."<init>":()V
+      31: putfield      #22                 // Field throttleState:Ljava/util/concurrent/atomic/AtomicReference;
+      34: aload_0
+      35: new           #23                 // class java/util/concurrent/atomic/AtomicInteger
+      38: dup
+      39: invokespecial #24                 // Method java/util/concurrent/atomic/AtomicInteger."<init>":()V
+      42: putfield      #5                  // Field purgedSegmentsInLastRetention:Ljava/util/concurrent/atomic/AtomicInteger;
+      45: aload_0
+      46: aload_2
+      47: putfield      #25                 // Field scheduler:Ljava/util/concurrent/ScheduledExecutorService;
+      50: aload_0
+      51: iload         10
+      53: iconst_0
+      54: bipush        100
+      56: invokestatic  #26                 // Method intRange:(III)I
+      59: putfield      #2                  // Field throttleThresholdPercentage:I
+      62: aload_0
+      63: aload         12
+      65: putfield      #3                  // Field serverStatus:Lorg/graylog2/plugin/ServerStatus;
+      68: aload_0
+      69: aload_3
+      70: invokevirtual #27                 // Method com/github/joschi/jadconfig/util/Size.toBytes:()J
+      73: putfield      #28                 // Field maxSegmentSize:J
+      76: aload_0
+      77: aload_0
+      78: getfield      #28                 // Field maxSegmentSize:J
+      81: invokestatic  #29                 // Method com/google/common/primitives/Ints.saturatedCast:(J)I
+      84: putfield      #30                 // Field maxMessageSize:I
+      87: aload_0
+      88: aload         11
+      90: aload_0
+      91: invokevirtual #31                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+      94: iconst_1
+      95: anewarray     #32                 // class java/lang/String
+      98: dup
+      99: iconst_0
+     100: ldc           #33                 // String writtenMessages
+     102: aastore
+     103: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+     106: invokevirtual #35                 // Method com/codahale/metrics/MetricRegistry.meter:(Ljava/lang/String;)Lcom/codahale/metrics/Meter;
+     109: putfield      #36                 // Field writtenMessages:Lcom/codahale/metrics/Meter;
+     112: aload_0
+     113: aload         11
+     115: aload_0
+     116: invokevirtual #31                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     119: iconst_1
+     120: anewarray     #32                 // class java/lang/String
+     123: dup
+     124: iconst_0
+     125: ldc           #37                 // String readMessages
+     127: aastore
+     128: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+     131: invokevirtual #35                 // Method com/codahale/metrics/MetricRegistry.meter:(Ljava/lang/String;)Lcom/codahale/metrics/Meter;
+     134: putfield      #38                 // Field readMessages:Lcom/codahale/metrics/Meter;
+     137: aload_0
+     138: aload         11
+     140: aload_0
+     141: invokevirtual #31                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     144: iconst_1
+     145: anewarray     #32                 // class java/lang/String
+     148: dup
+     149: iconst_0
+     150: ldc           #39                 // String writeDiscardedMessages
+     152: aastore
+     153: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+     156: invokevirtual #35                 // Method com/codahale/metrics/MetricRegistry.meter:(Ljava/lang/String;)Lcom/codahale/metrics/Meter;
+     159: putfield      #40                 // Field writeDiscardedMessages:Lcom/codahale/metrics/Meter;
+     162: aload_0
+     163: aload         11
+     165: aload_0
+     166: invokevirtual #31                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     169: iconst_1
+     170: anewarray     #32                 // class java/lang/String
+     173: dup
+     174: iconst_0
+     175: ldc           #41                 // String uncommittedMessages
+     177: aastore
+     178: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+     181: invokespecial #42                 // Method registerUncommittedGauge:(Lcom/codahale/metrics/MetricRegistry;Ljava/lang/String;)V
+     184: aload_0
+     185: aload_0
+     186: aload         11
+     188: aload_0
+     189: invokevirtual #31                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     192: iconst_1
+     193: anewarray     #32                 // class java/lang/String
+     196: dup
+     197: iconst_0
+     198: ldc           #43                 // String writeTime
+     200: aastore
+     201: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+     204: invokespecial #44                 // Method registerHdrTimer:(Lcom/codahale/metrics/MetricRegistry;Ljava/lang/String;)Lcom/codahale/metrics/Timer;
+     207: putfield      #45                 // Field writeTime:Lcom/codahale/metrics/Timer;
+     210: aload_0
+     211: aload_0
+     212: aload         11
+     214: aload_0
+     215: invokevirtual #31                 // Method java/lang/Object.getClass:()Ljava/lang/Class;
+     218: iconst_1
+     219: anewarray     #32                 // class java/lang/String
+     222: dup
+     223: iconst_0
+     224: ldc           #46                 // String readTime
+     226: aastore
+     227: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+     230: invokespecial #44                 // Method registerHdrTimer:(Lcom/codahale/metrics/MetricRegistry;Ljava/lang/String;)Lcom/codahale/metrics/Timer;
+     233: putfield      #47                 // Field readTime:Lcom/codahale/metrics/Timer;
+     236: invokestatic  #48                 // Method com/google/common/collect/ImmutableMap.builder:()Lcom/google/common/collect/ImmutableMap$Builder;
+     239: invokestatic  #49                 // Method kafka/log/LogConfig.SegmentBytesProp:()Ljava/lang/String;
+     242: aload_3
+     243: invokevirtual #27                 // Method com/github/joschi/jadconfig/util/Size.toBytes:()J
+     246: invokestatic  #29                 // Method com/google/common/primitives/Ints.saturatedCast:(J)I
+     249: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     252: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     255: invokestatic  #52                 // Method kafka/log/LogConfig.SegmentMsProp:()Ljava/lang/String;
+     258: aload         4
+     260: invokevirtual #53                 // Method org/joda/time/Duration.getMillis:()J
+     263: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     266: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     269: invokestatic  #55                 // Method kafka/log/LogConfig.SegmentJitterMsProp:()Ljava/lang/String;
+     272: iconst_0
+     273: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     276: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     279: invokestatic  #56                 // Method kafka/log/LogConfig.FlushMessagesProp:()Ljava/lang/String;
+     282: lload         7
+     284: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     287: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     290: invokestatic  #57                 // Method kafka/log/LogConfig.FlushMsProp:()Ljava/lang/String;
+     293: aload         9
+     295: invokevirtual #53                 // Method org/joda/time/Duration.getMillis:()J
+     298: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     301: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     304: invokestatic  #58                 // Method kafka/log/LogConfig.RetentionBytesProp:()Ljava/lang/String;
+     307: aload         5
+     309: invokevirtual #27                 // Method com/github/joschi/jadconfig/util/Size.toBytes:()J
+     312: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     315: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     318: invokestatic  #59                 // Method kafka/log/LogConfig.RetentionMsProp:()Ljava/lang/String;
+     321: aload         6
+     323: invokevirtual #53                 // Method org/joda/time/Duration.getMillis:()J
+     326: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     329: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     332: invokestatic  #60                 // Method kafka/log/LogConfig.MaxMessageBytesProp:()Ljava/lang/String;
+     335: aload_0
+     336: getfield      #30                 // Field maxMessageSize:I
+     339: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     342: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     345: invokestatic  #61                 // Method kafka/log/LogConfig.SegmentIndexBytesProp:()Ljava/lang/String;
+     348: lconst_1
+     349: invokestatic  #62                 // Method com/github/joschi/jadconfig/util/Size.megabytes:(J)Lcom/github/joschi/jadconfig/util/Size;
+     352: invokevirtual #27                 // Method com/github/joschi/jadconfig/util/Size.toBytes:()J
+     355: invokestatic  #29                 // Method com/google/common/primitives/Ints.saturatedCast:(J)I
+     358: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     361: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     364: invokestatic  #63                 // Method kafka/log/LogConfig.IndexIntervalBytesProp:()Ljava/lang/String;
+     367: sipush        4096
+     370: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     373: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     376: invokestatic  #64                 // Method kafka/log/LogConfig.FileDeleteDelayMsProp:()Ljava/lang/String;
+     379: getstatic     #65                 // Field java/util/concurrent/TimeUnit.MINUTES:Ljava/util/concurrent/TimeUnit;
+     382: lconst_1
+     383: invokevirtual #66                 // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+     386: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     389: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     392: invokestatic  #67                 // Method kafka/log/LogConfig.DeleteRetentionMsProp:()Ljava/lang/String;
+     395: getstatic     #68                 // Field java/util/concurrent/TimeUnit.DAYS:Ljava/util/concurrent/TimeUnit;
+     398: lconst_1
+     399: invokevirtual #66                 // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+     402: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     405: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     408: invokestatic  #69                 // Method kafka/log/LogConfig.MinCleanableDirtyRatioProp:()Ljava/lang/String;
+     411: ldc2_w        #70                 // double 0.5d
+     414: invokestatic  #72                 // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+     417: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     420: invokestatic  #73                 // Method kafka/log/LogConfig.Compact:()Ljava/lang/String;
+     423: iconst_0
+     424: invokestatic  #74                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     427: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     430: invokestatic  #75                 // Method kafka/log/LogConfig.UncleanLeaderElectionEnableProp:()Ljava/lang/String;
+     433: iconst_1
+     434: invokestatic  #74                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     437: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     440: invokestatic  #76                 // Method kafka/log/LogConfig.MinInSyncReplicasProp:()Ljava/lang/String;
+     443: iconst_1
+     444: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     447: invokevirtual #51                 // Method com/google/common/collect/ImmutableMap$Builder.put:(Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableMap$Builder;
+     450: invokevirtual #77                 // Method com/google/common/collect/ImmutableMap$Builder.build:()Lcom/google/common/collect/ImmutableMap;
+     453: astore        13
+     455: new           #78                 // class kafka/log/LogConfig
+     458: dup
+     459: aload         13
+     461: invokespecial #79                 // Method kafka/log/LogConfig."<init>":(Ljava/util/Map;)V
+     464: astore        14
+     466: new           #80                 // class kafka/log/CleanerConfig
+     469: dup
+     470: iconst_1
+     471: ldc2_w        #81                 // long 4l
+     474: invokestatic  #62                 // Method com/github/joschi/jadconfig/util/Size.megabytes:(J)Lcom/github/joschi/jadconfig/util/Size;
+     477: invokevirtual #27                 // Method com/github/joschi/jadconfig/util/Size.toBytes:()J
+     480: ldc2_w        #83                 // double 0.9d
+     483: lconst_1
+     484: invokestatic  #62                 // Method com/github/joschi/jadconfig/util/Size.megabytes:(J)Lcom/github/joschi/jadconfig/util/Size;
+     487: invokevirtual #27                 // Method com/github/joschi/jadconfig/util/Size.toBytes:()J
+     490: invokestatic  #29                 // Method com/google/common/primitives/Ints.saturatedCast:(J)I
+     493: ldc2_w        #85                 // long 32l
+     496: invokestatic  #62                 // Method com/github/joschi/jadconfig/util/Size.megabytes:(J)Lcom/github/joschi/jadconfig/util/Size;
+     499: invokevirtual #27                 // Method com/github/joschi/jadconfig/util/Size.toBytes:()J
+     502: invokestatic  #29                 // Method com/google/common/primitives/Ints.saturatedCast:(J)I
+     505: ldc2_w        #87                 // long 5l
+     508: invokestatic  #62                 // Method com/github/joschi/jadconfig/util/Size.megabytes:(J)Lcom/github/joschi/jadconfig/util/Size;
+     511: invokevirtual #27                 // Method com/github/joschi/jadconfig/util/Size.toBytes:()J
+     514: invokestatic  #29                 // Method com/google/common/primitives/Ints.saturatedCast:(J)I
+     517: i2d
+     518: getstatic     #89                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     521: ldc2_w        #90                 // long 15l
+     524: invokevirtual #66                 // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+     527: iconst_0
+     528: ldc           #92                 // String MD5
+     530: invokespecial #93                 // Method kafka/log/CleanerConfig."<init>":(IJDIIDJZLjava/lang/String;)V
+     533: astore        15
+     535: aload_1
+     536: iconst_0
+     537: anewarray     #94                 // class java/nio/file/LinkOption
+     540: invokestatic  #95                 // Method java/nio/file/Files.exists:(Ljava/nio/file/Path;[Ljava/nio/file/LinkOption;)Z
+     543: ifne          586
+     546: aload_1
+     547: iconst_0
+     548: anewarray     #96                 // class java/nio/file/attribute/FileAttribute
+     551: invokestatic  #97                 // Method java/nio/file/Files.createDirectories:(Ljava/nio/file/Path;[Ljava/nio/file/attribute/FileAttribute;)Ljava/nio/file/Path;
+     554: pop
+     555: goto          586
+     558: astore        16
+     560: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     563: ldc           #99                 // String Cannot create journal directory at {}, please check the permissions
+     565: aload_1
+     566: invokeinterface #100,  1          // InterfaceMethod java/nio/file/Path.toAbsolutePath:()Ljava/nio/file/Path;
+     571: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;)V
+     576: new           #102                // class java/io/UncheckedIOException
+     579: dup
+     580: aload         16
+     582: invokespecial #103                // Method java/io/UncheckedIOException."<init>":(Ljava/io/IOException;)V
+     585: athrow
+     586: aload_0
+     587: new           #104                // class java/io/File
+     590: dup
+     591: aload_1
+     592: invokeinterface #105,  1          // InterfaceMethod java/nio/file/Path.toFile:()Ljava/io/File;
+     597: ldc           #106                // String graylog2-committed-read-offset
+     599: invokespecial #107                // Method java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
+     602: putfield      #8                  // Field committedReadOffsetFile:Ljava/io/File;
+     605: aload_0
+     606: getfield      #8                  // Field committedReadOffsetFile:Ljava/io/File;
+     609: invokevirtual #108                // Method java/io/File.createNewFile:()Z
+     612: ifne          663
+     615: aload_0
+     616: getfield      #8                  // Field committedReadOffsetFile:Ljava/io/File;
+     619: getstatic     #109                // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+     622: invokestatic  #110                // Method com/google/common/io/Files.asCharSource:(Ljava/io/File;Ljava/nio/charset/Charset;)Lcom/google/common/io/CharSource;
+     625: invokevirtual #111                // Method com/google/common/io/CharSource.readFirstLine:()Ljava/lang/String;
+     628: astore        16
+     630: aload         16
+     632: ifnull        663
+     635: aload_0
+     636: getfield      #9                  // Field committedOffset:Ljava/util/concurrent/atomic/AtomicLong;
+     639: aload         16
+     641: invokevirtual #112                // Method java/lang/String.trim:()Ljava/lang/String;
+     644: invokestatic  #113                // Method java/lang/Long.parseLong:(Ljava/lang/String;)J
+     647: invokevirtual #114                // Method java/util/concurrent/atomic/AtomicLong.set:(J)V
+     650: aload_0
+     651: aload_0
+     652: getfield      #9                  // Field committedOffset:Ljava/util/concurrent/atomic/AtomicLong;
+     655: invokevirtual #115                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+     658: lconst_1
+     659: ladd
+     660: putfield      #19                 // Field nextReadOffset:J
+     663: goto          715
+     666: astore        16
+     668: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     671: ldc           #116                // String Cannot access offset file: {}
+     673: aload         16
+     675: invokevirtual #117                // Method java/io/IOException.getMessage:()Ljava/lang/String;
+     678: invokeinterface #101,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Object;)V
+     683: new           #118                // class java/nio/file/AccessDeniedException
+     686: dup
+     687: aload_0
+     688: getfield      #8                  // Field committedReadOffsetFile:Ljava/io/File;
+     691: invokevirtual #119                // Method java/io/File.getAbsolutePath:()Ljava/lang/String;
+     694: aconst_null
+     695: aload         16
+     697: invokevirtual #117                // Method java/io/IOException.getMessage:()Ljava/lang/String;
+     700: invokespecial #120                // Method java/nio/file/AccessDeniedException."<init>":(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+     703: astore        17
+     705: new           #121                // class java/lang/RuntimeException
+     708: dup
+     709: aload         17
+     711: invokespecial #122                // Method java/lang/RuntimeException."<init>":(Ljava/lang/Throwable;)V
+     714: athrow
+     715: new           #123                // class kafka/server/BrokerState
+     718: dup
+     719: invokespecial #124                // Method kafka/server/BrokerState."<init>":()V
+     722: astore        16
+     724: aload         16
+     726: invokestatic  #125                // Method kafka/server/RunningAsBroker.state:()B
+     729: invokevirtual #126                // Method kafka/server/BrokerState.newState:(B)V
+     732: aload_0
+     733: new           #127                // class kafka/utils/KafkaScheduler
+     736: dup
+     737: iconst_2
+     738: ldc           #128                // String kafka-journal-scheduler-
+     740: iconst_0
+     741: invokespecial #129                // Method kafka/utils/KafkaScheduler."<init>":(ILjava/lang/String;Z)V
+     744: putfield      #130                // Field kafkaScheduler:Lkafka/utils/KafkaScheduler;
+     747: aload_0
+     748: getfield      #130                // Field kafkaScheduler:Lkafka/utils/KafkaScheduler;
+     751: invokevirtual #131                // Method kafka/utils/KafkaScheduler.startup:()V
+     754: aload_0
+     755: new           #132                // class kafka/log/LogManager
+     758: dup
+     759: iconst_1
+     760: anewarray     #104                // class java/io/File
+     763: dup
+     764: iconst_0
+     765: aload_1
+     766: invokeinterface #105,  1          // InterfaceMethod java/nio/file/Path.toFile:()Ljava/io/File;
+     771: aastore
+     772: getstatic     #133                // Field scala/collection/Map$.MODULE$:Lscala/collection/Map$;
+     775: invokevirtual #134                // Method scala/collection/Map$.empty:()Lscala/collection/immutable/Map;
+     778: aload         14
+     780: aload         15
+     782: iconst_1
+     783: getstatic     #89                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     786: ldc2_w        #135                // long 60l
+     789: invokevirtual #66                 // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+     792: getstatic     #89                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     795: ldc2_w        #135                // long 60l
+     798: invokevirtual #66                 // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+     801: getstatic     #89                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     804: ldc2_w        #135                // long 60l
+     807: invokevirtual #66                 // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+     810: aload_0
+     811: getfield      #130                // Field kafkaScheduler:Lkafka/utils/KafkaScheduler;
+     814: aload         16
+     816: getstatic     #4                  // Field JODA_TIME:Lkafka/utils/Time;
+     819: invokespecial #137                // Method kafka/log/LogManager."<init>":([Ljava/io/File;Lscala/collection/Map;Lkafka/log/LogConfig;Lkafka/log/CleanerConfig;IJJJLkafka/utils/Scheduler;Lkafka/server/BrokerState;Lkafka/utils/Time;)V
+     822: putfield      #6                  // Field logManager:Lkafka/log/LogManager;
+     825: new           #138                // class kafka/common/TopicAndPartition
+     828: dup
+     829: ldc           #139                // String messagejournal
+     831: iconst_0
+     832: invokespecial #140                // Method kafka/common/TopicAndPartition."<init>":(Ljava/lang/String;I)V
+     835: astore        17
+     837: aload_0
+     838: getfield      #6                  // Field logManager:Lkafka/log/LogManager;
+     841: aload         17
+     843: invokevirtual #141                // Method kafka/log/LogManager.getLog:(Lkafka/common/TopicAndPartition;)Lscala/Option;
+     846: astore        18
+     848: aload         18
+     850: invokevirtual #142                // Method scala/Option.isEmpty:()Z
+     853: ifeq          879
+     856: aload_0
+     857: aload_0
+     858: getfield      #6                  // Field logManager:Lkafka/log/LogManager;
+     861: aload         17
+     863: aload_0
+     864: getfield      #6                  // Field logManager:Lkafka/log/LogManager;
+     867: invokevirtual #143                // Method kafka/log/LogManager.defaultConfig:()Lkafka/log/LogConfig;
+     870: invokevirtual #144                // Method kafka/log/LogManager.createLog:(Lkafka/common/TopicAndPartition;Lkafka/log/LogConfig;)Lkafka/log/Log;
+     873: putfield      #145                // Field kafkaLog:Lkafka/log/Log;
+     876: goto          891
+     879: aload_0
+     880: aload         18
+     882: invokevirtual #146                // Method scala/Option.get:()Ljava/lang/Object;
+     885: checkcast     #147                // class kafka/log/Log
+     888: putfield      #145                // Field kafkaLog:Lkafka/log/Log;
+     891: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     894: ldc           #148                // String Initialized Kafka based journal at {}
+     896: aload_1
+     897: invokeinterface #149,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     902: aload_0
+     903: aload         11
+     905: invokespecial #150                // Method setupKafkaLogMetrics:(Lcom/codahale/metrics/MetricRegistry;)V
+     908: aload_0
+     909: new           #151                // class org/graylog2/shared/journal/KafkaJournal$OffsetFileFlusher
+     912: dup
+     913: aload_0
+     914: invokespecial #152                // Method org/graylog2/shared/journal/KafkaJournal$OffsetFileFlusher."<init>":(Lorg/graylog2/shared/journal/KafkaJournal;)V
+     917: putfield      #153                // Field offsetFlusher:Lorg/graylog2/shared/journal/KafkaJournal$OffsetFileFlusher;
+     920: aload_0
+     921: new           #154                // class org/graylog2/shared/journal/KafkaJournal$DirtyLogFlusher
+     924: dup
+     925: aload_0
+     926: invokespecial #155                // Method org/graylog2/shared/journal/KafkaJournal$DirtyLogFlusher."<init>":(Lorg/graylog2/shared/journal/KafkaJournal;)V
+     929: putfield      #156                // Field dirtyLogFlusher:Lorg/graylog2/shared/journal/KafkaJournal$DirtyLogFlusher;
+     932: aload_0
+     933: new           #157                // class org/graylog2/shared/journal/KafkaJournal$RecoveryCheckpointFlusher
+     936: dup
+     937: aload_0
+     938: invokespecial #158                // Method org/graylog2/shared/journal/KafkaJournal$RecoveryCheckpointFlusher."<init>":(Lorg/graylog2/shared/journal/KafkaJournal;)V
+     941: putfield      #159                // Field recoveryCheckpointFlusher:Lorg/graylog2/shared/journal/KafkaJournal$RecoveryCheckpointFlusher;
+     944: aload_0
+     945: new           #160                // class org/graylog2/shared/journal/KafkaJournal$LogRetentionCleaner
+     948: dup
+     949: aload_0
+     950: invokespecial #161                // Method org/graylog2/shared/journal/KafkaJournal$LogRetentionCleaner."<init>":(Lorg/graylog2/shared/journal/KafkaJournal;)V
+     953: putfield      #162                // Field logRetentionCleaner:Lorg/graylog2/shared/journal/KafkaJournal$LogRetentionCleaner;
+     956: goto          983
+     959: astore        16
+     961: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     964: ldc           #164                // String Unable to start logmanager.
+     966: aload         16
+     968: invokeinterface #165,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     973: new           #121                // class java/lang/RuntimeException
+     976: dup
+     977: aload         16
+     979: invokespecial #122                // Method java/lang/RuntimeException."<init>":(Ljava/lang/Throwable;)V
+     982: athrow
+     983: return
+    Exception table:
+       from    to  target type
+         546   555   558   Class java/io/IOException
+         605   663   666   Class java/io/IOException
+         715   956   959   Class kafka/common/KafkaException
+
+  private static int intRange(int, int, int);
+    Code:
+       0: iload_1
+       1: iload_0
+       2: invokestatic  #166                // Method java/lang/Integer.max:(II)I
+       5: iload_2
+       6: invokestatic  #167                // Method java/lang/Integer.min:(II)I
+       9: ireturn
+
+  private com.codahale.metrics.Timer registerHdrTimer(com.codahale.metrics.MetricRegistry, java.lang.String);
+    Code:
+       0: aload_1
+       1: aload_2
+       2: new           #168                // class org/graylog2/shared/metrics/HdrTimer
+       5: dup
+       6: lconst_1
+       7: getstatic     #65                 // Field java/util/concurrent/TimeUnit.MINUTES:Ljava/util/concurrent/TimeUnit;
+      10: iconst_1
+      11: invokespecial #169                // Method org/graylog2/shared/metrics/HdrTimer."<init>":(JLjava/util/concurrent/TimeUnit;I)V
+      14: invokevirtual #170                // Method com/codahale/metrics/MetricRegistry.register:(Ljava/lang/String;Lcom/codahale/metrics/Metric;)Lcom/codahale/metrics/Metric;
+      17: checkcast     #171                // class com/codahale/metrics/Timer
+      20: astore_3
+      21: goto          52
+      24: astore        4
+      26: aload_1
+      27: aload_2
+      28: invokedynamic #173,  0            // InvokeDynamic #0:matches:(Ljava/lang/String;)Lcom/codahale/metrics/MetricFilter;
+      33: invokevirtual #174                // Method com/codahale/metrics/MetricRegistry.getTimers:(Lcom/codahale/metrics/MetricFilter;)Ljava/util/SortedMap;
+      36: astore        5
+      38: aload         5
+      40: invokeinterface #175,  1          // InterfaceMethod java/util/SortedMap.values:()Ljava/util/Collection;
+      45: invokestatic  #176                // Method com/google/common/collect/Iterables.getOnlyElement:(Ljava/lang/Iterable;)Ljava/lang/Object;
+      48: checkcast     #171                // class com/codahale/metrics/Timer
+      51: astore_3
+      52: aload_3
+      53: areturn
+    Exception table:
+       from    to  target type
+           0    21    24   Class java/lang/IllegalArgumentException
+
+  private void registerUncommittedGauge(com.codahale.metrics.MetricRegistry, java.lang.String);
+    Code:
+       0: aload_1
+       1: aload_2
+       2: aload_0
+       3: invokedynamic #177,  0            // InvokeDynamic #1:getValue:(Lorg/graylog2/shared/journal/KafkaJournal;)Lcom/codahale/metrics/Gauge;
+       8: invokevirtual #170                // Method com/codahale/metrics/MetricRegistry.register:(Ljava/lang/String;Lcom/codahale/metrics/Metric;)Lcom/codahale/metrics/Metric;
+      11: pop
+      12: goto          16
+      15: astore_3
+      16: return
+    Exception table:
+       from    to  target type
+           0    12    15   Class java/lang/IllegalArgumentException
+
+  public int getPurgedSegmentsInLastRetention();
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field purgedSegmentsInLastRetention:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: invokevirtual #178                // Method java/util/concurrent/atomic/AtomicInteger.get:()I
+       7: ireturn
+
+  private void setupKafkaLogMetrics(com.codahale.metrics.MetricRegistry);
+    Code:
+       0: aload_1
+       1: ldc           #15                 // class org/graylog2/shared/journal/KafkaJournal
+       3: iconst_1
+       4: anewarray     #32                 // class java/lang/String
+       7: dup
+       8: iconst_0
+       9: ldc           #179                // String size
+      11: aastore
+      12: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+      15: aload_0
+      16: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+      19: dup
+      20: invokestatic  #180                // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;)Ljava/lang/Object;
+      23: pop
+      24: invokedynamic #181,  0            // InvokeDynamic #2:getValue:(Lkafka/log/Log;)Lcom/codahale/metrics/Gauge;
+      29: invokevirtual #170                // Method com/codahale/metrics/MetricRegistry.register:(Ljava/lang/String;Lcom/codahale/metrics/Metric;)Lcom/codahale/metrics/Metric;
+      32: pop
+      33: aload_1
+      34: ldc           #15                 // class org/graylog2/shared/journal/KafkaJournal
+      36: iconst_1
+      37: anewarray     #32                 // class java/lang/String
+      40: dup
+      41: iconst_0
+      42: ldc           #182                // String logEndOffset
+      44: aastore
+      45: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+      48: aload_0
+      49: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+      52: dup
+      53: invokestatic  #180                // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;)Ljava/lang/Object;
+      56: pop
+      57: invokedynamic #183,  0            // InvokeDynamic #3:getValue:(Lkafka/log/Log;)Lcom/codahale/metrics/Gauge;
+      62: invokevirtual #170                // Method com/codahale/metrics/MetricRegistry.register:(Ljava/lang/String;Lcom/codahale/metrics/Metric;)Lcom/codahale/metrics/Metric;
+      65: pop
+      66: aload_1
+      67: ldc           #15                 // class org/graylog2/shared/journal/KafkaJournal
+      69: iconst_1
+      70: anewarray     #32                 // class java/lang/String
+      73: dup
+      74: iconst_0
+      75: ldc           #184                // String numberOfSegments
+      77: aastore
+      78: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+      81: aload_0
+      82: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+      85: dup
+      86: invokestatic  #180                // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;)Ljava/lang/Object;
+      89: pop
+      90: invokedynamic #185,  0            // InvokeDynamic #4:getValue:(Lkafka/log/Log;)Lcom/codahale/metrics/Gauge;
+      95: invokevirtual #170                // Method com/codahale/metrics/MetricRegistry.register:(Ljava/lang/String;Lcom/codahale/metrics/Metric;)Lcom/codahale/metrics/Metric;
+      98: pop
+      99: aload_1
+     100: ldc           #15                 // class org/graylog2/shared/journal/KafkaJournal
+     102: iconst_1
+     103: anewarray     #32                 // class java/lang/String
+     106: dup
+     107: iconst_0
+     108: ldc           #186                // String unflushedMessages
+     110: aastore
+     111: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+     114: aload_0
+     115: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+     118: dup
+     119: invokestatic  #180                // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;)Ljava/lang/Object;
+     122: pop
+     123: invokedynamic #187,  0            // InvokeDynamic #5:getValue:(Lkafka/log/Log;)Lcom/codahale/metrics/Gauge;
+     128: invokevirtual #170                // Method com/codahale/metrics/MetricRegistry.register:(Ljava/lang/String;Lcom/codahale/metrics/Metric;)Lcom/codahale/metrics/Metric;
+     131: pop
+     132: aload_1
+     133: ldc           #15                 // class org/graylog2/shared/journal/KafkaJournal
+     135: iconst_1
+     136: anewarray     #32                 // class java/lang/String
+     139: dup
+     140: iconst_0
+     141: ldc           #188                // String recoveryPoint
+     143: aastore
+     144: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+     147: aload_0
+     148: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+     151: dup
+     152: invokestatic  #180                // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;)Ljava/lang/Object;
+     155: pop
+     156: invokedynamic #189,  0            // InvokeDynamic #6:getValue:(Lkafka/log/Log;)Lcom/codahale/metrics/Gauge;
+     161: invokevirtual #170                // Method com/codahale/metrics/MetricRegistry.register:(Ljava/lang/String;Lcom/codahale/metrics/Metric;)Lcom/codahale/metrics/Metric;
+     164: pop
+     165: aload_1
+     166: ldc           #15                 // class org/graylog2/shared/journal/KafkaJournal
+     168: iconst_1
+     169: anewarray     #32                 // class java/lang/String
+     172: dup
+     173: iconst_0
+     174: ldc           #190                // String lastFlushTime
+     176: aastore
+     177: invokestatic  #34                 // Method com/codahale/metrics/MetricRegistry.name:(Ljava/lang/Class;[Ljava/lang/String;)Ljava/lang/String;
+     180: aload_0
+     181: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+     184: dup
+     185: invokestatic  #180                // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;)Ljava/lang/Object;
+     188: pop
+     189: invokedynamic #191,  0            // InvokeDynamic #7:getValue:(Lkafka/log/Log;)Lcom/codahale/metrics/Gauge;
+     194: invokevirtual #170                // Method com/codahale/metrics/MetricRegistry.register:(Ljava/lang/String;Lcom/codahale/metrics/Metric;)Lcom/codahale/metrics/Metric;
+     197: pop
+     198: aload_1
+     199: ldc           #193                // String org.graylog2.journal.oldest-segment
+     201: new           #194                // class org/graylog2/shared/journal/KafkaJournal$2
+     204: dup
+     205: aload_0
+     206: invokespecial #195                // Method org/graylog2/shared/journal/KafkaJournal$2."<init>":(Lorg/graylog2/shared/journal/KafkaJournal;)V
+     209: invokevirtual #170                // Method com/codahale/metrics/MetricRegistry.register:(Ljava/lang/String;Lcom/codahale/metrics/Metric;)Lcom/codahale/metrics/Metric;
+     212: pop
+     213: return
+
+  public org.graylog2.shared.journal.Journal$Entry createEntry(byte[], byte[]);
+    Code:
+       0: new           #196                // class org/graylog2/shared/journal/Journal$Entry
+       3: dup
+       4: aload_1
+       5: aload_2
+       6: invokespecial #197                // Method org/graylog2/shared/journal/Journal$Entry."<init>":([B[B)V
+       9: areturn
+
+  public long write(java.util.List<org.graylog2.shared.journal.Journal$Entry>);
+    Code:
+       0: aload_0
+       1: getfield      #45                 // Field writeTime:Lcom/codahale/metrics/Timer;
+       4: invokevirtual #198                // Method com/codahale/metrics/Timer.time:()Lcom/codahale/metrics/Timer$Context;
+       7: astore_2
+       8: aconst_null
+       9: astore_3
+      10: lconst_0
+      11: lstore        4
+      13: lconst_0
+      14: lstore        6
+      16: lconst_0
+      17: lstore        8
+      19: new           #199                // class java/util/ArrayList
+      22: dup
+      23: aload_1
+      24: invokeinterface #200,  1          // InterfaceMethod java/util/List.size:()I
+      29: invokespecial #201                // Method java/util/ArrayList."<init>":(I)V
+      32: astore        10
+      34: aload_1
+      35: invokeinterface #202,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+      40: astore        11
+      42: aload         11
+      44: invokeinterface #203,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      49: ifeq          321
+      52: aload         11
+      54: invokeinterface #204,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      59: checkcast     #196                // class org/graylog2/shared/journal/Journal$Entry
+      62: astore        12
+      64: aload         12
+      66: invokevirtual #205                // Method org/graylog2/shared/journal/Journal$Entry.getMessageBytes:()[B
+      69: astore        13
+      71: aload         12
+      73: invokevirtual #206                // Method org/graylog2/shared/journal/Journal$Entry.getIdBytes:()[B
+      76: astore        14
+      78: lload         4
+      80: aload         13
+      82: arraylength
+      83: i2l
+      84: ladd
+      85: lstore        4
+      87: new           #207                // class kafka/message/Message
+      90: dup
+      91: aload         13
+      93: aload         14
+      95: invokespecial #208                // Method kafka/message/Message."<init>":([B[B)V
+      98: astore        15
+     100: aload         15
+     102: invokestatic  #209                // Method kafka/message/MessageSet.entrySize:(Lkafka/message/Message;)I
+     105: istore        16
+     107: iload         16
+     109: aload_0
+     110: getfield      #30                 // Field maxMessageSize:I
+     113: if_icmple     176
+     116: aload_0
+     117: getfield      #40                 // Field writeDiscardedMessages:Lcom/codahale/metrics/Meter;
+     120: invokevirtual #210                // Method com/codahale/metrics/Meter.mark:()V
+     123: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     126: ldc           #211                // String Message with ID <{}> is too large to store in journal, skipping! (size: {} bytes / max: {} bytes)
+     128: iconst_3
+     129: anewarray     #212                // class java/lang/Object
+     132: dup
+     133: iconst_0
+     134: new           #32                 // class java/lang/String
+     137: dup
+     138: aload         14
+     140: getstatic     #109                // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+     143: invokespecial #213                // Method java/lang/String."<init>":([BLjava/nio/charset/Charset;)V
+     146: aastore
+     147: dup
+     148: iconst_1
+     149: iload         16
+     151: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     154: aastore
+     155: dup
+     156: iconst_2
+     157: aload_0
+     158: getfield      #30                 // Field maxMessageSize:I
+     161: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     164: aastore
+     165: invokeinterface #214,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;[Ljava/lang/Object;)V
+     170: lconst_0
+     171: lstore        4
+     173: goto          42
+     176: lload         6
+     178: iload         16
+     180: i2l
+     181: ladd
+     182: aload_0
+     183: getfield      #28                 // Field maxSegmentSize:J
+     186: lcmp
+     187: ifle          269
+     190: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     193: invokeinterface #215,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+     198: ifeq          246
+     201: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     204: ldc           #216                // String Flushing {} bytes message set with {} messages to avoid overflowing segment with max size of {} bytes
+     206: iconst_3
+     207: anewarray     #212                // class java/lang/Object
+     210: dup
+     211: iconst_0
+     212: lload         6
+     214: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     217: aastore
+     218: dup
+     219: iconst_1
+     220: aload         10
+     222: invokeinterface #200,  1          // InterfaceMethod java/util/List.size:()I
+     227: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     230: aastore
+     231: dup
+     232: iconst_2
+     233: aload_0
+     234: getfield      #28                 // Field maxSegmentSize:J
+     237: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     240: aastore
+     241: invokeinterface #217,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     246: aload_0
+     247: aload         10
+     249: lload         4
+     251: invokespecial #218                // Method flushMessages:(Ljava/util/List;J)J
+     254: lstore        8
+     256: aload         10
+     258: invokeinterface #219,  1          // InterfaceMethod java/util/List.clear:()V
+     263: lconst_0
+     264: lstore        6
+     266: lconst_0
+     267: lstore        4
+     269: aload         10
+     271: aload         15
+     273: invokeinterface #220,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     278: pop
+     279: lload         6
+     281: iload         16
+     283: i2l
+     284: ladd
+     285: lstore        6
+     287: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     290: invokeinterface #221,  1          // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+     295: ifeq          318
+     298: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     301: ldc           #222                // String Message {} contains bytes {}
+     303: aload         14
+     305: invokestatic  #223                // Method org/graylog2/plugin/Tools.bytesToHex:([B)Ljava/lang/String;
+     308: aload         13
+     310: invokestatic  #223                // Method org/graylog2/plugin/Tools.bytesToHex:([B)Ljava/lang/String;
+     313: invokeinterface #224,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     318: goto          42
+     321: aload         10
+     323: invokeinterface #200,  1          // InterfaceMethod java/util/List.size:()I
+     328: ifle          341
+     331: aload_0
+     332: aload         10
+     334: lload         4
+     336: invokespecial #218                // Method flushMessages:(Ljava/util/List;J)J
+     339: lstore        8
+     341: lload         8
+     343: lstore        11
+     345: aload_2
+     346: ifnull        354
+     349: aload_3
+     350: aload_2
+     351: invokestatic  #225                // Method $closeResource:(Ljava/lang/Throwable;Ljava/lang/AutoCloseable;)V
+     354: lload         11
+     356: lreturn
+     357: astore        4
+     359: aload         4
+     361: astore_3
+     362: aload         4
+     364: athrow
+     365: astore        17
+     367: aload_2
+     368: ifnull        376
+     371: aload_3
+     372: aload_2
+     373: invokestatic  #225                // Method $closeResource:(Ljava/lang/Throwable;Ljava/lang/AutoCloseable;)V
+     376: aload         17
+     378: athrow
+    Exception table:
+       from    to  target type
+          10   345   357   Class java/lang/Throwable
+          10   345   365   any
+         357   367   365   any
+
+  private long flushMessages(java.util.List<kafka.message.Message>, long);
+    Code:
+       0: aload_1
+       1: invokeinterface #226,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+       6: ifeq          23
+       9: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      12: ldc           #227                // String No messages to flush, not trying to write an empty message set.
+      14: invokeinterface #228,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      19: ldc2_w        #229                // long -1l
+      22: lreturn
+      23: new           #231                // class kafka/message/ByteBufferMessageSet
+      26: dup
+      27: aload_1
+      28: invokestatic  #232                // Method scala/collection/JavaConversions.asScalaBuffer:(Ljava/util/List;)Lscala/collection/mutable/Buffer;
+      31: invokeinterface #233,  1          // InterfaceMethod scala/collection/mutable/Buffer.toSeq:()Lscala/collection/Seq;
+      36: invokespecial #234                // Method kafka/message/ByteBufferMessageSet."<init>":(Lscala/collection/Seq;)V
+      39: astore        4
+      41: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      44: invokeinterface #215,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      49: ifeq          70
+      52: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      55: ldc           #235                // String Trying to write ByteBufferMessageSet with size of {} bytes to journal
+      57: aload         4
+      59: invokevirtual #236                // Method kafka/message/ByteBufferMessageSet.sizeInBytes:()I
+      62: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      65: invokeinterface #237,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+      70: aload_0
+      71: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+      74: aload         4
+      76: iconst_1
+      77: invokevirtual #238                // Method kafka/log/Log.append:(Lkafka/message/ByteBufferMessageSet;Z)Lkafka/log/LogAppendInfo;
+      80: astore        5
+      82: aload         5
+      84: invokevirtual #239                // Method kafka/log/LogAppendInfo.lastOffset:()J
+      87: lstore        6
+      89: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      92: invokeinterface #215,  1          // InterfaceMethod org/slf4j/Logger.isDebugEnabled:()Z
+      97: ifeq          163
+     100: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     103: ldc           #240                // String Wrote {} messages to journal: {} bytes (payload {} bytes), log position {} to {}
+     105: iconst_5
+     106: anewarray     #212                // class java/lang/Object
+     109: dup
+     110: iconst_0
+     111: aload_1
+     112: invokeinterface #200,  1          // InterfaceMethod java/util/List.size:()I
+     117: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     120: aastore
+     121: dup
+     122: iconst_1
+     123: aload         4
+     125: invokevirtual #236                // Method kafka/message/ByteBufferMessageSet.sizeInBytes:()I
+     128: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     131: aastore
+     132: dup
+     133: iconst_2
+     134: lload_2
+     135: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     138: aastore
+     139: dup
+     140: iconst_3
+     141: aload         5
+     143: invokevirtual #241                // Method kafka/log/LogAppendInfo.firstOffset:()J
+     146: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     149: aastore
+     150: dup
+     151: iconst_4
+     152: lload         6
+     154: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     157: aastore
+     158: invokeinterface #217,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     163: aload_0
+     164: getfield      #36                 // Field writtenMessages:Lcom/codahale/metrics/Meter;
+     167: aload_1
+     168: invokeinterface #200,  1          // InterfaceMethod java/util/List.size:()I
+     173: i2l
+     174: invokevirtual #242                // Method com/codahale/metrics/Meter.mark:(J)V
+     177: lload         6
+     179: lreturn
+
+  public long write(byte[], byte[]);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokevirtual #243                // Method createEntry:([B[B)Lorg/graylog2/shared/journal/Journal$Entry;
+       6: astore_3
+       7: aload_0
+       8: aload_3
+       9: invokestatic  #244                // Method java/util/Collections.singletonList:(Ljava/lang/Object;)Ljava/util/List;
+      12: invokevirtual #245                // Method write:(Ljava/util/List;)J
+      15: lreturn
+
+  public java.util.List<org.graylog2.shared.journal.Journal$JournalReadEntry> read(long);
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #19                 // Field nextReadOffset:J
+       5: lload_1
+       6: invokevirtual #246                // Method read:(JJ)Ljava/util/List;
+       9: areturn
+
+  public java.util.List<org.graylog2.shared.journal.Journal$JournalReadEntry> read(long, long);
+    Code:
+       0: lconst_1
+       1: lload_3
+       2: invokestatic  #247                // Method java/lang/Math.max:(JJ)J
+       5: lstore        5
+       7: lload_1
+       8: lload         5
+      10: ladd
+      11: lstore        7
+      13: aload_0
+      14: getfield      #248                // Field shuttingDown:Z
+      17: ifeq          24
+      20: invokestatic  #249                // Method java/util/Collections.emptyList:()Ljava/util/List;
+      23: areturn
+      24: new           #199                // class java/util/ArrayList
+      27: dup
+      28: lload         5
+      30: invokestatic  #29                 // Method com/google/common/primitives/Ints.saturatedCast:(J)I
+      33: invokespecial #201                // Method java/util/ArrayList."<init>":(I)V
+      36: astore        9
+      38: aload_0
+      39: getfield      #47                 // Field readTime:Lcom/codahale/metrics/Timer;
+      42: invokevirtual #198                // Method com/codahale/metrics/Timer.time:()Lcom/codahale/metrics/Timer$Context;
+      45: astore        10
+      47: aconst_null
+      48: astore        11
+      50: aload_0
+      51: invokevirtual #250                // Method getLogStartOffset:()J
+      54: lstore        12
+      56: lload_1
+      57: lload         12
+      59: lcmp
+      60: ifge          91
+      63: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      66: ldc           #251                // String Read offset {} before start of log at {}, starting to read from the beginning of the journal.
+      68: lload_1
+      69: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      72: lload         12
+      74: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      77: invokeinterface #252,  4          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+      82: lload         12
+      84: lstore_1
+      85: lload_1
+      86: lload         5
+      88: ladd
+      89: lstore        7
+      91: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      94: ldc           #253                // String Requesting to read a maximum of {} messages (or 5MB) from the journal, offset interval [{}, {})
+      96: iconst_3
+      97: anewarray     #212                // class java/lang/Object
+     100: dup
+     101: iconst_0
+     102: lload         5
+     104: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     107: aastore
+     108: dup
+     109: iconst_1
+     110: lload_1
+     111: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     114: aastore
+     115: dup
+     116: iconst_2
+     117: lload         7
+     119: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     122: aastore
+     123: invokeinterface #217,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     128: aload_0
+     129: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+     132: lload_1
+     133: ldc           #254                // int 5242880
+     135: lload         7
+     137: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     140: invokestatic  #255                // Method scala/Option.apply:(Ljava/lang/Object;)Lscala/Option;
+     143: invokevirtual #256                // Method kafka/log/Log.read:(JILscala/Option;)Lkafka/server/FetchDataInfo;
+     146: invokevirtual #257                // Method kafka/server/FetchDataInfo.messageSet:()Lkafka/message/MessageSet;
+     149: astore        14
+     151: aload         14
+     153: invokevirtual #258                // Method kafka/message/MessageSet.iterator:()Lscala/collection/Iterator;
+     156: astore        15
+     158: ldc2_w        #16                 // long -9223372036854775808l
+     161: lstore        16
+     163: ldc2_w        #16                 // long -9223372036854775808l
+     166: lstore        18
+     168: lconst_0
+     169: lstore        20
+     171: aload         15
+     173: invokeinterface #259,  1          // InterfaceMethod scala/collection/Iterator.hasNext:()Z
+     178: ifeq          317
+     181: aload         15
+     183: invokeinterface #260,  1          // InterfaceMethod scala/collection/Iterator.next:()Ljava/lang/Object;
+     188: checkcast     #261                // class kafka/message/MessageAndOffset
+     191: astore        22
+     193: lload         16
+     195: ldc2_w        #16                 // long -9223372036854775808l
+     198: lcmp
+     199: ifne          209
+     202: aload         22
+     204: invokevirtual #262                // Method kafka/message/MessageAndOffset.offset:()J
+     207: lstore        16
+     209: aload         22
+     211: invokevirtual #262                // Method kafka/message/MessageAndOffset.offset:()J
+     214: lstore        18
+     216: aload         22
+     218: invokevirtual #263                // Method kafka/message/MessageAndOffset.message:()Lkafka/message/Message;
+     221: invokevirtual #264                // Method kafka/message/Message.payload:()Ljava/nio/ByteBuffer;
+     224: invokestatic  #265                // Method org/graylog2/shared/utilities/ByteBufferUtils.readBytes:(Ljava/nio/ByteBuffer;)[B
+     227: astore        23
+     229: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     232: invokeinterface #221,  1          // InterfaceMethod org/slf4j/Logger.isTraceEnabled:()Z
+     237: ifeq          274
+     240: aload         22
+     242: invokevirtual #263                // Method kafka/message/MessageAndOffset.message:()Lkafka/message/Message;
+     245: invokevirtual #266                // Method kafka/message/Message.key:()Ljava/nio/ByteBuffer;
+     248: invokestatic  #265                // Method org/graylog2/shared/utilities/ByteBufferUtils.readBytes:(Ljava/nio/ByteBuffer;)[B
+     251: astore        24
+     253: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     256: ldc_w         #267                // String Read message {} contains {}
+     259: aload         24
+     261: invokestatic  #223                // Method org/graylog2/plugin/Tools.bytesToHex:([B)Ljava/lang/String;
+     264: aload         23
+     266: invokestatic  #223                // Method org/graylog2/plugin/Tools.bytesToHex:([B)Ljava/lang/String;
+     269: invokeinterface #224,  4          // InterfaceMethod org/slf4j/Logger.trace:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     274: lload         20
+     276: aload         23
+     278: arraylength
+     279: i2l
+     280: ladd
+     281: lstore        20
+     283: aload         9
+     285: new           #268                // class org/graylog2/shared/journal/Journal$JournalReadEntry
+     288: dup
+     289: aload         23
+     291: aload         22
+     293: invokevirtual #262                // Method kafka/message/MessageAndOffset.offset:()J
+     296: invokespecial #269                // Method org/graylog2/shared/journal/Journal$JournalReadEntry."<init>":([BJ)V
+     299: invokeinterface #220,  2          // InterfaceMethod java/util/List.add:(Ljava/lang/Object;)Z
+     304: pop
+     305: aload_0
+     306: aload         22
+     308: invokevirtual #270                // Method kafka/message/MessageAndOffset.nextOffset:()J
+     311: putfield      #19                 // Field nextReadOffset:J
+     314: goto          171
+     317: aload         9
+     319: invokeinterface #226,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+     324: ifeq          350
+     327: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     330: ldc_w         #271                // String No messages available to read for offset interval [{}, {}).
+     333: lload_1
+     334: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     337: lload         7
+     339: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     342: invokeinterface #272,  4          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V
+     347: goto          409
+     350: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     353: ldc_w         #273                // String Read {} messages, total payload size {}, from journal, offset interval [{}, {}], requested read at {}
+     356: iconst_5
+     357: anewarray     #212                // class java/lang/Object
+     360: dup
+     361: iconst_0
+     362: aload         9
+     364: invokeinterface #200,  1          // InterfaceMethod java/util/List.size:()I
+     369: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+     372: aastore
+     373: dup
+     374: iconst_1
+     375: lload         20
+     377: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     380: aastore
+     381: dup
+     382: iconst_2
+     383: lload         16
+     385: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     388: aastore
+     389: dup
+     390: iconst_3
+     391: lload         18
+     393: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     396: aastore
+     397: dup
+     398: iconst_4
+     399: lload_1
+     400: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     403: aastore
+     404: invokeinterface #217,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     409: aload         10
+     411: ifnull        450
+     414: aload         11
+     416: aload         10
+     418: invokestatic  #225                // Method $closeResource:(Ljava/lang/Throwable;Ljava/lang/AutoCloseable;)V
+     421: goto          450
+     424: astore        12
+     426: aload         12
+     428: astore        11
+     430: aload         12
+     432: athrow
+     433: astore        25
+     435: aload         10
+     437: ifnull        447
+     440: aload         11
+     442: aload         10
+     444: invokestatic  #225                // Method $closeResource:(Ljava/lang/Throwable;Ljava/lang/AutoCloseable;)V
+     447: aload         25
+     449: athrow
+     450: goto          524
+     453: astore        10
+     455: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     458: ldc_w         #275                // String Offset out of range, no messages available starting at offset {}
+     461: lload_1
+     462: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     465: invokeinterface #237,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Object;)V
+     470: goto          524
+     473: astore        10
+     475: aload_0
+     476: getfield      #248                // Field shuttingDown:Z
+     479: ifeq          497
+     482: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     485: ldc_w         #277                // String Caught exception during shutdown, ignoring it because we might have been blocked on a read.
+     488: invokeinterface #228,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+     493: invokestatic  #249                // Method java/util/Collections.emptyList:()Ljava/util/List;
+     496: areturn
+     497: aload         10
+     499: instanceof    #278                // class java/nio/channels/ClosedByInterruptException
+     502: ifeq          521
+     505: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     508: ldc_w         #279                // String Interrupted while reading from journal, during shutdown this is harmless and ignored.
+     511: aload         10
+     513: invokeinterface #280,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     518: goto          524
+     521: aload         10
+     523: athrow
+     524: aload_0
+     525: getfield      #38                 // Field readMessages:Lcom/codahale/metrics/Meter;
+     528: aload         9
+     530: invokeinterface #200,  1          // InterfaceMethod java/util/List.size:()I
+     535: i2l
+     536: invokevirtual #242                // Method com/codahale/metrics/Meter.mark:(J)V
+     539: aload         9
+     541: areturn
+    Exception table:
+       from    to  target type
+          50   409   424   Class java/lang/Throwable
+          50   409   433   any
+         424   435   433   any
+          38   450   453   Class kafka/common/OffsetOutOfRangeException
+          38   450   473   Class java/lang/Exception
+
+  public void markJournalOffsetCommitted(long);
+    Code:
+       0: iconst_0
+       1: istore        5
+       3: aload_0
+       4: getfield      #9                  // Field committedOffset:Ljava/util/concurrent/atomic/AtomicLong;
+       7: invokevirtual #115                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      10: lstore_3
+      11: iinc          5, 1
+      14: iload         5
+      16: bipush        10
+      18: irem
+      19: ifne          38
+      22: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      25: ldc_w         #281                // String Committing journal offset spins {} times now, this might be a bug. Continuing to try update.
+      28: iload         5
+      30: invokestatic  #50                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      33: invokeinterface #282,  3          // InterfaceMethod org/slf4j/Logger.warn:(Ljava/lang/String;Ljava/lang/Object;)V
+      38: aload_0
+      39: getfield      #9                  // Field committedOffset:Ljava/util/concurrent/atomic/AtomicLong;
+      42: lload_3
+      43: lload_1
+      44: lload_3
+      45: invokestatic  #247                // Method java/lang/Math.max:(JJ)J
+      48: invokevirtual #283                // Method java/util/concurrent/atomic/AtomicLong.compareAndSet:(JJ)Z
+      51: ifeq          3
+      54: return
+
+  protected void flushDirtyLogs();
+    Code:
+       0: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       3: ldc_w         #284                // String Checking for dirty logs to flush...
+       6: invokeinterface #228,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      11: aload_0
+      12: getfield      #6                  // Field logManager:Lkafka/log/LogManager;
+      15: invokevirtual #285                // Method kafka/log/LogManager.logsByTopicPartition:()Lscala/collection/immutable/Map;
+      18: invokestatic  #286                // Method scala/collection/JavaConversions.mapAsJavaMap:(Lscala/collection/Map;)Ljava/util/Map;
+      21: invokeinterface #287,  1          // InterfaceMethod java/util/Map.entrySet:()Ljava/util/Set;
+      26: astore_1
+      27: aload_1
+      28: invokeinterface #288,  1          // InterfaceMethod java/util/Set.iterator:()Ljava/util/Iterator;
+      33: astore_2
+      34: aload_2
+      35: invokeinterface #203,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+      40: ifeq          208
+      43: aload_2
+      44: invokeinterface #204,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+      49: checkcast     #289                // class java/util/Map$Entry
+      52: astore_3
+      53: aload_3
+      54: invokeinterface #290,  1          // InterfaceMethod java/util/Map$Entry.getKey:()Ljava/lang/Object;
+      59: checkcast     #138                // class kafka/common/TopicAndPartition
+      62: astore        4
+      64: aload_3
+      65: invokeinterface #291,  1          // InterfaceMethod java/util/Map$Entry.getValue:()Ljava/lang/Object;
+      70: checkcast     #147                // class kafka/log/Log
+      73: astore        5
+      75: getstatic     #4                  // Field JODA_TIME:Lkafka/utils/Time;
+      78: invokeinterface #292,  1          // InterfaceMethod kafka/utils/Time.milliseconds:()J
+      83: aload         5
+      85: invokevirtual #293                // Method kafka/log/Log.lastFlushTime:()J
+      88: lsub
+      89: lstore        6
+      91: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      94: ldc_w         #294                // String Checking if flush is needed on {} flush interval {} last flushed {} time since last flush: {}
+      97: iconst_4
+      98: anewarray     #212                // class java/lang/Object
+     101: dup
+     102: iconst_0
+     103: aload         4
+     105: invokevirtual #295                // Method kafka/common/TopicAndPartition.topic:()Ljava/lang/String;
+     108: aastore
+     109: dup
+     110: iconst_1
+     111: aload         5
+     113: invokevirtual #296                // Method kafka/log/Log.config:()Lkafka/log/LogConfig;
+     116: invokevirtual #297                // Method kafka/log/LogConfig.flushInterval:()Ljava/lang/Long;
+     119: aastore
+     120: dup
+     121: iconst_2
+     122: aload         5
+     124: invokevirtual #293                // Method kafka/log/Log.lastFlushTime:()J
+     127: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     130: aastore
+     131: dup
+     132: iconst_3
+     133: lload         6
+     135: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+     138: aastore
+     139: invokeinterface #217,  3          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;[Ljava/lang/Object;)V
+     144: lload         6
+     146: aload         5
+     148: invokevirtual #296                // Method kafka/log/Log.config:()Lkafka/log/LogConfig;
+     151: invokevirtual #298                // Method kafka/log/LogConfig.flushMs:()Ljava/lang/Long;
+     154: invokevirtual #299                // Method java/lang/Long.longValue:()J
+     157: lcmp
+     158: iflt          166
+     161: aload         5
+     163: invokevirtual #300                // Method kafka/log/Log.flush:()V
+     166: goto          205
+     169: astore        8
+     171: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+     174: new           #301                // class java/lang/StringBuilder
+     177: dup
+     178: invokespecial #302                // Method java/lang/StringBuilder."<init>":()V
+     181: ldc_w         #303                // String Error flushing topic
+     184: invokevirtual #304                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     187: aload         4
+     189: invokevirtual #295                // Method kafka/common/TopicAndPartition.topic:()Ljava/lang/String;
+     192: invokevirtual #304                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     195: invokevirtual #305                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     198: aload         8
+     200: invokeinterface #165,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+     205: goto          34
+     208: return
+    Exception table:
+       from    to  target type
+          91   166   169   Class java/lang/Exception
+
+  public long getCommittedOffset();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field committedOffset:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #115                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  public long getNextReadOffset();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field nextReadOffset:J
+       4: lreturn
+
+  protected void startUp() throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: aload_0
+       2: getfield      #25                 // Field scheduler:Ljava/util/concurrent/ScheduledExecutorService;
+       5: aload_0
+       6: getfield      #156                // Field dirtyLogFlusher:Lorg/graylog2/shared/journal/KafkaJournal$DirtyLogFlusher;
+       9: getstatic     #89                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      12: ldc2_w        #306                // long 30l
+      15: invokevirtual #66                 // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+      18: aload_0
+      19: getfield      #6                  // Field logManager:Lkafka/log/LogManager;
+      22: invokevirtual #308                // Method kafka/log/LogManager.flushCheckMs:()J
+      25: getstatic     #309                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      28: invokeinterface #310,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+      33: putfield      #311                // Field dirtyLogFlushFuture:Ljava/util/concurrent/ScheduledFuture;
+      36: aload_0
+      37: aload_0
+      38: getfield      #25                 // Field scheduler:Ljava/util/concurrent/ScheduledExecutorService;
+      41: aload_0
+      42: getfield      #159                // Field recoveryCheckpointFlusher:Lorg/graylog2/shared/journal/KafkaJournal$RecoveryCheckpointFlusher;
+      45: getstatic     #89                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      48: ldc2_w        #306                // long 30l
+      51: invokevirtual #66                 // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+      54: aload_0
+      55: getfield      #6                  // Field logManager:Lkafka/log/LogManager;
+      58: invokevirtual #312                // Method kafka/log/LogManager.flushCheckpointMs:()J
+      61: getstatic     #309                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      64: invokeinterface #310,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+      69: putfield      #313                // Field checkpointFlusherFuture:Ljava/util/concurrent/ScheduledFuture;
+      72: aload_0
+      73: aload_0
+      74: getfield      #25                 // Field scheduler:Ljava/util/concurrent/ScheduledExecutorService;
+      77: aload_0
+      78: getfield      #162                // Field logRetentionCleaner:Lorg/graylog2/shared/journal/KafkaJournal$LogRetentionCleaner;
+      81: getstatic     #89                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+      84: ldc2_w        #306                // long 30l
+      87: invokevirtual #66                 // Method java/util/concurrent/TimeUnit.toMillis:(J)J
+      90: aload_0
+      91: getfield      #6                  // Field logManager:Lkafka/log/LogManager;
+      94: invokevirtual #314                // Method kafka/log/LogManager.retentionCheckMs:()J
+      97: getstatic     #309                // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+     100: invokeinterface #310,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+     105: putfield      #315                // Field logRetentionFuture:Ljava/util/concurrent/ScheduledFuture;
+     108: aload_0
+     109: aload_0
+     110: getfield      #25                 // Field scheduler:Ljava/util/concurrent/ScheduledExecutorService;
+     113: aload_0
+     114: getfield      #153                // Field offsetFlusher:Lorg/graylog2/shared/journal/KafkaJournal$OffsetFileFlusher;
+     117: lconst_1
+     118: lconst_1
+     119: getstatic     #89                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     122: invokeinterface #310,  7          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.scheduleAtFixedRate:(Ljava/lang/Runnable;JJLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+     127: putfield      #316                // Field offsetFlusherFuture:Ljava/util/concurrent/ScheduledFuture;
+     130: return
+
+  protected void shutDown() throws java.lang.Exception;
+    Code:
+       0: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       3: ldc_w         #317                // String Shutting down journal!
+       6: invokeinterface #228,  2          // InterfaceMethod org/slf4j/Logger.debug:(Ljava/lang/String;)V
+      11: aload_0
+      12: iconst_1
+      13: putfield      #248                // Field shuttingDown:Z
+      16: aload_0
+      17: getfield      #316                // Field offsetFlusherFuture:Ljava/util/concurrent/ScheduledFuture;
+      20: iconst_0
+      21: invokeinterface #318,  2          // InterfaceMethod java/util/concurrent/ScheduledFuture.cancel:(Z)Z
+      26: pop
+      27: aload_0
+      28: getfield      #315                // Field logRetentionFuture:Ljava/util/concurrent/ScheduledFuture;
+      31: iconst_0
+      32: invokeinterface #318,  2          // InterfaceMethod java/util/concurrent/ScheduledFuture.cancel:(Z)Z
+      37: pop
+      38: aload_0
+      39: getfield      #313                // Field checkpointFlusherFuture:Ljava/util/concurrent/ScheduledFuture;
+      42: iconst_0
+      43: invokeinterface #318,  2          // InterfaceMethod java/util/concurrent/ScheduledFuture.cancel:(Z)Z
+      48: pop
+      49: aload_0
+      50: getfield      #311                // Field dirtyLogFlushFuture:Ljava/util/concurrent/ScheduledFuture;
+      53: iconst_0
+      54: invokeinterface #318,  2          // InterfaceMethod java/util/concurrent/ScheduledFuture.cancel:(Z)Z
+      59: pop
+      60: aload_0
+      61: getfield      #130                // Field kafkaScheduler:Lkafka/utils/KafkaScheduler;
+      64: invokevirtual #319                // Method kafka/utils/KafkaScheduler.shutdown:()V
+      67: aload_0
+      68: getfield      #6                  // Field logManager:Lkafka/log/LogManager;
+      71: invokevirtual #320                // Method kafka/log/LogManager.shutdown:()V
+      74: aload_0
+      75: getfield      #153                // Field offsetFlusher:Lorg/graylog2/shared/journal/KafkaJournal$OffsetFileFlusher;
+      78: invokevirtual #321                // Method org/graylog2/shared/journal/KafkaJournal$OffsetFileFlusher.run:()V
+      81: return
+
+  public int cleanupLogs();
+    Code:
+       0: aload_0
+       1: getfield      #162                // Field logRetentionCleaner:Lorg/graylog2/shared/journal/KafkaJournal$LogRetentionCleaner;
+       4: invokevirtual #322                // Method org/graylog2/shared/journal/KafkaJournal$LogRetentionCleaner.call:()Ljava/lang/Integer;
+       7: invokevirtual #323                // Method java/lang/Integer.intValue:()I
+      10: ireturn
+      11: astore_1
+      12: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+      15: ldc_w         #324                // String Unable to delete expired segments.
+      18: aload_1
+      19: invokeinterface #165,  3          // InterfaceMethod org/slf4j/Logger.error:(Ljava/lang/String;Ljava/lang/Throwable;)V
+      24: iconst_0
+      25: ireturn
+    Exception table:
+       from    to  target type
+           0    10    11   Class java/lang/Exception
+
+  public java.lang.Iterable<kafka.log.LogSegment> getSegments();
+    Code:
+       0: aload_0
+       1: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+       4: invokevirtual #325                // Method kafka/log/Log.logSegments:()Lscala/collection/Iterable;
+       7: invokestatic  #326                // Method scala/collection/JavaConversions.asJavaIterable:(Lscala/collection/Iterable;)Ljava/lang/Iterable;
+      10: areturn
+
+  public long size();
+    Code:
+       0: aload_0
+       1: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+       4: invokevirtual #327                // Method kafka/log/Log.size:()J
+       7: lreturn
+
+  public int numberOfSegments();
+    Code:
+       0: aload_0
+       1: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+       4: invokevirtual #328                // Method kafka/log/Log.numberOfSegments:()I
+       7: ireturn
+
+  public long getCommittedReadOffset();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field committedOffset:Ljava/util/concurrent/atomic/AtomicLong;
+       4: invokevirtual #115                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+       7: lreturn
+
+  public void truncateTo(long);
+    Code:
+       0: aload_0
+       1: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+       4: lload_1
+       5: invokevirtual #329                // Method kafka/log/Log.truncateTo:(J)V
+       8: return
+
+  public long getLogStartOffset();
+    Code:
+       0: aload_0
+       1: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+       4: invokevirtual #325                // Method kafka/log/Log.logSegments:()Lscala/collection/Iterable;
+       7: invokestatic  #326                // Method scala/collection/JavaConversions.asJavaIterable:(Lscala/collection/Iterable;)Ljava/lang/Iterable;
+      10: astore_1
+      11: aload_1
+      12: aconst_null
+      13: invokestatic  #330                // Method com/google/common/collect/Iterables.getFirst:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/lang/Object;
+      16: checkcast     #331                // class kafka/log/LogSegment
+      19: astore_2
+      20: aload_2
+      21: ifnonnull     26
+      24: lconst_0
+      25: lreturn
+      26: aload_2
+      27: invokevirtual #332                // Method kafka/log/LogSegment.baseOffset:()J
+      30: lreturn
+
+  public long getLogEndOffset();
+    Code:
+       0: aload_0
+       1: getfield      #145                // Field kafkaLog:Lkafka/log/Log;
+       4: invokevirtual #333                // Method kafka/log/Log.logEndOffset:()J
+       7: lreturn
+
+  public org.graylog2.plugin.ThrottleState getThrottleState();
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field throttleState:Ljava/util/concurrent/atomic/AtomicReference;
+       4: invokevirtual #334                // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+       7: checkcast     #335                // class org/graylog2/plugin/ThrottleState
+      10: areturn
+
+  public void setThrottleState(org.graylog2.plugin.ThrottleState);
+    Code:
+       0: aload_0
+       1: getfield      #22                 // Field throttleState:Ljava/util/concurrent/atomic/AtomicReference;
+       4: aload_1
+       5: invokevirtual #336                // Method java/util/concurrent/atomic/AtomicReference.set:(Ljava/lang/Object;)V
+       8: return
+
+  private java.lang.Long lambda$registerUncommittedGauge$1();
+    Code:
+       0: lconst_0
+       1: aload_0
+       2: invokevirtual #337                // Method getLogEndOffset:()J
+       5: lconst_1
+       6: lsub
+       7: aload_0
+       8: getfield      #9                  // Field committedOffset:Ljava/util/concurrent/atomic/AtomicLong;
+      11: invokevirtual #115                // Method java/util/concurrent/atomic/AtomicLong.get:()J
+      14: lsub
+      15: invokestatic  #247                // Method java/lang/Math.max:(JJ)J
+      18: invokestatic  #54                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;
+      21: areturn
+
+  private static boolean lambda$registerHdrTimer$0(java.lang.String, java.lang.String, com.codahale.metrics.Metric);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokevirtual #338                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+       5: ireturn
+
+  private static void $closeResource(java.lang.Throwable, java.lang.AutoCloseable);
+    Code:
+       0: aload_0
+       1: ifnull        22
+       4: aload_1
+       5: invokeinterface #10,  1           // InterfaceMethod java/lang/AutoCloseable.close:()V
+      10: goto          28
+      13: astore_2
+      14: aload_0
+      15: aload_2
+      16: invokevirtual #12                 // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+      19: goto          28
+      22: aload_1
+      23: invokeinterface #10,  1           // InterfaceMethod java/lang/AutoCloseable.close:()V
+      28: return
+    Exception table:
+       from    to  target type
+           4    10    13   Class java/lang/Throwable
+
+  static java.util.concurrent.atomic.AtomicLong access$000(org.graylog2.shared.journal.KafkaJournal);
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field committedOffset:Ljava/util/concurrent/atomic/AtomicLong;
+       4: areturn
+
+  static java.io.File access$100(org.graylog2.shared.journal.KafkaJournal);
+    Code:
+       0: aload_0
+       1: getfield      #8                  // Field committedReadOffsetFile:Ljava/io/File;
+       4: areturn
+
+  static org.slf4j.Logger access$200();
+    Code:
+       0: getstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       3: areturn
+
+  static kafka.log.LogManager access$300(org.graylog2.shared.journal.KafkaJournal);
+    Code:
+       0: aload_0
+       1: getfield      #6                  // Field logManager:Lkafka/log/LogManager;
+       4: areturn
+
+  static java.util.concurrent.atomic.AtomicInteger access$400(org.graylog2.shared.journal.KafkaJournal);
+    Code:
+       0: aload_0
+       1: getfield      #5                  // Field purgedSegmentsInLastRetention:Ljava/util/concurrent/atomic/AtomicInteger;
+       4: areturn
+
+  static kafka.utils.Time access$500();
+    Code:
+       0: getstatic     #4                  // Field JODA_TIME:Lkafka/utils/Time;
+       3: areturn
+
+  static org.graylog2.plugin.ServerStatus access$700(org.graylog2.shared.journal.KafkaJournal);
+    Code:
+       0: aload_0
+       1: getfield      #3                  // Field serverStatus:Lorg/graylog2/plugin/ServerStatus;
+       4: areturn
+
+  static int access$800(org.graylog2.shared.journal.KafkaJournal);
+    Code:
+       0: aload_0
+       1: getfield      #2                  // Field throttleThresholdPercentage:I
+       4: ireturn
+
+  static {};
+    Code:
+       0: ldc           #15                 // class org/graylog2/shared/journal/KafkaJournal
+       2: invokestatic  #339                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+       5: putstatic     #7                  // Field LOG:Lorg/slf4j/Logger;
+       8: new           #340                // class org/graylog2/shared/journal/KafkaJournal$1
+      11: dup
+      12: invokespecial #341                // Method org/graylog2/shared/journal/KafkaJournal$1."<init>":()V
+      15: putstatic     #4                  // Field JODA_TIME:Lkafka/utils/Time;
+      18: return
+}

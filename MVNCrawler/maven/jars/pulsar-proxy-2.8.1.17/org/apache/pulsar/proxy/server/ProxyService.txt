@@ -1,0 +1,767 @@
+Compiled from "ProxyService.java"
+public class org.apache.pulsar.proxy.server.ProxyService implements java.io.Closeable {
+  private final org.apache.pulsar.proxy.server.ProxyConfiguration proxyConfig;
+
+  private final org.apache.pulsar.client.api.Authentication proxyClientAuthentication;
+
+  private final io.netty.util.Timer timer;
+
+  private java.lang.String serviceUrl;
+
+  private java.lang.String serviceUrlTls;
+
+  private org.apache.pulsar.broker.cache.ConfigurationMetadataCacheService configurationCacheService;
+
+  private final org.apache.pulsar.broker.authentication.AuthenticationService authenticationService;
+
+  private org.apache.pulsar.broker.authorization.AuthorizationService authorizationService;
+
+  private org.apache.pulsar.metadata.api.extended.MetadataStoreExtended localMetadataStore;
+
+  private org.apache.pulsar.metadata.api.extended.MetadataStoreExtended configMetadataStore;
+
+  private org.apache.pulsar.broker.resources.PulsarResources pulsarResources;
+
+  private final io.netty.channel.EventLoopGroup acceptorGroup;
+
+  private final io.netty.channel.EventLoopGroup workerGroup;
+
+  private io.netty.channel.Channel listenChannel;
+
+  private io.netty.channel.Channel listenChannelTls;
+
+  private final io.netty.util.concurrent.DefaultThreadFactory acceptorThreadFactory;
+
+  private final io.netty.util.concurrent.DefaultThreadFactory workersThreadFactory;
+
+  private org.apache.pulsar.proxy.server.BrokerDiscoveryProvider discoveryProvider;
+
+  protected final java.util.concurrent.atomic.AtomicReference<java.util.concurrent.Semaphore> lookupRequestSemaphore;
+
+  protected int proxyLogLevel;
+
+  private final java.util.concurrent.ScheduledExecutorService statsExecutor;
+
+  private static final int numThreads;
+
+  static final io.prometheus.client.Gauge activeConnections;
+
+  static final io.prometheus.client.Counter newConnections;
+
+  static final io.prometheus.client.Counter rejectedConnections;
+
+  static final io.prometheus.client.Counter opsCounter;
+
+  static final io.prometheus.client.Counter bytesCounter;
+
+  private final java.util.Set<org.apache.pulsar.proxy.server.ProxyConnection> clientCnxs;
+
+  private final java.util.Map<java.lang.String, org.apache.pulsar.proxy.stats.TopicStats> topicStats;
+
+  private org.apache.pulsar.broker.web.plugin.servlet.AdditionalServlets proxyAdditionalServlets;
+
+  private static final org.slf4j.Logger LOG;
+
+  public org.apache.pulsar.proxy.server.ProxyService(org.apache.pulsar.proxy.server.ProxyConfiguration, org.apache.pulsar.broker.authentication.AuthenticationService) throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: new           #2                  // class io/netty/util/concurrent/DefaultThreadFactory
+       8: dup
+       9: ldc           #3                  // String pulsar-proxy-acceptor
+      11: invokespecial #4                  // Method io/netty/util/concurrent/DefaultThreadFactory."<init>":(Ljava/lang/String;)V
+      14: putfield      #5                  // Field acceptorThreadFactory:Lio/netty/util/concurrent/DefaultThreadFactory;
+      17: aload_0
+      18: new           #2                  // class io/netty/util/concurrent/DefaultThreadFactory
+      21: dup
+      22: ldc           #6                  // String pulsar-proxy-io
+      24: invokespecial #4                  // Method io/netty/util/concurrent/DefaultThreadFactory."<init>":(Ljava/lang/String;)V
+      27: putfield      #7                  // Field workersThreadFactory:Lio/netty/util/concurrent/DefaultThreadFactory;
+      30: aload_1
+      31: invokestatic  #8                  // Method com/google/common/base/Preconditions.checkNotNull:(Ljava/lang/Object;)Ljava/lang/Object;
+      34: pop
+      35: aload_0
+      36: aload_1
+      37: putfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+      40: aload_0
+      41: new           #10                 // class io/netty/util/HashedWheelTimer
+      44: dup
+      45: new           #2                  // class io/netty/util/concurrent/DefaultThreadFactory
+      48: dup
+      49: ldc           #11                 // String pulsar-timer
+      51: invokestatic  #12                 // Method java/lang/Thread.currentThread:()Ljava/lang/Thread;
+      54: invokevirtual #13                 // Method java/lang/Thread.isDaemon:()Z
+      57: invokespecial #14                 // Method io/netty/util/concurrent/DefaultThreadFactory."<init>":(Ljava/lang/String;Z)V
+      60: lconst_1
+      61: getstatic     #15                 // Field java/util/concurrent/TimeUnit.MILLISECONDS:Ljava/util/concurrent/TimeUnit;
+      64: invokespecial #16                 // Method io/netty/util/HashedWheelTimer."<init>":(Ljava/util/concurrent/ThreadFactory;JLjava/util/concurrent/TimeUnit;)V
+      67: putfield      #17                 // Field timer:Lio/netty/util/Timer;
+      70: aload_0
+      71: invokestatic  #18                 // Method com/google/common/collect/Sets.newConcurrentHashSet:()Ljava/util/Set;
+      74: putfield      #19                 // Field clientCnxs:Ljava/util/Set;
+      77: aload_0
+      78: invokestatic  #20                 // Method com/google/common/collect/Maps.newConcurrentMap:()Ljava/util/concurrent/ConcurrentMap;
+      81: putfield      #21                 // Field topicStats:Ljava/util/Map;
+      84: aload_0
+      85: new           #22                 // class java/util/concurrent/atomic/AtomicReference
+      88: dup
+      89: new           #23                 // class java/util/concurrent/Semaphore
+      92: dup
+      93: aload_1
+      94: invokevirtual #24                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getMaxConcurrentLookupRequests:()I
+      97: iconst_0
+      98: invokespecial #25                 // Method java/util/concurrent/Semaphore."<init>":(IZ)V
+     101: invokespecial #26                 // Method java/util/concurrent/atomic/AtomicReference."<init>":(Ljava/lang/Object;)V
+     104: putfield      #27                 // Field lookupRequestSemaphore:Ljava/util/concurrent/atomic/AtomicReference;
+     107: aload_1
+     108: invokevirtual #28                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getProxyLogLevel:()Ljava/util/Optional;
+     111: invokevirtual #29                 // Method java/util/Optional.isPresent:()Z
+     114: ifeq          137
+     117: aload_0
+     118: aload_1
+     119: invokevirtual #28                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getProxyLogLevel:()Ljava/util/Optional;
+     122: invokevirtual #30                 // Method java/util/Optional.get:()Ljava/lang/Object;
+     125: checkcast     #31                 // class java/lang/Integer
+     128: invokevirtual #32                 // Method java/lang/Integer.intValue:()I
+     131: putfield      #33                 // Field proxyLogLevel:I
+     134: goto          142
+     137: aload_0
+     138: iconst_0
+     139: putfield      #33                 // Field proxyLogLevel:I
+     142: aload_0
+     143: iconst_1
+     144: iconst_0
+     145: aload_0
+     146: getfield      #5                  // Field acceptorThreadFactory:Lio/netty/util/concurrent/DefaultThreadFactory;
+     149: invokestatic  #34                 // Method org/apache/pulsar/common/util/netty/EventLoopUtil.newEventLoopGroup:(IZLjava/util/concurrent/ThreadFactory;)Lio/netty/channel/EventLoopGroup;
+     152: putfield      #35                 // Field acceptorGroup:Lio/netty/channel/EventLoopGroup;
+     155: aload_0
+     156: getstatic     #36                 // Field numThreads:I
+     159: iconst_0
+     160: aload_0
+     161: getfield      #7                  // Field workersThreadFactory:Lio/netty/util/concurrent/DefaultThreadFactory;
+     164: invokestatic  #34                 // Method org/apache/pulsar/common/util/netty/EventLoopUtil.newEventLoopGroup:(IZLjava/util/concurrent/ThreadFactory;)Lio/netty/channel/EventLoopGroup;
+     167: putfield      #37                 // Field workerGroup:Lio/netty/channel/EventLoopGroup;
+     170: aload_0
+     171: aload_2
+     172: putfield      #38                 // Field authenticationService:Lorg/apache/pulsar/broker/authentication/AuthenticationService;
+     175: aload_0
+     176: new           #2                  // class io/netty/util/concurrent/DefaultThreadFactory
+     179: dup
+     180: ldc           #39                 // String proxy-stats-executor
+     182: invokespecial #4                  // Method io/netty/util/concurrent/DefaultThreadFactory."<init>":(Ljava/lang/String;)V
+     185: invokestatic  #40                 // Method java/util/concurrent/Executors.newSingleThreadScheduledExecutor:(Ljava/util/concurrent/ThreadFactory;)Ljava/util/concurrent/ScheduledExecutorService;
+     188: putfield      #41                 // Field statsExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+     191: aload_0
+     192: getfield      #41                 // Field statsExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+     195: aload_0
+     196: invokedynamic #42,  0             // InvokeDynamic #0:run:(Lorg/apache/pulsar/proxy/server/ProxyService;)Ljava/lang/Runnable;
+     201: ldc2_w        #43                 // long 60l
+     204: getstatic     #45                 // Field java/util/concurrent/TimeUnit.SECONDS:Ljava/util/concurrent/TimeUnit;
+     207: invokeinterface #46,  5           // InterfaceMethod java/util/concurrent/ScheduledExecutorService.schedule:(Ljava/lang/Runnable;JLjava/util/concurrent/TimeUnit;)Ljava/util/concurrent/ScheduledFuture;
+     212: pop
+     213: aload_0
+     214: aload_1
+     215: invokestatic  #47                 // Method org/apache/pulsar/broker/web/plugin/servlet/AdditionalServlets.load:(Lorg/apache/pulsar/common/configuration/PulsarConfiguration;)Lorg/apache/pulsar/broker/web/plugin/servlet/AdditionalServlets;
+     218: putfield      #48                 // Field proxyAdditionalServlets:Lorg/apache/pulsar/broker/web/plugin/servlet/AdditionalServlets;
+     221: aload_1
+     222: invokevirtual #49                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getBrokerClientAuthenticationPlugin:()Ljava/lang/String;
+     225: ifnull        246
+     228: aload_0
+     229: aload_1
+     230: invokevirtual #49                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getBrokerClientAuthenticationPlugin:()Ljava/lang/String;
+     233: aload_1
+     234: invokevirtual #50                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getBrokerClientAuthenticationParameters:()Ljava/lang/String;
+     237: invokestatic  #51                 // Method org/apache/pulsar/client/api/AuthenticationFactory.create:(Ljava/lang/String;Ljava/lang/String;)Lorg/apache/pulsar/client/api/Authentication;
+     240: putfield      #52                 // Field proxyClientAuthentication:Lorg/apache/pulsar/client/api/Authentication;
+     243: goto          253
+     246: aload_0
+     247: getstatic     #53                 // Field org/apache/pulsar/client/impl/auth/AuthenticationDisabled.INSTANCE:Lorg/apache/pulsar/client/impl/auth/AuthenticationDisabled;
+     250: putfield      #52                 // Field proxyClientAuthentication:Lorg/apache/pulsar/client/api/Authentication;
+     253: return
+
+  public void start() throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+       4: invokevirtual #54                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.isAuthorizationEnabled:()Z
+       7: ifeq          30
+      10: aload_0
+      11: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+      14: invokevirtual #55                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.isAuthenticationEnabled:()Z
+      17: ifne          30
+      20: new           #56                 // class java/lang/IllegalStateException
+      23: dup
+      24: ldc           #57                 // String Invalid proxy configuration. Authentication must be enabled with authenticationEnabled=true when authorization is enabled with authorizationEnabled=true.
+      26: invokespecial #58                 // Method java/lang/IllegalStateException."<init>":(Ljava/lang/String;)V
+      29: athrow
+      30: aload_0
+      31: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+      34: invokevirtual #59                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getZookeeperServers:()Ljava/lang/String;
+      37: invokestatic  #60                 // Method org/apache/commons/lang3/StringUtils.isBlank:(Ljava/lang/CharSequence;)Z
+      40: ifne          148
+      43: aload_0
+      44: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+      47: invokevirtual #61                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getConfigurationStoreServers:()Ljava/lang/String;
+      50: invokestatic  #60                 // Method org/apache/commons/lang3/StringUtils.isBlank:(Ljava/lang/CharSequence;)Z
+      53: ifne          148
+      56: aload_0
+      57: aload_0
+      58: invokevirtual #62                 // Method createLocalMetadataStore:()Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      61: putfield      #63                 // Field localMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      64: aload_0
+      65: aload_0
+      66: invokevirtual #64                 // Method createConfigurationMetadataStore:()Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      69: putfield      #65                 // Field configMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      72: aload_0
+      73: new           #66                 // class org/apache/pulsar/broker/resources/PulsarResources
+      76: dup
+      77: aload_0
+      78: getfield      #63                 // Field localMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      81: aload_0
+      82: getfield      #65                 // Field configMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      85: invokespecial #67                 // Method org/apache/pulsar/broker/resources/PulsarResources."<init>":(Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;)V
+      88: putfield      #68                 // Field pulsarResources:Lorg/apache/pulsar/broker/resources/PulsarResources;
+      91: aload_0
+      92: new           #69                 // class org/apache/pulsar/proxy/server/BrokerDiscoveryProvider
+      95: dup
+      96: aload_0
+      97: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     100: aload_0
+     101: getfield      #68                 // Field pulsarResources:Lorg/apache/pulsar/broker/resources/PulsarResources;
+     104: invokespecial #70                 // Method org/apache/pulsar/proxy/server/BrokerDiscoveryProvider."<init>":(Lorg/apache/pulsar/proxy/server/ProxyConfiguration;Lorg/apache/pulsar/broker/resources/PulsarResources;)V
+     107: putfield      #71                 // Field discoveryProvider:Lorg/apache/pulsar/proxy/server/BrokerDiscoveryProvider;
+     110: aload_0
+     111: new           #72                 // class org/apache/pulsar/broker/cache/ConfigurationMetadataCacheService
+     114: dup
+     115: aload_0
+     116: getfield      #68                 // Field pulsarResources:Lorg/apache/pulsar/broker/resources/PulsarResources;
+     119: aconst_null
+     120: invokespecial #73                 // Method org/apache/pulsar/broker/cache/ConfigurationMetadataCacheService."<init>":(Lorg/apache/pulsar/broker/resources/PulsarResources;Ljava/lang/String;)V
+     123: putfield      #74                 // Field configurationCacheService:Lorg/apache/pulsar/broker/cache/ConfigurationMetadataCacheService;
+     126: aload_0
+     127: new           #75                 // class org/apache/pulsar/broker/authorization/AuthorizationService
+     130: dup
+     131: aload_0
+     132: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     135: invokestatic  #76                 // Method org/apache/pulsar/common/configuration/PulsarConfigurationLoader.convertFrom:(Lorg/apache/pulsar/common/configuration/PulsarConfiguration;)Lorg/apache/pulsar/broker/ServiceConfiguration;
+     138: aload_0
+     139: getfield      #74                 // Field configurationCacheService:Lorg/apache/pulsar/broker/cache/ConfigurationMetadataCacheService;
+     142: invokespecial #77                 // Method org/apache/pulsar/broker/authorization/AuthorizationService."<init>":(Lorg/apache/pulsar/broker/ServiceConfiguration;Lorg/apache/pulsar/broker/cache/ConfigurationCacheService;)V
+     145: putfield      #78                 // Field authorizationService:Lorg/apache/pulsar/broker/authorization/AuthorizationService;
+     148: new           #79                 // class io/netty/bootstrap/ServerBootstrap
+     151: dup
+     152: invokespecial #80                 // Method io/netty/bootstrap/ServerBootstrap."<init>":()V
+     155: astore_1
+     156: aload_1
+     157: getstatic     #81                 // Field io/netty/channel/ChannelOption.ALLOCATOR:Lio/netty/channel/ChannelOption;
+     160: getstatic     #82                 // Field org/apache/pulsar/common/allocator/PulsarByteBufAllocator.DEFAULT:Lio/netty/buffer/ByteBufAllocator;
+     163: invokevirtual #83                 // Method io/netty/bootstrap/ServerBootstrap.childOption:(Lio/netty/channel/ChannelOption;Ljava/lang/Object;)Lio/netty/bootstrap/ServerBootstrap;
+     166: pop
+     167: aload_1
+     168: aload_0
+     169: getfield      #35                 // Field acceptorGroup:Lio/netty/channel/EventLoopGroup;
+     172: aload_0
+     173: getfield      #37                 // Field workerGroup:Lio/netty/channel/EventLoopGroup;
+     176: invokevirtual #84                 // Method io/netty/bootstrap/ServerBootstrap.group:(Lio/netty/channel/EventLoopGroup;Lio/netty/channel/EventLoopGroup;)Lio/netty/bootstrap/ServerBootstrap;
+     179: pop
+     180: aload_1
+     181: getstatic     #85                 // Field io/netty/channel/ChannelOption.TCP_NODELAY:Lio/netty/channel/ChannelOption;
+     184: iconst_1
+     185: invokestatic  #86                 // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     188: invokevirtual #83                 // Method io/netty/bootstrap/ServerBootstrap.childOption:(Lio/netty/channel/ChannelOption;Ljava/lang/Object;)Lio/netty/bootstrap/ServerBootstrap;
+     191: pop
+     192: aload_1
+     193: getstatic     #87                 // Field io/netty/channel/ChannelOption.RCVBUF_ALLOCATOR:Lio/netty/channel/ChannelOption;
+     196: new           #88                 // class io/netty/channel/AdaptiveRecvByteBufAllocator
+     199: dup
+     200: sipush        1024
+     203: sipush        16384
+     206: ldc           #89                 // int 1048576
+     208: invokespecial #90                 // Method io/netty/channel/AdaptiveRecvByteBufAllocator."<init>":(III)V
+     211: invokevirtual #83                 // Method io/netty/bootstrap/ServerBootstrap.childOption:(Lio/netty/channel/ChannelOption;Ljava/lang/Object;)Lio/netty/bootstrap/ServerBootstrap;
+     214: pop
+     215: aload_1
+     216: aload_0
+     217: getfield      #37                 // Field workerGroup:Lio/netty/channel/EventLoopGroup;
+     220: invokestatic  #91                 // Method org/apache/pulsar/common/util/netty/EventLoopUtil.getServerSocketChannelClass:(Lio/netty/channel/EventLoopGroup;)Ljava/lang/Class;
+     223: invokevirtual #92                 // Method io/netty/bootstrap/ServerBootstrap.channel:(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;
+     226: pop
+     227: aload_1
+     228: invokestatic  #93                 // Method org/apache/pulsar/common/util/netty/EventLoopUtil.enableTriggeredMode:(Lio/netty/bootstrap/ServerBootstrap;)V
+     231: aload_1
+     232: new           #94                 // class org/apache/pulsar/proxy/server/ServiceChannelInitializer
+     235: dup
+     236: aload_0
+     237: aload_0
+     238: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     241: iconst_0
+     242: invokespecial #95                 // Method org/apache/pulsar/proxy/server/ServiceChannelInitializer."<init>":(Lorg/apache/pulsar/proxy/server/ProxyService;Lorg/apache/pulsar/proxy/server/ProxyConfiguration;Z)V
+     245: invokevirtual #96                 // Method io/netty/bootstrap/ServerBootstrap.childHandler:(Lio/netty/channel/ChannelHandler;)Lio/netty/bootstrap/ServerBootstrap;
+     248: pop
+     249: aload_0
+     250: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     253: invokevirtual #97                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getServicePort:()Ljava/util/Optional;
+     256: invokevirtual #29                 // Method java/util/Optional.isPresent:()Z
+     259: ifeq          363
+     262: aload_0
+     263: aload_1
+     264: aload_0
+     265: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     268: invokevirtual #98                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getBindAddress:()Ljava/lang/String;
+     271: aload_0
+     272: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     275: invokevirtual #97                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getServicePort:()Ljava/util/Optional;
+     278: invokevirtual #30                 // Method java/util/Optional.get:()Ljava/lang/Object;
+     281: checkcast     #31                 // class java/lang/Integer
+     284: invokevirtual #32                 // Method java/lang/Integer.intValue:()I
+     287: invokevirtual #99                 // Method io/netty/bootstrap/ServerBootstrap.bind:(Ljava/lang/String;I)Lio/netty/channel/ChannelFuture;
+     290: invokeinterface #100,  1          // InterfaceMethod io/netty/channel/ChannelFuture.sync:()Lio/netty/channel/ChannelFuture;
+     295: invokeinterface #101,  1          // InterfaceMethod io/netty/channel/ChannelFuture.channel:()Lio/netty/channel/Channel;
+     300: putfield      #102                // Field listenChannel:Lio/netty/channel/Channel;
+     303: getstatic     #103                // Field LOG:Lorg/slf4j/Logger;
+     306: ldc           #104                // String Started Pulsar Proxy at {}
+     308: aload_0
+     309: getfield      #102                // Field listenChannel:Lio/netty/channel/Channel;
+     312: invokeinterface #105,  1          // InterfaceMethod io/netty/channel/Channel.localAddress:()Ljava/net/SocketAddress;
+     317: invokeinterface #106,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     322: goto          363
+     325: astore_2
+     326: new           #108                // class java/io/IOException
+     329: dup
+     330: new           #109                // class java/lang/StringBuilder
+     333: dup
+     334: invokespecial #110                // Method java/lang/StringBuilder."<init>":()V
+     337: ldc           #111                // String Failed to bind Pulsar Proxy on port
+     339: invokevirtual #112                // Method java/lang/StringBuilder.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+     342: aload_0
+     343: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     346: invokevirtual #97                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getServicePort:()Ljava/util/Optional;
+     349: invokevirtual #30                 // Method java/util/Optional.get:()Ljava/lang/Object;
+     352: invokevirtual #113                // Method java/lang/StringBuilder.append:(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+     355: invokevirtual #114                // Method java/lang/StringBuilder.toString:()Ljava/lang/String;
+     358: aload_2
+     359: invokespecial #115                // Method java/io/IOException."<init>":(Ljava/lang/String;Ljava/lang/Throwable;)V
+     362: athrow
+     363: aload_0
+     364: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     367: invokevirtual #116                // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getServicePortTls:()Ljava/util/Optional;
+     370: invokevirtual #29                 // Method java/util/Optional.isPresent:()Z
+     373: ifeq          459
+     376: aload_1
+     377: invokevirtual #117                // Method io/netty/bootstrap/ServerBootstrap.clone:()Lio/netty/bootstrap/ServerBootstrap;
+     380: astore_2
+     381: aload_2
+     382: new           #94                 // class org/apache/pulsar/proxy/server/ServiceChannelInitializer
+     385: dup
+     386: aload_0
+     387: aload_0
+     388: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     391: iconst_1
+     392: invokespecial #95                 // Method org/apache/pulsar/proxy/server/ServiceChannelInitializer."<init>":(Lorg/apache/pulsar/proxy/server/ProxyService;Lorg/apache/pulsar/proxy/server/ProxyConfiguration;Z)V
+     395: invokevirtual #96                 // Method io/netty/bootstrap/ServerBootstrap.childHandler:(Lio/netty/channel/ChannelHandler;)Lio/netty/bootstrap/ServerBootstrap;
+     398: pop
+     399: aload_0
+     400: aload_2
+     401: aload_0
+     402: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     405: invokevirtual #98                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getBindAddress:()Ljava/lang/String;
+     408: aload_0
+     409: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     412: invokevirtual #116                // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getServicePortTls:()Ljava/util/Optional;
+     415: invokevirtual #30                 // Method java/util/Optional.get:()Ljava/lang/Object;
+     418: checkcast     #31                 // class java/lang/Integer
+     421: invokevirtual #32                 // Method java/lang/Integer.intValue:()I
+     424: invokevirtual #99                 // Method io/netty/bootstrap/ServerBootstrap.bind:(Ljava/lang/String;I)Lio/netty/channel/ChannelFuture;
+     427: invokeinterface #100,  1          // InterfaceMethod io/netty/channel/ChannelFuture.sync:()Lio/netty/channel/ChannelFuture;
+     432: invokeinterface #101,  1          // InterfaceMethod io/netty/channel/ChannelFuture.channel:()Lio/netty/channel/Channel;
+     437: putfield      #118                // Field listenChannelTls:Lio/netty/channel/Channel;
+     440: getstatic     #103                // Field LOG:Lorg/slf4j/Logger;
+     443: ldc           #119                // String Started Pulsar TLS Proxy on {}
+     445: aload_0
+     446: getfield      #118                // Field listenChannelTls:Lio/netty/channel/Channel;
+     449: invokeinterface #105,  1          // InterfaceMethod io/netty/channel/Channel.localAddress:()Ljava/net/SocketAddress;
+     454: invokeinterface #106,  3          // InterfaceMethod org/slf4j/Logger.info:(Ljava/lang/String;Ljava/lang/Object;)V
+     459: aload_0
+     460: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     463: invokevirtual #120                // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getAdvertisedAddress:()Ljava/lang/String;
+     466: invokestatic  #121                // Method org/apache/pulsar/broker/ServiceConfigurationUtils.getDefaultOrConfiguredAddress:(Ljava/lang/String;)Ljava/lang/String;
+     469: astore_2
+     470: aload_0
+     471: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     474: invokevirtual #97                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getServicePort:()Ljava/util/Optional;
+     477: invokevirtual #29                 // Method java/util/Optional.isPresent:()Z
+     480: ifeq          513
+     483: aload_0
+     484: ldc           #122                // String pulsar://%s:%d/
+     486: iconst_2
+     487: anewarray     #123                // class java/lang/Object
+     490: dup
+     491: iconst_0
+     492: aload_2
+     493: aastore
+     494: dup
+     495: iconst_1
+     496: aload_0
+     497: invokevirtual #124                // Method getListenPort:()Ljava/util/Optional;
+     500: invokevirtual #30                 // Method java/util/Optional.get:()Ljava/lang/Object;
+     503: aastore
+     504: invokestatic  #125                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     507: putfield      #126                // Field serviceUrl:Ljava/lang/String;
+     510: goto          518
+     513: aload_0
+     514: aconst_null
+     515: putfield      #126                // Field serviceUrl:Ljava/lang/String;
+     518: aload_0
+     519: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+     522: invokevirtual #116                // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getServicePortTls:()Ljava/util/Optional;
+     525: invokevirtual #29                 // Method java/util/Optional.isPresent:()Z
+     528: ifeq          561
+     531: aload_0
+     532: ldc           #127                // String pulsar+ssl://%s:%d/
+     534: iconst_2
+     535: anewarray     #123                // class java/lang/Object
+     538: dup
+     539: iconst_0
+     540: aload_2
+     541: aastore
+     542: dup
+     543: iconst_1
+     544: aload_0
+     545: invokevirtual #128                // Method getListenPortTls:()Ljava/util/Optional;
+     548: invokevirtual #30                 // Method java/util/Optional.get:()Ljava/lang/Object;
+     551: aastore
+     552: invokestatic  #125                // Method java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+     555: putfield      #129                // Field serviceUrlTls:Ljava/lang/String;
+     558: goto          566
+     561: aload_0
+     562: aconst_null
+     563: putfield      #129                // Field serviceUrlTls:Ljava/lang/String;
+     566: return
+    Exception table:
+       from    to  target type
+         262   322   325   Class java/lang/Exception
+
+  public org.apache.pulsar.proxy.server.BrokerDiscoveryProvider getDiscoveryProvider();
+    Code:
+       0: aload_0
+       1: getfield      #71                 // Field discoveryProvider:Lorg/apache/pulsar/proxy/server/BrokerDiscoveryProvider;
+       4: areturn
+
+  public void close() throws java.io.IOException;
+    Code:
+       0: aload_0
+       1: getfield      #71                 // Field discoveryProvider:Lorg/apache/pulsar/proxy/server/BrokerDiscoveryProvider;
+       4: ifnull        14
+       7: aload_0
+       8: getfield      #71                 // Field discoveryProvider:Lorg/apache/pulsar/proxy/server/BrokerDiscoveryProvider;
+      11: invokevirtual #130                // Method org/apache/pulsar/proxy/server/BrokerDiscoveryProvider.close:()V
+      14: aload_0
+      15: getfield      #102                // Field listenChannel:Lio/netty/channel/Channel;
+      18: ifnull        31
+      21: aload_0
+      22: getfield      #102                // Field listenChannel:Lio/netty/channel/Channel;
+      25: invokeinterface #131,  1          // InterfaceMethod io/netty/channel/Channel.close:()Lio/netty/channel/ChannelFuture;
+      30: pop
+      31: aload_0
+      32: getfield      #118                // Field listenChannelTls:Lio/netty/channel/Channel;
+      35: ifnull        48
+      38: aload_0
+      39: getfield      #118                // Field listenChannelTls:Lio/netty/channel/Channel;
+      42: invokeinterface #131,  1          // InterfaceMethod io/netty/channel/Channel.close:()Lio/netty/channel/ChannelFuture;
+      47: pop
+      48: aload_0
+      49: getfield      #41                 // Field statsExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+      52: ifnull        64
+      55: aload_0
+      56: getfield      #41                 // Field statsExecutor:Ljava/util/concurrent/ScheduledExecutorService;
+      59: invokeinterface #132,  1          // InterfaceMethod java/util/concurrent/ScheduledExecutorService.shutdown:()V
+      64: aload_0
+      65: getfield      #48                 // Field proxyAdditionalServlets:Lorg/apache/pulsar/broker/web/plugin/servlet/AdditionalServlets;
+      68: ifnull        83
+      71: aload_0
+      72: getfield      #48                 // Field proxyAdditionalServlets:Lorg/apache/pulsar/broker/web/plugin/servlet/AdditionalServlets;
+      75: invokevirtual #133                // Method org/apache/pulsar/broker/web/plugin/servlet/AdditionalServlets.close:()V
+      78: aload_0
+      79: aconst_null
+      80: putfield      #48                 // Field proxyAdditionalServlets:Lorg/apache/pulsar/broker/web/plugin/servlet/AdditionalServlets;
+      83: aload_0
+      84: getfield      #63                 // Field localMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      87: ifnull        112
+      90: aload_0
+      91: getfield      #63                 // Field localMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      94: invokeinterface #134,  1          // InterfaceMethod org/apache/pulsar/metadata/api/extended/MetadataStoreExtended.close:()V
+      99: goto          112
+     102: astore_1
+     103: new           #108                // class java/io/IOException
+     106: dup
+     107: aload_1
+     108: invokespecial #135                // Method java/io/IOException."<init>":(Ljava/lang/Throwable;)V
+     111: athrow
+     112: aload_0
+     113: getfield      #65                 // Field configMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+     116: ifnull        141
+     119: aload_0
+     120: getfield      #65                 // Field configMetadataStore:Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+     123: invokeinterface #134,  1          // InterfaceMethod org/apache/pulsar/metadata/api/extended/MetadataStoreExtended.close:()V
+     128: goto          141
+     131: astore_1
+     132: new           #108                // class java/io/IOException
+     135: dup
+     136: aload_1
+     137: invokespecial #135                // Method java/io/IOException."<init>":(Ljava/lang/Throwable;)V
+     140: athrow
+     141: aload_0
+     142: getfield      #35                 // Field acceptorGroup:Lio/netty/channel/EventLoopGroup;
+     145: invokeinterface #136,  1          // InterfaceMethod io/netty/channel/EventLoopGroup.shutdownGracefully:()Lio/netty/util/concurrent/Future;
+     150: pop
+     151: aload_0
+     152: getfield      #37                 // Field workerGroup:Lio/netty/channel/EventLoopGroup;
+     155: invokeinterface #136,  1          // InterfaceMethod io/netty/channel/EventLoopGroup.shutdownGracefully:()Lio/netty/util/concurrent/Future;
+     160: pop
+     161: aload_0
+     162: getfield      #17                 // Field timer:Lio/netty/util/Timer;
+     165: ifnull        178
+     168: aload_0
+     169: getfield      #17                 // Field timer:Lio/netty/util/Timer;
+     172: invokeinterface #137,  1          // InterfaceMethod io/netty/util/Timer.stop:()Ljava/util/Set;
+     177: pop
+     178: return
+    Exception table:
+       from    to  target type
+          90    99   102   Class java/lang/Exception
+         119   128   131   Class java/lang/Exception
+
+  public java.lang.String getServiceUrl();
+    Code:
+       0: aload_0
+       1: getfield      #126                // Field serviceUrl:Ljava/lang/String;
+       4: areturn
+
+  public java.lang.String getServiceUrlTls();
+    Code:
+       0: aload_0
+       1: getfield      #129                // Field serviceUrlTls:Ljava/lang/String;
+       4: areturn
+
+  public org.apache.pulsar.proxy.server.ProxyConfiguration getConfiguration();
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+       4: areturn
+
+  public io.netty.util.Timer getTimer();
+    Code:
+       0: aload_0
+       1: getfield      #17                 // Field timer:Lio/netty/util/Timer;
+       4: areturn
+
+  public org.apache.pulsar.broker.authentication.AuthenticationService getAuthenticationService();
+    Code:
+       0: aload_0
+       1: getfield      #38                 // Field authenticationService:Lorg/apache/pulsar/broker/authentication/AuthenticationService;
+       4: areturn
+
+  public org.apache.pulsar.broker.authorization.AuthorizationService getAuthorizationService();
+    Code:
+       0: aload_0
+       1: getfield      #78                 // Field authorizationService:Lorg/apache/pulsar/broker/authorization/AuthorizationService;
+       4: areturn
+
+  public org.apache.pulsar.broker.cache.ConfigurationCacheService getConfigurationCacheService();
+    Code:
+       0: aload_0
+       1: getfield      #74                 // Field configurationCacheService:Lorg/apache/pulsar/broker/cache/ConfigurationMetadataCacheService;
+       4: areturn
+
+  public void setConfigurationCacheService(org.apache.pulsar.broker.cache.ConfigurationMetadataCacheService);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: putfield      #74                 // Field configurationCacheService:Lorg/apache/pulsar/broker/cache/ConfigurationMetadataCacheService;
+       5: return
+
+  public java.util.concurrent.Semaphore getLookupRequestSemaphore();
+    Code:
+       0: aload_0
+       1: getfield      #27                 // Field lookupRequestSemaphore:Ljava/util/concurrent/atomic/AtomicReference;
+       4: invokevirtual #138                // Method java/util/concurrent/atomic/AtomicReference.get:()Ljava/lang/Object;
+       7: checkcast     #23                 // class java/util/concurrent/Semaphore
+      10: areturn
+
+  public io.netty.channel.EventLoopGroup getWorkerGroup();
+    Code:
+       0: aload_0
+       1: getfield      #37                 // Field workerGroup:Lio/netty/channel/EventLoopGroup;
+       4: areturn
+
+  public java.util.Optional<java.lang.Integer> getListenPort();
+    Code:
+       0: aload_0
+       1: getfield      #102                // Field listenChannel:Lio/netty/channel/Channel;
+       4: ifnull        29
+       7: aload_0
+       8: getfield      #102                // Field listenChannel:Lio/netty/channel/Channel;
+      11: invokeinterface #105,  1          // InterfaceMethod io/netty/channel/Channel.localAddress:()Ljava/net/SocketAddress;
+      16: checkcast     #139                // class java/net/InetSocketAddress
+      19: invokevirtual #140                // Method java/net/InetSocketAddress.getPort:()I
+      22: invokestatic  #141                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      25: invokestatic  #142                // Method java/util/Optional.of:(Ljava/lang/Object;)Ljava/util/Optional;
+      28: areturn
+      29: invokestatic  #143                // Method java/util/Optional.empty:()Ljava/util/Optional;
+      32: areturn
+
+  public java.util.Optional<java.lang.Integer> getListenPortTls();
+    Code:
+       0: aload_0
+       1: getfield      #118                // Field listenChannelTls:Lio/netty/channel/Channel;
+       4: ifnull        29
+       7: aload_0
+       8: getfield      #118                // Field listenChannelTls:Lio/netty/channel/Channel;
+      11: invokeinterface #105,  1          // InterfaceMethod io/netty/channel/Channel.localAddress:()Ljava/net/SocketAddress;
+      16: checkcast     #139                // class java/net/InetSocketAddress
+      19: invokevirtual #140                // Method java/net/InetSocketAddress.getPort:()I
+      22: invokestatic  #141                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+      25: invokestatic  #142                // Method java/util/Optional.of:(Ljava/lang/Object;)Ljava/util/Optional;
+      28: areturn
+      29: invokestatic  #143                // Method java/util/Optional.empty:()Ljava/util/Optional;
+      32: areturn
+
+  public org.apache.pulsar.metadata.api.extended.MetadataStoreExtended createLocalMetadataStore() throws org.apache.pulsar.metadata.api.MetadataStoreException;
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+       4: invokevirtual #59                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getZookeeperServers:()Ljava/lang/String;
+       7: aload_0
+       8: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+      11: invokevirtual #144                // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getZookeeperSessionTimeoutMs:()I
+      14: invokestatic  #145                // Method org/apache/pulsar/broker/resources/PulsarResources.createMetadataStore:(Ljava/lang/String;I)Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      17: areturn
+
+  public org.apache.pulsar.metadata.api.extended.MetadataStoreExtended createConfigurationMetadataStore() throws org.apache.pulsar.metadata.api.MetadataStoreException;
+    Code:
+       0: aload_0
+       1: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+       4: invokevirtual #61                 // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getConfigurationStoreServers:()Ljava/lang/String;
+       7: aload_0
+       8: getfield      #9                  // Field proxyConfig:Lorg/apache/pulsar/proxy/server/ProxyConfiguration;
+      11: invokevirtual #144                // Method org/apache/pulsar/proxy/server/ProxyConfiguration.getZookeeperSessionTimeoutMs:()I
+      14: invokestatic  #145                // Method org/apache/pulsar/broker/resources/PulsarResources.createMetadataStore:(Ljava/lang/String;I)Lorg/apache/pulsar/metadata/api/extended/MetadataStoreExtended;
+      17: areturn
+
+  public org.apache.pulsar.client.api.Authentication getProxyClientAuthenticationPlugin();
+    Code:
+       0: aload_0
+       1: getfield      #52                 // Field proxyClientAuthentication:Lorg/apache/pulsar/client/api/Authentication;
+       4: areturn
+
+  public int getProxyLogLevel();
+    Code:
+       0: aload_0
+       1: getfield      #33                 // Field proxyLogLevel:I
+       4: ireturn
+
+  public void setProxyLogLevel(int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #33                 // Field proxyLogLevel:I
+       5: return
+
+  public java.util.Set<org.apache.pulsar.proxy.server.ProxyConnection> getClientCnxs();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field clientCnxs:Ljava/util/Set;
+       4: areturn
+
+  public java.util.Map<java.lang.String, org.apache.pulsar.proxy.stats.TopicStats> getTopicStats();
+    Code:
+       0: aload_0
+       1: getfield      #21                 // Field topicStats:Ljava/util/Map;
+       4: areturn
+
+  public org.apache.pulsar.broker.web.plugin.servlet.AdditionalServlets getProxyAdditionalServlets();
+    Code:
+       0: aload_0
+       1: getfield      #48                 // Field proxyAdditionalServlets:Lorg/apache/pulsar/broker/web/plugin/servlet/AdditionalServlets;
+       4: areturn
+
+  private void lambda$new$2();
+    Code:
+       0: aload_0
+       1: getfield      #19                 // Field clientCnxs:Ljava/util/Set;
+       4: invokedynamic #146,  0            // InvokeDynamic #1:accept:()Ljava/util/function/Consumer;
+       9: invokeinterface #147,  2          // InterfaceMethod java/util/Set.forEach:(Ljava/util/function/Consumer;)V
+      14: aload_0
+      15: getfield      #21                 // Field topicStats:Ljava/util/Map;
+      18: invokedynamic #148,  0            // InvokeDynamic #2:accept:()Ljava/util/function/BiConsumer;
+      23: invokeinterface #149,  2          // InterfaceMethod java/util/Map.forEach:(Ljava/util/function/BiConsumer;)V
+      28: return
+
+  private static void lambda$null$1(java.lang.String, org.apache.pulsar.proxy.stats.TopicStats);
+    Code:
+       0: aload_1
+       1: invokevirtual #150                // Method org/apache/pulsar/proxy/stats/TopicStats.calculate:()V
+       4: return
+
+  private static void lambda$null$0(org.apache.pulsar.proxy.server.ProxyConnection);
+    Code:
+       0: aload_0
+       1: invokevirtual #151                // Method org/apache/pulsar/proxy/server/ProxyConnection.getDirectProxyHandler:()Lorg/apache/pulsar/proxy/server/DirectProxyHandler;
+       4: ifnull        27
+       7: aload_0
+       8: invokevirtual #151                // Method org/apache/pulsar/proxy/server/ProxyConnection.getDirectProxyHandler:()Lorg/apache/pulsar/proxy/server/DirectProxyHandler;
+      11: invokevirtual #152                // Method org/apache/pulsar/proxy/server/DirectProxyHandler.getInboundChannelRequestsRate:()Lorg/apache/pulsar/common/stats/Rate;
+      14: ifnull        27
+      17: aload_0
+      18: invokevirtual #151                // Method org/apache/pulsar/proxy/server/ProxyConnection.getDirectProxyHandler:()Lorg/apache/pulsar/proxy/server/DirectProxyHandler;
+      21: invokevirtual #152                // Method org/apache/pulsar/proxy/server/DirectProxyHandler.getInboundChannelRequestsRate:()Lorg/apache/pulsar/common/stats/Rate;
+      24: invokevirtual #153                // Method org/apache/pulsar/common/stats/Rate.calculateRate:()V
+      27: return
+
+  static {};
+    Code:
+       0: invokestatic  #154                // Method java/lang/Runtime.getRuntime:()Ljava/lang/Runtime;
+       3: invokevirtual #155                // Method java/lang/Runtime.availableProcessors:()I
+       6: putstatic     #36                 // Field numThreads:I
+       9: ldc           #156                // String pulsar_proxy_active_connections
+      11: ldc           #157                // String Number of connections currently active in the proxy
+      13: invokestatic  #158                // Method io/prometheus/client/Gauge.build:(Ljava/lang/String;Ljava/lang/String;)Lio/prometheus/client/Gauge$Builder;
+      16: invokevirtual #159                // Method io/prometheus/client/Gauge$Builder.create:()Lio/prometheus/client/Gauge;
+      19: invokevirtual #160                // Method io/prometheus/client/Gauge.register:()Lio/prometheus/client/Collector;
+      22: checkcast     #161                // class io/prometheus/client/Gauge
+      25: putstatic     #162                // Field activeConnections:Lio/prometheus/client/Gauge;
+      28: ldc           #163                // String pulsar_proxy_new_connections
+      30: ldc           #164                // String Counter of connections being opened in the proxy
+      32: invokestatic  #165                // Method io/prometheus/client/Counter.build:(Ljava/lang/String;Ljava/lang/String;)Lio/prometheus/client/Counter$Builder;
+      35: invokevirtual #166                // Method io/prometheus/client/Counter$Builder.create:()Lio/prometheus/client/Counter;
+      38: invokevirtual #167                // Method io/prometheus/client/Counter.register:()Lio/prometheus/client/Collector;
+      41: checkcast     #168                // class io/prometheus/client/Counter
+      44: putstatic     #169                // Field newConnections:Lio/prometheus/client/Counter;
+      47: ldc           #170                // String pulsar_proxy_rejected_connections
+      49: ldc           #171                // String Counter for connections rejected due to throttling
+      51: invokestatic  #165                // Method io/prometheus/client/Counter.build:(Ljava/lang/String;Ljava/lang/String;)Lio/prometheus/client/Counter$Builder;
+      54: invokevirtual #166                // Method io/prometheus/client/Counter$Builder.create:()Lio/prometheus/client/Counter;
+      57: invokevirtual #167                // Method io/prometheus/client/Counter.register:()Lio/prometheus/client/Collector;
+      60: checkcast     #168                // class io/prometheus/client/Counter
+      63: putstatic     #172                // Field rejectedConnections:Lio/prometheus/client/Counter;
+      66: ldc           #173                // String pulsar_proxy_binary_ops
+      68: ldc           #174                // String Counter of proxy operations
+      70: invokestatic  #165                // Method io/prometheus/client/Counter.build:(Ljava/lang/String;Ljava/lang/String;)Lio/prometheus/client/Counter$Builder;
+      73: invokevirtual #166                // Method io/prometheus/client/Counter$Builder.create:()Lio/prometheus/client/Counter;
+      76: invokevirtual #167                // Method io/prometheus/client/Counter.register:()Lio/prometheus/client/Collector;
+      79: checkcast     #168                // class io/prometheus/client/Counter
+      82: putstatic     #175                // Field opsCounter:Lio/prometheus/client/Counter;
+      85: ldc           #176                // String pulsar_proxy_binary_bytes
+      87: ldc           #177                // String Counter of proxy bytes
+      89: invokestatic  #165                // Method io/prometheus/client/Counter.build:(Ljava/lang/String;Ljava/lang/String;)Lio/prometheus/client/Counter$Builder;
+      92: invokevirtual #166                // Method io/prometheus/client/Counter$Builder.create:()Lio/prometheus/client/Counter;
+      95: invokevirtual #167                // Method io/prometheus/client/Counter.register:()Lio/prometheus/client/Collector;
+      98: checkcast     #168                // class io/prometheus/client/Counter
+     101: putstatic     #178                // Field bytesCounter:Lio/prometheus/client/Counter;
+     104: ldc           #179                // class org/apache/pulsar/proxy/server/ProxyService
+     106: invokestatic  #180                // Method org/slf4j/LoggerFactory.getLogger:(Ljava/lang/Class;)Lorg/slf4j/Logger;
+     109: putstatic     #103                // Field LOG:Lorg/slf4j/Logger;
+     112: return
+}
