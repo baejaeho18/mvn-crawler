@@ -13,12 +13,12 @@ mvnCrawer는 크게 3가지 기능으로 구성되어 있다. 첫째, maven repo
 그 결과, 무작위로 선택한 프로젝트 단위의 바이트코드가 보안 취약점 내포 여부를 라벨로 하여 데이터셋이 만들어진다. 
 
 ## Environment
-Python 3.5 or newer
-request 2.31.0
-urllib 1.26.16
-beautifulsoup 4.12.2
-selenium 4.14.0
-queuelib 1.6.2
+- Python 3.5 or newer
+- request 2.31.0
+- urllib 1.26.16
+- beautifulsoup 4.12.2
+- selenium 4.14.0
+- queuelib 1.6.2
 
 ## Usage
 git clone https://github.com/ISEL-HGU/mvn-crawler.git
