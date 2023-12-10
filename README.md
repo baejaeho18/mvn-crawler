@@ -17,7 +17,7 @@ git clone https://github.com/ISEL-HGU/mvn-crawler.git
 
 ### bfs_maven.py
 Apache Maven 중앙 저장소(Central Repository)[i]에 jar파일이 존재하는 모든 프로젝트의 각 버전들을 목록화하여 저장하는 스크립트이다.  <br>
-실행 명령어 :  <br>
+실행 명령어 :
 ```
 python bfs_maven.py --q q_items --f projectList.csv --p maven 
 ```
@@ -25,11 +25,11 @@ python bfs_maven.py --q q_items --f projectList.csv --p maven
 
 ### crawler.py
 bfs_maven.py를 실행하여 얻은 projectList.csv에서 무작위로 선택한 프로젝트-버전의 보안 취약점 내포 여부를 확인하고, 필요한 프로젝트일 경우 jar 배포파일은 저장하여 바이트코드로 변환 및 저장하는 스크립트이다. <br>
-``` python crawler.py --s full --f projectList.csv --p jars --l 200 --v 0.5 --c 10 ```  <br>
+``` python crawler.py --s full --f projectList.csv --p jars --l 200 --v 0.5 --c 10 ``` 
 projectList.csv(--file 옵션)에서 무작위로 선택한 프로젝트가 보안취약점을 가지고 있는지 확인한다. 판별 결과가 누적 200(--limit 옵션)x0.5(--vul_ratio 옵션)개를 넘지 않았다면, ,jars(--path 옵션) 디렉토리에 jar 파일을 저장 및 압축 해제 후 바이트코드로 변환하여 프로젝트-버전을 파일명으로 하는 텍스트 파일에 저장한다. 이 과정에서 무작위로 선택한 프로젝트의 index 값을 randon_set.txt에 저장하여 프로젝트가 중복되지 않도록 한다. 또한 판별된 프로젝트-버전은 보안 취약점 내포 여부를 labeling하여 각각 vulList.csv와 clnList.csv에 저장한다.  <br>
-``` python crawler.py --s check --f projectList.csv --l 200 --c 10 ```  <br>
+``` python crawler.py --s check --f projectList.csv --l 200 --c 10 ```
 위의 기능을 full로 하지 않고 보안 취약점 내포 여부만을(--select 옵션) 검사하는 명령어이다. 위와 마찬가지로 projectList.csv에서 random_set과 겹치지 않는 무작위 프로젝트-버전을 판별하여 vulList.csv와 clnList.csv에 각각 저장한다. 이때, limit 옵션을 입력하지 않으면 default로 -1이 입력되어 정해진 개수가 아닌 입력파일 내의 모든 항목을 검사한다. 판별을 위해 maven 웹사이트[j]에 접속하는 과정에서 에러가 발생한다면 10초 동안 대기(--cooldown 옵션) 후 동일한 url로 다시 질의한다. 만약 5회 이상 동일한 url을 반복한다면 err 로그를 남기고 다음 항목으로 넘어간다.  <br>
-``` python crawler.py --s down --f projectList.csv --p jars ```  <br>
+``` python crawler.py --s down --f projectList.csv --p jars ```
 입력 받은 projectList.csv(--file 옵션)의 maven 저장소 url에서 jar 파일을 jars 디렉토리(--path 옵션)에 저장 및 압축해제한다(--select 옵션). 압축 해제된 프로젝트-버전명을 이름으로 하는 디렉토리 내의 모든 class 파일들을 바이트코드로 disassemble한 후, 프로젝트 단위의 하나의 텍스트 파일로 이어붙인다.  <br>
 
 ## Output Format
