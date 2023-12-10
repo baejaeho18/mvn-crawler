@@ -20,7 +20,7 @@ Apache Maven 중앙 저장소(Central Repository)[i]에 jar파일이 존재하�
 실행 명령어 :  <br>
 ```
 python bfs_maven.py --q q_items --f projectList.csv --p maven 
-``` <br>
+```
 3,500만 여개의 프로젝트-버전이 저장되어 있는 만큼 BFS(Breadth-First Search)를 완료하기까지 오랜 시간이 걸린다. screen을 다량 만드는 것을 추천한다. 그 과정에서 옵션을 조정하고 싶을 때, python dfs_maven.py --h 명령어를 입력하면 자세한 설명을 읽을 수 있다.  <br>
 
 ### crawler.py
