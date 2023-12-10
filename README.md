@@ -1,12 +1,4 @@
 # mvn-crawler
-## Help from Maven Crawler
-⚠ Archived repository: this repository is now archive. It has been superseded by [Incremental Maven Crawler](https://github.com/fasten-project/incremental-maven-crawler).
-
-[![PyPI version](https://badge.fury.io/py/mvncrawler.svg)](https://badge.fury.io/py/mvncrawler)
-
-This is a tool for crawling Maven repositories and gathering Maven coordinates.
-It can be used for research and education purposes.
-
 
 ## About
 mvnCrawer는 크게 3가지 기능으로 구성되어 있다. 첫째, maven repository 오프소스 프로젝트에 등록된 프로젝트-버전들을 목록화한다. 둘째, 무작위로 선택한 프로젝트-버전에 보안 취약점이 존재하는지 검사한다. 셋째, 정해진 개수의 취약한 프로젝트와 안전한 프로젝트에서 Java 바이트코드를 추출한다.
@@ -53,6 +45,14 @@ Figure 22 : label.csv
 
 
 
+# Old one
+## Help from Maven Crawler
+⚠ Archived repository: this repository is now archive. It has been superseded by [Incremental Maven Crawler](https://github.com/fasten-project/incremental-maven-crawler).
+
+[![PyPI version](https://badge.fury.io/py/mvncrawler.svg)](https://badge.fury.io/py/mvncrawler)
+
+This is a tool for crawling Maven repositories and gathering Maven coordinates.
+It can be used for research and education purposes.
 
 ## Requirements
 - Python 3.5 or newer
